@@ -58,8 +58,7 @@ namespace Eagle._Commands
                             OptionDictionary options = new OptionDictionary(
                                 new IOption[] {
                                 new Option(typeof(TimeoutType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-timeouttype", null),
-                                new Option(typeof(AddressFamily), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-addressfamily",
-                                    new Variant(AddressFamily.InterNetwork)),
+                                new Option(typeof(AddressFamily), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-addressfamily", null),
                                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-server", null), // server only
                                 new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-buffer", null),  // client & server
                                 new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null), // client & server
@@ -92,7 +91,7 @@ namespace Eagle._Commands
                                 if ((argumentIndex != Index.Invalid) && ((argumentIndex + 2) >= arguments.Count))
                                 {
                                     IVariant value = null;
-                                    AddressFamily addressFamily = AddressFamily.InterNetwork;
+                                    AddressFamily? addressFamily = null;
 
                                     if (options.IsPresent("-addressfamily", ref value))
                                         addressFamily = (AddressFamily)value.Value;
@@ -226,7 +225,7 @@ namespace Eagle._Commands
                                                 {
                                                     TcpClient client = SocketOps.NewTcpClient(
                                                         myAddress, myPort, interpreter.InternalCultureInfo,
-                                                        addressFamily, ref result);
+                                                        ref addressFamily, ref result);
 
                                                     if (client != null)
                                                     {

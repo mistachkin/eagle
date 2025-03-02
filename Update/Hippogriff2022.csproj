@@ -159,16 +159,28 @@
     <Compile Include="..\Library\Components\Shared\Enumerations.cs">
       <Link>Components\Shared\Enumerations.cs</Link>
     </Compile>
-    <Compile Include="..\Library\Components\Shared\License.cs">
-      <Link>Components\Shared\License.cs</Link>
-    </Compile>
     <Compile Include="..\Library\Components\Shared\PublicKey.cs">
       <Link>Components\Shared\PublicKey.cs</Link>
+    </Compile>
+    <Compile Include="..\Library\Components\Shared\SourceLicense.cs">
+      <Link>Components\Shared\SourceLicense.cs</Link>
     </Compile>
     <Compile Include="..\Library\Components\Shared\StringOps.cs">
       <Link>Components\Shared\StringOps.cs</Link>
     </Compile>
   </ItemGroup>
+  <ItemGroup Condition="'$(EagleOfficialBinary)' != '' And
+                        '$(EagleOfficialBinary)' != 'false' And
+                        Exists('..\Library\Components\Shared\BinaryLicense.cs')">
+    <Compile Include="..\Library\Components\Shared\BinaryLicense.cs">
+      <Link>Components\Shared\BinaryLicense.cs</Link>
+    </Compile>
+  </ItemGroup>
+  <PropertyGroup Condition="'$(EagleOfficialBinary)' != '' And
+                            '$(EagleOfficialBinary)' != 'false' And
+                            Exists('..\Library\Components\Shared\BinaryLicense.cs')">
+    <DefineConstants>$(DefineConstants);OFFICIAL_BINARY</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="Forms\UpdateForm.cs">
       <SubType>Form</SubType>

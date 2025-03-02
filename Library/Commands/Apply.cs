@@ -89,12 +89,15 @@ namespace Eagle._Commands
                                 bool isLibrary = false;
                                 bool isFast = false;
                                 bool isAtomic = false;
+                                bool isInline = false;
 
 #if ARGUMENT_CACHE || PARSE_CACHE
                                 bool isNonCaching = false;
 #endif
 
                                 bool isMatchTypes = false;
+                                ArgumentList overwriteArguments = null;
+                                ArgumentList cleanArguments = null;
 
                                 if (!interpreter.InternalIsSafe())
                                 {
@@ -102,11 +105,28 @@ namespace Eagle._Commands
                                         interpreter, null, lambdaExpr[1],
                                         interpreter.InternalCultureInfo,
                                         out isLibrary, out isFast,
-                                        out isAtomic,
+                                        out isAtomic, out isInline,
 #if ARGUMENT_CACHE || PARSE_CACHE
                                         out isNonCaching,
 #endif
-                                        out isMatchTypes);
+                                        out isMatchTypes, out overwriteArguments,
+                                        out cleanArguments);
+
+                                    if (isInline && (isFast || isMatchTypes))
+                                    {
+                                        result = String.Format(
+                                            "cannot use the procedure annotations {0} or {1} " +
+                                            "with the {2} procedure annotation.",
+                                            FormatOps.WrapOrNull(
+                                                ScriptOps.FormatAnnotation(Annotations.Fast)),
+                                            FormatOps.WrapOrNull(
+                                                ScriptOps.FormatAnnotation(Annotations.MatchTypes)),
+                                            FormatOps.WrapOrNull(
+                                                ScriptOps.FormatAnnotation(Annotations.Inline)));
+
+                                        code = ReturnCode.Error;
+                                        goto done;
+                                    }
                                 }
 
                                 byte[] hashValue = arguments[1].GetHashValue(ref result);
@@ -210,31 +230,65 @@ namespace Eagle._Commands
                                                      ((argumentCount - 2) <= totalArgs)) ||
                                                     (hasArgs && ((argumentCount - 2) >= (totalArgs - optionalArgs))))
                                                 {
+                                                    int saveCount = 0;
+                                                    int restoreCount = 0;
+
                                                     ICallFrame frame = null;
+                                                    VariableDictionary savedVariables = null;
+
+                                                    VariableFlags variableFlags = isInline ?
+                                                        VariableFlags.None : VariableFlags.Argument;
 
                                                     try
                                                     {
-                                                        CallFrameFlags callFrameFlags =
-                                                            CallFrameFlags.Procedure | CallFrameFlags.Lambda;
+                                                        if (isInline)
+                                                        {
+                                                            code = interpreter.GetVariableFrameViaResolvers(
+                                                                LookupFlags.Default, ref frame, ref result);
 
-                                                        if (isLibrary)
-                                                            callFrameFlags |= CallFrameFlags.Library;
+                                                            if (code != ReturnCode.Ok)
+                                                                goto done;
 
-                                                        if (isFast)
-                                                            callFrameFlags |= CallFrameFlags.Fast;
+                                                            ArgumentList finalArguments;
 
-                                                        if (isMatchTypes)
-                                                            callFrameFlags |= CallFrameFlags.MatchTypes;
+                                                            ScriptOps.GetFinalArguments(
+                                                                formalArguments, overwriteArguments,
+                                                                out finalArguments);
 
-                                                        frame = interpreter.NewProcedureCallFrame(
-                                                            name, callFrameFlags, new ClientData(hashValue),
-                                                            this, arguments);
+                                                            code = frame.Save(
+                                                                interpreter, finalArguments, ref savedVariables,
+                                                                ref saveCount, ref result);
+
+                                                            if (code != ReturnCode.Ok)
+                                                                goto done;
+                                                        }
+                                                        else
+                                                        {
+                                                            CallFrameFlags callFrameFlags =
+                                                                CallFrameFlags.Procedure | CallFrameFlags.Lambda;
+
+                                                            if (isLibrary)
+                                                                callFrameFlags |= CallFrameFlags.Library;
+
+                                                            if (isFast)
+                                                                callFrameFlags |= CallFrameFlags.Fast;
+
+                                                            if (isMatchTypes)
+                                                                callFrameFlags |= CallFrameFlags.MatchTypes;
+
+                                                            frame = interpreter.NewProcedureCallFrame(
+                                                                name, callFrameFlags, new ClientData(hashValue),
+                                                                this, arguments);
+                                                        }
 
                                                         StringDictionary alreadySet = new StringDictionary();
-                                                        ArgumentList frameProcedureArguments = new ArgumentList();
+                                                        ArgumentList frameProcedureArguments = isInline ? null : new ArgumentList();
 
-                                                        frameProcedureArguments.Add(arguments[0]);
-                                                        frame.ProcedureArguments = frameProcedureArguments;
+                                                        if (!isInline)
+                                                        {
+                                                            frameProcedureArguments.Add(arguments[0]);
+                                                            frame.ProcedureArguments = frameProcedureArguments;
+                                                        }
 
                                                         for (int argumentIndex = 0; argumentIndex < formalArguments.Count; argumentIndex++)
                                                         {
@@ -242,7 +296,7 @@ namespace Eagle._Commands
 
                                                             if (!alreadySet.ContainsKey(varName))
                                                             {
-                                                                ArgumentFlags flags = ArgumentFlags.None;
+                                                                ArgumentFlags argumentFlags = ArgumentFlags.None;
                                                                 object varValue;
 
                                                                 if (hasArgs && (argumentIndex == (formalArguments.Count - 1)))
@@ -250,7 +304,7 @@ namespace Eagle._Commands
                                                                     //
                                                                     // NOTE: This argument is part of an argument list.
                                                                     //
-                                                                    flags |= ArgumentFlags.List;
+                                                                    argumentFlags |= ArgumentFlags.List;
 
                                                                     //
                                                                     // NOTE: Build the list for the final formal argument value,
@@ -266,7 +320,7 @@ namespace Eagle._Commands
                                                                         //       debugging (below).
                                                                         //
                                                                         Argument argsArgument = Argument.GetOrCreate(
-                                                                            interpreter, arguments[argsArgumentIndex].Flags | flags,
+                                                                            interpreter, arguments[argsArgumentIndex].Flags | argumentFlags,
                                                                             String.Format("{0}{1}{2}", varName, Characters.Space,
                                                                             argsArguments.Count), arguments[argsArgumentIndex],
                                                                             interpreter.HasNoCacheArgument());
@@ -286,7 +340,7 @@ namespace Eagle._Commands
                                                                         //       supplied by the caller.
                                                                         //
                                                                         varValue = Argument.GetOrCreate(interpreter,
-                                                                            arguments[argumentIndex + 2].Flags | flags,
+                                                                            arguments[argumentIndex + 2].Flags | argumentFlags,
                                                                             varName, arguments[argumentIndex + 2],
                                                                             interpreter.HasNoCacheArgument());
                                                                     }
@@ -306,8 +360,8 @@ namespace Eagle._Commands
                                                                     }
                                                                 }
 
-                                                                code = interpreter.SetVariableValue2(VariableFlags.Argument, frame,
-                                                                    varName, varValue, ref result);
+                                                                code = interpreter.SetVariableValue2(
+                                                                    variableFlags, frame, varName, varValue, ref result);
 
                                                                 if (code != ReturnCode.Ok)
                                                                     break;
@@ -317,15 +371,18 @@ namespace Eagle._Commands
                                                                 //         arguments list.  Primarily because we do not want to
                                                                 //         have to redo this logic later (i.e. for [scope]).
                                                                 //
-                                                                if (varValue is Argument)
+                                                                if (!isInline)
                                                                 {
-                                                                    frameProcedureArguments.Add((Argument)varValue);
-                                                                }
-                                                                else
-                                                                {
-                                                                    frameProcedureArguments.Add(Argument.GetOrCreate(
-                                                                        interpreter, flags, varName, varValue,
-                                                                        interpreter.HasNoCacheArgument()));
+                                                                    if (varValue is Argument)
+                                                                    {
+                                                                        frameProcedureArguments.Add((Argument)varValue);
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        frameProcedureArguments.Add(Argument.GetOrCreate(
+                                                                            interpreter, argumentFlags, varName, varValue,
+                                                                            interpreter.HasNoCacheArgument()));
+                                                                    }
                                                                 }
 
                                                                 alreadySet.Add(varName, null);
@@ -338,7 +395,9 @@ namespace Eagle._Commands
                                                         if (code == ReturnCode.Ok)
                                                         {
                                                             ICallFrame savedFrame = null;
-                                                            interpreter.PushProcedureCallFrame(frame, true, ref savedFrame);
+
+                                                            if (!isInline)
+                                                                interpreter.PushProcedureCallFrame(frame, true, ref savedFrame);
 
                                                             try
                                                             {
@@ -453,8 +512,11 @@ namespace Eagle._Commands
                                                             }
                                                             finally
                                                             {
-                                                                /* IGNORED */
-                                                                interpreter.PopProcedureCallFrame(frame, ref savedFrame);
+                                                                if (!isInline)
+                                                                {
+                                                                    /* IGNORED */
+                                                                    interpreter.PopProcedureCallFrame(frame, ref savedFrame);
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -462,12 +524,47 @@ namespace Eagle._Commands
                                                     {
                                                         if (frame != null)
                                                         {
-                                                            IDisposable disposable = frame as IDisposable;
-
-                                                            if (disposable != null)
+                                                            if (isInline)
                                                             {
-                                                                disposable.Dispose();
-                                                                disposable = null;
+                                                                ScriptOps.UnsetArgumentsOrComplain(
+                                                                    interpreter, frame, formalArguments,
+                                                                    cleanArguments);
+
+                                                                ReturnCode restoreCode;
+                                                                Result restoreError = null;
+
+                                                                restoreCode = frame.Restore(interpreter,
+                                                                    formalArguments, ref savedVariables,
+                                                                    ref restoreCount, ref restoreError);
+
+                                                                if ((restoreCode == ReturnCode.Ok) &&
+                                                                    (restoreCount != saveCount))
+                                                                {
+                                                                    restoreError = String.Format(
+                                                                        "failed to properly restore call frame {0} for " +
+                                                                        "procedure {1}: restored {2} versus saved {3}",
+                                                                        frame.Name, formalArguments, restoreCount,
+                                                                        saveCount);
+
+                                                                    restoreCode = ReturnCode.Error;
+                                                                }
+
+                                                                if (restoreCode != ReturnCode.Ok)
+                                                                {
+                                                                    DebugOps.Complain(
+                                                                        interpreter, restoreCode,
+                                                                        restoreError);
+                                                                }
+                                                            }
+                                                            else
+                                                            {
+                                                                IDisposable disposable = frame as IDisposable;
+
+                                                                if (disposable != null)
+                                                                {
+                                                                    disposable.Dispose();
+                                                                    disposable = null;
+                                                                }
                                                             }
 
                                                             frame = null;
@@ -479,7 +576,7 @@ namespace Eagle._Commands
                                                     result = String.Format(
                                                         "wrong # args: should be \"apply lambdaExpr {0}\"", /* SKIP */
                                                         formalArguments.ToRawString(ToStringFlags.Decorated,
-                                                            Characters.Space.ToString()));
+                                                            Characters.SpaceString));
 
                                                     code = ReturnCode.Error;
                                                 }
@@ -519,6 +616,8 @@ namespace Eagle._Commands
                 result = "invalid interpreter";
                 code = ReturnCode.Error;
             }
+
+        done:
 
             return code;
         }

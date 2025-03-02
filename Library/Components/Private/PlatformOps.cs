@@ -939,7 +939,12 @@ namespace Eagle._Components.Private
 
             try
             {
-                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(
+                RegistryKey rootKey = Registry.LocalMachine;
+
+                if (rootKey == null)
+                    return null;
+
+                using (RegistryKey key = rootKey.OpenSubKey(
                         OsVersionSubKeyName)) /* throw */
                 {
                     if (key != null)
@@ -988,7 +993,12 @@ namespace Eagle._Components.Private
 
             try
             {
-                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(
+                RegistryKey rootKey = Registry.LocalMachine;
+
+                if (rootKey == null)
+                    return null;
+
+                using (RegistryKey key = rootKey.OpenSubKey(
                         OsVersionSubKeyName)) /* throw */
                 {
                     if (key != null)
@@ -1210,7 +1220,7 @@ namespace Eagle._Components.Private
 
             if (interpreter != null)
             {
-                lock (interpreter.InternalSyncRoot)/* TRANSACTIONAL */
+                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                 {
                     CreateFlags createFlags = interpreter.CreateFlags;
 
@@ -1261,7 +1271,7 @@ namespace Eagle._Components.Private
                     try
                     {
                         string value = GetOperatingSystemExtra(
-                            interpreter, true); /* WARNING: ~20 secs... */
+                            interpreter, true); /* WARNING: ~60 secs... */
 
                         lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                         {

@@ -55,7 +55,7 @@ namespace Eagle._Containers.Private.Tcl
         {
             return GenericOps<string, TclBridge>.DictionaryToString(
                 this, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////

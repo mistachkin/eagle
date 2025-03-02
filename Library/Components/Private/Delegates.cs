@@ -125,6 +125,7 @@ namespace Eagle._Components.Private.Delegates
         string path,
         string fileName,
         string tag,
+        PackageType type,
         ref PackageIndexFlags flags,
         ref IClientData clientData,
         ref Result error

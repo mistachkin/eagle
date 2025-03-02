@@ -51,7 +51,7 @@ namespace Eagle._Components.Private
         //       value of the "TraceCategoryRegEx" field (below).
         //
         private static readonly Regex DefaultTraceCategoryRegEx = RegExOps.Create(
-            "^[\\.0-9A-Z_]*$", RegexOptions.IgnoreCase);
+            "^[\\.0-9A-Z_]*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -62,7 +62,7 @@ namespace Eagle._Components.Private
         //       as the value of the "MethodNameRegEx" field (below).
         //
         private static readonly Regex DefaultMethodNameRegEx = RegExOps.Create(
-            "^[\\.0-9A-Z_]*$", RegexOptions.IgnoreCase);
+            "^[\\.0-9A-Z_]*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 #if MONO_BUILD
 #pragma warning restore 414
 #endif
@@ -189,7 +189,7 @@ namespace Eagle._Components.Private
         //       {10} = Message body.
         //       {11} = Always has the value of Environment.NewLine.
         //
-        private const int FormatParamterCount = 12;
+        private const int FormatParameterCount = 12;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -243,6 +243,7 @@ namespace Eagle._Components.Private
             "Highest"
         };
 
+        private static readonly string NeverTracePriorityFullName = "Never";
         private static readonly string AlwaysTracePriorityFullName = "Always";
 
         ///////////////////////////////////////////////////////////////////////
@@ -263,6 +264,7 @@ namespace Eagle._Components.Private
             "H1"
         };
 
+        private static readonly string NeverTracePriorityShortName = "N1";
         private static readonly string AlwaysTracePriorityShortName = "A1";
 
         ///////////////////////////////////////////////////////////////////////
@@ -2281,7 +2283,7 @@ namespace Eagle._Components.Private
 
             if (logFileName != null)
             {
-#if TEST
+#if TEST && SHELL
                 logName = ShellOps.GetTraceListenerName(logName,
                     GlobalState.GetCurrentSystemThreadId());
 
@@ -2928,7 +2930,14 @@ namespace Eagle._Components.Private
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                if (FlagOps.HasFlags(priority, TracePriority.Always, true))
+                if (FlagOps.HasFlags(priority, TracePriority.Never, true))
+                {
+                    if (shortName)
+                        return NeverTracePriorityShortName;
+                    else
+                        return NeverTracePriorityFullName;
+                }
+                else if (FlagOps.HasFlags(priority, TracePriority.Always, true))
                 {
                     if (shortName)
                         return AlwaysTracePriorityShortName;
@@ -3182,6 +3191,18 @@ namespace Eagle._Components.Private
                     //
                     if (categoryBonus != 0)
                         AdjustTracePriority(ref priority, categoryBonus);
+
+                    //
+                    // NOTE: If the "Never" flag is set within the priority
+                    //       then all remaining checks will be skipped -AND-
+                    //       this flag will ALWAYS be honored forevermore.
+                    //
+                    if (HasTracePriorities(globalPriorities | priority,
+                            TracePriority.Never, true))
+                    {
+                        result = false;
+                        goto done;
+                    }
 
                     //
                     // NOTE: If the "Always" flag is set within the priority
@@ -3490,10 +3511,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool IsTraceFiltered(
-            Interpreter interpreter, /* in */
-            string message,          /* in */
-            string category,         /* in */
-            TracePriority priority   /* in */
+            Interpreter interpreter,   /* in */
+            ref string message,        /* in */
+            ref string category,       /* in */
+            ref TracePriority priority /* in */
             )
         {
             try
@@ -3512,7 +3533,8 @@ namespace Eagle._Components.Private
                 if (callback != null)
                 {
                     return callback(
-                        interpreter, message, category, priority); /* throw */
+                        interpreter, ref message, ref category,
+                        ref priority); /* throw */
                 }
             }
             catch
@@ -5041,7 +5063,7 @@ namespace Eagle._Components.Private
             //
             try
             {
-                string[] args = new string[FormatParamterCount];
+                string[] args = new string[FormatParameterCount];
 
                 string formatted = String.Format(
                     value, args); /* throw */
@@ -5765,7 +5787,8 @@ namespace Eagle._Components.Private
                     }
 
                     if (!skipFilter && IsTraceFiltered(
-                            interpreter, message, category, priority))
+                            interpreter, ref message, ref category,
+                            ref priority))
                     {
                         TraceWasDropped(
                             interpreter, message, category, priority);
@@ -5811,6 +5834,9 @@ namespace Eagle._Components.Private
                     if (traceExtraNewLines)
                         MaybeAddNewLines(ref traceFormat);
 
+                    bool forceFlush = FlagOps.HasFlags(
+                        priority, TracePriority.ForceFlush, true);
+
                     bool nested = (levels > 1);
                     string methodName = null;
 
@@ -5819,31 +5845,51 @@ namespace Eagle._Components.Private
 #else
                     /* IGNORED */
 #endif
-                    DebugTraceRaw(interpreter, FormatOps.TraceOutput(
-                        traceFormat, nested ? TraceNestedIndicator : null,
-                        traceDateTime ? (DateTime?)TimeOps.GetNow() : null,
-                        tracePriority ? (TracePriority?)priority : null,
+                    DebugTraceRaw(interpreter,
+                        FormatOps.TraceOutput(
+                            traceFormat, nested ? TraceNestedIndicator : null,
+                            traceDateTime ? (DateTime?)TimeOps.GetNow() : null,
+                            tracePriority ? (TracePriority?)priority : null,
 #if WEB && !NET_STANDARD_20
-                        traceServerName ? PathOps.GetServerName() : null,
+                            traceServerName ? PathOps.GetServerName() : null,
 #endif
-                        traceTestName ? TestOps.GetCurrentName(interpreter) : null,
-                        traceAppDomain ? AppDomainOps.GetCurrent() : null,
-                        traceInterpreter ? interpreter : null,
-                        traceThreadId ? threadId : null, message, traceMethod,
-                        traceStack, skipFrames + 1, ref category, ref methodName),
+                            traceTestName ?
+                                TestOps.GetCurrentName(interpreter) : null,
+                            traceAppDomain ? AppDomainOps.GetCurrent() : null,
+                            traceInterpreter ? interpreter : null,
+                            traceThreadId ? threadId : null, message,
+                            traceMethod, traceStack, skipFrames + 1,
+                            ref category, ref methodName),
                         category, methodName, priority, skipChecks); /* throw */
 
 #if TEST
                     //
-                    // HACK: If necessary, flush any IBufferedTraceListener
-                    //       that may be present.  Currently, these are not
-                    //       "production ready" and are only included if the
-                    //       core library is compiled with the TEST option
-                    //       defined.
+                    // HACK: If manually requested -OR- necessary, flush *ALL*
+                    //       IBufferedTraceListener compatible trace listeners
+                    //       that may be present.  Currently, since these are
+                    //       not considered to be "production ready", they are
+                    //       gated behind the TEST #ifdef (i.e. they are only
+                    //       included if the core library is compiled with the
+                    //       TEST option defined, which it will be by default).
                     //
-                    if (flushBufferedTraceListeners)
+                    if (flushBufferedTraceListeners || forceFlush)
+                    {
+                        /* IGNORED */
                         DebugOps.FlushBufferedTraceListeners(false);
+                    }
 #endif
+
+                    //
+                    // NOTE: This check will also force all trace listeners,
+                    //       including IBufferedTraceListener compatible ones,
+                    //       to be flushed if the caller has manually set the
+                    //       corresponding trace priority flag.
+                    //
+                    if (forceFlush)
+                    {
+                        /* NO RESULT */
+                        DebugOps.Flush();
+                    }
                 }
                 else
                 {

@@ -9,23 +9,39 @@
  * RCS: @(#) $Id: $
  */
 
+#if SERIALIZATION
+using System;
+#endif
+
 using System.Collections.Generic;
 using Eagle._Attributes;
+using Eagle._Components.Private;
 using Eagle._Components.Public;
+using Eagle._Constants;
+using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+
+#if NET_STANDARD_21
+using Index = Eagle._Constants.Index;
+#endif
 
 namespace Eagle._Containers.Private
 {
+#if SERIALIZATION
+    [Serializable()]
+#endif
     [ObjectId("a22cdd6d-d3b5-4336-a4f0-c54cd618004f")]
-    internal sealed class StringPairDictionary : Dictionary<string, IPair<string>>
+    internal sealed class StringPairDictionary :
+        Dictionary<string, IPair<string>>
     {
+        #region Public Constructors
         public StringPairDictionary()
             : base()
         {
             // do nothing.
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         public StringPairDictionary(
             IEnumerable<string> collection
@@ -35,7 +51,7 @@ namespace Eagle._Containers.Private
             Add(collection);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         public StringPairDictionary(
             IDictionary<string, string> dictionary
@@ -45,7 +61,7 @@ namespace Eagle._Containers.Private
             Add(dictionary);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         public StringPairDictionary(
             IDictionary<string, IPair<string>> dictionary
@@ -54,9 +70,11 @@ namespace Eagle._Containers.Private
         {
             // do nothing.
         }
+        #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
+        #region Public Methods
         public void Add(
             IEnumerable<string> collection
             )
@@ -70,7 +88,7 @@ namespace Eagle._Containers.Private
             }
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         public void Add(
             IDictionary<string, string> dictionary
@@ -80,7 +98,7 @@ namespace Eagle._Containers.Private
                 Add(pair.Key, new StringPair(pair.Value));
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         public StringPairDictionary Filter(
             string pattern,
@@ -91,8 +109,8 @@ namespace Eagle._Containers.Private
 
             foreach (KeyValuePair<string, IPair<string>> pair in this)
             {
-                if ((pattern == null) ||
-                    Parser.StringMatch(null, pair.Key, 0, pattern, 0, noCase))
+                if ((pattern == null) || Parser.StringMatch(
+                        null, pair.Key, 0, pattern, 0, noCase))
                 {
                     dictionary.Add(pair.Key, pair.Value);
                 }
@@ -101,29 +119,29 @@ namespace Eagle._Containers.Private
             return dictionary;
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        #region Dead Code
-#if DEAD_CODE
-        private StringPairDictionary(
-            IEqualityComparer<string> comparer
+        public string ToString(
+            string pattern,
+            bool noCase
             )
-            : base(comparer)
         {
-            // do nothing.
+            StringList list = new StringList(this.Keys);
+
+            return ParserOps<string>.ListToString(
+                list, Index.Invalid, Index.Invalid,
+                ToStringFlags.None, Characters.SpaceString,
+                pattern, noCase);
         }
+        #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        private StringPairDictionary(
-            IDictionary<string, IPair<string>> dictionary,
-            IEqualityComparer<string> comparer
-            )
-            : base(dictionary, comparer)
+        #region System.Object Overrides
+        public override string ToString()
         {
-            // do nothing.
+            return ToString(null, false);
         }
-#endif
         #endregion
     }
 }

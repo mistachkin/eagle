@@ -722,8 +722,8 @@ System.Reflection.TargetParameterCountException\
 System.Reflection.TargetParameterCountException\
 System.ArgumentException 634384224000000000 System.ArgumentException\
 System.ArgumentException System.ArgumentException {buildnumber clicks days\
-duration filetime format isvalid microseconds milliseconds now scan seconds\
-start stop}}}}
+duration filetime format isvalid microseconds milliseconds monthdays now scan\
+seconds start stop}}}}
 
 ###############################################################################
 
@@ -885,18 +885,22 @@ Eagle._Tests.Default.TestExecuteDelegateCommands} -output {delegate test
 } -match regexp -result {^\{Error Ok Error Error Error Error Error Ok Ok Error\
 Error Error Ok\} \{\{invalid argument list\} \{\} FormatException\
 (?:NullReferenceException|NotSupportedException|ScriptException) \{method #0\
-"TestVoidMethod" requires exactly 1 argument and 2 were supplied\} \{method #0\
-"TestLongMethod" requires exactly 1 argument and 2 were supplied\} \{method #0\
-"TestIEnumerableMethod" requires exactly 1 argument and 2 were supplied\} \{\}\
-634700448000000000\
+"Eagle\._Tests\.Default\+VoidWithStringCallback\.TestVoidMethod" requires\
+exactly 1 argument and 2 were supplied\} \{method #0\
+"Eagle\._Tests\.Default\+LongWithDateTimeCallback\.TestLongMethod" requires\
+exactly 1 argument and 2 were supplied\} \{method #0\
+"Eagle\._Tests\.Default\+IEnumerableWithICommandCallback\.TestIEnumerableMethod"\
+requires exactly 1 argument and 2 were supplied\} \{\} 634700448000000000\
 (?:NullReferenceException|NotSupportedException|ScriptException) \{could not\
-convert method #0 "TestVoidMethod" argument #0 "value" with value "Command#\d+"\
-to type "System\.String": cannot convert from type "Eagle\._Wrappers\.Command"\
-to type "System\.String"\} \{could not convert method #0 "TestLongMethod"\
+convert method #0\
+"Eagle\._Tests\.Default\+VoidWithStringCallback\.TestVoidMethod" argument #0\
+"value" with value "Command#\d+" to type "System\.String": cannot convert from\
+type "Eagle\._Wrappers\.Command" to type "System\.String"\} \{could not convert\
+method #0 "Eagle\._Tests\.Default\+LongWithDateTimeCallback\.TestLongMethod"\
 argument #0 "dateTime" with value "Command#\d+" to type "System\.DateTime":\
 cannot convert from type "Eagle\._Wrappers\.Command" to type\
 "System\.IConvertible"\} \{buildnumber clicks days duration filetime format\
-isvalid microseconds milliseconds now scan seconds start stop\}\}$}}
+isvalid microseconds milliseconds monthdays now scan seconds start stop\}\}$}}
 
 ###############################################################################
 
@@ -1058,18 +1062,21 @@ Eagle._Tests.Default.TestExecuteDelegateCommands} -output {delegate test
 } -match regexp -result {^\{Error Ok Error Error Error Error Error Ok Ok Error\
 Error Error Ok\} \{\{invalid argument list\} \{\} FormatException\
 (?:NullReferenceException|NotSupportedException|ScriptException) \{method #0\
-"TestVoidMethod" requires exactly 1 argument and 2 were supplied\} \{method #0\
-"TestLongMethod" requires exactly 1 argument and 2 were supplied\} \{method #0\
-"TestIEnumerableMethod" requires exactly 1 argument and 2 were supplied\} \{\}\
-635015808000000000\
+"Type#\d+\.TestVoidMethod" requires\
+exactly 1 argument and 2 were supplied\} \{method #0\
+"Type#\d+\.TestLongMethod" requires\
+exactly 1 argument and 2 were supplied\} \{method #0\
+"Type#\d+\.TestIEnumerableMethod"\
+requires exactly 1 argument and 2 were supplied\} \{\} 635015808000000000\
 (?:NullReferenceException|NotSupportedException|ScriptException) \{could not\
-convert method #0 "TestVoidMethod" argument #0 "value" with value "Command#\d+"\
-to type "System\.String": cannot convert from type "Eagle\._Wrappers\.Command"\
-to type "System\.String"\} \{could not convert method #0 "TestLongMethod"\
-argument #0 "dateTime" with value "Command#\d+" to type "System\.DateTime":\
-cannot convert from type "Eagle\._Wrappers\.Command" to type\
-"System\.IConvertible"\} \{buildnumber clicks days duration filetime format\
-isvalid microseconds milliseconds now scan seconds start stop\}\}$}}
+convert method #0 "Type#\d+\.TestVoidMethod" argument #0 "value" with value\
+"Command#\d+" to type "System\.String": cannot convert from type\
+"Eagle\._Wrappers\.Command" to type "System\.String"\} \{could not convert\
+method #0 "Type#\d+\.TestLongMethod" argument #0 "dateTime" with value\
+"Command#\d+" to type "System\.DateTime": cannot convert from type\
+"Eagle\._Wrappers\.Command" to type "System\.IConvertible"\} \{buildnumber\
+clicks days duration filetime format isvalid microseconds milliseconds\
+monthdays now scan seconds start stop\}\}$}}
 
 ###############################################################################
 
@@ -2905,17 +2912,23 @@ if {[isEagle]} then {
 #
 runTest {test basic-1.101 {checkForUpdate script library procedure} -setup {
   set savedPatchLevel $::eagle_platform(patchLevel)
+  set savedUpdatePathAndQuery $::eagle_platform(updatePathAndQuery)
 } -body {
   set patchLevel 0.0.0.0
+  set buildAndRevision [join [lrange [split $patchLevel .] end-1 end] .]
 
   set ::eagle_platform(patchLevel) 1.0.0.0
+
+  set ::eagle_platform(updatePathAndQuery) [appendArgs \
+      latest.txt?v= $buildAndRevision &test=basic-1.101]
+
   set data(lessThan) [checkForUpdate]
 
   if {![regexp -- \
       {^\{(?:stable|latest) build (\d+\.\d+\.\d+\.\d+),} \
       $data(lessThan) dummy patchLevel]} then {
     tputs $test_channel [appendArgs \
-        "---- : procedure \[checkForUpdate\] failed: " \
+        "---- procedure \[checkForUpdate\] failed: " \
         \n $data(lessThan) \n]
   }
 
@@ -2927,10 +2940,12 @@ runTest {test basic-1.101 {checkForUpdate script library procedure} -setup {
 
   list $data(lessThan) $data(equalTo) $data(greaterThan)
 } -cleanup {
+  set ::eagle_platform(updatePathAndQuery) $savedUpdatePathAndQuery
   set ::eagle_platform(patchLevel) $savedPatchLevel
-  unset -nocomplain savedPatchLevel
 
-  unset -nocomplain patchLevel dummy data host
+  unset -nocomplain savedPatchLevel savedUpdatePathAndQuery
+
+  unset -nocomplain patchLevel buildAndRevision dummy data host
 } -constraints [fixTimingConstraints {eagle command.object compile.NETWORK\
 network_update.eagle.to tlsOk strongName.official\
 osVersion.WindowsNT_6.0_OrHigher}] -constraintExpression \
@@ -3333,11 +3348,12 @@ runTest {test basic-1.109 {SimulateKeyboardString method} -setup {
 
   unset -nocomplain event forever fileName stream code error
   unset -nocomplain debugger milliseconds
-} -constraints {eagle monoBug612 native windows command.object compile.NATIVE\
-compile.WINDOWS compile.TEST Eagle._Tests.Default.TestStartKeyboardStream\
-interactive hostIsOpen userInteraction interactiveFocus} \
--constraintExpression {[haveConstraint hostType.Eagle__Hosts_Console] || \
-[haveConstraint hostType.Demo_Hosts_Demo]} -result {1}}
+} -constraints [fixConstraints {eagle monoBug612 native windows command.object\
+compile.NATIVE compile.WINDOWS compile.TEST !windowsTerminal\
+Eagle._Tests.Default.TestStartKeyboardStream interactive hostIsOpen\
+userInteraction interactiveFocus}] -constraintExpression {[haveConstraint \
+hostType.Eagle__Hosts_Console] || [haveConstraint hostType.Demo_Hosts_Demo]} \
+-result {1}}
 
 ###############################################################################
 

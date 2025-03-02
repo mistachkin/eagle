@@ -31,6 +31,15 @@ using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+using DelegateTriplet = Eagle._Components.Public.MutableAnyTriplet<
+    System.Reflection.MethodBase, System.Delegate,
+    Eagle._Components.Public.DelegateFlags>;
+
+using DelegateList = System.Collections.Generic.List<
+    Eagle._Components.Public.MutableAnyTriplet<
+    System.Reflection.MethodBase, System.Delegate,
+    Eagle._Components.Public.DelegateFlags>>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -41,15 +50,11 @@ namespace Eagle._Components.Private
     internal static class ObjectOps
     {
         #region Private Constants
-        #region Dead Code
-#if DEAD_CODE
         //
         // HACK: These are purposely not read-only.
         //
         private static string[] DisposedFieldNames;
         private static string[] DisposedPropertyNames;
-#endif
-        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -263,6 +268,14 @@ namespace Eagle._Components.Private
         //       being removed fro the interpreter.
         //
         private static bool DefaultDispose = true;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static MatchMode IsDisposedPatternMode = MatchMode.RegExp;
+        private static bool IsDisposedPatterNoCase = true;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -323,11 +336,7 @@ namespace Eagle._Components.Private
             bool force
             )
         {
-            #region Dead Code
-#if DEAD_CODE
             InitializeDisposedNames(force);
-#endif
-            #endregion
 
             ///////////////////////////////////////////////////////////////////
 
@@ -370,8 +379,6 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Initialization Methods
-        #region Dead Code
-#if DEAD_CODE
         private static void InitializeDisposedNames(
             bool force
             )
@@ -379,8 +386,11 @@ namespace Eagle._Components.Private
             if (force || (DisposedFieldNames == null))
             {
                 DisposedFieldNames = new string[] {
-                    "disposed", "_disposed", "_isDisposed",
-                    "m_disposed", "m_isDisposed", null, null, null
+                    "^(?:m)?(?:_)*(?:is)?disposed$",
+                    null, null, null, null, null, null, null, null,
+                    null, null, null, null, null, null, null, null,
+                    null, null, null, null, null, null, null, null,
+                    null, null, null, null, null, null, null
                 };
             }
 
@@ -393,8 +403,6 @@ namespace Eagle._Components.Private
                 };
             }
         }
-#endif
-        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -546,6 +554,10 @@ namespace Eagle._Components.Private
                     /* MetaBindingFlags.PublicInstanceMethod */
                     BindingFlags.Instance | BindingFlags.Public |
                     BindingFlags.InvokeMethod,
+
+                    /* MetaBindingFlags.PublicStaticGetField */
+                    BindingFlags.Static | BindingFlags.Public |
+                    BindingFlags.GetField,
 
                     /* MetaBindingFlags.PublicStaticGetProperty */
                     BindingFlags.Static | BindingFlags.Public |
@@ -1619,6 +1631,16 @@ namespace Eagle._Components.Private
                     Index.Invalid, Index.Invalid, "-limit", null),
                 new Option(null, OptionFlags.MustHaveIntegerValue,
                     Index.Invalid, Index.Invalid, "-index", null),
+                new Option(null, OptionFlags.MustHaveIntegerValue,
+                    Index.Invalid, Index.Invalid, "-autolimit", null),
+                new Option(null, OptionFlags.MustHaveIntegerValue,
+                    Index.Invalid, Index.Invalid, "-autoindex", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue,
+                    Index.Invalid, Index.Invalid, "-autocreate", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue,
+                    Index.Invalid, Index.Invalid, "-autoflush", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue,
+                    Index.Invalid, Index.Invalid, "-autostatus", null),
                 new Option(null, AliasOptionFlags, Index.Invalid,
                     Index.Invalid, "-alias", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
@@ -2649,6 +2671,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
+        // NOTE: This is for the [object isdisposed] sub-command.
+        //
+        public static OptionDictionary GetIsDisposedOptions()
+        {
+            return new OptionDictionary(
+                new IOption[] {
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-nocomplain", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-force", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-cannotcheck", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-caughtexception", null),
+                Option.CreateEndOfOptions()
+            });
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // NOTE: This is for the [object isnull] sub-command.
         //
         public static OptionDictionary GetIsNullOptions()
@@ -2659,9 +2705,14 @@ namespace Eagle._Components.Private
                     Index.Invalid, "-nocomplain", null),
                 new Option(null, OptionFlags.MustHaveBooleanValue |
                     OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                    "-default", null),
-                Option.CreateEndOfOptions()
-            });
+                    "-objectdisposed", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-valuedisposed", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-force", null)
+            }, GetIsDisposedOptions());
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2933,8 +2984,8 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the ToCommandCallback method.
         //
-        // NOTE: This method must use the "Unsafe" option flag to prevent a
-        //       "safe" interpreter from potentially using an option.
+        // NOTE: This method must use the "Unsafe" option flag to prevent
+        //       a "safe" interpreter from potentially using an option.
         //
         public static OptionDictionary GetSimpleCallbackOptions()
         {
@@ -3124,6 +3175,8 @@ namespace Eagle._Components.Private
                     return GetInvokeSharedOptions();     //
                 case ObjectOptionType.InvokeSharedOnly:  // [object invoke] / [object invokeraw]
                     return GetInvokeSharedOnlyOptions(); //
+                case ObjectOptionType.IsDisposed:        // [object isdisposed]
+                    return GetIsDisposedOptions();       //
                 case ObjectOptionType.IsNull:            // [object isnull]
                     return GetIsNullOptions();           //
                 case ObjectOptionType.IsOfType:          // [object isoftype]
@@ -3241,7 +3294,7 @@ namespace Eagle._Components.Private
             out string dateTimeFormat
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -3307,7 +3360,7 @@ namespace Eagle._Components.Private
             out CallbackFlags callbackFlags
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -3397,7 +3450,7 @@ namespace Eagle._Components.Private
             out MarshalFlags marshalFlags
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -3480,7 +3533,7 @@ namespace Eagle._Components.Private
             out bool noFixup
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -3825,6 +3878,67 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static void ProcessFindMethodsAndFixupArgumentsOptions(
+            Interpreter interpreter,
+            OptionDictionary options,
+            ObjectOptionType objectOptionType,
+            BindingFlags? defaultBindingFlags,
+            MarshalFlags? defaultMarshalFlags,
+            ReorderFlags? defaultReorderFlags,
+            ByRefArgumentFlags? defaultByRefArgumentFlags,
+            out BindingFlags bindingFlags,
+            out MarshalFlags marshalFlags,
+            out ReorderFlags reorderFlags,
+            out ByRefArgumentFlags byRefArgumentFlags,
+            out TypeList methodTypes,
+            out TypeList parameterTypes,
+            out MarshalFlagsList parameterMarshalFlags,
+            out int limit,
+            out int index,
+            out bool noByRef,
+            out bool strictMember,
+            out bool strictArgs,
+            out bool invoke,
+            out bool noArgs,
+            out bool arrayAsValue,
+            out bool arrayAsLink,
+            out bool debug,
+            out bool trace
+            )
+        {
+            Type objectType;
+            Type proxyType;
+            TypeList objectTypes;
+            ValueFlags objectValueFlags;
+            ValueFlags memberValueFlags;
+            MemberTypes memberTypes;
+            bool verbose;
+            bool strictType;
+            bool identity;
+            bool typeIdentity;
+            bool noNestedObject;
+            bool noNestedMember;
+            bool noCase;
+            bool noMutateBindingFlags;
+
+            ProcessFindMethodsAndFixupArgumentsOptions(
+                interpreter, options, objectOptionType, null, null, null,
+                defaultBindingFlags, defaultMarshalFlags, defaultReorderFlags,
+                defaultByRefArgumentFlags, out objectType, out proxyType,
+                out objectTypes, out methodTypes, out parameterTypes,
+                out parameterMarshalFlags, out objectValueFlags,
+                out memberValueFlags, out memberTypes, out bindingFlags,
+                out marshalFlags, out reorderFlags, out byRefArgumentFlags,
+                out limit, out index, out noByRef, out verbose,
+                out strictType, out strictMember, out strictArgs,
+                out identity, out typeIdentity, out noNestedObject,
+                out noNestedMember, out noCase, out invoke, out noArgs,
+                out arrayAsValue, out arrayAsLink, out noMutateBindingFlags,
+                out debug, out trace);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void ProcessFindMethodsAndFixupArgumentsOptions(
             Interpreter interpreter,
             OptionDictionary options,
@@ -3933,7 +4047,7 @@ namespace Eagle._Components.Private
             out bool trace
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -4344,7 +4458,7 @@ namespace Eagle._Components.Private
             out bool toString
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -4564,7 +4678,7 @@ namespace Eagle._Components.Private
             out bool noCase
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -4658,7 +4772,7 @@ namespace Eagle._Components.Private
             out bool trace
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -4901,7 +5015,7 @@ namespace Eagle._Components.Private
             out bool aliasReference
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -4988,7 +5102,7 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5107,7 +5221,7 @@ namespace Eagle._Components.Private
             out bool noCase
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5198,13 +5312,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static void ProcessObjectIsNullOptions(
+        public static void ProcessObjectIsDisposedOptions(
             OptionDictionary options,
             out bool noComplain,
-            out bool @default
+            out bool force,
+            out bool cannotCheck,
+            out bool caughtException
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5215,12 +5331,73 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
-            @default = false;
+            force = false;
 
             if ((options != null) &&
-                options.CheckPresent("-default", ref value))
+                options.CheckPresent("-force", ref value))
             {
-                @default = (bool)value.Value;
+                force = (bool)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            cannotCheck = false;
+
+            if ((options != null) &&
+                options.CheckPresent("-cannotcheck", ref value))
+            {
+                cannotCheck = (bool)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            caughtException = false;
+
+            if ((options != null) &&
+                options.CheckPresent("-caughtexception", ref value))
+            {
+                caughtException = (bool)value.Value;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void ProcessObjectIsNullOptions(
+            OptionDictionary options,
+            out bool noComplain,
+            out bool objectDisposed,
+            out bool valueDisposed,
+            out bool force,
+            out bool cannotCheck,
+            out bool caughtException
+            )
+        {
+            IVariant value = null; /* REUSED */
+
+            ///////////////////////////////////////////////////////////////////
+
+            ProcessObjectIsDisposedOptions(
+                options, out noComplain, out force, out cannotCheck,
+                out caughtException);
+
+            ///////////////////////////////////////////////////////////////////
+
+            objectDisposed = true; /* TODO: Good default? */
+
+            if ((options != null) &&
+                options.CheckPresent("-objectdisposed", ref value))
+            {
+                objectDisposed = (bool)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            valueDisposed = true; /* TODO: Good default? */
+
+            if ((options != null) &&
+                options.CheckPresent("-valuedisposed", ref value))
+            {
+                valueDisposed = (bool)value.Value;
             }
         }
 
@@ -5284,7 +5461,7 @@ namespace Eagle._Components.Private
             out bool verifiedOnly
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5598,7 +5775,7 @@ namespace Eagle._Components.Private
             out bool noCase
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5646,7 +5823,7 @@ namespace Eagle._Components.Private
             out BindingFlags bindingFlags
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5698,7 +5875,7 @@ namespace Eagle._Components.Private
             out ValueFlags memberValueFlags
             )
         {
-            IVariant value = null;
+            IVariant value = null; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5774,13 +5951,131 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool GetMethodsFromDelegates(
+            DelegateList delegates,   /* in */
+            ref Type delegateType,    /* out */
+            ref string objectName,    /* out */
+            ref string memberName,    /* out */
+            ref MethodInfo[] methods, /* out */
+            ref Result error          /* out */
+            )
+        {
+            if (delegates == null)
+            {
+                error = "cannot invoke, invalid delegates";
+                return false;
+            }
+
+            int count = delegates.Count;
+
+            if (delegates.Count == 0)
+            {
+                error = "cannot invoke, no delegates";
+                return false;
+            }
+
+            Type localDelegateType = null;
+            string localObjectName = null;
+            string localMemberName = null;
+            MethodInfo[] localMethods = new MethodInfo[count];
+
+            for (int index = 0; index < count; index++)
+            {
+                DelegateTriplet outerDelegate = delegates[index];
+
+                if (outerDelegate == null)
+                {
+                    error = String.Format(
+                        "cannot invoke #{0}, bad delegate",
+                        index);
+
+                    return false;
+                }
+
+                Delegate innerDelegate = outerDelegate.Y;
+
+                if (innerDelegate == null)
+                {
+                    error = String.Format(
+                        "cannot invoke #{0}, no delegate",
+                        index);
+
+                    return false;
+                }
+
+                MethodInfo method = innerDelegate.Method;
+
+                if (method == null)
+                {
+                    error = String.Format(
+                        "cannot invoke #{0}, no method",
+                        index);
+
+                    return false;
+                }
+
+                localDelegateType = innerDelegate.GetType();
+
+                if (localDelegateType == null)
+                {
+                    error = String.Format(
+                        "cannot invoke #{0}, invalid type",
+                        index);
+
+                    return false;
+                }
+
+                object target = innerDelegate.Target;
+
+                Type targetType = (target != null) ?
+                    AppDomainOps.MaybeGetTypeOrNull(target) :
+                    localDelegateType;
+
+                localObjectName = (targetType != null) ?
+                    targetType.FullName : null;
+
+                if (localObjectName == null)
+                {
+                    error = String.Format(
+                        "cannot invoke #{0}, invalid object name",
+                        index);
+
+                    return false;
+                }
+
+                localMemberName = method.Name;
+
+                if (localMemberName == null)
+                {
+                    error = String.Format(
+                        "cannot invoke #{0}, invalid member name",
+                        index);
+
+                    return false;
+                }
+
+                localMethods[index] = method;
+            }
+
+            delegateType = localDelegateType;
+            objectName = localObjectName;
+            memberName = localMemberName;
+            methods = localMethods;
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode InvokeDelegate(
-            Interpreter interpreter,
-            Delegate @delegate,
-            DelegateFlags delegateFlags,
-            ArgumentList arguments,
-            int nameCount,
-            ref Result result
+            Interpreter interpreter, /* in */
+            DelegateList delegates,  /* in */
+            ArgumentList arguments,  /* in */
+            bool allowOptions,       /* in */
+            int nameCount,           /* in */
+            int nameIndex,           /* in */
+            ref Delegate @delegate,  /* out */
+            ref Result result        /* out */
             )
         {
             ///////////////////////////////////////////////////////////////////
@@ -5793,9 +6088,9 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            if (@delegate == null)
+            if (delegates == null)
             {
-                result = "invalid delegate";
+                result = "invalid delegates";
                 return ReturnCode.Error;
             }
 
@@ -5805,15 +6100,7 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            ///////////////////////////////////////////////////////////////////
-            //                        OPTION PROCESSING
-            ///////////////////////////////////////////////////////////////////
-
-            //
-            // HACK: Does the caller permit the use of any options at all?
-            //
-            bool useCallOptions = FlagOps.HasFlags(
-                delegateFlags, DelegateFlags.UseCallOptions, true);
+            int argumentCount = arguments.Count; /* MAY BE ZERO */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5821,20 +6108,50 @@ namespace Eagle._Components.Private
             OptionDictionary options;
             int argumentIndex;
 
-            if (useCallOptions)
+            if (allowOptions)
             {
                 options = GetCallOptions();
                 argumentIndex = Index.Invalid;
 
-                if (arguments.Count > nameCount)
+                if (argumentCount > nameCount)
                 {
-                    code = interpreter.GetOptions(
-                        options, arguments, 0, nameCount,
-                        Index.Invalid, true, ref argumentIndex,
-                        ref result);
+                    code = interpreter.GetOptions(options,
+                        arguments, 0, nameIndex, Index.Invalid,
+                        false, ref argumentIndex, ref result);
 
-                    if (code != ReturnCode.Ok)
+                    if (code == ReturnCode.Ok)
+                    {
+                        //
+                        // NOTE: The argument count is 4, e.g.:
+                        //
+                        //       [some -flags +NonPublic get_Token]
+                        //          0      1      2      3
+                        //
+                        //       The "name count" is 2 and the
+                        //       "name (start) index" is 1, e.g.:
+                        //
+                        //         cmd ?options? subCmd ?arg ...?
+                        //          0      1      2      3
+                        //
+                        //       This means we were starting the
+                        //       option scan at argument index #1
+                        //       and that this (sub-)command name
+                        //       must take up at least 2 arguments.
+                        //
+                        if (argumentIndex != Index.Invalid)
+                        {
+                            argumentIndex += (nameCount - nameIndex);
+                        }
+                        else if (nameIndex < nameCount)
+                        {
+                            result = "missing non-option argument(s)";
+                            return ReturnCode.Error;
+                        }
+                    }
+                    else
+                    {
                         return code;
+                    }
                 }
             }
             else
@@ -5849,6 +6166,9 @@ namespace Eagle._Components.Private
             MarshalFlags marshalFlags;
             ReorderFlags reorderFlags;
             ByRefArgumentFlags byRefArgumentFlags;
+            TypeList methodTypes;
+            TypeList parameterTypes;
+            MarshalFlagsList parameterMarshalFlags;
             int limit;
             int index;
             bool noByRef;
@@ -5862,9 +6182,10 @@ namespace Eagle._Components.Private
             bool trace;
 
             ProcessFindMethodsAndFixupArgumentsOptions(
-                interpreter, options, ObjectOptionType.Call, null, null,
-                null, null, out bindingFlags, out marshalFlags,
-                out reorderFlags, out byRefArgumentFlags, out limit,
+                interpreter, options, ObjectOptionType.Call, null,
+                null, null, null, out bindingFlags, out marshalFlags,
+                out reorderFlags, out byRefArgumentFlags, out methodTypes,
+                out parameterTypes, out parameterMarshalFlags, out limit,
                 out index, out noByRef, out strictMember, out strictArgs,
                 out invoke, out noArgs, out arrayAsValue, out arrayAsLink,
                 out debug, out trace);
@@ -5895,68 +6216,70 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             object[] args = null;
-            int argumentCount = 0;
 
             if ((argumentIndex != Index.Invalid) &&
-                (argumentIndex < arguments.Count))
+                (argumentIndex < argumentCount))
             {
                 //
                 // NOTE: How many arguments were supplied?
                 //
-                argumentCount = (arguments.Count - argumentIndex);
+                int newArgumentCount = (argumentCount - argumentIndex);
 
                 //
-                // NOTE: Create and populate the array of arguments for the
-                //       invocation.
+                // NOTE: Create and populate the array of
+                //       arguments for the invocation.
                 //
-                args = new object[argumentCount];
+                args = new object[newArgumentCount];
 
-                for (int index2 = argumentIndex; index2 < arguments.Count;
-                        index2++)
+                for (int newArgumentIndex = argumentIndex;
+                        newArgumentIndex < argumentCount;
+                        newArgumentIndex++)
                 {
                     /* need String, not Argument */
-                    args[index2 - argumentIndex] = arguments[index2].String;
+                    args[newArgumentIndex - argumentIndex] =
+                        arguments[newArgumentIndex].String;
                 }
             }
             else if (invoke || !noArgs)
             {
                 //
-                // FIXME: When no arguments are specified, we actually need an
-                //        array of zero arguments for the parameter to argument
-                //        matching code to work correctly.
+                // FIXME: When no arguments are specified,
+                //        we actually need an array of zero
+                //        arguments for the parameter to
+                //        argument matching code to work
+                //        correctly.
                 //
                 args = new object[0];
             }
 
             //
-            // HACK: We want to use the existing marshalling code; therefore,
-            //       we pre-bake some of the required arguments here (i.e. we
-            //       KNOW what method we are going to call, however we want
-            //       magical bi-directional type coercion, etc).
+            // HACK: We want to use the existing marshalling
+            //       code; therefore, we pre-bake some of
+            //       the required arguments here (i.e. since
+            //       we KNOW what method we are going to call,
+            //       however we want magical bi-directional
+            //       type coercion, etc).
             //
-            object delegateTarget = @delegate.Target;
-            MethodInfo delegateMethodInfo = @delegate.Method;
+            Type delegateType = null;
+            string newObjectName = null;
+            string newMemberName = null;
+            MethodInfo[] methodInfos = null;
 
-            if (delegateMethodInfo == null)
+            if (!GetMethodsFromDelegates(
+                    delegates, ref delegateType, ref newObjectName,
+                    ref newMemberName, ref methodInfos, ref result))
             {
-                result = "cannot invoke delegate, no method";
                 return ReturnCode.Error;
             }
 
-            Type delegateTargetType = AppDomainOps.MaybeGetTypeOrNull(
-                delegateTarget);
-
-            string newObjectName = (delegateTargetType != null) ?
-                delegateTargetType.FullName : null;
-
-            string newMemberName = delegateMethodInfo.Name;
-            MethodInfo[] methodInfo = new MethodInfo[] { delegateMethodInfo };
-
-            if (methodInfo == null) // NOTE: Redundant [for now].
+            //
+            // NOTE: These checks are largely redundant [for now].
+            //
+            if ((methodInfos == null) || (methodInfos.Length == 0))
             {
                 result = String.Format(
-                    "delegate \"{0}\" has no methods matching \"{1}\"",
-                    newObjectName, bindingFlags);
+                    "delegate {0} has no methods matching {1}",
+                    FormatOps.WrapOrNull(newObjectName), bindingFlags);
 
                 return ReturnCode.Error;
             }
@@ -5965,6 +6288,8 @@ namespace Eagle._Components.Private
             //                    METHOD ARGUMENT CONVERSION
             ///////////////////////////////////////////////////////////////////
 
+            IBinder binder = interpreter.InternalBinder;
+            CultureInfo cultureInfo = interpreter.InternalCultureInfo;
             IntList methodIndexList = null;
             ObjectArrayList argsList = null;
             IntArgumentInfoListDictionary argumentInfoListDictionary = null;
@@ -5976,11 +6301,11 @@ namespace Eagle._Components.Private
             //       method.
             //
             code = MarshalOps.FindMethodsAndFixupArguments(
-                interpreter, interpreter.InternalBinder, options,
-                interpreter.InternalCultureInfo, @delegate.GetType(),
-                newObjectName, newObjectName, newMemberName,
-                newMemberName, MemberTypes.Method, bindingFlags,
-                methodInfo, null, null, null, args, limit,
+                interpreter, binder, options, cultureInfo,
+                delegateType, newObjectName, newObjectName,
+                newMemberName, newMemberName, MemberTypes.Method,
+                bindingFlags, methodInfos, methodTypes,
+                parameterTypes, parameterMarshalFlags, args, limit,
                 marshalFlags, ref methodIndexList, ref argsList,
                 ref argumentInfoListDictionary, ref errors);
 
@@ -6003,11 +6328,9 @@ namespace Eagle._Components.Private
                 IntList savedMethodIndexList = new IntList(methodIndexList);
 
                 code = MarshalOps.ReorderMethodIndexes(
-                    interpreter, interpreter.InternalBinder,
-                    interpreter.InternalCultureInfo, @delegate.GetType(),
-                    methodInfo, marshalFlags, reorderFlags,
-                    ref methodIndexList, ref argsList,
-                    ref errors);
+                    interpreter, binder, cultureInfo, delegateType,
+                    methodInfos, marshalFlags, reorderFlags,
+                    ref methodIndexList, ref argsList, ref errors);
 
                 if (code == ReturnCode.Ok)
                 {
@@ -6031,25 +6354,52 @@ namespace Eagle._Components.Private
             //                   METHOD OVERLOAD VALIDATION
             ///////////////////////////////////////////////////////////////////
 
-            if ((methodIndexList == null) || (methodIndexList.Count == 0) ||
-                (argsList == null) || (argsList.Count == 0))
+            if ((methodIndexList == null) || (argsList == null))
             {
                 result = String.Format(
-                    "method \"{0}\" of delegate \"{1}\" not found",
-                    newMemberName, newObjectName);
+                    "method {0} of delegate {1} not found, " +
+                    "invalid index list or arguments list",
+                    FormatOps.WrapOrNull(newMemberName),
+                    FormatOps.WrapOrNull(newObjectName));
 
                 return ReturnCode.Error;
             }
 
-            if ((index != Index.Invalid) &&
-                ((index < 0) || (index >= methodIndexList.Count) ||
-                (index >= argsList.Count)))
+            int methodIndexCount = methodIndexList.Count;
+            int argsCount = argsList.Count;
+
+            if (methodIndexCount == 0 || (argsCount == 0))
             {
                 result = String.Format(
-                    "method \"{0}\" of delegate \"{1}\" not found, " +
+                    "method {0} of delegate {1} not found, " +
+                    "empty index list or arguments list",
+                    FormatOps.WrapOrNull(newMemberName),
+                    FormatOps.WrapOrNull(newObjectName));
+
+                return ReturnCode.Error;
+            }
+
+            if (methodIndexCount != argsCount)
+            {
+                result = String.Format(
+                    "method {0} of delegate {1} not found, " +
+                    "mismatched index count {2} and arguments count {3}",
+                    FormatOps.WrapOrNull(newMemberName),
+                    FormatOps.WrapOrNull(newObjectName),
+                    methodIndexCount, argsCount);
+
+                return ReturnCode.Error;
+            }
+
+            if ((index != Index.Invalid) && ((index < 0) ||
+                (index >= methodIndexCount) || (index >= argsCount)))
+            {
+                result = String.Format(
+                    "method {0} of delegate {1} not found, " +
                     "invalid method index {2}, must be {3}",
-                    newMemberName, newObjectName, index,
-                    FormatOps.BetweenOrExact(0, methodIndexList.Count - 1));
+                    FormatOps.WrapOrNull(newMemberName),
+                    FormatOps.WrapOrNull(newObjectName), index,
+                    FormatOps.BetweenOrExact(0, methodIndexCount - 1));
 
                 return ReturnCode.Error;
             }
@@ -6078,12 +6428,13 @@ namespace Eagle._Components.Private
                 //                  METHOD OVERLOAD SELECTION
                 ///////////////////////////////////////////////////////////////
 
-                if (strictMember && (methodIndexList.Count != 1))
+                if (strictMember && (methodIndexCount != 1))
                 {
                     result = String.Format(
-                        "matched {0} method overloads of \"{1}\" on delegate " +
-                        "\"{2}\", need exactly 1", methodIndexList.Count,
-                        newMemberName, newObjectName);
+                        "matched {0} method overloads of {1} on delegate " +
+                        "{2}, need exactly 1", methodIndexCount,
+                        FormatOps.WrapOrNull(newMemberName),
+                        FormatOps.WrapOrNull(newObjectName));
 
                     return ReturnCode.Error;
                 }
@@ -6098,11 +6449,18 @@ namespace Eagle._Components.Private
                 if (methodIndex == Index.Invalid)
                 {
                     result = String.Format(
-                        "method \"{0}\" of delegate \"{1}\" not found",
-                        newMemberName, newObjectName);
+                        "method {0} of delegate {1} not found",
+                        FormatOps.WrapOrNull(newMemberName),
+                        FormatOps.WrapOrNull(newObjectName));
 
                     return ReturnCode.Error;
                 }
+
+                ///////////////////////////////////////////////////////////////
+                //                  METHOD DELEGATE SELECTION
+                ///////////////////////////////////////////////////////////////
+
+                Delegate localDelegate = delegates[methodIndex].Y;
 
                 ///////////////////////////////////////////////////////////////
                 //               METHOD ARGUMENT ARRAY SELECTION
@@ -6135,10 +6493,10 @@ namespace Eagle._Components.Private
                     TraceOps.DebugTrace(String.Format(
                         "InvokeDelegate: methodIndex = {0}, delegate = {1}, " +
                         "args = {2}, argumentInfoList = {3}", methodIndex,
-                        FormatOps.WrapOrNull(@delegate), FormatOps.WrapOrNull(
-                        new StringList(args)), FormatOps.WrapOrNull(
-                        argumentInfoList)), typeof(ObjectOps).Name,
-                        TracePriority.MarshalDebug);
+                        FormatOps.WrapOrNull(localDelegate),
+                        FormatOps.WrapOrNull(new StringList(args)),
+                        FormatOps.WrapOrNull(argumentInfoList)),
+                        typeof(ObjectOps).Name, TracePriority.MarshalDebug);
                 }
 
                 ///////////////////////////////////////////////////////////////
@@ -6148,7 +6506,9 @@ namespace Eagle._Components.Private
                 object returnValue = null;
 
                 code = Engine.ExecuteDelegate(
-                    @delegate, args, ref returnValue, ref result);
+                    localDelegate, args, ref returnValue, ref result);
+
+                @delegate = localDelegate;
 
                 ///////////////////////////////////////////////////////////////
                 //                   BYREF ARGUMENT HANDLING
@@ -6158,10 +6518,9 @@ namespace Eagle._Components.Private
                     !noByRef && (argumentInfoList != null))
                 {
                     code = MarshalOps.FixupByRefArguments(
-                        interpreter, interpreter.InternalBinder,
-                        interpreter.InternalCultureInfo, argumentInfoList,
+                        interpreter, binder, cultureInfo, argumentInfoList,
                         objectFlags | byRefObjectFlags, options,
-                        useCallOptions ?
+                        allowOptions ?
                             GetInvokeOptions(objectOptionType) : null,
                         objectOptionType, interpName, args, marshalFlags,
                         byRefArgumentFlags, strictArgs, create, dispose,
@@ -6176,9 +6535,8 @@ namespace Eagle._Components.Private
                 if (code == ReturnCode.Ok)
                 {
                     code = MarshalOps.FixupReturnValue(
-                        interpreter, interpreter.InternalBinder,
-                        interpreter.InternalCultureInfo, returnType,
-                        objectFlags, options, useCallOptions ?
+                        interpreter, binder, cultureInfo, returnType,
+                        objectFlags, options, allowOptions ?
                             GetInvokeOptions(objectOptionType) : null,
                         objectOptionType, objectName, interpName,
                         returnValue, create, dispose, alias,
@@ -6195,12 +6553,12 @@ namespace Eagle._Components.Private
 
                 if (index != Index.Invalid)
                 {
-                    methodInfoList.Add(methodInfo[methodIndexList[index]]);
+                    methodInfoList.Add(methodInfos[methodIndexList[index]]);
                 }
                 else
                 {
                     foreach (int methodIndex in methodIndexList)
-                        methodInfoList.Add(methodInfo[methodIndex]);
+                        methodInfoList.Add(methodInfos[methodIndex]);
                 }
 
                 ///////////////////////////////////////////////////////////////
@@ -6208,10 +6566,9 @@ namespace Eagle._Components.Private
                 ///////////////////////////////////////////////////////////////
 
                 code = MarshalOps.FixupReturnValue(
-                    interpreter, interpreter.InternalBinder,
-                    interpreter.InternalCultureInfo, returnType,
-                    objectFlags, options, useCallOptions ?
-                    GetInvokeOptions(objectOptionType) : null,
+                    interpreter, binder, cultureInfo, returnType,
+                    objectFlags, options, allowOptions ?
+                        GetInvokeOptions(objectOptionType) : null,
                     objectOptionType, objectName, interpName,
                     methodInfoList, create, dispose, alias,
                     aliasReference, toString, ref result);
@@ -6224,15 +6581,59 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Object Disposal Support Methods
-        #region Dead Code
-#if DEAD_CODE
-        public static bool IsDisposed( /* NOT USED */
-            object @object,
-            bool @default
+        private static IEnumerable<FieldInfo> GetDisposedFieldInfos(
+            Interpreter interpreter,      /* in: OPTIONAL */
+            Type type,                    /* in */
+            BindingFlags bindingFlags,    /* in */
+            MatchMode mode,               /* in */
+            IEnumerable<string> patterns, /* in */
+            bool noCase                   /* in */
+            )
+        {
+            if ((type == null) || (patterns == null))
+                return null;
+
+            IList<FieldInfo> allFieldInfos = type.GetFields(bindingFlags);
+
+            if (allFieldInfos == null)
+                return null;
+
+            IList<FieldInfo> matchFieldInfos = new List<FieldInfo>();
+
+            foreach (string pattern in patterns)
+            {
+                if (pattern == null)
+                    continue;
+
+                foreach (FieldInfo fieldInfo in allFieldInfos)
+                {
+                    if (fieldInfo == null)
+                        continue;
+
+                    if (StringOps.Match(
+                            interpreter, mode, fieldInfo.Name,
+                            pattern, noCase))
+                    {
+                        matchFieldInfos.Add(fieldInfo);
+                    }
+                }
+            }
+
+            return matchFieldInfos;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool? IsDisposed(
+            Interpreter interpreter, /* in: OPTIONAL */
+            object @object,          /* in */
+            bool force,              /* in */
+            bool? cannotCheck,       /* in */
+            bool? caughtException    /* in */
             )
         {
             if (@object == null)
-                return false;
+                return cannotCheck;
 
             if (IsDisposed(@object))
                 return true;
@@ -6240,7 +6641,7 @@ namespace Eagle._Components.Private
             Type type = AppDomainOps.MaybeGetTypeOrNull(@object);
 
             if (type == null)
-                return false;
+                return cannotCheck;
 
             string[] fieldNames = DisposedFieldNames;
 
@@ -6251,22 +6652,23 @@ namespace Eagle._Components.Private
                     BindingFlags bindingFlags = GetBindingFlags(
                         MetaBindingFlags.DisposedField, false);
 
-                    foreach (string fieldName in fieldNames)
+                    IEnumerable<FieldInfo> fieldInfos = GetDisposedFieldInfos(
+                        interpreter, type, bindingFlags, IsDisposedPatternMode,
+                        fieldNames, IsDisposedPatterNoCase);
+
+                    if (fieldInfos != null)
                     {
-                        if (fieldName == null)
-                            continue;
+                        foreach (FieldInfo fieldInfo in fieldInfos)
+                        {
+                            if (fieldInfo == null)
+                                continue;
 
-                        FieldInfo fieldInfo = type.GetField(
-                            fieldName, bindingFlags);
+                            if (fieldInfo.FieldType != typeof(bool))
+                                continue;
 
-                        if (fieldInfo == null)
-                            continue;
-
-                        if (fieldInfo.FieldType != typeof(bool))
-                            continue;
-
-                        if ((bool)fieldInfo.GetValue(@object))
-                            return true;
+                            if ((bool)fieldInfo.GetValue(@object))
+                                return true;
+                        }
                     }
                 }
                 catch (ObjectDisposedException)
@@ -6275,7 +6677,7 @@ namespace Eagle._Components.Private
                 }
                 catch
                 {
-                    return @default;
+                    return caughtException;
                 }
             }
 
@@ -6312,14 +6714,29 @@ namespace Eagle._Components.Private
                 }
                 catch
                 {
-                    return @default;
+                    return caughtException;
+                }
+            }
+
+            if (force)
+            {
+                try
+                {
+                    /* IGNORED */
+                    @object.ToString(); /* Baaaaaang? */
+                }
+                catch (ObjectDisposedException)
+                {
+                    return true;
+                }
+                catch
+                {
+                    return caughtException;
                 }
             }
 
             return false;
         }
-#endif
-        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 

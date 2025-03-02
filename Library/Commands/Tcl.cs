@@ -30,7 +30,8 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Commands
 {
     [ObjectId("74ca173d-5378-4eb2-9d7c-4952ce598b33")]
-    [CommandFlags(CommandFlags.NativeCode | CommandFlags.Unsafe | CommandFlags.NonStandard)]
+    [CommandFlags(CommandFlags.NativeCode | CommandFlags.Unsafe |
+        CommandFlags.Critical | CommandFlags.NonStandard)]
     [ObjectGroup("nativeEnvironment")]
     internal sealed class Tcl : Core
     {

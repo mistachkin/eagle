@@ -9,14 +9,15 @@
  * RCS: @(#) $Id: $
  */
 
+using System;
 using Eagle._Attributes;
 
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("166e10d1-381d-434d-b3c3-34ad9372ffd5")]
-    public interface IWrapper : IWrapperData
+    public interface IWrapper : IWrapperData, IDisposable
     {
         bool IsDisposable { get; }
-        object Object { get; }
+        object Object { get; set; }
     }
 }

@@ -566,7 +566,7 @@ namespace eval ::Eagle {
         #
         # NOTE: Download the file from the web site.
         #
-        eval uri download -timeouttype network $args; # synchronous.
+        eval uri download -timeouttype network -- $args; # synchronous.
       } finally {
         if {$trusted && \
             [lindex [uri softwareupdates] end] eq "trusted"} then {

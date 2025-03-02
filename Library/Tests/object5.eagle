@@ -46,24 +46,34 @@ runTest {test object-5.1.1 {debugger introspection and automation} -body {
 Global\}\} \{\} \{Traces 1\} \{\} \{Interpreter ObjectTraceCallback\} \{\}\
 \{Array \{\}\} \{\} \{Value \{Count 3 Capacity \d+\}\} \{DefaultValue <null>\}\
 \{Searches 0\} \{\} \{Elements \{\}\} \{\} \{\{foo \(Type\)\} System\.String\}\
-\{\{foo \(Value\)\} System#Int32#\d+\} \{\{foo \(Alias\)\} <null>\} \{\{foo\
-\(ReferenceCount\)\} 1\} \{\{foo \(TemporaryReferenceCount\)\} 0\} \{\{foo\
-\(ObjectFlags\)\} Default\} \{\{foo \(ObjectType\)\} Eagle\._Objects\.Default\}\
-\{\{foo \(ValueType\)\} \{System\.Int32, } [assemblyNameToRegexp \
-[getRuntimeAssemblyName]] {\}\} \{\{foo \(ToString\)\} 0\} \{\{foo\
-\(HashCode\)\} \d+\} \{\{bar \(Type\)\} System\.String\} \{\{bar \(Value\)\}\
-System#Int32#\d+\} \{\{bar \(Alias\)\} <null>\} \{\{bar \(ReferenceCount\)\}\
-1\} \{\{bar \(TemporaryReferenceCount\)\} 0\} \{\{bar \(ObjectFlags\)\}\
-Default\} \{\{bar \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{bar\
-\(ValueType\)\} \{System\.Int32, } [assemblyNameToRegexp \
-[getRuntimeAssemblyName]] {\}\} \{\{bar \(ToString\)\} 0\} \{\{bar\
-\(HashCode\)\} \d+\} \{\{splog \(Type\)\} System\.String\} \{\{splog\
-\(Value\)\} System#String#\d+\} \{\{splog \(Alias\)\} <null>\} \{\{splog\
-\(ReferenceCount\)\} 1\} \{\{splog \(TemporaryReferenceCount\)\} 0\} \{\{splog\
-\(ObjectFlags\)\} Default\} \{\{splog \(ObjectType\)\}\
-Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\} \{System\.String,\
-} [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\} \{\{splog\
-\(ToString\)\} foobar\} \{\{splog \(HashCode\)\} \d+\}$}]]}
+\{\{foo \(Value\)\} System#Int32#\d+\} \{\{foo \(ObjectDisposed\)\} False\}\
+\{\{foo \(ObjectDisposing\)\} False\} \{\{foo \(ObjectRuntimeHashCode\)\}\
+-?\d+\} \{\{foo \(ObjectHashCode\)\} -?\d+\} \{\{foo \(Alias\)\} <null>\}\
+\{\{foo \(ReferenceCount\)\} 1\} \{\{foo \(TemporaryReferenceCount\)\} 0\}\
+\{\{foo \(ObjectFlags\)\} Default\} \{\{foo \(ObjectType\)\}\
+Eagle\._Objects\.Default\} \{\{foo \(ValueType\)\} \{System\.Int32, } \
+[assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\} \{\{foo\
+\(ValueDisposed\)\} False\} \{\{foo \(ValueRuntimeHashCode\)\} -?\d+\} \{\{foo\
+\(ValueHashCode\)\} 0\} \{\{foo \(ValueToString\)\} 0\} \{\{bar \(Type\)\}\
+System\.String\} \{\{bar \(Value\)\} System#Int32#\d+\} \{\{bar\
+\(ObjectDisposed\)\} False\} \{\{bar \(ObjectDisposing\)\} False\} \{\{bar\
+\(ObjectRuntimeHashCode\)\} -?\d+\} \{\{bar \(ObjectHashCode\)\} -?\d+\}\
+\{\{bar \(Alias\)\} <null>\} \{\{bar \(ReferenceCount\)\} 1\} \{\{bar\
+\(TemporaryReferenceCount\)\} 0\} \{\{bar \(ObjectFlags\)\} Default\} \{\{bar\
+\(ObjectType\)\} Eagle\._Objects\.Default\} \{\{bar \(ValueType\)\}\
+\{System\.Int32, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
+\{\{bar \(ValueDisposed\)\} False\} \{\{bar \(ValueRuntimeHashCode\)\} -?\d+\}\
+\{\{bar \(ValueHashCode\)\} 0\} \{\{bar \(ValueToString\)\} 0\} \{\{splog\
+\(Type\)\} System\.String\} \{\{splog \(Value\)\} System#String#\d+\} \{\{splog\
+\(ObjectDisposed\)\} False\} \{\{splog \(ObjectDisposing\)\} False\} \{\{splog\
+\(ObjectRuntimeHashCode\)\} -?\d+\} \{\{splog \(ObjectHashCode\)\} -?\d+\}\
+\{\{splog \(Alias\)\} <null>\} \{\{splog \(ReferenceCount\)\} 1\} \{\{splog\
+\(TemporaryReferenceCount\)\} 0\} \{\{splog \(ObjectFlags\)\} Default\}\
+\{\{splog \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\}\
+\{System\.String, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
+\{\{splog \(ValueDisposed\)\} False\} \{\{splog \(ValueRuntimeHashCode\)\}\
+-?\d+\} \{\{splog \(ValueHashCode\)\} -?\d+\} \{\{splog \(ValueToString\)\}\
+foobar\}$}]]}
 
 ###############################################################################
 
@@ -83,25 +93,35 @@ compile.NATIVE compile.TCL !compile.DEBUGGER !compile.DEBUGGER_ARGUMENTS}] \
 Global\}\} \{\} \{Traces 1\} \{\} \{Interpreter ObjectTraceCallback\} \{\}\
 \{Array \{\}\} \{\} \{Value \{Count 3 Capacity \d+\}\} \{DefaultValue <null>\}\
 \{Searches 0\} \{\} \{Elements \{\}\} \{\} \{\{foo \(Type\)\} System\.String\}\
-\{\{foo \(Value\)\} System#Int32#\d+\} \{\{foo \(Alias\)\} <null>\} \{\{foo\
-\(ReferenceCount\)\} 1\} \{\{foo \(TemporaryReferenceCount\)\} 0\} \{\{foo\
-\(ObjectFlags\)\} Default\} \{\{foo \(InterpName\)\} <null>\} \{\{foo\
+\{\{foo \(Value\)\} System#Int32#\d+\} \{\{foo \(ObjectDisposed\)\} False\}\
+\{\{foo \(ObjectDisposing\)\} False\} \{\{foo \(ObjectRuntimeHashCode\)\}\
+-?\d+\} \{\{foo \(ObjectHashCode\)\} -?\d+\} \{\{foo \(Alias\)\} <null>\}\
+\{\{foo \(ReferenceCount\)\} 1\} \{\{foo \(TemporaryReferenceCount\)\} 0\}\
+\{\{foo \(ObjectFlags\)\} Default\} \{\{foo \(InterpName\)\} <null>\} \{\{foo\
 \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{foo \(ValueType\)\}\
 \{System\.Int32, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
-\{\{foo \(ToString\)\} 0\} \{\{foo \(HashCode\)\} \d+\} \{\{bar \(Type\)\}\
-System\.String\} \{\{bar \(Value\)\} System#Int32#\d+\} \{\{bar \(Alias\)\}\
-<null>\} \{\{bar \(ReferenceCount\)\} 1\} \{\{bar \(TemporaryReferenceCount\)\}\
-0\} \{\{bar \(ObjectFlags\)\} Default\} \{\{bar \(InterpName\)\} <null>\}\
-\{\{bar \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{bar \(ValueType\)\}\
-\{System\.Int32, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
-\{\{bar \(ToString\)\} 0\} \{\{bar \(HashCode\)\} \d+\} \{\{splog \(Type\)\}\
-System\.String\} \{\{splog \(Value\)\} System#String#\d+\} \{\{splog\
-\(Alias\)\} <null>\} \{\{splog \(ReferenceCount\)\} 1\} \{\{splog\
-\(TemporaryReferenceCount\)\} 0\} \{\{splog \(ObjectFlags\)\} Default\}\
-\{\{splog \(InterpName\)\} <null>\} \{\{splog \(ObjectType\)\}\
-Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\} \{System\.String, } \
-[assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\} \{\{splog \(ToString\)\}\
-foobar\} \{\{splog \(HashCode\)\} \d+\}$}]]}
+\{\{foo \(ValueDisposed\)\} False\} \{\{foo \(ValueRuntimeHashCode\)\} -?\d+\}\
+\{\{foo \(ValueHashCode\)\} 0\} \{\{foo \(ValueToString\)\} 0\} \{\{bar\
+\(Type\)\} System\.String\} \{\{bar \(Value\)\} System#Int32#\d+\} \{\{bar\
+\(ObjectDisposed\)\} False\} \{\{bar \(ObjectDisposing\)\} False\} \{\{bar\
+\(ObjectRuntimeHashCode\)\} -?\d+\} \{\{bar \(ObjectHashCode\)\} -?\d+\}\
+\{\{bar \(Alias\)\} <null>\} \{\{bar \(ReferenceCount\)\} 1\} \{\{bar\
+\(TemporaryReferenceCount\)\} 0\} \{\{bar \(ObjectFlags\)\} Default\} \{\{bar\
+\(InterpName\)\} <null>\} \{\{bar \(ObjectType\)\} Eagle\._Objects\.Default\}\
+\{\{bar \(ValueType\)\} \{System\.Int32, } [assemblyNameToRegexp \
+[getRuntimeAssemblyName]] {\}\} \{\{bar \(ValueDisposed\)\} False\} \{\{bar\
+\(ValueRuntimeHashCode\)\} -?\d+\} \{\{bar \(ValueHashCode\)\} 0\} \{\{bar\
+\(ValueToString\)\} 0\} \{\{splog \(Type\)\} System\.String\} \{\{splog\
+\(Value\)\} System#String#\d+\} \{\{splog \(ObjectDisposed\)\} False\}\
+\{\{splog \(ObjectDisposing\)\} False\} \{\{splog \(ObjectRuntimeHashCode\)\}\
+-?\d+\} \{\{splog \(ObjectHashCode\)\} -?\d+\} \{\{splog \(Alias\)\} <null>\}\
+\{\{splog \(ReferenceCount\)\} 1\} \{\{splog \(TemporaryReferenceCount\)\} 0\}\
+\{\{splog \(ObjectFlags\)\} Default\} \{\{splog \(InterpName\)\} <null>\}\
+\{\{splog \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\}\
+\{System\.String, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
+\{\{splog \(ValueDisposed\)\} False\} \{\{splog \(ValueRuntimeHashCode\)\}\
+-?\d+\} \{\{splog \(ValueHashCode\)\} -?\d+\} \{\{splog \(ValueToString\)\}\
+foobar\}$}]]}
 
 ###############################################################################
 
@@ -121,26 +141,37 @@ runTest {test object-5.1.3 {debugger introspection and automation} -body {
 Global\}\} \{\} \{Traces 1\} \{\} \{Interpreter ObjectTraceCallback\} \{\}\
 \{Array \{\}\} \{\} \{Value \{Count 3 Capacity \d+\}\} \{DefaultValue <null>\}\
 \{Searches 0\} \{\} \{Elements \{\}\} \{\} \{\{foo \(Type\)\} System\.String\}\
-\{\{foo \(Value\)\} System#Int32#\d+\} \{\{foo \(Alias\)\} <null>\} \{\{foo\
-\(ReferenceCount\)\} 1\} \{\{foo \(TemporaryReferenceCount\)\} 0\} \{\{foo\
-\(ObjectFlags\)\} Default\} \{\{foo \(ExecuteArguments\)\} \{object create\
-System\.Int32\}\} \{\{foo \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{foo\
+\{\{foo \(Value\)\} System#Int32#\d+\} \{\{foo \(ObjectDisposed\)\} False\}\
+\{\{foo \(ObjectDisposing\)\} False\} \{\{foo \(ObjectRuntimeHashCode\)\}\
+-?\d+\} \{\{foo \(ObjectHashCode\)\} -?\d+\} \{\{foo \(Alias\)\} <null>\}\
+\{\{foo \(ReferenceCount\)\} 1\} \{\{foo \(TemporaryReferenceCount\)\} 0\}\
+\{\{foo \(ObjectFlags\)\} Default\} \{\{foo \(ExecuteArguments\)\} \{object\
+create System\.Int32\}\} \{\{foo \(ObjectType\)\} Eagle\._Objects\.Default\}\
+\{\{foo \(ValueType\)\} \{System\.Int32, } [assemblyNameToRegexp \
+[getRuntimeAssemblyName]] {\}\} \{\{foo \(ValueDisposed\)\} False\} \{\{foo\
+\(ValueRuntimeHashCode\)\} -?\d+\} \{\{foo \(ValueHashCode\)\} 0\} \{\{foo\
+\(ValueToString\)\} 0\} \{\{bar \(Type\)\} System\.String\} \{\{bar \(Value\)\}\
+System#Int32#\d+\} \{\{bar \(ObjectDisposed\)\} False\} \{\{bar\
+\(ObjectDisposing\)\} False\} \{\{bar \(ObjectRuntimeHashCode\)\} -?\d+\}\
+\{\{bar \(ObjectHashCode\)\} -?\d+\} \{\{bar \(Alias\)\} <null>\} \{\{bar\
+\(ReferenceCount\)\} 1\} \{\{bar \(TemporaryReferenceCount\)\} 0\} \{\{bar\
+\(ObjectFlags\)\} Default\} \{\{bar \(ExecuteArguments\)\} \{object create\
+System\.Int32\}\} \{\{bar \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{bar\
 \(ValueType\)\} \{System\.Int32, } [assemblyNameToRegexp \
-[getRuntimeAssemblyName]] {\}\} \{\{foo \(ToString\)\} 0\} \{\{foo\
-\(HashCode\)\} \d+\} \{\{bar \(Type\)\} System\.String\} \{\{bar \(Value\)\}\
-System#Int32#\d+\} \{\{bar \(Alias\)\} <null>\} \{\{bar \(ReferenceCount\)\}\
-1\} \{\{bar \(TemporaryReferenceCount\)\} 0\} \{\{bar \(ObjectFlags\)\}\
-Default\} \{\{bar \(ExecuteArguments\)\} \{object create System\.Int32\}\}\
-\{\{bar \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{bar \(ValueType\)\}\
-\{System\.Int32, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
-\{\{bar \(ToString\)\} 0\} \{\{bar \(HashCode\)\} \d+\} \{\{splog \(Type\)\}\
-System\.String\} \{\{splog \(Value\)\} System#String#\d+\} \{\{splog\
-\(Alias\)\} <null>\} \{\{splog \(ReferenceCount\)\} 1\} \{\{splog\
-\(TemporaryReferenceCount\)\} 0\} \{\{splog \(ObjectFlags\)\} Default\}\
-\{\{splog \(ExecuteArguments\)\} \{object create System\.String foobar\}\}\
-\{\{splog \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\}\
-\{System\.String, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
-\{\{splog \(ToString\)\} foobar\} \{\{splog \(HashCode\)\} \d+\}$}]]}
+[getRuntimeAssemblyName]] {\}\} \{\{bar \(ValueDisposed\)\} False\} \{\{bar\
+\(ValueRuntimeHashCode\)\} -?\d+\} \{\{bar \(ValueHashCode\)\} 0\} \{\{bar\
+\(ValueToString\)\} 0\} \{\{splog \(Type\)\} System\.String\} \{\{splog\
+\(Value\)\} System#String#\d+\} \{\{splog \(ObjectDisposed\)\} False\}\
+\{\{splog \(ObjectDisposing\)\} False\} \{\{splog \(ObjectRuntimeHashCode\)\}\
+-?\d+\} \{\{splog \(ObjectHashCode\)\} -?\d+\} \{\{splog \(Alias\)\} <null>\}\
+\{\{splog \(ReferenceCount\)\} 1\} \{\{splog \(TemporaryReferenceCount\)\} 0\}\
+\{\{splog \(ObjectFlags\)\} Default\} \{\{splog \(ExecuteArguments\)\} \{object\
+create System\.String foobar\}\} \{\{splog \(ObjectType\)\}\
+Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\} \{System\.String, } \
+[assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\} \{\{splog\
+\(ValueDisposed\)\} False\} \{\{splog \(ValueRuntimeHashCode\)\} -?\d+\}\
+\{\{splog \(ValueHashCode\)\} -?\d+\} \{\{splog \(ValueToString\)\}\
+foobar\}$}]]}
 
 ###############################################################################
 
@@ -160,28 +191,38 @@ compile.TCL compile.DEBUGGER compile.DEBUGGER_ARGUMENTS} -match regexp -result \
 \{\} \{Interpreter ObjectTraceCallback\} \{\} \{Array \{\}\} \{\} \{Value\
 \{Count 3 Capacity \d+\}\} \{DefaultValue <null>\} \{Searches 0\} \{\}\
 \{Elements \{\}\} \{\} \{\{foo \(Type\)\} System\.String\} \{\{foo \(Value\)\}\
-System#Int32#\d+\} \{\{foo \(Alias\)\} <null>\} \{\{foo \(ReferenceCount\)\}\
-1\} \{\{foo \(TemporaryReferenceCount\)\} 0\} \{\{foo \(ObjectFlags\)\}\
-Default\} \{\{foo \(InterpName\)\} <null>\} \{\{foo \(ExecuteArguments\)\}\
-\{object create System\.Int32\}\} \{\{foo \(ObjectType\)\}\
-Eagle\._Objects\.Default\} \{\{foo \(ValueType\)\} \{System\.Int32, } \
-[assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\} \{\{foo \(ToString\)\}\
-0\} \{\{foo \(HashCode\)\} \d+\} \{\{bar \(Type\)\} System\.String\} \{\{bar\
-\(Value\)\} System#Int32#\d+\} \{\{bar \(Alias\)\} <null>\} \{\{bar\
-\(ReferenceCount\)\} 1\} \{\{bar \(TemporaryReferenceCount\)\} 0\} \{\{bar\
-\(ObjectFlags\)\} Default\} \{\{bar \(InterpName\)\} <null>\} \{\{bar\
-\(ExecuteArguments\)\} \{object create System\.Int32\}\} \{\{bar\
-\(ObjectType\)\} Eagle\._Objects\.Default\} \{\{bar \(ValueType\)\}\
+System#Int32#\d+\} \{\{foo \(ObjectDisposed\)\} False\} \{\{foo\
+\(ObjectDisposing\)\} False\} \{\{foo \(ObjectRuntimeHashCode\)\} -?\d+\}\
+\{\{foo \(ObjectHashCode\)\} -?\d+\} \{\{foo \(Alias\)\} <null>\} \{\{foo\
+\(ReferenceCount\)\} 1\} \{\{foo \(TemporaryReferenceCount\)\} 0\} \{\{foo\
+\(ObjectFlags\)\} Default\} \{\{foo \(InterpName\)\} <null>\} \{\{foo\
+\(ExecuteArguments\)\} \{object create System\.Int32\}\} \{\{foo\
+\(ObjectType\)\} Eagle\._Objects\.Default\} \{\{foo \(ValueType\)\}\
 \{System\.Int32, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
-\{\{bar \(ToString\)\} 0\} \{\{bar \(HashCode\)\} \d+\} \{\{splog \(Type\)\}\
-System\.String\} \{\{splog \(Value\)\} System#String#\d+\} \{\{splog\
-\(Alias\)\} <null>\} \{\{splog \(ReferenceCount\)\} 1\} \{\{splog\
-\(TemporaryReferenceCount\)\} 0\} \{\{splog \(ObjectFlags\)\} Default\}\
-\{\{splog \(InterpName\)\} <null>\} \{\{splog \(ExecuteArguments\)\} \{object\
-create System\.String foobar\}\} \{\{splog \(ObjectType\)\}\
-Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\} \{System\.String, } \
-[assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\} \{\{splog \(ToString\)\}\
-foobar\} \{\{splog \(HashCode\)\} \d+\}$}]]}
+\{\{foo \(ValueDisposed\)\} False\} \{\{foo \(ValueRuntimeHashCode\)\} -?\d+\}\
+\{\{foo \(ValueHashCode\)\} 0\} \{\{foo \(ValueToString\)\} 0\} \{\{bar\
+\(Type\)\} System\.String\} \{\{bar \(Value\)\} System#Int32#\d+\} \{\{bar\
+\(ObjectDisposed\)\} False\} \{\{bar \(ObjectDisposing\)\} False\} \{\{bar\
+\(ObjectRuntimeHashCode\)\} -?\d+\} \{\{bar \(ObjectHashCode\)\} -?\d+\}\
+\{\{bar \(Alias\)\} <null>\} \{\{bar \(ReferenceCount\)\} 1\} \{\{bar\
+\(TemporaryReferenceCount\)\} 0\} \{\{bar \(ObjectFlags\)\} Default\} \{\{bar\
+\(InterpName\)\} <null>\} \{\{bar \(ExecuteArguments\)\} \{object create\
+System\.Int32\}\} \{\{bar \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{bar\
+\(ValueType\)\} \{System\.Int32, } [assemblyNameToRegexp \
+[getRuntimeAssemblyName]] {\}\} \{\{bar \(ValueDisposed\)\} False\} \{\{bar\
+\(ValueRuntimeHashCode\)\} -?\d+\} \{\{bar \(ValueHashCode\)\} 0\} \{\{bar\
+\(ValueToString\)\} 0\} \{\{splog \(Type\)\} System\.String\} \{\{splog\
+\(Value\)\} System#String#\d+\} \{\{splog \(ObjectDisposed\)\} False\}\
+\{\{splog \(ObjectDisposing\)\} False\} \{\{splog \(ObjectRuntimeHashCode\)\}\
+-?\d+\} \{\{splog \(ObjectHashCode\)\} -?\d+\} \{\{splog \(Alias\)\} <null>\}\
+\{\{splog \(ReferenceCount\)\} 1\} \{\{splog \(TemporaryReferenceCount\)\} 0\}\
+\{\{splog \(ObjectFlags\)\} Default\} \{\{splog \(InterpName\)\} <null>\}\
+\{\{splog \(ExecuteArguments\)\} \{object create System\.String foobar\}\}\
+\{\{splog \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\}\
+\{System\.String, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
+\{\{splog \(ValueDisposed\)\} False\} \{\{splog \(ValueRuntimeHashCode\)\}\
+-?\d+\} \{\{splog \(ValueHashCode\)\} -?\d+\} \{\{splog \(ValueToString\)\}\
+foobar\}$}]]}
 
 ###############################################################################
 

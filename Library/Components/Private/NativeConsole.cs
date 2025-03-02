@@ -2076,7 +2076,7 @@ namespace Eagle._Components.Private
                             localOutputHandle, ref closeError))
                     {
                         //
-                        // HACK: At this point, the local handle may be
+                        // HACK: At this point, the local handle might be
                         //       "leaked"; however, the call to CloseHandle
                         //       failed so there is nothing else we can do.
                         //
@@ -2099,7 +2099,7 @@ namespace Eagle._Components.Private
                             localInputHandle, ref closeError))
                     {
                         //
-                        // HACK: At this point, the local handle may be
+                        // HACK: At this point, the local handle might be
                         //       "leaked"; however, the call to CloseHandle
                         //       failed so there is nothing else we can do.
                         //

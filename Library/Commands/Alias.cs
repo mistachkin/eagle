@@ -26,7 +26,10 @@ namespace Eagle._Commands
      *         transparent conduit to functionality that MAY
      *         be available elsewhere in the interpreter).
      */
-    [CommandFlags(CommandFlags.Alias | CommandFlags.Safe)]
+    [CommandFlags(
+        CommandFlags.NoPopulate | CommandFlags.NoAdd |
+        CommandFlags.Alias | CommandFlags.Safe
+    )]
     [ObjectGroup("alias")]
     internal sealed class Alias : Core, IAlias
     {

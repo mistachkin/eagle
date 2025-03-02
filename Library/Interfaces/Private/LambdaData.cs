@@ -15,7 +15,7 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Interfaces.Private
 {
     [ObjectId("7ba4a7f5-07c3-4c40-aa30-4193111b1370")]
-    public interface ILambdaData : IProcedureData
+    internal interface ILambdaData : IProcedureData
     {
         // nothing.
     }

@@ -136,9 +136,11 @@ namespace Eagle._Components.Private
             private static readonly RegExList MonoVersionRegExList =
                 new RegExList(new Regex[] {
                 RegExOps.Create(" (\\d+(?:\\.\\d+)+)$", /* NOTE: Pre-2.6.0? */
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant |
+                    RegexOptions.Compiled),
                 RegExOps.Create("^(\\d+(?:\\.\\d+)+) ", /* NOTE: Post-2.6.0? */
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant |
+                    RegexOptions.Compiled)
             });
 
             ///////////////////////////////////////////////////////////////////

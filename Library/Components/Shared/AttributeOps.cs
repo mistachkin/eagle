@@ -44,13 +44,19 @@ namespace Eagle._Components.Shared
         private static readonly string ScriptUriName = "script";
         private static readonly string AuxiliaryUriName = "auxiliary";
         private static readonly string XmlSchemaName = "xmlSchema";
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+        private static readonly string TrustedRemoteUriName = "trustedRemote";
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Shared Assembly Attribute Methods
         public static DateTime GetAssemblyDateTime(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             return GetAssemblyDateTime(assembly, null);
@@ -59,8 +65,8 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         private static DateTime GetAssemblyDateTime(
-            Assembly assembly,
-            bool? attributeOnly
+            Assembly assembly,  /* in */
+            bool? attributeOnly /* in */
             )
         {
             if (assembly != null)
@@ -133,7 +139,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetAssemblyRelease(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             if (assembly != null)
@@ -163,7 +169,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetAssemblySourceId(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             if (assembly != null)
@@ -193,7 +199,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetAssemblySourceTimeStamp(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             if (assembly != null)
@@ -224,7 +230,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetAssemblyStrongNameTag(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             if (assembly != null)
@@ -255,7 +261,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetAssemblyTag(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             if (assembly != null)
@@ -285,7 +291,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetAssemblyText(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             if (assembly != null)
@@ -315,7 +321,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetAssemblyTitle(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             if (assembly != null)
@@ -345,7 +351,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static Uri GetAssemblyUri(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             return GetAssemblyUri(assembly, null);
@@ -354,8 +360,8 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static Uri GetAssemblyUri(
-            Assembly assembly,
-            string name
+            Assembly assembly, /* in */
+            string name        /* in */
             )
         {
             if (assembly != null)
@@ -396,7 +402,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static Uri GetAssemblyUpdateBaseUri(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             //
@@ -415,7 +421,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static Uri GetAssemblyDownloadBaseUri(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             //
@@ -434,7 +440,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static Uri GetAssemblyScriptBaseUri(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             //
@@ -453,7 +459,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static Uri GetAssemblyAuxiliaryBaseUri(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             //
@@ -472,7 +478,7 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         public static Uri GetAssemblyXmlSchemaUri(
-            Assembly assembly
+            Assembly assembly /* in */
             )
         {
             //
@@ -487,6 +493,17 @@ namespace Eagle._Components.Shared
 
             return GetAssemblyUri(assembly); /* COMPAT: Eagle beta */
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+        public static Uri GetAssemblyTrustedRemoteUri(
+            Assembly assembly /* in */
+            )
+        {
+            return GetAssemblyUri(assembly, TrustedRemoteUriName);
+        }
+#endif
         #endregion
     }
 }

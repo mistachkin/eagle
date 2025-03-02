@@ -31,8 +31,9 @@ namespace Eagle._Commands
 {
     [ObjectId("eba460e1-048f-409a-a18c-70c5dc6aad6b")]
     [CommandFlags(
-        CommandFlags.Unsafe | CommandFlags.Standard |
-        CommandFlags.SecuritySdk | CommandFlags.LicenseSdk)]
+        CommandFlags.Unsafe | CommandFlags.Critical |
+        CommandFlags.Standard | CommandFlags.SecuritySdk |
+        CommandFlags.LicenseSdk)]
     [ObjectGroup("managedEnvironment")]
     internal sealed class Load : Core
     {
@@ -62,7 +63,8 @@ namespace Eagle._Commands
                     {
                         OptionDictionary options = new OptionDictionary(
                             new IOption[] {
-                            new Option(null, OptionFlags.MustHaveRuleSetValue | OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-ruleset", null),
+                            new Option(null, OptionFlags.MustHaveRuleSetValue | OptionFlags.CouldBePath |
+                                OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-ruleset", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-needclientdata", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-anythread", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nocommands", null),

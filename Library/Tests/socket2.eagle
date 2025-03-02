@@ -197,7 +197,7 @@ runTest {test socket-2.2 {client/server sockets with threads} -setup {
       hurryUpAndWaitFor 1000
     }
 
-    vwait ::y
+    vwait -timeout [expr {$::test_long_timeout * 10}] ::y
   }
 
   proc serverAccept { channel ip port } {

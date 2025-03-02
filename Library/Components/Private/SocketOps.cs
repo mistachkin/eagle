@@ -10,10 +10,17 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Reflection;
 using System.Threading;
 using Eagle._Attributes;
@@ -21,6 +28,16 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+
+using CidrPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Containers.Public.StringList>;
+
+using CidrDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Containers.Public.StringList>;
+
+#if NET_STANDARD_21
+using Index = Eagle._Constants.Index;
+#endif
 
 namespace Eagle._Components.Private
 {
@@ -33,6 +50,39 @@ namespace Eagle._Components.Private
         //
         private static int? MinimumSocketPollTimeout = 500; /* microseconds */
         private static int? MaximumSocketPollTimeout = null; /* microseconds */
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private const int IPv4Parts = 4;
+        private const byte IPv4Bits = 32;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static byte IPv4PrefixLength = 1; /* 1 part(s) (byte(s)), 1 byte, 8 bits */
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static byte IPv6PrefixLength = 1; /* 1 part(s) (word(s)), 2 bytes, 16 bits */
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private const int ByteBits = 8;
+        private const int IPv6Parts = 8;
+        private const byte IPv6Bits = 128;
+        private const string IPv6Format = "x";
+        private const string IPv6Zeros = "::";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private const int SizeOfTwoULong = 2 * sizeof(ulong);
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -94,7 +144,10 @@ namespace Eagle._Components.Private
                 }
 
                 if (empty || (offlineLevels != 0))
-                    localList.Add("OfflineLevels", offlineLevels.ToString());
+                {
+                    localList.Add("OfflineLevels",
+                        offlineLevels.ToString());
+                }
 
                 if (localList.Count > 0)
                 {
@@ -109,13 +162,1372 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Diagnostic Methods
+        private static bool IsIPv4(
+            IPAddress address, /* in */
+            IpFlags ipFlags,   /* in */
+            ref Result error   /* out */
+            )
+        {
+            if (address == null)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "invalid IPv4 address";
+                }
+
+                return false;
+            }
+
+            AddressFamily addressFamily = address.AddressFamily;
+
+            if (addressFamily != AddressFamily.InterNetwork)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = String.Format(
+                        "unsupported address family {0}",
+                        addressFamily);
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsIPv4(
+            byte[] address,  /* in */
+            IpFlags ipFlags, /* in */
+            ref Result error /* out */
+            )
+        {
+            if (address == null)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "invalid IPv4 address bytes";
+                }
+
+                return false;
+            }
+
+            if (!FlagOps.HasFlags(
+                    ipFlags, IpFlags.IPv4, true))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "IPv4 is not allowed";
+                }
+
+                return false;
+            }
+
+            int haveLength = address.Length;
+            int wantLength = sizeof(uint);
+
+            if (haveLength != wantLength)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = String.Format(
+                        "expected {0} address bytes, got {1}",
+                        wantLength, haveLength);
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static byte GetPrefixLength(
+            AddressFamily addressFamily /* in */
+            )
+        {
+            if (addressFamily == AddressFamily.InterNetwork)
+                return IPv4PrefixLength;
+
+#if NET_40
+            if (addressFamily == AddressFamily.InterNetworkV6)
+                return IPv6PrefixLength;
+#endif
+
+            return 0;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        private static bool IsIPv6(
+            IPAddress address, /* in */
+            IpFlags ipFlags,   /* in */
+            ref Result error   /* out */
+            )
+        {
+            if (address == null)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "invalid IPv6 address";
+                }
+
+                return false;
+            }
+
+            if (!FlagOps.HasFlags(
+                    ipFlags, IpFlags.IPv6, true))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "IPv6 is not allowed";
+                }
+
+                return false;
+            }
+
+            AddressFamily addressFamily = address.AddressFamily;
+
+            if (addressFamily != AddressFamily.InterNetworkV6)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = String.Format(
+                        "unsupported address family {0}",
+                        addressFamily);
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsIPv6(
+            byte[] address,  /* in */
+            IpFlags ipFlags, /* in */
+            ref Result error /* out */
+            )
+        {
+            if (address == null)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "invalid IPv6 address bytes";
+                }
+
+                return false;
+            }
+
+            if (!FlagOps.HasFlags(
+                    ipFlags, IpFlags.IPv6, true))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "IPv6 is not allowed";
+                }
+
+                return false;
+            }
+
+            int haveLength = address.Length;
+            int wantLength = SizeOfTwoULong;
+
+            if (haveLength != wantLength)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = String.Format(
+                        "expected {0} address bytes, got {1}",
+                        wantLength, haveLength);
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeStripBrackets(
+            ref string value /* in, out */
+            )
+        {
+            if (String.IsNullOrEmpty(value))
+                return false;
+
+            int valueLength = value.Length;
+
+            if (value[0] != Characters.OpenBracket) /* [2001:db8::1] */
+                return true;
+
+            if ((valueLength <= 2) ||
+                (value[valueLength - 1] != Characters.CloseBracket))
+            {
+                return false;
+            }
+
+            value = value.Substring(1, valueLength - 2);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool WordsFromIPv4(
+            string value,        /* in */
+            out ushort leftWord, /* out */
+            out ushort rightWord /* out */
+            )
+        {
+            leftWord = 0;
+            rightWord = 0;
+
+            IPAddress address;
+
+            if (!IPAddress.TryParse(value, out address) ||
+                (address.AddressFamily != AddressFamily.InterNetwork))
+            {
+                return false;
+            }
+
+            byte[] bytes = address.GetAddressBytes();
+
+            if ((bytes == null) || (bytes.Length != sizeof(uint)))
+                return false;
+
+            leftWord = (ushort)((bytes[0] << ByteBits) | bytes[1]);
+            rightWord = (ushort)((bytes[2] << ByteBits) | bytes[3]);
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeExpandIPv6(
+            string value,       /* in */
+            string separator,   /* in */
+            int maximumLength,  /* in */
+            out string[] parts, /* out */
+            out int length      /* out */
+            )
+        {
+            parts = null;
+            length = Length.Invalid;
+
+            if (String.IsNullOrEmpty(value))
+                return false;
+
+            parts = value.Split(
+                new string[] { IPv6Zeros }, StringSplitOptions.None);
+
+            if (parts == null)
+                return false;
+
+            length = parts.Length;
+
+            if (length != 2) /* NOTE: Only one "::". */
+                return false;
+
+            string[] separators = new string[] { separator };
+
+            string[] leftParts = parts[0].Split(
+                separators, StringSplitOptions.None);
+
+            if (leftParts == null)
+                return false;
+
+            int leftLength = leftParts.Length;
+
+            string[] rightParts = parts[1].Split(
+                separators, StringSplitOptions.None);
+
+            if (rightParts == null)
+                return false;
+
+            int rightLength = rightParts.Length;
+
+            if (rightLength == 0)
+                return false;
+
+            string lastPart = rightParts[rightLength - 1];
+
+            if (lastPart == null)
+                return false;
+
+            ushort leftWord;
+            ushort rightWord;
+
+            if (WordsFromIPv4(lastPart, out leftWord, out rightWord))
+            {
+                rightLength++;
+
+                if ((leftLength + rightLength) > maximumLength)
+                    return false;
+
+                Array.Resize(ref rightParts, rightLength);
+
+                rightParts[rightLength - 2] = leftWord.ToString(IPv6Format);
+                rightParts[rightLength - 1] = rightWord.ToString(IPv6Format);
+            }
+
+            parts = new string[maximumLength];
+
+            int partsIndex = 0;
+
+            leftParts.CopyTo(parts, partsIndex);
+
+            partsIndex += leftLength;
+            partsIndex += maximumLength - (leftLength + rightLength);
+
+            rightParts.CopyTo(parts, partsIndex);
+
+            partsIndex += rightLength; /* REDUNDANT */
+            return true;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsValidCIDR(
+            string pattern,        /* in */
+            IpFlags ipFlags,       /* in */
+            out IPAddress prefix,  /* out */
+            out byte prefixLength, /* out */
+            ref Result error       /* out */
+            )
+        {
+            prefix = null;
+            prefixLength = 0;
+
+            if (String.IsNullOrEmpty(pattern))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "invalid CIDR pattern";
+                }
+
+                return false;
+            }
+
+            string[] parts = pattern.Split(Characters.Slash);
+
+            if (parts == null)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "could not split CIDR pattern";
+                }
+
+                return false;
+            }
+
+            int length = parts.Length;
+
+            if (length != 2)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = String.Format(
+                        "split CIDR pattern into {0}", length);
+                }
+
+                return false;
+            }
+
+            if (!byte.TryParse(parts[1], out prefixLength))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "bad CIDR prefix length";
+                }
+
+                return false;
+            }
+
+            prefix = GetIpAddress(
+                parts[0], prefixLength, ipFlags, ref error);
+
+            if (prefix == null)
+                return false;
+
+            AddressFamily addressFamily = prefix.AddressFamily;
+
+            switch (addressFamily)
+            {
+                case AddressFamily.InterNetwork:
+                    {
+                        if (!IsIPv4(prefix, ipFlags, ref error))
+                            return false;
+
+                        if (prefixLength > IPv4Bits)
+                        {
+                            if (FlagOps.HasFlags(
+                                    ipFlags, IpFlags.KeepErrors, true))
+                            {
+                                error = String.Format(
+                                    "bad IPv4 prefix length {0}",
+                                    prefixLength);
+                            }
+
+                            return false;
+                        }
+
+                        return true;
+                    }
+#if NET_40
+                case AddressFamily.InterNetworkV6:
+                    {
+                        if (!IsIPv6(prefix, ipFlags, ref error))
+                            return false;
+
+                        if (prefixLength > IPv6Bits)
+                        {
+                            if (FlagOps.HasFlags(
+                                    ipFlags, IpFlags.KeepErrors, true))
+                            {
+                                error = String.Format(
+                                    "bad IPv6 prefix length {0}",
+                                    prefixLength);
+                            }
+
+                            return false;
+                        }
+
+                        return true;
+                    }
+#endif
+                default:
+                    {
+                        if (FlagOps.HasFlags(
+                                ipFlags, IpFlags.KeepErrors, true))
+                        {
+                            error = String.Format(
+                                "unsupported address family {0}",
+                                addressFamily);
+                        }
+
+                        return false;
+                    }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string ExtractAddressPrefix(
+            string value,       /* in */
+            byte? prefixLength, /* in */
+            IpFlags ipFlags,    /* in */
+            bool? wildcard,     /* in */
+            ref Result error    /* out */
+            )
+        {
+            if (String.IsNullOrEmpty(value))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "invalid CIDR pattern";
+                }
+
+                return null;
+            }
+
+            string separator = null;
+
+            foreach (char? character in new char?[] {
+                FlagOps.HasFlags(ipFlags, IpFlags.IPv6, true) ?
+                    (char?)Characters.Colon : null,
+                FlagOps.HasFlags(ipFlags, IpFlags.IPv4, true) ?
+                    (char?)Characters.Period : null
+                })
+            {
+                if (character == null)
+                    continue;
+
+                if (value.IndexOf(
+                        (char)character) != Index.Invalid)
+                {
+                    separator = character.ToString();
+                    break;
+                }
+            }
+
+            if (String.IsNullOrEmpty(separator))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = String.Format(
+                        "unknown CIDR pattern separator for {0}",
+                        FormatOps.WrapOrNull(ipFlags));
+                }
+
+                return null;
+            }
+
+            AddressFamily addressFamily;
+
+#if NET_40
+            bool isIPv6 = (separator[0] == Characters.Colon);
+
+            if (isIPv6 && !MaybeStripBrackets(ref value))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "bad bracketed IPv6 for CIDR pattern";
+                }
+
+                return null;
+            }
+
+            addressFamily = isIPv6 ?
+                AddressFamily.InterNetworkV6 :
+                AddressFamily.InterNetwork;
+#else
+            addressFamily = AddressFamily.InterNetwork;
+#endif
+
+            int maximumLength =
+#if NET_40
+                isIPv6 ? IPv6Parts :
+#endif
+                IPv4Parts;
+
+            string[] separators = new string[] { separator };
+            string[] parts; /* REUSED */
+            int length; /* REUSED */
+
+#if NET_40
+            if (isIPv6)
+            {
+                if (value.IndexOf(IPv6Zeros) != Index.Invalid)
+                {
+                    if (!MaybeExpandIPv6(
+                            value, separator, maximumLength, out parts,
+                            out length))
+                    {
+                        if (FlagOps.HasFlags(
+                                ipFlags, IpFlags.KeepErrors, true))
+                        {
+                            error = "could not expand IPv6 for CIDR pattern";
+                        }
+
+                        return null;
+                    }
+                }
+                else
+                {
+                    parts = value.Split(
+                        separators, StringSplitOptions.None);
+
+                    if (parts == null)
+                    {
+                        if (FlagOps.HasFlags(
+                                ipFlags, IpFlags.KeepErrors, true))
+                        {
+                            error = "could not split IPv6 for CIDR pattern";
+                        }
+
+                        return null;
+                    }
+
+                    length = parts.Length;
+
+                    ushort leftWord;
+                    ushort rightWord;
+
+                    if (WordsFromIPv4(
+                            parts[length - 1], out leftWord, out rightWord))
+                    {
+                        length++;
+
+                        if (length > maximumLength)
+                        {
+                            if (FlagOps.HasFlags(
+                                    ipFlags, IpFlags.KeepErrors, true))
+                            {
+                                error = "too many IPv6 parts for CIDR pattern";
+                            }
+
+                            return null;
+                        }
+
+                        Array.Resize(ref parts, length);
+
+                        parts[length - 2] = leftWord.ToString(IPv6Format);
+                        parts[length - 1] = rightWord.ToString(IPv6Format);
+                    }
+                }
+            }
+            else
+#endif
+            {
+                parts = value.Split(
+                    separators, StringSplitOptions.None);
+
+                if (parts == null)
+                {
+                    if (FlagOps.HasFlags(
+                            ipFlags, IpFlags.KeepErrors, true))
+                    {
+                        error = "could not split IPv4 for CIDR pattern";
+                    }
+
+                    return null;
+                }
+
+                length = parts.Length;
+            }
+
+            if ((length <= 0) || (length > maximumLength))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "wrong number of parts for CIDR pattern";
+                }
+
+                return null;
+            }
+
+            byte localPrefixLength = (prefixLength != null) ?
+                (byte)prefixLength : GetPrefixLength(addressFamily);
+
+            if ((localPrefixLength <= 0) ||
+                (localPrefixLength > maximumLength))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = String.Format(
+                        "out-of-range prefix length {0} for CIDR pattern",
+                        localPrefixLength);
+                }
+
+                return null;
+            }
+
+            StringList list = new StringList();
+            int index = 0;
+
+            for (; index < Math.Min(length, localPrefixLength); index++)
+            {
+                string part = parts[index];
+
+#if NET_40
+                if (isIPv6)
+                {
+                    ushort ushortValue;
+
+                    if (String.IsNullOrEmpty(part))
+                    {
+                        ushortValue = 0;
+                    }
+                    else if (!ushort.TryParse(
+                            part, NumberStyles.HexNumber, null,
+                            out ushortValue))
+                    {
+                        if (FlagOps.HasFlags(
+                                ipFlags, IpFlags.KeepErrors, true))
+                        {
+                            error = String.Format(
+                                "bad {0} value for IPv6", typeof(ushort));
+                        }
+
+                        return null;
+                    }
+
+                    list.Add(ushortValue.ToString(IPv6Format));
+                }
+                else
+#endif
+                {
+                    byte byteValue;
+
+                    if (String.IsNullOrEmpty(part))
+                    {
+                        byteValue = 0;
+                    }
+                    else if (!byte.TryParse(part, out byteValue))
+                    {
+                        if (FlagOps.HasFlags(
+                                ipFlags, IpFlags.KeepErrors, true))
+                        {
+                            error = String.Format(
+                                "bad {0} value for IPv4", typeof(byte));
+                        }
+
+                        return null;
+                    }
+
+                    list.Add(byteValue.ToString());
+                }
+            }
+
+#if NET_40
+            if (isIPv6)
+            {
+                for (; index < Math.Min(
+                    maximumLength, localPrefixLength); index++)
+                {
+                    //
+                    // NOTE: Per RFC-4291, expand all
+                    //       remaining space as zeros
+                    //       (IPv6).
+                    //
+                    list.Add(0.ToString(IPv6Format));
+                }
+            }
+#endif
+
+            string result;
+
+#if NET_40
+            result = String.Join(separator, list);
+#else
+            result = String.Join(separator, list.ToArray());
+#endif
+
+            if (((wildcard != null) && (bool)wildcard) ||
+                ((wildcard == null) &&
+                    (localPrefixLength < maximumLength)))
+            {
+                result = String.Format("{0}{1}{2}",
+                    result, separator, Characters.Asterisk);
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool? Match_IPv4_CIDR(
+            IPAddress address, /* in */
+            IPAddress prefix,  /* in */
+            byte prefixLength, /* in */
+            IpFlags ipFlags,   /* in */
+            ref Result error   /* out */
+            )
+        {
+            try
+            {
+                if (!IsIPv4(address, ipFlags, ref error))
+                    return null;
+
+                if (!IsIPv4(prefix, ipFlags, ref error))
+                    return null;
+
+                if (prefixLength > IPv4Bits)
+                {
+                    if (FlagOps.HasFlags(
+                            ipFlags, IpFlags.KeepErrors, true))
+                    {
+                        error = String.Format(
+                            "bad IPv4 prefix length {0}",
+                            prefixLength);
+                    }
+
+                    return null;
+                }
+
+                uint maskValue;
+
+                if (prefixLength == 0)
+                {
+                    maskValue = uint.MinValue;
+                }
+                else
+                {
+                    maskValue = uint.MaxValue;
+                    maskValue <<= ((int)(IPv4Bits - prefixLength));
+                }
+
+                byte[] addressBytes = address.GetAddressBytes();
+
+                if (!IsIPv4(addressBytes, ipFlags, ref error))
+                    return null;
+
+                byte[] prefixBytes = prefix.GetAddressBytes();
+
+                if (!IsIPv4(prefixBytes, ipFlags, ref error))
+                    return null;
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(addressBytes);
+                    Array.Reverse(prefixBytes);
+                }
+
+                uint addressValue = BitConverter.ToUInt32(
+                    addressBytes, 0);
+
+                uint prefixValue = BitConverter.ToUInt32(
+                    prefixBytes, 0);
+
+                addressValue &= maskValue;
+                prefixValue &= maskValue;
+
+                return addressValue == prefixValue;
+            }
+            catch (Exception e)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = e;
+                }
+
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        private static BigInteger GetMaximumValueForIPv6()
+        {
+            /* Step #1: 0x0000000000000000FFFFFFFFFFFFFFFF */
+            BigInteger result = ulong.MaxValue;
+
+            /* Step #2: 0xFFFFFFFFFFFFFFFF0000000000000000 */
+            result <<= (IPv6Bits / 2);
+
+            /* Step #3: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF */
+            result |= ulong.MaxValue;
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool? Match_IPv6_CIDR(
+            IPAddress address, /* in */
+            IPAddress prefix,  /* in */
+            byte prefixLength, /* in */
+            IpFlags ipFlags,   /* in */
+            ref Result error   /* out */
+            )
+        {
+            try
+            {
+                if (!IsIPv6(address, ipFlags, ref error))
+                    return null;
+
+                if (!IsIPv6(prefix, ipFlags, ref error))
+                    return null;
+
+                if (prefixLength > IPv6Bits)
+                {
+                    if (FlagOps.HasFlags(
+                            ipFlags, IpFlags.KeepErrors, true))
+                    {
+                        error = String.Format(
+                            "bad IPv6 prefix length {0}",
+                            prefixLength);
+                    }
+
+                    return null;
+                }
+
+                BigInteger maskValue;
+
+                if (prefixLength == 0)
+                {
+                    maskValue = 0; /* two_ulong.MinValue */
+                }
+                else
+                {
+                    maskValue = GetMaximumValueForIPv6();
+                    maskValue <<= ((int)(IPv6Bits - prefixLength));
+                }
+
+                byte[] addressBytes = address.GetAddressBytes();
+
+                if (!IsIPv6(addressBytes, ipFlags, ref error))
+                    return null;
+
+                byte[] prefixBytes = prefix.GetAddressBytes();
+
+                if (!IsIPv6(prefixBytes, ipFlags, ref error))
+                    return null;
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(addressBytes);
+                    Array.Reverse(prefixBytes);
+                }
+
+                BigInteger addressValue = new BigInteger(addressBytes);
+                BigInteger prefixValue = new BigInteger(prefixBytes);
+
+                addressValue &= maskValue;
+                prefixValue &= maskValue;
+
+                return addressValue == prefixValue;
+            }
+            catch (Exception e)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = e;
+                }
+
+                return null;
+            }
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Public Diagnostic Methods
+        public static bool IsValidCIDR(
+            string pattern, /* in */
+            IpFlags ipFlags /* in */
+            )
+        {
+            IPAddress prefix; /* NOT USED */
+            byte prefixLength; /* NOT USED */
+            Result error = null; /* NOT USED */
+
+            return IsValidCIDR(
+                pattern, ipFlags, out prefix, out prefixLength,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool? MatchViaCIDR(
+            string hostNameOrAddress, /* in */
+            string pattern,           /* in */
+            IpFlags ipFlags,          /* in */
+            ref Result error          /* out */
+            )
+        {
+            IPAddress prefix;
+            byte prefixLength;
+
+            if (!IsValidCIDR(
+                    pattern, ipFlags, out prefix,
+                    out prefixLength, ref error))
+            {
+                return null;
+            }
+
+            if (String.IsNullOrEmpty(hostNameOrAddress))
+                return null;
+
+            IPAddress address = GetIpAddress(
+                hostNameOrAddress, prefixLength, ipFlags,
+                ref error);
+
+            if (address == null)
+                return null;
+
+            AddressFamily addressFamily = address.AddressFamily;
+
+            if (addressFamily != prefix.AddressFamily)
+                return null;
+
+            if (addressFamily == AddressFamily.InterNetwork)
+            {
+                return Match_IPv4_CIDR(
+                    address, prefix, prefixLength, ipFlags,
+                    ref error);
+            }
+#if NET_40
+            else if (addressFamily == AddressFamily.InterNetworkV6)
+            {
+                return Match_IPv6_CIDR(
+                    address, prefix, prefixLength, ipFlags,
+                    ref error);
+            }
+#endif
+            else
+            {
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool? MatchViaCIDR(
+            string hostNameOrAddress,     /* in */
+            IEnumerable<string> patterns, /* in */
+            IpFlags ipFlags,              /* in */
+            ref Result error              /* out */
+            )
+        {
+            int? index; /* NOT USED */
+
+            return MatchViaCIDR(
+                hostNameOrAddress, patterns, ipFlags, out index,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool? MatchViaCIDR(
+            string hostNameOrAddress,     /* in */
+            IEnumerable<string> patterns, /* in */
+            IpFlags ipFlags,              /* in */
+            out int? index,               /* in */
+            ref Result error              /* out */
+            )
+        {
+            if (patterns == null)
+            {
+                index = null;
+                error = "invalid CIDR pattern list";
+
+                return null;
+            }
+
+            ResultList errors = null;
+            int localIndex = 0;
+
+            foreach (string pattern in patterns)
+            {
+                bool? match;
+                Result localError = null;
+
+                match = MatchViaCIDR(
+                    hostNameOrAddress, pattern, ipFlags,
+                    ref localError);
+
+                if (match == null)
+                {
+                    if (FlagOps.HasFlags(
+                            ipFlags, IpFlags.StopOnError, true))
+                    {
+                        index = null;
+
+                        if (FlagOps.HasFlags(
+                                ipFlags, IpFlags.KeepErrors, true) &&
+                            (localError != null))
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(localError);
+                        }
+
+                        if (errors != null)
+                            error = errors;
+
+                        return null;
+                    }
+                    else if (FlagOps.HasFlags(
+                            ipFlags, IpFlags.KeepErrors, true) &&
+                        (localError != null))
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(localError);
+                    }
+
+                    continue;
+                }
+
+                if ((bool)match)
+                {
+                    index = localIndex;
+                    return true;
+                }
+
+                localIndex++;
+            }
+
+            if (errors != null)
+                error = errors;
+
+            index = null;
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadForCIDR(
+            string fileName,               /* in */
+            byte? prefixLength,            /* in */
+            IpFlags ipFlags,               /* in */
+            bool? wildcard,                /* in */
+            ref CidrDictionary dictionary, /* in, out */
+            ref int count,                 /* in, out */
+            ref Result error               /* out */
+            )
+        {
+            string text;
+
+            try
+            {
+                text = File.ReadAllText(fileName);
+            }
+            catch (Exception e)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = e;
+                }
+
+                return ReturnCode.Error;
+            }
+
+            if (String.IsNullOrEmpty(text))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.ErrorOnEmpty, true))
+                {
+                    if (FlagOps.HasFlags(
+                            ipFlags, IpFlags.KeepErrors, true))
+                    {
+                        error = "no CIDR text found";
+                    }
+
+                    return ReturnCode.Error;
+                }
+                else
+                {
+                    return ReturnCode.Ok;
+                }
+            }
+
+            text = StringOps.NormalizeLineEndings(text);
+
+            if (String.IsNullOrEmpty(text))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "could not normalize CIDR text";
+                }
+
+                return ReturnCode.Error;
+            }
+
+            string[] lines = text.Split(Characters.NewLine);
+
+            if (lines == null)
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    error = "could not split CIDR text";
+                }
+
+                return ReturnCode.Error;
+            }
+
+            int localCount = 0;
+            ResultList errors = null;
+            Result localError; /* REUSED */
+
+            if (dictionary == null)
+                dictionary = new CidrDictionary();
+
+            foreach (string line in lines)
+            {
+                if (line == null)
+                    continue;
+
+                string trimLine = line.Trim();
+
+                if (String.IsNullOrEmpty(trimLine))
+                    continue;
+
+                if (trimLine[0] == Characters.NumberSign)
+                    continue;
+
+                localError = null;
+
+                string prefix = ExtractAddressPrefix(
+                    trimLine, prefixLength, ipFlags, wildcard,
+                    ref localError);
+
+                if (prefix == null)
+                {
+                    if (FlagOps.HasFlags(
+                            ipFlags, IpFlags.StopOnError, true))
+                    {
+                        if (FlagOps.HasFlags(
+                                ipFlags, IpFlags.KeepErrors, true) &&
+                            (localError != null))
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(localError);
+                        }
+
+                        if (errors != null)
+                            error = errors;
+
+                        return ReturnCode.Error;
+                    }
+                    else if (FlagOps.HasFlags(
+                            ipFlags, IpFlags.KeepErrors, true) &&
+                        (localError != null))
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(localError);
+                    }
+
+                    continue;
+                }
+
+                StringList list;
+
+                if (!dictionary.TryGetValue(prefix, out list))
+                {
+                    list = new StringList();
+                    dictionary[prefix] = list;
+                }
+
+                list.Add(trimLine);
+                localCount++;
+            }
+
+            if (FlagOps.HasFlags(
+                    ipFlags, IpFlags.ErrorOnEmpty, true) &&
+                (localCount == 0))
+            {
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    localError = "no CIDR entries added";
+
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(localError);
+                }
+
+                if (errors != null)
+                    error = errors;
+
+                return ReturnCode.Error;
+            }
+
+            if (errors != null)
+                error = errors;
+
+            count += localCount;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode UpdateVariableWithCIDR(
+            Interpreter interpreter,   /* in */
+            string varName,            /* in */
+            CidrDictionary dictionary, /* in */
+            IpFlags ipFlags,           /* in: NOT USED */
+            ref Result error           /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (varName == null)
+            {
+                error = "invalid variable name";
+                return ReturnCode.Error;
+            }
+
+            if (dictionary == null)
+            {
+                error = "invalid CIDR dictionary";
+                return ReturnCode.Error;
+            }
+
+            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+            {
+                VariableFlags variableFlags = VariableFlags.NoElement;
+                IVariable variable = null;
+
+                if (interpreter.GetVariableViaResolversWithSplit(
+                        varName, ref variableFlags, ref variable,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                variable = EntityOps.FollowLinks(
+                    variable, variableFlags);
+
+                if ((variable == null) ||
+                    EntityOps.IsUndefined(variable))
+                {
+                    error = "variable is invalid or undefined";
+                    return ReturnCode.Error;
+                }
+
+                if (EntityOps.IsSystem(variable))
+                {
+                    error = "cannot write to system variable";
+                    return ReturnCode.Error;
+                }
+
+                if (EntityOps.IsReadOnlyOrInvariant(variable))
+                {
+                    error = "variable is not writable";
+                    return ReturnCode.Error;
+                }
+
+                ElementDictionary arrayValue = null;
+
+                if (!EntityOps.IsArray(variable, ref arrayValue))
+                {
+                    error = "variable is not an array";
+                    return ReturnCode.Error;
+                }
+
+                foreach (CidrPair pair in dictionary)
+                    arrayValue[pair.Key] = pair.Value;
+
+                return ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode Ping(
-            string hostNameOrAddress,
-            int timeout,
-            ref IPStatus status,
-            ref long roundtripTime,
-            ref Result error
+            string hostNameOrAddress, /* in */
+            int timeout,              /* in */
+            ref IPStatus status,      /* out */
+            ref long roundtripTime,   /* out */
+            ref Result error          /* out */
             )
         {
             try
@@ -143,24 +1555,31 @@ namespace Eagle._Components.Private
 
         #region Public Network Client Methods
         public static TcpClient NewTcpClient(
-            string hostNameOrAddress,
-            string portNameOrNumber,
-            CultureInfo cultureInfo,
-            AddressFamily addressFamily,
-            ref Result error
+            string hostNameOrAddress,         /* in */
+            string portNameOrNumber,          /* in */
+            CultureInfo cultureInfo,          /* in: OPTIONAL */
+            ref AddressFamily? addressFamily, /* in, out: OPTIONAL */
+            ref Result error                  /* out */
             )
         {
+            IpFlags ipFlags = IpFlags.Default |
+                IpFlags.AllowAnyIp | IpFlags.AllowAnyPort;
+
             IPAddress address = GetIpAddress(
-                hostNameOrAddress, addressFamily, false, ref error);
+                hostNameOrAddress, addressFamily, null, null, ipFlags,
+                ref error);
 
             if (address == null)
                 return null;
 
             int port = GetPortNumber(
-                portNameOrNumber, cultureInfo, false, ref error);
+                portNameOrNumber, cultureInfo, ipFlags, ref error);
 
             if (port == Port.Invalid)
                 return null;
+
+            if (addressFamily == null)
+                addressFamily = address.AddressFamily;
 
             return new TcpClient(new IPEndPoint(address, port));
         }
@@ -168,22 +1587,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode Connect(
-            TcpClient client,
-            string hostNameOrAddress,
-            string portNameOrNumber,
-            CultureInfo cultureInfo,
-            AddressFamily addressFamily,
-            ref Result error
+            TcpClient client,             /* in */
+            string hostNameOrAddress,     /* in */
+            string portNameOrNumber,      /* in */
+            CultureInfo cultureInfo,      /* in: OPTIONAL */
+            AddressFamily? addressFamily, /* in: OPTIONAL */
+            ref Result error              /* out */
             )
         {
+            IpFlags ipFlags = IpFlags.Default;
+
             IPAddress address = GetIpAddress(
-                hostNameOrAddress, addressFamily, true, ref error);
+                hostNameOrAddress, addressFamily, null, null, ipFlags,
+                ref error);
 
             if (address == null)
                 return ReturnCode.Error;
 
             int port = GetPortNumber(
-                portNameOrNumber, cultureInfo, true, ref error);
+                portNameOrNumber, cultureInfo, ipFlags, ref error);
 
             if (port == Port.Invalid)
                 return ReturnCode.Error;
@@ -222,7 +1644,7 @@ namespace Eagle._Components.Private
 
         #region Public Network Object Introspection Methods
         public static Socket GetSocket(
-            NetworkStream stream
+            NetworkStream stream /* in */
             )
         {
             try
@@ -285,8 +1707,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsListenerActive(
-            TcpListener listener,
-            bool @default
+            TcpListener listener, /* in */
+            bool @default         /* in */
             )
         {
             try
@@ -336,8 +1758,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsCleanedUp(
-            Socket socket,
-            bool @default
+            Socket socket, /* in */
+            bool @default  /* in */
             )
         {
             try
@@ -393,9 +1815,9 @@ namespace Eagle._Components.Private
 
         #region Private Network Server Methods
         private static void GetRemoteEndPoint(
-            TcpClient client,
-            out IPEndPoint endPoint,
-            ref Result error
+            TcpClient client,        /* in */
+            out IPEndPoint endPoint, /* out */
+            ref Result error         /* out */
             )
         {
             endPoint = null;
@@ -435,11 +1857,11 @@ namespace Eagle._Components.Private
 
         #region Private Network Server Methods
         private static ReturnCode GetServerScript(
-            TcpClient client,
-            string channelId,
-            string text,
-            ref StringList list,
-            ref Result error
+            TcpClient client,    /* in */
+            string channelId,    /* in */
+            string text,         /* in */
+            ref StringList list, /* out */
+            ref Result error     /* out */
             )
         {
             IPEndPoint endPoint;
@@ -463,27 +1885,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static TcpListener NewTcpListener(
-            string hostNameOrAddress,
-            string portNameOrNumber,
-            CultureInfo cultureInfo,
-            AddressFamily addressFamily,
-            ref Result error
+            string hostNameOrAddress,     /* in */
+            string portNameOrNumber,      /* in */
+            CultureInfo cultureInfo,      /* in: OPTIONAL */
+            AddressFamily? addressFamily, /* in: OPTIONAL */
+            ref Result error              /* out */
             )
         {
             try
             {
+                IpFlags ipFlags = IpFlags.Default;
                 IPAddress address = null;
 
                 if (hostNameOrAddress != null)
                 {
                     address = GetIpAddress(
-                        hostNameOrAddress, addressFamily, true, ref error);
+                        hostNameOrAddress, addressFamily, null, null,
+                        ipFlags, ref error);
                 }
 
                 if ((hostNameOrAddress == null) || (address != null))
                 {
                     int port = GetPortNumber(
-                        portNameOrNumber, cultureInfo, true, ref error);
+                        portNameOrNumber, cultureInfo, ipFlags,
+                        ref error);
 
                     if (port != Port.Invalid)
                     {
@@ -514,8 +1939,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void MaybeExclusiveAddressUse(
-            TcpListener listener,
-            bool exclusive
+            TcpListener listener, /* in */
+            bool exclusive        /* in */
             )
         {
             try
@@ -895,11 +2320,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void AddServerAndSetChannel(
-            Interpreter interpreter,
-            SocketClientData clientData,
-            TcpListener listener,
-            ref string channelId,
-            ref bool channelAdded
+            Interpreter interpreter,     /* in */
+            SocketClientData clientData, /* in */
+            TcpListener listener,        /* in */
+            ref string channelId,        /* out */
+            ref bool channelAdded        /* out */
             )
         {
             if (clientData == null)
@@ -952,9 +2377,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void AddClientAndQueueScript(
-            Interpreter interpreter,
-            SocketClientData clientData,
-            TcpClient client
+            Interpreter interpreter,     /* in */
+            SocketClientData clientData, /* in */
+            TcpClient client             /* in */
             )
         {
             if (clientData == null)
@@ -1070,16 +2495,18 @@ namespace Eagle._Components.Private
 
         #region Private Network Address Methods
         private static bool MakeSureNotOffline(
-            string hostNameOrAddress,    /* in */
-            AddressFamily addressFamily, /* in */
-            ref Result error             /* out */
+            string hostNameOrAddress,      /* in */
+            AddressFamily? addressFamily1, /* in */
+            AddressFamily? addressFamily2, /* in */
+            ref Result error               /* out */
             )
         {
             if (Interlocked.CompareExchange(ref offlineLevels, 0, 0) > 0)
             {
                 error = String.Format(
-                    "cannot resolve {0} address {1} while offline",
-                    FormatOps.WrapOrNull(addressFamily),
+                    "cannot resolve {0} or {1} address {2} while offline",
+                    FormatOps.WrapOrNull(addressFamily1),
+                    FormatOps.WrapOrNull(addressFamily2),
                     FormatOps.NetworkHostAndPort(hostNameOrAddress, null));
 
                 return false;
@@ -1092,11 +2519,101 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static IPAddress GetIpAddress(
-            string hostNameOrAddress,    /* in */
+        private static bool IsAllowedAddressFamily(
             AddressFamily addressFamily, /* in */
-            bool strict,                 /* in */
-            ref Result error             /* out */
+            IpFlags ipFlags              /* in */
+            )
+        {
+            if ((addressFamily == AddressFamily.InterNetwork) &&
+                FlagOps.HasFlags(ipFlags, IpFlags.IPv4, true))
+            {
+                return true;
+            }
+
+            if ((addressFamily == AddressFamily.InterNetworkV6) &&
+                FlagOps.HasFlags(ipFlags, IpFlags.IPv6, true))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool DoesMatchAddressFamily(
+            AddressFamily addressFamily0,  /* in */
+            AddressFamily? addressFamily1, /* in: OPTIONAL */
+            AddressFamily? addressFamily2  /* in: OPTIONAL */
+            )
+        {
+            if ((addressFamily1 == null) && (addressFamily2 == null))
+                return true;
+
+            if ((addressFamily1 != null) &&
+                (addressFamily0 == (AddressFamily)addressFamily1))
+            {
+                return true;
+            }
+
+            if ((addressFamily2 != null) &&
+                (addressFamily0 == (AddressFamily)addressFamily2))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static byte GetMaximumPrefixLength(
+            AddressFamily addressFamily /* in */
+            )
+        {
+            if (addressFamily == AddressFamily.InterNetwork)
+                return IPv4Bits;
+
+#if NET_40
+            if (addressFamily == AddressFamily.InterNetworkV6)
+                return IPv6Bits;
+#endif
+
+            return 0;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static IPAddress GetIpAddress(
+            string hostNameOrAddress, /* in */
+            byte? prefixLength,       /* in */
+            IpFlags ipFlags,          /* in */
+            ref Result error          /* out */
+            )
+        {
+            AddressFamily? addressFamily1 = AddressFamily.InterNetwork;
+            AddressFamily? addressFamily2;
+
+#if NET_40
+            addressFamily2 = AddressFamily.InterNetworkV6;
+#else
+            addressFamily2 = null;
+#endif
+
+            return GetIpAddress(
+                hostNameOrAddress, addressFamily1, addressFamily2,
+                prefixLength, ipFlags, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static IPAddress GetIpAddress(
+            string hostNameOrAddress,      /* in */
+            AddressFamily? addressFamily1, /* in: OPTIONAL */
+            AddressFamily? addressFamily2, /* in: OPTIONAL */
+            byte? prefixLength,            /* in */
+            IpFlags ipFlags,               /* in */
+            ref Result error               /* out */
             )
         {
             IPAddress result = null;
@@ -1104,8 +2621,11 @@ namespace Eagle._Components.Private
 
             if (!String.IsNullOrEmpty(hostNameOrAddress) &&
                 MakeSureNotOffline(
-                    hostNameOrAddress, addressFamily, ref localError))
+                    hostNameOrAddress, addressFamily1, addressFamily2,
+                    ref localError))
             {
+                AddressFamily addressFamily0;
+
                 if (!IPAddress.TryParse(hostNameOrAddress, out result))
                 {
                     try
@@ -1129,23 +2649,46 @@ namespace Eagle._Components.Private
                                 if (address == null)
                                     continue;
 
-                                if (address.AddressFamily == addressFamily)
+                                addressFamily0 = address.AddressFamily;
+
+                                if (!IsAllowedAddressFamily(
+                                        addressFamily0, ipFlags) ||
+                                    !DoesMatchAddressFamily(
+                                        addressFamily0, addressFamily1,
+                                        addressFamily2))
                                 {
-                                    result = address;
-                                    break;
+                                    continue;
                                 }
+
+                                if (prefixLength != null)
+                                {
+                                    byte maximumPrefixLength =
+                                        GetMaximumPrefixLength(addressFamily0);
+
+                                    if ((byte)prefixLength > maximumPrefixLength)
+                                        continue;
+                                }
+
+                                result = address;
+                                break;
                             }
 
-                            if (result == null)
+                            if ((result == null) && FlagOps.HasFlags(
+                                    ipFlags, IpFlags.KeepErrors, true))
                             {
                                 localError = String.Format(
-                                    "no {0} address was found for {1}",
-                                    FormatOps.WrapOrNull(addressFamily),
+                                    "no {0} or {1} address {2}was found for {3}",
+                                    FormatOps.WrapOrNull(addressFamily1),
+                                    FormatOps.WrapOrNull(addressFamily2),
+                                    (prefixLength != null) ? String.Format(
+                                        "allowing for a prefix length of {0} ",
+                                        (byte)prefixLength) : String.Empty,
                                     FormatOps.NetworkHostAndPort(
                                         hostNameOrAddress, null));
                             }
                         }
-                        else
+                        else if (FlagOps.HasFlags(
+                                ipFlags, IpFlags.KeepErrors, true))
                         {
                             localError = String.Format(
                                 "no addresses were found for {0}",
@@ -1155,18 +2698,48 @@ namespace Eagle._Components.Private
                     }
                     catch (Exception e)
                     {
-                        localError = e;
+                        if (FlagOps.HasFlags(
+                                ipFlags, IpFlags.KeepErrors, true))
+                        {
+                            localError = e;
+                        }
                     }
                 }
+                else if (result != null)
+                {
+                    addressFamily0 = result.AddressFamily;
+
+                    if (!IsAllowedAddressFamily(addressFamily0, ipFlags))
+                    {
+                        if (FlagOps.HasFlags(
+                                ipFlags, IpFlags.KeepErrors, true))
+                        {
+                            localError = String.Format(
+                                "address family {0} is not allowed",
+                                FormatOps.WrapOrNull(addressFamily0));
+                        }
+
+                        result = null;
+                    }
+                }
+                else if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true))
+                {
+                    localError = "invalid parsed IP address";
+                }
             }
-            else if (strict)
-            {
-                if (localError == null)
-                    localError = "invalid host name or address";
-            }
-            else
+            else if (FlagOps.HasFlags(ipFlags, IpFlags.AllowAnyIp, true))
             {
                 result = IPAddress.Any;
+            }
+            else if (localError == null)
+            {
+                //
+                // NOTE: This failure CANNOT be from MakeSureNotOffline
+                //       as that would have set the local error message
+                //       to something other than null.
+                //
+                localError = "invalid host name or IP address";
             }
 
             if (localError != null)
@@ -1180,7 +2753,7 @@ namespace Eagle._Components.Private
         private static int GetPortNumber(
             string portNameOrNumber, /* in */
             CultureInfo cultureInfo, /* in */
-            bool strict,             /* in */
+            IpFlags ipFlags,         /* in */
             ref Result error         /* out */
             )
         {
@@ -1201,7 +2774,9 @@ namespace Eagle._Components.Private
                     return port;
                 }
 
-                if (localError != null)
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true) &&
+                    (localError != null))
                 {
                     if (errors == null)
                         errors = new ResultList();
@@ -1228,7 +2803,9 @@ namespace Eagle._Components.Private
                 if (nativePort != null)
                     return (int)nativePort;
 
-                if (localError != null)
+                if (FlagOps.HasFlags(
+                        ipFlags, IpFlags.KeepErrors, true) &&
+                    (localError != null))
                 {
                     if (errors == null)
                         errors = new ResultList();
@@ -1237,7 +2814,7 @@ namespace Eagle._Components.Private
                 }
 #endif
             }
-            else if (!strict)
+            else if (FlagOps.HasFlags(ipFlags, IpFlags.AllowAnyPort, true))
             {
                 return Port.Automatic;
             }
@@ -1247,6 +2824,6 @@ namespace Eagle._Components.Private
 
             return Port.Invalid;
         }
-        #endregion
+#endregion
     }
 }

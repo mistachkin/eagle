@@ -204,6 +204,62 @@ namespace eval ::Eagle {
   }
 
   #
+  # NOTE: This procedure returns non-zero if the specified value represents
+  #       a CLR type that is losslessly convertible to a string, optionally
+  #       (also) conforming to a particular subset of type codes.
+  #
+  proc isBasicType { value {subset basic} } {
+    if {![isNonNullObjectHandle $value]} then {
+      return false
+    }
+
+    set typeCode [object invoke Convert GetTypeCode $value]
+
+    switch -exact -- $subset {
+      dbNull {
+        set typeCodes [list DBNull]
+      }
+      integral {
+        set typeCodes [list \
+            Boolean Char SByte Byte Int16 UInt16 \
+            Int32 UInt32 Int64 UInt64]
+      }
+      integral8 {
+        set typeCodes [list \
+            SByte Byte Int16 UInt16 Int32 UInt32 \
+            Int64 UInt64]
+      }
+      fixedPoint {
+        set typeCodes [list Decimal]
+      }
+      floatingPoint {
+        set typeCodes [list Single Double]
+      }
+      string {
+        set typeCodes [list String]
+      }
+      dateTime {
+        set typeCodes [list DateTime]
+      }
+      basic {
+        set typeCodes [list \
+            Boolean Char SByte Byte Int16 UInt16 \
+            Int32 UInt32 Int64 UInt64 Single Double \
+            Decimal DateTime String]
+      }
+      default {
+        set typeCodes [list]
+      }
+    }
+
+    if {[llength $typeCodes] == 0} then {
+      return false; # NOTE: Unknown subset?
+    }
+
+    return [expr {$typeCode in $typeCodes}]
+  }
+
+  #
   # NOTE: This procedure returns non-zero if the specified name represents
   #       a valid CLR type name.
   #

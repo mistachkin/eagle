@@ -149,7 +149,7 @@ namespace Eagle._Containers.Private
                 null, null, noCase, RegexOptions.None) as StringList;
 
             return ParserOps<string>.ListToString(list, Index.Invalid, Index.Invalid,
-                ToStringFlags.None, Characters.Space.ToString(), null, false);
+                ToStringFlags.None, Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -166,7 +166,7 @@ namespace Eagle._Containers.Private
                 null, false, regExOptions) as StringList;
 
             return ParserOps<string>.ListToString(list, Index.Invalid, Index.Invalid,
-                ToStringFlags.None, Characters.Space.ToString(), null, false);
+                ToStringFlags.None, Characters.SpaceString, null, false);
         }
 #endif
         #endregion

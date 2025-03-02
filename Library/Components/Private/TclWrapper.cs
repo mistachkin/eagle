@@ -537,7 +537,8 @@ namespace Eagle._Components.Private.Tcl
             )
         {
             #region Regular Expression Options
-            RegexOptions unixRegExOptions = RegexOptions.CultureInvariant;
+            RegexOptions unixRegExOptions = RegexOptions.CultureInvariant |
+                RegexOptions.Compiled;
 
             RegexOptions nonUnixRegExOptions = RegexOptions.IgnoreCase |
                 unixRegExOptions;
@@ -5735,7 +5736,7 @@ namespace Eagle._Components.Private.Tcl
                     MaybeAddAnError(ref errors, String.Format(
                         "no Tcl library files found via environment variables {0}",
                         GenericOps<string>.ListToEnglish(
-                            list, ", ", Characters.Space.ToString(),
+                            list, ", ", Characters.SpaceString,
                             "or ", Characters.QuotationMark.ToString(),
                             Characters.QuotationMark.ToString())));
                 }
@@ -5833,7 +5834,7 @@ namespace Eagle._Components.Private.Tcl
                     MaybeAddAnError(ref errors, String.Format(
                         "no Tcl library files found via search path using {0}",
                         GenericOps<string>.ListToEnglish(
-                            list, ", ", Characters.Space.ToString(),
+                            list, ", ", Characters.SpaceString,
                             "or ", Characters.QuotationMark.ToString(),
                             Characters.QuotationMark.ToString())));
                 }
@@ -6017,11 +6018,11 @@ namespace Eagle._Components.Private.Tcl
                     MaybeAddAnError(ref errors, String.Format(
                         "no Tcl library files found via registry using {0} and {1}",
                         GenericOps<RegistryKey>.ListToEnglish(
-                            rootKeys, ", ", Characters.Space.ToString(),
+                            rootKeys, ", ", Characters.SpaceString,
                             "or ", Characters.QuotationMark.ToString(),
                             Characters.QuotationMark.ToString()),
                         GenericOps<string>.ListToEnglish(
-                            keyNames, ", ", Characters.Space.ToString(),
+                            keyNames, ", ", Characters.SpaceString,
                             "or ", Characters.QuotationMark.ToString(),
                             Characters.QuotationMark.ToString())));
                 }
@@ -6182,7 +6183,7 @@ namespace Eagle._Components.Private.Tcl
                             "no Tcl library files matching {0} found in directory {1}",
                             FormatOps.DisplayString(GenericOps<Regex>.ListToEnglish(
                                 GetVersionRegExList(allFlags),
-                                ", ", Characters.Space.ToString(),
+                                ", ", Characters.SpaceString,
                                 "or ", Characters.QuotationMark.ToString(),
                                 Characters.QuotationMark.ToString())),
                                 FormatOps.DisplayName(path)));
@@ -6455,7 +6456,7 @@ namespace Eagle._Components.Private.Tcl
                                 "file name {1} does not match {0}",
                                 GenericOps<Regex>.ListToEnglish(
                                     GetNameRegExList(flags),
-                                    ", ", Characters.Space.ToString(),
+                                    ", ", Characters.SpaceString,
                                     "or ", Characters.QuotationMark.ToString(),
                                     Characters.QuotationMark.ToString()),
                                 FormatOps.DisplayName(fileName)));

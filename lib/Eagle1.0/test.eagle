@@ -23,25 +23,520 @@
 #          they work and are willing to accept broken script compatibility
 #          later.  You have been warned.
 #
+# TODO: Consider breaking this file into several packages, each of which
+#       should be relatively self-contained and focus on one consistent
+#       theme or piece of functionality.
+#
 namespace eval ::Eagle {
-  proc hideMyself { {hide true} } {
-    set hWnd [object invoke -create -alias -flags +NonPublic \
-        Eagle._Components.Private.NativeConsole GetWindow]
+  #
+  # NOTE: This procedure attempts to locate the specified (named) parameter,
+  #       optionally perform type validation on the resulting value, if any,
+  #       and then return it.
+  #
+  proc getParameterFromAny { form query name {type ""} {default ""} } {
+    set value [string trim [getDictionaryValue $form $name]]
 
-    if {[$hWnd ToString] ne "0"} then {
-      set show [expr {!$hide}]
-      set returnValue false; set error null
+    if {[string length $value] > 0} then {
+      if {[string length $type] == 0 || \
+          [string is $type -strict $value]} then {
+        return $value
+      }
+    }
 
-      set code [object invoke -flags +NonPublic \
-          Eagle._Components.Private.WindowOps ShowWindow \
-          $hWnd $show returnValue error]
+    set value [string trim [getDictionaryValue $query $name]]
 
-      if {$code ne "Ok"} then {
-        error [getStringFromObjectHandle $error]
+    if {[string length $value] > 0} then {
+      if {[string length $type] == 0 || \
+          [string is $type -strict $value]} then {
+        return $value
+      }
+    }
+
+    return $default
+  }
+
+  #
+  # NOTE: This procedure attempts to locate the index for the specified
+  #       directory within a list of paths.  When not found, a negative
+  #       value will be returned; otherwise, the matching index will be
+  #       returned.
+  #
+  proc getIndexForDirectory { paths directory {noNormalize false} } {
+    if {!$noNormalize} then {
+      set directory [file normalize $directory]
+    }
+
+    set length [llength $paths]
+
+    for {set index 0} {$index < $length} {incr index} {
+      set path [lindex $paths $index]
+
+      if {[isEagle]} then {
+        if {[file same $path $directory]} then {
+          return $index
+        }
+      } else {
+        if {$path eq $directory} then {
+          return $index
+        }
+      }
+
+      if {!$noNormalize} then {
+        set path [file normalize $path]
+
+        if {[isEagle]} then {
+          if {[file same $path $directory]} then {
+            return $index
+          }
+        } else {
+          if {$path eq $directory} then {
+            return $index
+          }
+        }
+      }
+    }
+
+    return -1
+  }
+
+  #
+  # NOTE: This procedure attempts to add the specified directory to the
+  #       package auto-path if it is not already present.
+  #
+  proc maybeAddToAutoPath { directory } {
+    global auto_path
+
+    if {![info exists auto_path] || \
+        [getIndexForDirectory $auto_path $directory] == -1} then {
+      lappend auto_path $directory; return true
+    } else {
+      return false
+    }
+  }
+
+  #
+  # NOTE: This procedure is designed to return non-zero only if we are
+  #       running on the .NET Framework is 4.x on Windows 10 or higher.
+  #       It will return zero when running on any non-Windows operating
+  #       system as well as when running on any Mono or ".NET" runtimes.
+  #       Please do not change (or even use) this procedure unless you
+  #       understand exactly how it works.  This procedure will always
+  #       return zero when evaluated in native Tcl.
+  #
+  proc haveModernNetFx {} {
+    if {![isEagle] || ![isWindows] || [isMono] || [isDotNetCore]} then {
+      return false
+    }
+
+    if {![info exists ::tcl_platform(osVersion)]} then {
+      return false
+    }
+
+    set osVersion $::tcl_platform(osVersion)
+
+    if {[package vcompare $osVersion 10.0] < 0} then {; # TODO: Windows 8.x?
+      return false
+    }
+
+    if {![object invoke -flags +NonPublic \
+        Eagle._Components.Private.CommonOps+Runtime IsFramework40]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure is designed to be used with "-constraintExpression"
+  #       values in the test suite.  It should return non-zero only if the
+  #       (culture-specific) number format for the current thread uses the
+  #       Unicode symbol for infinity (i.e. U+221E) instead of the literal
+  #       string "Infinity".
+  #
+  proc haveInfinitySymbol {} {
+    if {![isEagle]} then {
+      return false
+    }
+
+    if {[catch {
+      set thread [object invoke -alias \
+          System.Threading.Thread CurrentThread]
+
+      if {[isNonNullObjectHandle $thread]} then {
+        set culture [$thread -alias CurrentCulture]
+
+        if {[isNonNullObjectHandle $culture]} then {
+          set numberFormat [$culture -alias NumberFormat]
+
+          if {[isNonNullObjectHandle $numberFormat]} then {
+            list [$numberFormat PositiveInfinitySymbol] \
+                [$numberFormat NegativeInfinitySymbol]
+          }
+        }
+      }
+    } symbols] == 0 && $symbols eq [list \u221E -\u221E]} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  #
+  # NOTE: This procedure helps to declare procedures to be annotated as
+  #       "private", which means they cannot be called outside of their
+  #       own namespace.  This will not work on procedures in the global
+  #       namespace.
+  #
+  # <public>
+  proc private { command name arguments body } {
+    # <<inline>>
+    # <<nonCaching>>
+
+    return [annotateProcedure \
+        private true $command $name $arguments $body]
+  }
+
+  #
+  # NOTE: This procedure helps to tag a procedure with an annotation.  This
+  #       procedure uses the "inline" annotation, which means its body will
+  #       be evaluated in the current call frame.  This is necessary so that
+  #       when an unqualified procedure name is used, the resulting procedure
+  #       is (re-)defined within the correct (current) namespace e.g. ::someNs,
+  #       and not the namespace that happens to contain this procedure, e.g.
+  #       the global namespace.
+  #
+  # <public>
+  proc annotateProcedure {
+          annotation enable command name {arguments ""} {body ""} } {
+    # <<inline>>
+    # <<nonCaching>>
+
+    #
+    # HACK: These regular expressions were stolen and customized
+    #       from the Eagle._Components.Public.Value class.
+    #
+    set pattern(1) [appendArgs {#\s+<<(?:} $annotation {)>>\s+}]
+
+    if {[set index [string first : $annotation]] != -1} then {
+      set annotationName [string range $annotation 0 [expr {$index - 1}]]
+    } else {
+      set annotationName $annotation
+    }
+
+    set pattern(2) [appendArgs \
+          {#\s+<<(?:} $annotationName {):(?:\w+(?: \w+)*)>>\s+}]
+
+    set pattern(3) {^(?:\w+)(?::(?:\w+(?: \w+)*))?$}
+
+    if {[isEagle]} then {
+      if {[string is not boolean $enable]} then {
+        error [appendArgs "invalid enable flag: " $enable]
+      }
+
+      if {[string is not annotation $annotation]} then {
+        error [appendArgs "invalid annotation: " $annotation]
       }
     } else {
-      error "native console window unavailable"
+      if {![string is boolean $enable]} then {
+        error [appendArgs "invalid enable flag: " $enable]
+      }
+
+      if {![regexp -- $pattern(3) $annotation]} then {
+        error [appendArgs "invalid annotation: " $annotation]
+      }
     }
+
+    set commands [list proc nproc]
+    set command [string trimleft $command :]
+
+    if {$command ni $commands} then {
+      error [appendArgs "second word must be one of: " $commands]
+    }
+
+    if {[llength [info [appendArgs $command s] $name]] > 0} then {
+      if {[string length $arguments] == 0 || \
+          [string length $body] == 0} then {
+        if {[string length [namespace qualifiers $name]] > 0} then {
+          set qualifiedName $name
+        } else {
+          set qualifiedName [appendArgs [namespace current] :: $name]
+        }
+
+        if {[string length $arguments] == 0} then {
+          set arguments [getProcedureArguments $qualifiedName]
+        }
+
+        if {[string length $body] == 0} then {
+          set body [info body $qualifiedName]
+        }
+      }
+    }
+
+    if {[regexp -- $pattern(1) $body] || \
+        [regexp -- $pattern(2) $body]} then {
+      if {$enable} then {
+        error [appendArgs \
+            "procedure \"" $name "\" already annotated with \"" \
+            $annotation \"]
+      } else {
+        if {[regsub -all -- $pattern(1) $body " " body] == 0 && \
+            [regsub -all -- $pattern(2) $body " " body] == 0} then {
+          error [appendArgs \
+              "failed to remove annotation(s) \"" $annotation \
+              "\" from procedure \"" $name \"]
+        }
+      }
+    } else {
+      if {$enable} then {
+        set tag [appendArgs "# " << $annotation >>]
+        set body [appendArgs $tag \n\n $body]
+      } else {
+        error [appendArgs \
+            "procedure \"" $name "\" already lacks annotation \"" \
+            $annotation \"]
+      }
+    }
+
+    return [$command $name $arguments $body]
+  }
+
+  proc createPairs { dictionary } {
+    if {![string is dict -strict $dictionary]} then {
+      error "argument value must be dictionary"
+    }
+
+    set result [list]
+
+    foreach {name value} $dictionary {
+      lappend result [list $name $value]
+    }
+
+    return $result
+  }
+
+  proc flattenPairs { pairs } {
+    if {![string is list -strict $pairs]} then {
+      error "argument value must be list"
+    }
+
+    set result [list]
+    set count 0
+
+    foreach pair $pairs {
+      incr count
+
+      if {![string is list -strict $pair]} then {
+        error [appendArgs "pair #" $count " must be list"]
+      }
+
+      set length [llength $pair]
+
+      if {$length != 2} then {
+        error [appendArgs "wrong pair #" $count " length " $length]
+      }
+
+      lappend result [lindex $pair 0] [lindex $pair 1]
+    }
+
+    return $result
+  }
+
+  proc tclLogForTester { string } {
+    if {![info exists ::no(tclLogForTester)]} then {
+      if {[llength [info commands tclLog]] > 0} then {
+        return [tclLog $string]
+      }
+
+      catch {puts stderr $string}
+    }
+  }
+
+  proc maybeInvokeForTester { name } {
+    if {![info exists ::no(maybeInvokeForTester)]} then {
+      if {[llength [info commands maybeInvoke]] > 0} then {
+        return [uplevel 1 [list maybeInvoke $name]]
+      }
+
+      if {[llength [info commands $name]] > 0} then {
+        if {[catch {
+          uplevel 1 [list $name]
+        } result] == 0} then {
+          return $result
+        } else {
+          tclLogForTester [appendArgs \
+              "TESTER INVOKE ERROR: " $result]
+        }
+      }
+    }
+
+    return ""
+  }
+
+  proc haveCaches { type } {
+    if {[isEagle]} then {
+      switch -exact -- $type {
+        instance {
+          if {[haveConstraint compile.ARGUMENT_CACHE] || \
+              [haveConstraint compile.LIST_CACHE] || \
+              [haveConstraint compile.PARSE_CACHE] || \
+              [haveConstraint compile.EXECUTE_CACHE] || \
+              [haveConstraint compile.TYPE_CACHE] || \
+              [haveConstraint compile.COM_TYPE_CACHE]} then {
+            return true
+          }
+        }
+        toString {
+          if {[haveConstraint compile.CACHE_STATISTICS] && \
+              ([haveConstraint compile.CACHE_ARGUMENTLIST_TOSTRING] || \
+               [haveConstraint compile.CACHE_STRINGLIST_TOSTRING])} then {
+            return true
+          }
+        }
+        stringBuilder {
+          if {[haveConstraint compile.CACHE_STATISTICS]} then {
+            return true
+          }
+        }
+      }
+    }
+
+    return false
+  }
+
+  proc resetCaches { {enable true} } {
+    if {[isEagle] && [haveCaches instance] && \
+        [llength [info commands object]] > 0 && \
+        ![info exists ::no(resetCaches)]} then {
+      set cacheFlags [list \
+          TypicalMask Reset Clear PreSetup \
+          ZeroCounts MaybeSetProperties]
+
+      if {$enable} then {
+        lappend cacheFlags Lock
+      } else {
+        lappend cacheFlags Unlock
+      }
+
+      set results [list]
+
+      set result [object invoke \
+          Interpreter.GetActive ControlCaches \
+          $cacheFlags $enable]
+
+      if {$result ne "None"} then {
+        lappend results $result
+      }
+
+      set result [object invoke \
+          Interpreter.GetActive EnableCaches \
+          TypicalMask true]
+
+      if {$result ne "None"} then {
+        lappend results $result
+      }
+
+      tputs [getTestChannelOrDefault] [appendArgs \
+          "---- reset caches: " $results \n]
+    }
+  }
+
+  proc reportCaches {} {
+    if {[isEagle] && [haveCaches instance] && \
+        [llength [info commands object]] > 0 && \
+        ![info exists ::no(reportCaches)]} then {
+      set list null
+      set detailFlags [list EmptyContent]
+
+      if {[object invoke Interpreter.GetActive \
+          AreCachesEnabled StringBuilder]} then {
+        lappend detailFlags StringBuilderCacheInfo \
+            StringBuilderFactoryInfo
+      }
+
+      if {[hasRuntimeOption verboseReportCaches]} then {
+        lappend detailFlags CacheConfigurationMemoryLoad \
+            CacheConfiguration
+      }
+
+      set list [object create StringPairList]
+
+      object invoke -create -alias -flags +NonPublic \
+          Interpreter.GetActive GetHostOtherCacheInfo \
+          list $detailFlags false
+
+      if {[haveCaches toString]} then {
+        object invoke -create -alias -flags +NonPublic \
+            Interpreter.GetActive GetHostStringCacheInfo \
+            list $detailFlags
+      }
+
+      if {[haveCaches stringBuilder]} then {
+        object invoke -create -alias -flags +NonPublic \
+            Interpreter.GetActive GetHostStringBuilderCacheInfo \
+            list $detailFlags
+      }
+
+      set pairs [list]
+
+      object foreach -alias element $list {
+        if {![isNonNullObjectHandle $element]} then {
+          continue
+        }
+
+        set value [$element Y]
+
+        if {[string length $value] == 0} then {
+          continue
+        }
+
+        set name [$element X]
+
+        if {[string length $name] == 0} then {
+          continue
+        }
+
+        lappend pairs $name $value
+      }
+
+      tputs [getTestChannelOrDefault] [appendArgs "---- cache status: " \
+          [formatListAsDict $pairs <none>] \n]
+
+      maybeInvokeForTester ::afterReportCaches; # HOOK
+    }
+  }
+
+  proc maybeMakeHighPriority { highPriority } {
+    if {[isEagle] && [llength [info commands object]] > 0 && \
+        ![info exists ::no(maybeMakeHighPriority)]} then {
+      if {[catch {
+        set maybe [object invoke -flags +NonPublic \
+            Interpreter.GetActive MaybeMakeHighPriority \
+            $highPriority]
+
+        if {[string is boolean -strict $maybe]} then {
+          resetCaches $highPriority
+        }
+
+        set maybe; # null / false / true
+      } result] == 0} then {
+        if {[string is boolean -strict $result]} then {
+          tputs [getTestChannelOrDefault] [appendArgs \
+              "---- high-priority mode has now been " \
+              [expr {$result ? "enabled" : "disabled"}] ", " \
+              [expr {$result ? "locked" : "unlocked"}] \
+              ", and cleared\n"]
+        } else {
+          tputs [getTestChannelOrDefault] \
+              "---- high-priority mode is unchanged\n"
+        }
+      } else {
+        tputs [getTestChannelOrDefault] [appendArgs \
+            "---- high-priority mode is unavailable: " \
+            $result \n]
+      }
+    }
+
+    return false
   }
 
   proc removeTemporarySubDirectories { directory } {
@@ -86,29 +581,36 @@ namespace eval ::Eagle {
         InteractiveCommandsEnabled $enable
   }
 
-  proc cloneProcedure { oldName newName } {
+  proc getProcedureArguments { name } {
     if {[isEagle]} then {
-      set arguments [info args $oldName true]
+      set result [info args $name true]
     } else {
-      set arguments [list]
+      set result [list]
 
-      foreach argument [info args $oldName] {
-        if {[info default $oldName $argument default]} then {
-          lappend arguments [list $argument $default]
+      foreach arg [info args $name] {
+        if {[info default $name $arg default]} then {
+          lappend result [list $arg $default]
         } else {
-          lappend arguments $argument
+          lappend result $arg
         }
       }
     }
 
+    return $result
+  }
+
+  proc cloneProcedure { oldName newName {command ""} } {
+    set arguments [getProcedureArguments $oldName]
     set body [info body $oldName]
 
-    if {[isEagle] && \
-        [llength [info commands nproc]] > 0 && \
-        [llength [info nprocs $oldName]] > 0} then {
-      set command nproc
-    } else {
-      set command proc
+    if {[string length $command] == 0} then {
+      if {[isEagle] && \
+          [llength [info commands nproc]] > 0 && \
+          [llength [info nprocs $oldName]] > 0} then {
+        set command nproc
+      } else {
+        set command proc
+      }
     }
 
     return [$command $newName $arguments $body]
@@ -156,6 +658,8 @@ namespace eval ::Eagle {
     if {[catch {
       package require Zeus.Enterprise; # binary plugin
       package require Zeus.Cryptography; # script package
+
+      uplevel 1 [list setupStateForZeus true]; # HACK: Need magic.
     } error] == 0} then {
       return true
     } else {
@@ -263,7 +767,7 @@ namespace eval ::Eagle {
       set script(body) [interp \
           readorgetscriptfile {} lib/Tetris1.0/tetris.tcl]
 
-      if {[tryToLoadZeus] && \
+      if {[uplevel #0 [list tryToLoadZeus]] && \
           [isEncryptedScript $script(body)]} then {
         if {[info exists ::zeus(encodingName)] && \
             [info exists ::zeus(password)] && \
@@ -407,7 +911,9 @@ namespace eval ::Eagle {
     # </help>
 
     while {true} {
-      if {[catch {uplevel 1 $script} result] == 0} then {
+      if {[set code [catch {
+        uplevel 1 $script; # NOTE: Evaluate script, capture results.
+      } result]] == 0} then {
         return $result
       } else {
         set levelNumber [info level]
@@ -415,6 +921,16 @@ namespace eval ::Eagle {
 
         set errorLine \
             [object invoke Interpreter.GetActive ErrorLine]
+
+        foreach varName [list \
+            ::errorCode ::errorInfo errorLine result code] {
+          set elementName [appendArgs \
+              $levelName _ [string trimleft $varName :]]
+
+          if {[info exists $varName]} then {
+            set ::eagle_debugger($elementName) [set $varName]
+          }
+        }
 
         host result Error [appendArgs \
             "==== " $levelName " (" $levelNumber \
@@ -747,17 +1263,108 @@ namespace eval ::Eagle {
   }
 
   proc breakpoint { args } {
-    if {![info exists ::eagle_debugger(emergency)]} then {
-      set ::eagle_debugger(emergency) [clock seconds]
-      debug emergency now; # NOTE: Once.
-    }
-
-    debug break
+    testDebugBreak 1
   }
 
   proc debugBreakWithNewConsole { args } {
     reopenHost; # NOTE: Attempt to force a new console window.
     eval breakpoint $args
+  }
+
+  #
+  # NOTE: This procedure sets up the default values for all configuration
+  #       parameters used by this package.  If the force argument is non-zero,
+  #       any existing values will be overwritten and set back to their
+  #       default values.
+  #
+  proc setupTestPackageVars { force {cleanup false} } {
+    #
+    # NOTE: Using the [getAuxiliaryBaseUri] procedure requires the update
+    #       package.
+    #
+    # NOTE: The base URI used to build the URIs for the test package web
+    #       requests.
+    #
+    variable baseUri; # DEFAULT: [getAuxiliaryBaseUri] -OR- https://urn.to/r
+
+    if {$cleanup} then {
+      unset -nocomplain baseUri
+    } elseif {$force || ![info exists baseUri]} then {
+      if {[isEagle]} then {
+        set baseUri [getAuxiliaryBaseUri]
+      } else {
+        set baseUri https://urn.to/r
+      }
+    }
+
+    #
+    # NOTE: The URN, relative to the base URI, where "what-if" style
+    #       web requests should be sent.
+    #
+    variable whatIfUrn; # DEFAULT: whatIf
+
+    if {$cleanup} then {
+      unset -nocomplain whatIfUrn
+    } elseif {$force || ![info exists whatIfUrn]} then {
+      set whatIfUrn whatIf
+    }
+
+    #
+    # NOTE: The URI where "what-if" style web requests should be sent.
+    #
+    variable whatIfUri; # DEFAULT: ${baseUri}/${whatIfUrn}
+
+    if {$cleanup} then {
+      unset -nocomplain whatIfUri
+    } elseif {$force || ![info exists whatIfUri]} then {
+      set whatIfUri {${baseUri}/${whatIfUrn}}
+    }
+
+    #
+    # NOTE: The URN, relative to the base URI, where OpenAI API web
+    #       requests should be sent.
+    #
+    variable openAiUrn; # DEFAULT: openAI
+
+    if {$cleanup} then {
+      unset -nocomplain openAiUrn
+    } elseif {$force || ![info exists openAiUrn]} then {
+      set openAiUrn openAI
+    }
+
+    #
+    # NOTE: The URI where OpenAI API web requests should be sent.
+    #
+    variable openAiUri; # DEFAULT: ${baseUri}/${openAiUrn}
+
+    if {$cleanup} then {
+      unset -nocomplain openAiUri
+    } elseif {$force || ![info exists openAiUri]} then {
+      set openAiUri {${baseUri}/${openAiUrn}}
+    }
+
+    #
+    # NOTE: The URN, relative to the base URI, where OpenAI API proxy
+    #       web requests should be sent.
+    #
+    variable openAiProxyUrn; # DEFAULT: openAI_proxy
+
+    if {$cleanup} then {
+      unset -nocomplain openAiProxyUrn
+    } elseif {$force || ![info exists openAiProxyUrn]} then {
+      set openAiProxyUrn openAI_proxy
+    }
+
+    #
+    # NOTE: The URI where OpenAI API proxy web requests should be sent.
+    #
+    variable openAiProxyUri; # DEFAULT: ${baseUri}/${openAiProxyUrn}
+
+    if {$cleanup} then {
+      unset -nocomplain openAiProxyUri
+    } elseif {$force || ![info exists openAiProxyUri]} then {
+      set openAiProxyUri {${baseUri}/${openAiProxyUrn}}
+    }
   }
 
   proc getTestRunTag {} {
@@ -968,6 +1575,10 @@ namespace eval ::Eagle {
         -flags +NonPublic $objectName $memberName]
   }
 
+  proc enableDataFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags DataFlags $newFlags $enable Property]
+  }
+
   proc enableHostFlags { {newFlags ""} {enable ""} } {
     return [enableFlags hostFlags $newFlags $enable \
         Field Eagle._Hosts.Default Interpreter.GetActive.Host]
@@ -983,6 +1594,30 @@ namespace eval ::Eagle {
 
   proc enablePluginFlags { {newFlags ""} {enable ""} } {
     return [enableFlags pluginFlags $newFlags $enable]
+  }
+
+  proc enableSharedProcedureFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags SharedProcedureFlags $newFlags $enable Property]
+  }
+
+  proc enableContextProcedureFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags ContextProcedureFlags $newFlags $enable Property]
+  }
+
+  proc enableSharedPackageFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags SharedPackageFlags $newFlags $enable Property]
+  }
+
+  proc enableContextPackageFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags ContextPackageFlags $newFlags $enable Property]
+  }
+
+  proc enableSharedPackageIndexFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags SharedPackageIndexFlags $newFlags $enable Property]
+  }
+
+  proc enableContextPackageIndexFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags ContextPackageIndexFlags $newFlags $enable Property]
   }
 
   proc enableSharedEngineFlags { {newFlags ""} {enable ""} } {
@@ -1674,7 +2309,13 @@ namespace eval ::Eagle {
       # HACK: This is necessary to preserve runtime options, which are
       #       contained in the eagle_platform(runtimeOptions) element.
       #
-      lappend result eagle_platform;
+      lappend result eagle_platform
+
+      #
+      # HACK: This is necessary to preserve the current test name for
+      #       use by the [getTestName] procedure.
+      #
+      lappend result eagle_debugger
     }
 
     return [lsort $result]
@@ -2446,21 +3087,41 @@ namespace eval ::Eagle {
     }
   }
 
-  proc testDebugBreak {} {
-    if {[isEagle]} then {
-      #
-      # NOTE: In Eagle, simply break into the interactive loop using the
-      #       integrated script debugger.
-      #
-      debug break
-    } else {
-      #
-      # NOTE: In native Tcl, attempt to use the TclPro Debugger interface.
-      #       This requires that the TclPro Debugger interface package be
-      #       present somewhere along the auto-path.
-      #
-      package require tcldebugger_attach; debugger_init; debugger_break
+  proc testDebugBreak { {force 0} args } {
+    if {![info exists ::no(testDebugBreak)]} then {
+      if {[isEagle]} then {
+        if {![info exists ::no(eagleTestDebugBreak)]} then {
+          #
+          # NOTE: In Eagle, simply break into the interactive loop using the
+          #       integrated script debugger.  First, unless forbidden from
+          #       doing so, make sure that all the script debugger flags and
+          #       subsystems are fully enabled and setup first.
+          #
+          if {![info exists ::no(testDebugEmergency)]} then {
+            if {$force > 0 && (($force > 1) || \
+                ![info exists ::eagle_debugger(emergency)])} then {
+              set ::eagle_debugger(emergency) [clock seconds]
+              host result Ok [debug emergency now]; # NOTE: Once.
+            }
+          }
+
+          return [uplevel 1 [list debug break]]
+        }
+      } else {
+        if {![info exists ::no(tclTestDebugBreak)]} then {
+          #
+          # NOTE: In native Tcl, attempt to use the TclPro Debugger interface.
+          #       This requires that the TclPro Debugger interface package be
+          #       present somewhere along the auto-path.
+          #
+          return [uplevel 1 {
+            package require tcldebugger_attach; debugger_init; debugger_break
+          }]
+        }
+      }
     }
+
+    return ""
   }
 
   proc testArrayGet { varName {integer false} } {
@@ -4525,7 +5186,7 @@ namespace eval ::Eagle {
     return [info script]
   }
 
-  proc runTestPrologue {} {
+  proc runTestPrologue { {overridePath ""} {quiet false} } {
     #
     # NOTE: Verify that the global test path variable is available.
     #
@@ -4547,18 +5208,44 @@ namespace eval ::Eagle {
     #       to come up with a half-baked solution to finding its
     #       own files.
     #
-    if {![info exists ::no(prologue.eagle)] && ![info exists ::path]} then {
+    if {![info exists ::no(prologue.eagle)] && \
+        ![info exists ::path]} then {
       set ::path [file normalize [file dirname $script]]
+
+      if {!$quiet} then {
+        tqputs [getTestChannelOrDefault] [appendArgs \
+            "---- automatically set global path to \"" $::path \"\n]
+      }
     }
 
     #
     # NOTE: Evaluate the standard test prologue in the context of
     #       the caller.
     #
-    uplevel 1 [list source [file join $::test_path prologue.eagle]]
+    set found false
+
+    foreach path [list \
+        $overridePath $::test_path [file join lib Test1.0]] {
+      if {[string length $path] == 0} then {continue}
+      set fileName [file join $path prologue.eagle]
+
+      if {[file exists $fileName]} then {
+        if {!$quiet} then {
+          tqputs [getTestChannelOrDefault] [appendArgs \
+              "---- found test prologue \"" $fileName \"...\n]
+        }
+
+        uplevel 1 [list source $fileName]
+        set found true; break
+      }
+    }
+
+    if {!$found} then {
+      error "cannot run test prologue, none were found"
+    }
   }
 
-  proc runTestEpilogue {} {
+  proc runTestEpilogue { {overridePath ""} {quiet false} } {
     #
     # NOTE: Verify that the global test path variable is available.
     #
@@ -4579,15 +5266,41 @@ namespace eval ::Eagle {
     # NOTE: Evaluate the standard test epilogue in the context of
     #       the caller.
     #
-    uplevel 1 [list source [file join $::test_path epilogue.eagle]]
+    set found false
+
+    foreach path [list \
+        $overridePath $::test_path [file join lib Test1.0]] {
+      if {[string length $path] == 0} then {continue}
+      set fileName [file join $path epilogue.eagle]
+
+      if {[file exists $fileName]} then {
+        if {!$quiet} then {
+          tqputs [getTestChannelOrDefault] [appendArgs \
+              "---- found test epilogue \"" $fileName \"...\n]
+        }
+
+        uplevel 1 [list source $fileName]
+        set found true; break
+      }
+    }
+
+    if {!$found} then {
+      error "cannot run test epilogue, none were found"
+    }
 
     #
     # HACK: We do not want to force every third-party test suite
     #       to come up with a half-baked solution to finding its
     #       own files.
     #
-    if {![info exists ::no(epilogue.eagle)] && [info exists ::path]} then {
+    if {![info exists ::no(epilogue.eagle)] && \
+        [info exists ::path]} then {
       unset ::path
+
+      if {!$quiet} then {
+        tqputs [getTestChannelOrDefault] \
+            "---- automatically unset global path\n"
+      }
     }
   }
 
@@ -4654,18 +5367,113 @@ namespace eval ::Eagle {
     rename ::tcl::save::puts ::puts; # restore Tcl command
   }
 
+  proc getTestFile {} {
+    if {[info exists ::test_file]} then {
+      return $::test_file
+    } else {
+      return [info script]
+    }
+  }
+
+  proc getTestName { script asFullName reset } {
+    if {[info exists ::eagle_tests(CurrentName)]} then {
+      set result $::eagle_tests(CurrentName)
+      if {$reset} then {set ::eagle_tests(CurrentName) ""}
+
+      if {$asFullName && [string length $result] > 0} then {
+        set result [list EAGLE_TEST $result]
+      }
+    } elseif {[info exists ::eagle_debugger(TclTest_CurrentName)]} then {
+      set result $::eagle_debugger(TclTest_CurrentName)
+      if {$reset} then {set ::eagle_debugger(TclTest_CurrentName) ""}
+
+      if {$asFullName && [string length $result] > 0} then {
+        set result [list TCL_TEST $result]
+      }
+    } elseif {[isEagle]} then {
+      set result [hash normal sha1 $script]
+
+      if {$asFullName && [string length $result] > 0} then {
+        set result [list EAGLE_SCRIPT $result]
+      }
+    } elseif {[catch {package require sha1}] == 0} then {
+      set result [sha1::sha1 -hex $script]
+
+      if {$asFullName && [string length $result] > 0} then {
+        set result [list TCL_SCRIPT $result]
+      }
+    } else {
+      set result ""; # NOTE: There is no other known way.
+      maybeInvokeForTester ::afterGetTestNameError; # HOOK
+    }
+
+    return $result
+  }
+
   proc runTest { script } {
     #
-    # NOTE: This should work properly in both Tcl and Eagle as long as the
-    #       "init" script has been evaluated first.
+    # NOTE: We may need to perform some setup steps before running the
+    #       acutal test (command?) script, including:
     #
+    #       1. Capture name of current procedure, i.e. "runTest".
+    #       2. Invoke the (optional) [beforeRunTest] tester hook.
+    #       3. Maybe hook the [puts] command to support logging it.
+    #       4. Maybe record test resource statistics for later.
+    #       5. Invoke the (optional) [beforeTest] tester hook.
+    #
+    set level [lindex [info level [info level]] 0]; # Where are we now?
+
+    maybeInvokeForTester ::beforeRunTest; # HOOK
+
     if {![isEagle]} then {
       hookPuts
     }
 
+    maybeRecordTestStatistics leaks before $level
+    maybeInvokeForTester ::beforeTest; # HOOK
+
+    #
+    # NOTE: Run the actual test script, which will generally be using
+    #       the [test] command.  Actually, it will end up using either
+    #       the [test1] or [test2] commands; however, the [test] stub
+    #       will choose exactly which one based on the [test] command
+    #       arguments.
+    #
     set code [catch {uplevel 1 $script} result]
     set error [expr {$code == 0 ? false : true}]
 
+    #
+    # NOTE: Unless forbidden from doing so, attempt to automatically
+    #       cleanup any stale (e.g. temporary) object references now.
+    #       This has been moved up in the processing because it must
+    #       be done before recording the "after one test" statistics.
+    #
+    if {[isEagle] && ![info exists ::no(cleanupReferences)]} then {
+      catch {object cleanup -references}
+    }
+
+    #
+    # NOTE: Next, maybe record the test resource statistics again and
+    #       compare them with those previously recorded.  Then, grab
+    #       the current test name (for this thread).  Since the test
+    #       script was run just above, that should still be acccurate
+    #       here.  Please note that we grab two different formats for
+    #       the current test name.  The first is just the name itself,
+    #       for use in the leak names list.  The second is the name,
+    #       prefixed with a list element describing its script type.
+    #
+    maybeRecordTestStatistics leaks after $level
+
+    set testName(false) [getTestName $script false false]
+    set testName(true) [getTestName $script true true]
+
+    maybeInvokeForTester ::afterTest; # HOOK
+
+    #
+    # NOTE: There are some differences between how native Tcl and Eagle
+    #       handle test results, that mainly deal with how those results
+    #       are tracked and logged.
+    #
     if {[isEagle]} then {
       #
       # NOTE: Initially, the call to [tresult] (i.e. [host result]) will
@@ -4684,6 +5492,18 @@ namespace eval ::Eagle {
         set code 0; set error false
       } elseif {$code == 4} then {
         set code 0
+      } elseif {$code == 1} then {
+        #
+        # BUGFIX: Previously, errors within the [runTest] script blocks
+        #         themselves were reported interactively -AND- via the
+        #         test log file; however, these errors were not actually
+        #         counted as "suite errors" for the purposes of reporting
+        #         test file failures.  This has now been fixed.  This new
+        #         behavior can be disabled using the following override.
+        #
+        if {![info exists ::no(runTestSuiteScriptErrors)]} then {
+          lappend ::test_suite_errors [list $testName(true) $result]
+        }
       }
 
       #
@@ -4716,6 +5536,15 @@ namespace eval ::Eagle {
       }
 
       #
+      # NOTE: Report any test leaks now, possible with full details.
+      #
+      set leaked [list]; # NOTE: These are test / file names.
+
+      maybeReportTestStatistics [getTestChannelOrDefault] [file join \
+          [getTestFile] $testName(false)] false leaks leaked $level \
+          $script
+
+      #
       # NOTE: If this test failed and the stop-on-failure flag is set,
       #       raise an error now.  If we are being run from inside
       #       [runAllTests], this will also serve to signal it to stop
@@ -4723,24 +5552,17 @@ namespace eval ::Eagle {
       #
       if {$code != 0 && [isStopOnFailure]} then {
         tresult Error "OVERALL RESULT: STOP-ON-FAILURE\n"
+        maybeInvokeForTester ::beforeStopOnFailure; # HOOK
 
         unset -nocomplain ::test_suite_running
         if {[isEagle]} then {igap MaybeResetLastError}
         error ""; # no message
       }
-
-      #
-      # NOTE: Unless forbidden from doing so, attempt to automatically
-      #       cleanup any stale (e.g. temporary) object references now.
-      #
-      if {![info exists ::no(cleanupReferences)]} then {
-        catch {object cleanup -references}
-      }
     } else {
       if {$error} then {
         #
-        # HACK: Prevent spurious errors dealing with [test] command options
-        #       that are missing from native Tcl.
+        # HACK: Prevent spurious errors dealing with [test] command
+        #       options that are "missing" from the Tcltest package.
         #
         set badOptionPattern {^bad option ".*?":\
             must be -body, -cleanup, -constraints, -errorOutput,\
@@ -4752,10 +5574,21 @@ namespace eval ::Eagle {
         if {[isEagle] || \
             (![regexp -- $badOptionPattern $result] && \
              ![regexp -- $badMatchValuePattern $result])} then {
+          maybeInvokeForTester ::afterRunTestError; # HOOK
+
           tputs [getTestChannelOrDefault] [appendArgs \
               "ERROR (runTest): " $result \n]
         }
       }
+
+      #
+      # NOTE: Report any test leaks now, possible with full details.
+      #
+      set leaked [list]; # NOTE: These are test / file names.
+
+      maybeReportTestStatistics [getTestChannelOrDefault] [file join \
+          [getTestFile] $testName(false)] false leaks leaked $level \
+          $script
 
       unhookPuts
     }
@@ -4766,6 +5599,7 @@ namespace eval ::Eagle {
     #       superfluous output from being displayed via [host result] in
     #       the outermost call to this procedure.
     #
+    maybeInvokeForTester ::afterRunTest; # HOOK
     return ""
   }
 
@@ -4774,6 +5608,7 @@ namespace eval ::Eagle {
     # NOTE: Call the original (saved) [test] command, wrapping it in
     #       our standard [runTest] wrapper.
     #
+    maybeInvokeForTester ::beforeRunTestShim; # HOOK
     uplevel 1 [list runTest [concat ::savedTest $args]]; return ""
   }
 
@@ -4797,8 +5632,12 @@ namespace eval ::Eagle {
     # NOTE: Source the specified test file in the context of the caller
     #       (which should be global).
     #
+    maybeInvokeForTester ::beforeTsource; # HOOK
+
     set code [catch {uplevel 1 [list source $fileName]} result]
     set error [expr {$code == 0 ? false : true}]
+
+    maybeInvokeForTester ::afterTsource; # HOOK
 
     #
     # NOTE: Remove our test shim and restore the original (saved) [test]
@@ -4937,11 +5776,43 @@ namespace eval ::Eagle {
     return $allResults
   }
 
+  proc maybeRecordTestStatistics { varName index type } {
+    if {![info exists ::no(leak)] && \
+        ![info exists ::no(leak,$type)]} then {
+      upvar 1 $varName array
+
+      if {[info exists ::env(enableTestStatisticsLists)]} then {
+        enableTestStatisticsLists array $index \
+            $::env(enableTestStatisticsLists) true
+      }
+
+      recordTestStatistics array $index
+    }
+  }
+
+  proc maybeReportTestStatistics {
+          channel name stop statsVarName namesVarName type {script ""}
+          {quiet false} } {
+    if {![info exists ::no(leak)] && \
+        ![info exists ::no(leak,$type)] && \
+        ![info exists ::no(runStatistics)] && \
+        ![info exists ::no(runStatistics,$type)]} then {
+      upvar 1 $statsVarName array
+      upvar 1 $namesVarName names
+
+      reportTestStatistics $channel $name $stop array names $quiet
+    }
+  }
+
   proc recordTestStatistics { varName index } {
     #
     # NOTE: Record counts of all object types that we track.
     #
     upvar 1 $varName array
+
+    ###########################################################################
+
+    maybeInvokeForTester ::beforeRecordTestStatistics; # HOOK
 
     ###########################################################################
 
@@ -5510,12 +6381,20 @@ namespace eval ::Eagle {
         lappend array(uncounted,$index) processes
       }
     }
+
+    ###########################################################################
+
+    maybeInvokeForTester ::afterRecordTestStatistics; # HOOK
   }
 
   proc getNamesForTestStatistics {} {
-    set result [list \
+    set result [list]
+
+    maybeInvokeForTester ::beforeGetNamesForTestStatistics; # HOOK
+
+    lappend result \
         afters variables commands procedures namespaces files binaryFiles \
-        temporaryFiles channels aliases interpreters environment loaded]
+        temporaryFiles channels aliases interpreters environment loaded
 
     if {[isEagle]} then {
       #
@@ -5530,40 +6409,48 @@ namespace eval ::Eagle {
           tclThreads tclCommands scriptThreads
     }
 
+    maybeInvokeForTester ::afterGetNamesForTestStatistics; # HOOK
+
     return $result
   }
 
   proc reportTestStatistics {
-          channel fileName stop statsVarName filesVarName {quiet false} } {
+          channel name stop statsVarName namesVarName {quiet false} } {
     #
     # NOTE: Show what leaked, if anything.
     #
     set count 0; upvar 1 $statsVarName array
+    set statistics [getNamesForTestStatistics]
 
-    foreach statistic [getNamesForTestStatistics] {
+    maybeInvokeForTester ::beforeReportTestStatistics; # HOOK
+
+    foreach statistic $statistics {
       if {![info exists array($statistic,after)]} then {
         if {!$quiet} then {
-          tputs $channel [appendArgs "==== \"" $fileName "\" MISSING " \
+          tputs $channel [appendArgs "==== \"" $name "\" MISSING " \
               $statistic " AFTER\n"]
         }
 
+        maybeInvokeForTester [appendArgs ::noAfter_ $statistic]; # HOOK
         continue
       }
 
       if {![info exists array($statistic,before)]} then {
         if {!$quiet} then {
-          tputs $channel [appendArgs "==== \"" $fileName "\" MISSING " \
+          tputs $channel [appendArgs "==== \"" $name "\" MISSING " \
               $statistic " BEFORE\n"]
         }
 
+        maybeInvokeForTester [appendArgs ::noBefore_ $statistic]; # HOOK
         continue
       }
 
       if {$array($statistic,after) > $array($statistic,before)} then {
         lappend array(statistics,leaked) $statistic
+        maybeInvokeForTester [appendArgs ::leaked_ $statistic]; # HOOK
 
         if {!$quiet} then {
-          tputs $channel [appendArgs "==== \"" $fileName "\" LEAKED " \
+          tputs $channel [appendArgs "==== \"" $name "\" LEAKED " \
               $statistic \n]
         }
 
@@ -5592,18 +6479,22 @@ namespace eval ::Eagle {
         }
 
         incr count
+      } else {
+        maybeInvokeForTester [appendArgs ::notLeaked_ $statistic]; # HOOK
       }
     }
 
+    maybeInvokeForTester ::afterReportTestStatistics; # HOOK
+
     #
-    # NOTE: Make sure this file name is recorded in the list of file names with
-    #       leaking tests.
+    # NOTE: Make sure this file name is recorded in the list of file names
+    #       with leaking tests.
     #
-    upvar 1 $filesVarName fileNames
+    upvar 1 $namesVarName names
 
     if {$count > 0 && \
-        [lsearch -exact $fileNames [file tail $fileName]] == -1} then {
-      lappend fileNames [file tail $fileName]
+        [lsearch -exact $names [file tail $name]] == -1} then {
+      lappend names [file tail $name]
     }
 
     #
@@ -5622,12 +6513,13 @@ namespace eval ::Eagle {
         #
         if {!$stop && [isStopOnLeak]} then {
           tresult Error "OVERALL RESULT: STOP-ON-LEAK\n"
+          maybeInvokeForTester ::beforeStopOnLeak; # HOOK
 
           unset -nocomplain ::test_suite_running
           if {[isEagle]} then {igap MaybeResetLastError}
           error ""; # no message
         } elseif {[isBreakOnLeak]} then {
-          testDebugBreak
+          testDebugBreak 1
         }
       }
     }
@@ -6005,6 +6897,8 @@ namespace eval ::Eagle {
 
   proc runAllTests {
           channel path fileNames skipFileNames startFileNames stopFileNames } {
+    set level [lindex [info level [info level]] 0]; # Where are we now?
+
     #
     # NOTE: Are we configured to run the test files in random order?
     #
@@ -6054,7 +6948,7 @@ namespace eval ::Eagle {
       #       test file, do it now.
       #
       if {[isBreakOnDemand]} then {
-        testDebugBreak
+        testDebugBreak 1
       }
 
       #
@@ -6167,20 +7061,12 @@ namespace eval ::Eagle {
           unset -nocomplain ::test_file
 
           #
-          # NOTE: Is resource leak checking explicitly disabled?
+          # NOTE: Get "before" resource counts for leak tracking purposes,
+          #       optionally with full lists of tracked resources.  If the
+          #       user has explicitly disabled resource leak checks, then
+          #       nothing (much) will be done here.
           #
-          if {![info exists ::no(leak)]} then {
-            #
-            # NOTE: Get "before" resource counts for leak tracking,
-            #       optionally with full lists of tracked resources.
-            #
-            if {[info exists ::env(enableTestStatisticsLists)]} then {
-              enableTestStatisticsLists leaks before \
-                  $::env(enableTestStatisticsLists) true
-            }
-
-            recordTestStatistics leaks before
-          }
+          maybeRecordTestStatistics leaks before $level
 
           #
           # NOTE: Let the test prologue code know which file we are
@@ -6221,6 +7107,8 @@ namespace eval ::Eagle {
             #
             # NOTE: Log that this test file has started.
             #
+            maybeInvokeForTester ::beforeTestFile; # HOOK
+
             if {![info exists ::no(runStartFile)]} then {
               tputs $channel [appendArgs "==== \"" $fileName "\" START\n"]
             }
@@ -6237,6 +7125,8 @@ namespace eval ::Eagle {
             #
             # NOTE: Log that this test file has ended.
             #
+            maybeInvokeForTester ::afterTestFile; # HOOK
+
             if {![info exists ::no(runEndFile)]} then {
               tputs $channel [appendArgs "==== \"" $fileName "\" END\n"]
             }
@@ -6351,7 +7241,10 @@ namespace eval ::Eagle {
               #       the failure.  Set a special variable for the epilogue
               #       to pick up on (later).
               #
-              lappend ::test_suite_errors [list $fileName $error]
+              if {![info exists ::no(runTestSuiteFileErrors)]} then {
+                lappend ::test_suite_errors \
+                    [list [list FILE $fileName] $error]
+              }
             }
           }
 
@@ -6393,28 +7286,15 @@ namespace eval ::Eagle {
           unset -nocomplain ::test_file
 
           #
-          # NOTE: Is resource leak checking explicitly disabled?
+          # NOTE: Get "after" resource counts for leak tracking purposes,
+          #       optionally with full lists of tracked resources.  If the
+          #       user has explicitly disabled resource leak checks, then
+          #       nothing (much) will be done here.
           #
-          if {![info exists ::no(leak)]} then {
-            #
-            # NOTE: Get "after" resource counts for leak tracking,
-            #       optionally with full lists of tracked resources.
-            #
-            if {[info exists ::env(enableTestStatisticsLists)]} then {
-              enableTestStatisticsLists leaks after \
-                  $::env(enableTestStatisticsLists) true
-            }
+          maybeRecordTestStatistics leaks after $level
 
-            recordTestStatistics leaks after
-
-            if {![info exists ::no(runStatistics)]} then {
-              #
-              # NOTE: Determine if any resource leaks have occurred and
-              #       output diagnostics as necessary if they have.
-              #
-              reportTestStatistics $channel $fileName $stop leaks leaked
-            }
-          }
+          maybeReportTestStatistics \
+              $channel $fileName $stop leaks leaked $level
         } else {
           #
           # NOTE: This entire file has been skipped.  Record that fact in the
@@ -6861,6 +7741,52 @@ namespace eval ::Eagle {
       ::tcltest::testConstraint fail.true 1
 
       #
+      # NOTE: Next, arrange things to make sure that we have some way
+      #       to find out the current test name.
+      #
+      if {[llength \
+          [info commands ::tcltest::SavedDebugPuts]] == 0} then {
+        #
+        # NOTE: Save original [::tcltest::DebugPuts] so that we can call
+        #       into it ourselves.
+        #
+        rename ::tcltest::DebugPuts ::tcltest::SavedDebugPuts
+
+        #
+        # HACK: Change one call site for [::tcltest::DebugPuts] so that
+        #       it uses proper list structure for its arguments.  This
+        #       makes the semantics of our custom [::tcltest::DebugPuts]
+        #       (more?) correct.
+        #
+        proc ::tcltest::RunTest [info args ::tcltest::RunTest] \
+            [string map [list {DebugPuts 3 "Running $name {$script}"} \
+            {DebugPuts 3 [list Running $name $script]}] [info body \
+            ::tcltest::RunTest]]
+
+        #
+        # NOTE: Create our custom [::tcltest::DebugPuts], which may set
+        #       the current test name, e.g. if the immediate caller is
+        #       [::tcltest::RunTest] -AND- its first argument indicates
+        #       a new test is being run.
+        #
+        proc ::tcltest::DebugPuts {level string} {
+          if {[info exists ::eagle_debugger] && [catch {
+            if {$level == 3 && [string trimleft \
+                [lindex [info level -1] 0] :] in [list RunTest \
+                tcltest::RunTest] && [llength $string] == 3 && \
+                [lindex $string 0] eq "Running"} then {
+              set name [lindex $string 1]
+            }
+          }] == 0 && [info exists name]} then {
+            set ::eagle_debugger(TclTest_CurrentName) $name
+          }
+
+          return [uplevel 1 \
+              [list ::tcltest::SavedDebugPuts $level $string]]
+        }
+      }
+
+      #
       # NOTE: We need the [test] command in the global namespace.
       #
       if {[llength $imports] > 0} then {
@@ -7132,7 +8058,7 @@ namespace eval ::Eagle {
 
     if {[string length $password] == 0} then {
       if {[info exists ::env(logRemoteMessagePasswordFile)]} then {
-        set password [readFile $::env(logRemoteMessagePasswordFile)]
+        set password [readSharedFile $::env(logRemoteMessagePasswordFile)]
       } else {
         if {$raiseError} then {
           error "password for remote message log is missing"
@@ -7183,8 +8109,33 @@ namespace eval ::Eagle {
         raw 1 apiKey $apiKey message $base64 hash $hash]
 
     if {[isEagle]} then {
-      return [string trim [uri upload \
-          -timeouttype network -inline -data $query $uri]]
+      if {![info exists ::no(NoTimeRemoteMessage)]} then {
+        set start [clock now -gmt true]
+      }
+
+      try {
+        return [string trim \
+            [uri upload -timeouttype network -inline -retries 0 \
+            -data $query -- $uri]]
+      } finally {
+        catch {
+          if {[info exists start]} then {
+            set stop [clock now -gmt true]
+
+            if {$stop >= $start} then {
+              set elapsed [object invoke -create -alias \
+                  TimeSpan FromTicks [expr {$stop - $start}]]
+
+              host result Continue [appendArgs \
+                  "---- logRemoteMessage: POST took " [$elapsed ToString] \n]
+            } else {
+              host result Continue [appendArgs \
+                  "---- logRemoteMessage: BACKWARD time travel from " \
+                  $start " to " $stop \n]
+            }
+          }
+        }
+      }
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -7213,7 +8164,8 @@ namespace eval ::Eagle {
     if {[info exists ::no(NoSynchronousRemoteMessage)] || \
         [info exists ::env(NoSynchronousRemoteMessage)]} then {
       return [execTestShell \
-          [list -success Success] -initialize -postInitialize \
+          [list -success Success] \
+          -noArgumentsFileNames -initialize -postInitialize \
           [appendArgs \" [list package require Eagle.Test] \"] \
           -postInitialize \
           [appendArgs \" "delayForTest " $milliseconds \"] \
@@ -7405,8 +8357,16 @@ namespace eval ::Eagle {
       set milliseconds $::test_timeout
     }
 
-    if {[string is not integer -strict $milliseconds]} then {
-      set milliseconds 2000
+    set defaultMilliseconds 2000
+
+    if {[isEagle]} then {
+      if {[string is not integer -strict $milliseconds]} then {
+        set milliseconds $defaultMilliseconds
+      }
+    } else {
+      if {![string is integer -strict $milliseconds]} then {
+        set milliseconds $defaultMilliseconds
+      }
     }
 
     after $milliseconds
@@ -7434,8 +8394,10 @@ namespace eval ::Eagle {
       if {[catch {
         logRemoteMessageWrapper $newMessage
       } response] == 0} then {
+        maybeInvokeForTester ::logRemoteMessageOk; # HOOK
         lappend responses $response
       } else {
+        maybeInvokeForTester ::logRemoteMessageError; # HOOK
         lappend responses [list ERROR $response]
       }
 
@@ -7451,8 +8413,10 @@ namespace eval ::Eagle {
         if {[catch {
           logRemoteMessageWrapper $newMessage
         } response] == 0} then {
+          maybeInvokeForTester ::logRemoteMessageOk; # HOOK
           lappend responses $response
         } else {
+          maybeInvokeForTester ::logRemoteMessageError; # HOOK
           lappend responses [list ERROR $response]
         }
       }
@@ -7503,8 +8467,10 @@ namespace eval ::Eagle {
         logRemoteMessageWrapper $newMessage \
             $uri $apiKey $password $channel $quiet
       } response] == 0} then {
+        maybeInvokeForTester ::logRemoteMessageOk; # HOOK
         lappend responses $response
       } else {
+        maybeInvokeForTester ::logRemoteMessageError; # HOOK
         lappend responses [list ERROR $response]
       }
 
@@ -7521,8 +8487,10 @@ namespace eval ::Eagle {
           logRemoteMessageWrapper $newMessage \
               $uri $apiKey $password $channel $quiet
         } response] == 0} then {
+          maybeInvokeForTester ::logRemoteMessageOk; # HOOK
           lappend responses $response
         } else {
+          maybeInvokeForTester ::logRemoteMessageError; # HOOK
           lappend responses [list ERROR $response]
         }
       }
@@ -7941,6 +8909,1322 @@ namespace eval ::Eagle {
           -alias -objectflags +NoReturnReference String $result]
     }
 
+    proc eagle_haveShell { {varName ""} } {
+      if {[string length $varName] > 0} then {
+        upvar 1 $varName shell
+      }
+
+      maybeInvokeForTester ::beforeHaveShell; # HOOK
+
+      if {[isWindows]} then {
+        if {[info exists ::env(ComSpec)]} then {
+          set shell $::env(ComSpec)
+          maybeInvokeForTester ::afterHaveShell; # HOOK
+          return true
+        }
+      } else {
+        if {[info exists ::env(SHELL)]} then {
+          set shell $::env(SHELL)
+          maybeInvokeForTester ::afterHaveShell; # HOOK
+          return true
+        }
+      }
+
+      maybeInvokeForTester ::haveShellError; # HOOK
+      return false
+    }
+
+    proc eagle_enableShellUnknown { {enable ""} } {
+      if {[string length $enable] > 0} then {
+        if {$enable} then {
+          if {[llength [info commands ::unknown]] > 0 && \
+              [llength [info commands ::savedUnknown]] == 0 && \
+              [llength [info commands ::eagle_shellUnknown]] > 0} then {
+            rename ::unknown ::savedUnknown
+            rename ::eagle_shellUnknown ::unknown
+
+            return true
+          }
+        } else {
+          if {[llength [info commands ::unknown]] > 0 && \
+              [llength [info commands ::savedUnknown]] > 0 && \
+              [llength [info commands ::eagle_shellUnknown]] == 0} then {
+            rename ::unknown ::eagle_shellUnknown
+            rename ::savedUnknown ::unknown
+
+            return true
+          }
+        }
+      } else {
+        if {[llength [info commands ::unknown]] > 0 && \
+            [llength [info commands ::savedUnknown]] > 0 && \
+            [llength [info commands ::eagle_shellUnknown]] == 0} then {
+          return true
+        }
+      }
+
+      return false
+    }
+
+    proc eagle_shellUnknown { name args } {
+      if {![info exists ::no(shellUnknown)] && \
+          [eagle_haveShell shell]} then {
+        if {[catch {
+          set command [list]
+
+          lappend command exec -nocapture -commandline
+          lappend command -success Success -directory [pwd]
+          lappend command -- $shell
+
+          if {[isWindows]} then {lappend command /C}; # cmd.exe /C
+
+          lappend command $name
+          eval lappend command $args
+
+          if {[hasRuntimeOption shellUnknown_WhatIf]} then {
+            maybeInvokeForTester ::whatIfShellUnknown; # HOOK
+            host result WhatIf [appendArgs "SHELL: " $command \n]
+          } else {
+            maybeInvokeForTester ::beforeShellUnknown; # HOOK
+            eval $command
+          }
+        } result] == 0} then {
+          maybeInvokeForTester ::afterShellUnknown; # HOOK
+
+          return $result
+        } else {
+          maybeInvokeForTester ::shellUnknownError; # HOOK
+
+          if {![hasRuntimeOption shellUnknown_ErrorFallback]} then {
+            error $result
+          }
+        }
+      }
+
+      maybeInvokeForTester ::shellUnknownFallback; # HOOK
+
+      if {[hasRuntimeOption shellUnknown_OkFallback] && \
+          [llength [info commands ::savedUnknown]] == 1} then {
+        return [uplevel 1 [list ::savedUnknown $name $args]]
+      }
+    }
+
+    proc eagle_getShellPromptScript {} {
+      #
+      # NOTE: Thanks go to Kyle.  Enhance the default interactive shell
+      #       prompt so that it always includes the current directory,
+      #       etc.
+      #
+      return {
+        apply [list [list] {
+          set pwd [file nativename [file normalize [pwd]]]
+          set dateTimeFormat ""
+
+          if {![info exists ::no(NoTclPrompt1Date)] && \
+              ![info exists ::env(NoTclPrompt1Date)]} then {
+            if {[string length $dateTimeFormat] > 0} then {
+              append dateTimeFormat " "
+            }
+
+            append dateTimeFormat MM-dd-yyyy
+          }
+
+          if {![info exists ::no(NoTclPrompt1Time)] && \
+              ![info exists ::env(NoTclPrompt1Time)]} then {
+            if {[string length $dateTimeFormat] > 0} then {
+              append dateTimeFormat " @ "
+            }
+
+            append dateTimeFormat "hh:mm tt"
+          }
+
+          if {[string length $dateTimeFormat] > 0} then {
+            host result Return \[
+
+            host result Ok [clock format \
+                [clock seconds] -format $dateTimeFormat]
+
+            host result Return \]
+            host result Ok " "
+          }
+
+          host result Error <
+          host result Ok $pwd
+          host result Error "> "
+        }]
+
+        if {[isStableEagleRelease 56]} then {
+          return -code return
+        }
+      }
+    }
+
+    proc eagle_setupPromptScript { {enable ""} } {
+      if {[string length $enable] > 0} then {
+        if {$enable} then {
+          set ::tcl_prompt1 [eagle_getShellPromptScript]
+          set ::tcl_prompt3 [eagle_getShellPromptScript]
+          set ::tcl_prompt5 [eagle_getShellPromptScript]
+          set ::tcl_prompt7 [eagle_getShellPromptScript]
+        } else {
+          unset -nocomplain ::tcl_prompt1 ::tcl_prompt3 \
+              ::tcl_prompt5 ::tcl_prompt7
+        }
+      } else {
+        foreach varName [list \
+            ::tcl_prompt1 ::tcl_prompt3 ::tcl_prompt5 \
+            ::tcl_prompt7] {
+
+          if {![info exists $varName]} then {
+            return false
+          }
+
+          if {![string equal [set $varName] \
+              [eagle_getShellPromptScript]]} then {
+            return false
+          }
+        }
+
+        return true
+      }
+    }
+
+    proc isUriLikelyToBeRedirected { uri } {
+      #
+      # HACK: This procedure assumes that the auxiliary base URI
+      #       provided by the core library points to a redirector
+      #       service.  By default, this is true.  Please refer
+      #       to the documentation for details.
+      #
+      maybeInvokeForTester ::beforeIsUriLikelyToBeRedirected; # HOOK
+
+      if {[isEagle]} then {
+        set baseUri [getAuxiliaryBaseUri]
+      } else {
+        set baseUri https://urn.to/r
+      }
+
+      set result [string match -nocase [appendArgs $baseUri /*] $uri]
+      maybeInvokeForTester ::afterIsUriLikelyToBeRedirected; # HOOK
+
+      return $result
+    }
+
+    proc maybeResolveUri {
+            uri {varName ""} {channel stdout} {quiet false} } {
+      if {[string length $varName] > 0} then {
+        upvar 1 $varName wasResolved
+      }
+
+      if {[isUriLikelyToBeRedirected $uri]} then {
+        set savedUri $uri
+
+        if {[string first ? $uri] != -1} then {
+          append uri &
+        } else {
+          append uri ?
+        }
+
+        append uri urn_r_preview_mode=1; # NOTE: Get URI as text.
+        maybeInvokeForTester ::beforeUri_Redirect; # HOOK
+
+        if {[isEagle]} then {
+          set uri [string trim \
+              [uri download -timeouttype network -inline -- $uri]]
+        } else {
+          package require http 2.0
+          package require Eagle.Tools.Common
+
+          namespace import -force \
+              ::Eagle::Tools::Common::getFileViaHttp
+
+          set uri [getFileViaHttp \
+              $uri 0 $channel $quiet -binary true]
+        }
+
+        maybeInvokeForTester ::afterUri_Redirect; # HOOK
+
+        if {!$quiet} then {
+          tputs [getTestChannelOrDefault] [appendArgs \
+              "---- using resolved URI: \[" $savedUri "\] ==> \[" \
+              $uri "\]...\n"]
+        }
+
+        set wasResolved true
+      } else {
+        if {!$quiet} then {
+          tputs [getTestChannelOrDefault] [appendArgs \
+              "---- using existing URI: \[" $uri "\]...\n"]
+        }
+
+        set wasResolved false
+      }
+
+      return $uri
+    }
+
+    proc maybeFullyResolveUri {
+            uri redirectLimit {channel stdout} {quiet false} } {
+      set redirectCount 0
+
+      while {true} {
+        set savedUri $uri
+        set uri [maybeResolveUri $uri wasResolved $channel $quiet]
+
+        if {[string length $uri] == 0} then {
+          error [appendArgs "could not resolve for URI: " $savedUri]
+        }
+
+        incr redirectCount
+
+        if {$redirectLimit >= 0 && \
+            $redirectCount > $redirectLimit} then {
+          error [appendArgs "redirect limit hit for URI: " $savedUri]
+        }
+
+        if {![info exists wasResolved] || !$wasResolved} then {
+          break
+        }
+      }
+
+      return $uri
+    }
+
+    proc escapeForJsonString { value } {
+      set result $value; # NOTE: Start with the original string.
+
+      set result [string map [list \
+          \b \\\b \t \\\t \n \\\n \f \\\f \r \\\r] $result]
+
+      set result [string map [list \
+          \\ \\\\ \[ \\\[ \] \\\]] $result]; # [subst]
+
+      set pattern {([\x00-\x1F])}
+
+      if {[isEagle]} then {
+        set subSpec {\\\\u[format %04X [string ordinal {\1} 0]]}
+      } else {
+        set subSpec {\\\\u[scan {\1} %c c; format %04X $c]}
+      }
+
+      regsub -all -- $pattern $result $subSpec result
+
+      set result [subst -novariables $result]
+      set result [string map [list \" \\\" / \\/ \\ \\\\] $result]
+
+      return $result
+    }
+
+    #
+    # NOTE: This procedure returns an opaque identifier that should be suited
+    #       to uniquely identifying a script, i.e. it will be based on a hash
+    #       function (or similar construct).
+    #
+    proc eagle_buildDataId { value {length 16} {hashAlgorithmName SHA512} } {
+      return [string tolower \
+          [string range [hash normal $hashAlgorithmName [appendArgs \
+          [info context] $value]] 0 [expr {$length - 1}]]]
+    }
+
+    proc openAI_getPrompt { command {channel stdout} {quiet false} } {
+      set result ""; set prompt {
+        When responding, please include only new and/or corrected
+        script command(s) without any other content.
+
+        The script command after the colon, which is in the Eagle
+        scripting language, encountered an "invalid command name"
+        error in Eagle v}
+
+      if {[info exists ::eagle_platform(patchLevel)]} then {
+        append prompt $::eagle_platform(patchLevel)
+      } else {
+        append prompt 1.0
+      }
+
+      append prompt .
+
+      append prompt {
+        Please correct it and/or offer suggestions that improve it.
+        Here is the command: }
+
+      regsub -all -- {\s{2,}} $prompt " " prompt
+      append prompt $command
+      set prompt [string trim $prompt]
+
+      maybeInvokeForTester ::beforeOpenAI_getPrompt; # HOOK
+
+      if {[string length $result] == 0} then {
+        set result $prompt
+        maybeInvokeForTester ::afterOpenAI_getPrompt; # HOOK
+
+        if {!$quiet} then {
+          tputs [getTestChannelOrDefault] [appendArgs \
+              "---- prompt for OpenAI is \"" $result \"\n]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs [getTestChannelOrDefault] [appendArgs \
+              "---- prompt for OpenAI overridden to \"" \
+              $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
+    proc openAI_getJsonPaths { json {channel stdout} {quiet false} } {
+      set result ""; set paths [list choices 0 message content]
+      maybeInvokeForTester ::beforeOpenAI_getJsonPaths; # HOOK
+
+      if {[string length $result] == 0} then {
+        set result $paths
+        maybeInvokeForTester ::afterOpenAI_getJsonPaths; # HOOK
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- json paths for OpenAI is \"" $result \"\n]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- json paths for OpenAI overridden to \"" \
+              $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
+    proc isValidJson { value } {
+      if {[string length $value] > 0 && [catch {
+        object load Newtonsoft.Json; # NOTE: Not loaded yet?
+
+        object invoke -alias \
+            Newtonsoft.Json.Linq.JToken Parse $value
+      } json] == 0 && [isNonNullObjectHandle $json]} then {
+        return [expr {[$json Type] in [list Object Array]}]
+      }
+
+      return false
+    }
+
+    proc getOrSetViaJsonPaths { json jpaths {value ""} {root false} } {
+      if {[string length [string trim $json]] == 0} then {
+        return ""
+      }
+
+      set index 0
+
+      if {[catch {
+        object load Newtonsoft.Json; # NOTE: Not loaded yet?
+
+        object invoke -alias \
+            Newtonsoft.Json.Linq.JObject Parse $json
+      } objects([incr index])]} then {
+        return ""
+      }
+
+      foreach jpath $jpaths {
+        if {[string is integer -strict $jpath]} then {
+          set jpath [object invoke -create Int32 Parse $jpath]
+        }
+
+        set object $objects($index)
+
+        if {![isNonNullObjectHandle $object]} then {
+          return ""
+        }
+
+        set objects([incr index]) [$object -alias get_Item $jpath]
+      }
+
+      set object $objects($index)
+
+      if {![isNonNullObjectHandle $object]} then {
+        return ""
+      }
+
+      #
+      # HACK: *SPECIAL* Does the caller want to set the value?  If
+      #       so, make sure it is a value node type and then do it.
+      #
+      if {[string length $value] > 0} then {
+        set type [$object GetType]
+
+        if {$type eq "Newtonsoft.Json.Linq.JValue"} then {
+          $object set_Value $value
+        } else {
+          error [appendArgs \
+              "unsupported node for setting value: " $type]
+        }
+      }
+
+      #
+      # HACK: *SPECIAL* Does the caller want to return the entire
+      #       block of JSON (i.e. from the root)?  If not, we just
+      #       return the block selected via the passed JPath list.
+      #
+      if {$root} then {
+        return [$object Root.ToString]
+      } else {
+        return [$object ToString]
+      }
+    }
+
+    proc openAI_enableUnknown {
+            {enable ""} {options true} {whatIf true} {channel stdout}
+            {quiet false} } {
+      set defaultUnknown [object invoke -flags +NonPublic \
+          Eagle._Components.Private.TclVars+Command Unknown]
+
+      set oldUnknown [object invoke Interpreter.GetActive Unknown]
+
+      if {[string length $enable] > 0} then {
+        set newUnknown [list ::openAI_unknown $whatIf $channel $quiet]
+
+        if {$enable} then {
+          if {$oldUnknown eq $defaultUnknown} then {
+            object invoke Interpreter.GetActive Unknown $newUnknown
+
+            if {$options} then {
+              addRuntimeOption eagleUnknownOpenAI
+              addRuntimeOption eagleUnknownEnableSecurity
+              addRuntimeOption eagleUnknownAutomaticOpenAI
+            }
+
+            return true
+          }
+        } else {
+          if {$oldUnknown eq $newUnknown} then {
+            object invoke Interpreter.GetActive Unknown $defaultUnknown
+
+            if {$options} then {
+              removeRuntimeOption eagleUnknownOpenAI
+              removeRuntimeOption eagleUnknownEnableSecurity
+              removeRuntimeOption eagleUnknownAutomaticOpenAI
+            }
+
+            return true
+          }
+        }
+      } else {
+        if {$oldUnknown eq $defaultUnknown} then {
+          return false
+        }
+
+        if {$options} then {
+          if {![hasRuntimeOption eagleUnknownOpenAI] || \
+              ![hasRuntimeOption eagleUnknownEnableSecurity] || \
+              ![hasRuntimeOption eagleUnknownAutomaticOpenAI]} then {
+            return false
+          }
+        }
+
+        return true
+      }
+
+      return false
+    }
+
+    proc verifyConfigurationDirectory { directory {pattern ""} } {
+      if {[string is not path -strict $directory]} then {
+        error [appendArgs \
+            "verifyConfigurationDirectory: directory \"" \
+            $directory "\" has invalid syntax"]
+      }
+
+      if {![file exists $directory]} then {
+        error [appendArgs \
+            "verifyConfigurationDirectory: directory \"" \
+            $directory "\" does not exist"]
+      }
+
+      if {![file isdirectory $directory]} then {
+        error [appendArgs \
+            "verifyConfigurationDirectory: directory \""
+            $directory "\" is not actually a directory"]
+      }
+
+      if {![file readable $directory]} then {
+        error [appendArgs \
+            "verifyConfigurationDirectory: directory \"" \
+            $directory "\" is not readable"]
+      }
+
+      if {[string length $pattern] > 0} then {
+        set directory [file normalize $directory]
+
+        set fileNames [glob -nocomplain \
+            [file join $directory $pattern]]
+
+        if {[llength $fileNames] == 0} then {
+          return false
+        }
+
+        foreach fileName $fileNames {
+          if {![file readable $fileName]} then {
+            error [appendArgs \
+                "verifyConfigurationDirectory: file \"" \
+                $fileName "\" is not readable"]
+          }
+        }
+      }
+
+      return true
+    }
+
+    proc openAI_getKeyRingDirectory { {channel stdout} {quiet false} } {
+      set result ""; set fileNameOnly keyRing.two.eagle
+      maybeInvokeForTester ::beforeOpenAI_getKeyRingDirectory; # HOOK
+
+      if {[string length $result] == 0} then {
+        if {[info exists ::env(OPENAI_KEYRING_DIRECTORY)]} then {
+          set directory $::env(OPENAI_KEYRING_DIRECTORY)
+          set fileName [file join $directory $fileNameOnly]
+
+          if {[file exists $fileName]} then {
+            set result $directory
+            maybeInvokeForTester ::afterOpenAI_getKeyRingDirectory; # HOOK
+
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "---- keyring directory for OpenAI is \"" $result \"\n]
+            }
+
+            return $result
+          }
+        } else {
+          set directories [list [info binary]]
+
+          if {[llength [info commands keyring]] > 0} then {
+            lappend directories [keyring directory]
+          }
+
+          if {[info exists ::env(KAPOK_KEYRING_PATH)]} then {
+            lappend directories $::env(KAPOK_KEYRING_PATH)
+          }
+
+          if {[info exists ::env(KAPOK_BIN_PATH)]} then {
+            lappend directories $::env(KAPOK_BIN_PATH)
+          }
+
+          if {[info exists ::env(KAPOK_LIB_PATH)]} then {
+            lappend directories $::env(KAPOK_LIB_PATH)
+          }
+
+          foreach directory $directories {
+            set fileName [file join $directory $fileNameOnly]
+
+            if {[file exists $fileName]} then {
+              set result $directory
+              maybeInvokeForTester ::after_openAI_getKeyRingDirectory; # HOOK
+
+              if {!$quiet} then {
+                tputs $channel [appendArgs \
+                    "---- keyring directory for OpenAI is \"" $result \"\n]
+              }
+
+              return $result
+            }
+          }
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- keyring directory for OpenAI overridden to \"" \
+              $result \"\n]
+        }
+
+        return $result
+      }
+
+      maybeInvokeForTester ::errorOpenAI_getKeyRingDirectory; # HOOK
+
+      error [appendArgs \
+          "remote script keyring \"" $fileNameOnly "\" not found"]
+    }
+
+    proc openAI_writeScript { script } {
+      try {
+        set fileName [appendArgs [file tempname] .eagle]
+
+        file cleanup $fileName
+        writeFile $fileName $script
+
+        return $fileName
+      } finally {
+        if {[info exists fileName]} then {
+          catch {file cleanup $fileName}
+        }
+      }
+    }
+
+    proc openAI_haveSecurity { {channel stdout} {quiet false} } {
+      if {[llength [info commands security]] > 0} then {; # Security.Core
+        if {[security ""]} then {; # AllowSignedOnly (?)
+          return true
+        }
+      }
+
+      return false
+    }
+
+    proc openAI_enableSecurity {
+            {varName ""} {channel stdout} {quiet false} } {
+      if {[string length $varName] > 0} then {
+        upvar 1 $varName haveSecurity
+      }
+
+      if {[catch {
+        source enableSecurity
+
+        keyring merge [file join \
+            [openAI_getKeyRingDirectory $channel $quiet] \
+            keyRing.two.eagle]; # 0x180558840e482cda
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- trusted script keyring is now: " \
+              [keyring script] \n]
+        }
+      } error] == 0} then {
+        set haveSecurity true
+      } else {
+        set haveSecurity false
+      }
+
+      return $haveSecurity
+    }
+
+    proc openAI_cleanupSandbox { {channel stdout} {quiet false} } {
+      maybeInvokeForTester ::beforeOpenAI_cleanupSandbox; # HOOK
+
+      if {[info exists ::eagle_debugger(sandbox)] && \
+          [string is interpreter $::eagle_debugger(sandbox)]} then {
+        set interp $::eagle_debugger(sandbox)
+
+        interp delete $interp
+        maybeInvokeForTester ::cleanupOpenAI_sandbox; # HOOK
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- sandbox interpreter \"" $interp "\" deleted\n"]
+        }
+      }
+
+      maybeInvokeForTester ::afterOpenAI_cleanupSandbox; # HOOK
+      unset -nocomplain ::eagle_debugger(sandbox)
+
+      return ""
+    }
+
+    proc openAI_maybeEvaluateInSandbox {
+            fileName security {channel stdout} {quiet false} } {
+      maybeInvokeForTester ::beforeOpenAI_evaluateInSandbox; # HOOK
+
+      if {![info exists ::eagle_debugger(sandbox)] || [string \
+          is not interpreter $::eagle_debugger(sandbox)]} then {
+        set ::eagle_debugger(sandbox) [set interp [interp create -safe]]
+        maybeInvokeForTester ::createOpenAI_sandbox; # HOOK
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- sandbox interpreter \"" $interp "\" created\n"]
+        }
+      } else {
+        maybeInvokeForTester ::reuseOpenAI_sandbox; # HOOK
+      }
+
+      maybeInvokeForTester ::afterOpenAI_evaluateInSandbox; # HOOK
+
+      if {[openAI_haveSecurity $channel $quiet]} then {
+        return [interp eval $::eagle_debugger(sandbox) \
+            [interp readorgetscriptfile {} $fileName]]
+      } else {
+        error [appendArgs \
+            "security unavailable for sandbox in context: " \
+            [info context]]
+      }
+    }
+
+    proc openAI_unknown { whatIf channel quiet name args } {
+      #
+      # NOTE: This is an [unknown] procedure that normally produces an
+      #       appropriate error message; however, it can optionally try
+      #       to ask OpenAI for corrections and/or suggestions.
+      #
+      if {[hasRuntimeOption eagleUnknownOpenAI]} then {
+        set haveSecurity false
+
+        if {[catch {
+          if {[hasRuntimeOption eagleUnknownEnableSecurity]} then {
+            openAI_enableSecurity haveSecurity $channel $quiet
+          }
+
+          object load Newtonsoft.Json; # NOTE: OpenAI JSON response.
+        } result] == 0} then {
+          set command [list]
+
+          lappend command $name
+          eval lappend command $args
+
+          set response [openAI_chatCompletion \
+              prompt [openAI_getPrompt $command $channel $quiet] \
+              whatIf $whatIf channel $channel quiet $quiet]
+
+          if {[string length $response] > 0} then {
+            set content [getOrSetViaJsonPaths $response \
+                [openAI_getJsonPaths $response $channel $quiet]]
+
+            maybeInvokeForTester ::beforeOpenAI_unknownContent; # HOOK
+
+            if {[string length $content] > 0} then {
+              if {[hasRuntimeOption eagleUnknownAutomaticOpenAI]} then {
+                if {$haveSecurity} then {
+                  if {[catch {
+                    set fileName [openAI_writeScript $content]
+                    maybeInvokeForTester ::beforeOpenAI_sandbox; # HOOK
+
+                    if {[hasRuntimeOption eagleUnknownSandboxOpenAI]} then {
+                      openAI_maybeEvaluateInSandbox \
+                          $fileName $haveSecurity $channel $quiet
+                    } elseif {[openAI_haveSecurity $channel $quiet]} then {
+                      uplevel 1 [list source $fileName]
+                    }
+                  } result] == 0} then {
+                    maybeInvokeForTester ::afterOpenAI_unknownContent; # HOOK
+                    return -code ok $result
+                  }
+                }
+              }
+
+              maybeInvokeForTester ::errorOpenAI_unknownContent; # HOOK
+              return -code error $content
+            }
+
+            maybeInvokeForTester ::errorOpenAI_unknownResponse; # HOOK
+            return -code error $response
+          }
+        }
+      }
+
+      maybeInvokeForTester ::errorOpenAI_unknownCommand; # HOOK
+      return -code error [appendArgs "invalid command name \"" $name \"]
+    }
+
+    #
+    # NOTE: This procedure may be by the _Tests.Default.ScriptWebClient class
+    #       methods when it has been setup for an interpreter.  This procedure
+    #       is designed to be used with the [openAI] procedure (below).  This
+    #       procedure must reside in the global namespace.
+    #
+    # <callback>
+    nproc openAI_scriptWebClient { args } {
+      if {[catch {
+        string trimleft [lindex [info level -1] 0] :; # NOTE: Which caller?
+      } level]} then {
+        set level ""
+      }
+
+      maybeInvokeForTester ::beforeOpenAI_scriptWebClient; # HOOK
+
+      if {$level eq "openAI_chatCompletion" && \
+          [methodName ToString] eq "GetWebRequest"} then {
+        upvar 1 apiKey apiKey
+        upvar 1 useProxy useProxy
+        upvar 1 whatIf whatIf
+
+        if {![info exists useProxy] || \
+            [string is not true -strict $useProxy]} then {
+          webRequest ContentType application/json
+        }
+
+        if {[isUriLikelyToBeRedirected [webRequest RequestUri]]} then {
+          set token ""
+        } else {
+          if {[info exists useProxy] && \
+              [string is true -strict $useProxy]} then {
+            set token ""
+          } elseif {[info exists whatIf] && \
+              [string is true -strict $whatIf]} then {
+            set token [guid null]
+          } elseif {[info exists apiKey]} then {
+            set token $apiKey
+          } else {
+            set token ""
+          }
+        }
+
+        if {[string length $token] > 0} then {
+          webRequest Headers.Add Authorization [appendArgs "Bearer " $token]
+        }
+
+        webRequest UserAgent [appendArgs \
+            "Eagle/1.0 (" [string map [list "{} " ""] [version]] )]
+
+        maybeInvokeForTester ::after_openAI_scriptWebClient; # HOOK
+      }
+    }
+
+    proc openAI_setupScriptWebClient {
+            enable varName {channel stdout} {quiet false} } {
+      if {$enable} then {
+        #
+        # HACK: Unless a [::scriptWebClient] procedure has already been
+        #       defined, force ours to be used now.
+        #
+        if {[llength [info nprocs ::openAI_scriptWebClient]] > 0 && \
+            [llength [info commands ::scriptWebClient]] == 0} then {
+          rename ::openAI_scriptWebClient ::scriptWebClient
+        }
+      } else {
+        #
+        # NOTE: Attempt to restore all the original procedure names.
+        #
+        if {[llength [info nprocs ::openAI_scriptWebClient]] == 0 && \
+            [llength [info commands ::scriptWebClient]] > 0} then {
+          rename ::scriptWebClient ::openAI_scriptWebClient
+        }
+      }
+
+      #
+      # HACK: Use of ScriptWebClient is required here due to needing to
+      #       adjust the HTTP headers, etc.
+      #
+      upvar 1 $varName savedTestFlags
+
+      if {$enable} then {
+        if {[info exists ::eagle_platform(compileOptions)]} then {
+          set options $::eagle_platform(compileOptions)
+        } else {
+          set options [list]; # options missing?
+        }
+
+        if {[lsearch -exact -- $options TEST] == -1 || \
+            [lsearch -exact -- $options NETWORK] == -1} then {
+          error "library missing TEST and/or NETWORK compile-options"
+        }
+
+        set savedTestFlags [enableInterpreterTestFlags]; # query
+        enableInterpreterTestFlags +ScriptWebClientMask true; # add
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- saved interpreter test flags: " \
+              $savedTestFlags \n]
+        }
+      } elseif {[info exists savedTestFlags]} then {
+        enableInterpreterTestFlags [appendArgs = $savedTestFlags]; # reset
+        unset savedTestFlags; # cleanup
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- restored interpreter test flags: " \
+              [enableInterpreterTestFlags] \n]
+        }
+      }
+    }
+
+    proc openAI_getTypes { {channel stdout} {quiet false} } {
+      set result ""; set types [list "" chat]
+      maybeInvokeForTester ::beforeOpenAI_getTypes; # HOOK
+
+      if {[string length $result] == 0} then {
+        set result $types
+        maybeInvokeForTester ::afterOpenAI_getTypes; # HOOK
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- default types for OpenAI are \"" $result \"\n]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- default types for OpenAI overridden to \"" \
+              $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
+    #
+    # TODO: When more model types need to be supported by this module, add
+    #       the needed OpenAI model names and types here.
+    #
+    proc openAI_getDefaultModel { type {channel stdout} {quiet false} } {
+      set result ""; set types [openAI_getTypes $channel $quiet]
+      maybeInvokeForTester ::beforeOpenAI_getDefaultModel; # HOOK
+
+      if {[string length $result] == 0} then {
+        if {$type in $types} then {
+          set result gpt-3.5-turbo; # TODO: Good default?
+          maybeInvokeForTester ::afterOpenAI_getDefaultModel; # HOOK
+
+          if {!$quiet} then {
+            tputs $channel [appendArgs \
+                "---- default model for OpenAI type " \
+                [expr {[string length $type] > 0 ? \
+                [appendArgs \" $type \"] : "<empty>"}] \
+                " is \"" $result \"\n]
+          }
+        } else {
+          error [appendArgs \
+              "bad type, must be one of: " $types]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- default model for OpenAI type \"" \
+              $type "\" overridden to \"" $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
+    #
+    # TODO: When more model types need to be supported by this module, add
+    #       the needed OpenAI model names and types here.
+    #
+    proc openAI_getStandardModel { type {channel stdout} {quiet false} } {
+      set result ""; set types [openAI_getTypes $channel $quiet]
+      maybeInvokeForTester ::beforeOpenAI_getStandardModel; # HOOK
+
+      if {[string length $result] == 0} then {
+        if {$type in $types} then {
+          set result chatgpt-4o-latest; # TODO: Good default?
+          maybeInvokeForTester ::afterOpenAI_getStandardModel; # HOOK
+
+          if {!$quiet} then {
+            tputs $channel [appendArgs \
+                "---- standard model for OpenAI type " \
+                [expr {[string length $type] > 0 ? \
+                [appendArgs \" $type \"] : "<empty>"}] \
+                " is \"" $result \"\n]
+          }
+        } else {
+          error [appendArgs \
+              "bad type, must be one of: " $types]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- standard model for OpenAI type \"" \
+              $type "\" overridden to \"" $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
+    proc openAI_getJson {
+            prompt model options {channel stdout} {quiet false} } {
+      #
+      # NOTE: For JSON safety, escape all arguments that will [subst]
+      #       in the final web request block.
+      #
+      set model [escapeForJsonString $model]
+      set prompt [escapeForJsonString $prompt]
+
+      #
+      # NOTE: Build the final JSON payload for the request.  This is
+      #       purposely minimal and could be extended to support many
+      #       more options.
+      #
+      maybeInvokeForTester ::beforeOpenAI_setJsonExtra; # HOOK
+
+      if {![info exists extra]} then {
+        if {[string is true -strict \
+            [getDictionaryValue $options deterministic]]} then {
+          #
+          # HACK: These parameters were "recommended" by ChatGPT when a
+          #       "more deterministic" result in desired, i.e. testing,
+          #       etc.
+          #
+          set extra {,
+                "temperature" : 0,
+                "top_p" : 1,
+                "n" : 1,
+                "max_tokens" : 64
+          }
+        } else {
+          set extra ""
+        }
+      }
+
+      maybeInvokeForTester ::afterOpenAI_setJsonExtra; # HOOK
+
+      set result ""; set json [subst -nocommands -nobackslashes {
+        {
+          "model" : "${model}",
+          "messages" : [
+            {
+              "role" : "user",
+              "content" : "${prompt}"
+            }
+          ]${extra}
+        }
+      }]
+
+      maybeInvokeForTester ::beforeOpenAI_getJson; # HOOK
+
+      if {[string length $result] == 0} then {
+        set result $json
+        maybeInvokeForTester ::afterOpenAI_getJson; # HOOK
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- default JSON for OpenAI is \"" $result \"\n]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- default JSON for OpenAI overridden to \"" \
+              $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
+    proc openAI_getAnyApiKey { proxy {varName ""} } {
+      if {[string length $varName] > 0} then {
+        upvar 1 $varName useProxy
+      }
+
+      if {$proxy} then {
+        maybeInvokeForTester ::beforeOpenAI_useHarpy; # HOOK
+
+        if {[llength [info commands harpy]] > 0} then {
+          set apiKey [getDictionaryValue [harpy machine] id]
+          set useProxy true
+
+          maybeInvokeForTester ::afterOpenAI_useHarpy; # HOOK
+        } else {
+          set apiKey ""; # NOTE: No API key available?
+          set useProxy true; # NOTE: By default, use proxy.
+
+          maybeInvokeForTester ::errorOpenAI_getProxyApiKey; # HOOK
+        }
+      } else {
+        if {[info exists ::env(OPENAI_API_KEY)]} then {
+          set apiKey $::env(OPENAI_API_KEY)
+        } elseif {[info exists ::env(OPENAI_API_KEY_FILE)]} then {
+          set apiKey [readSharedFile $::env(OPENAI_API_KEY_FILE)]
+        } else {
+          maybeInvokeForTester ::beforeOpenAI_useHarpy; # HOOK
+
+          if {[llength [info commands harpy]] > 0} then {
+            set apiKey [getDictionaryValue [harpy machine] id]
+            set useProxy true
+
+            maybeInvokeForTester ::afterOpenAI_useHarpy; # HOOK
+          } else {
+            set apiKey ""; # NOTE: No API key available?
+            set useProxy false; # NOTE: By default, no proxy.
+
+            maybeInvokeForTester ::errorOpenAI_getDirectApiKey; # HOOK
+          }
+        }
+      }
+
+      return $apiKey
+    }
+
+    #
+    # NOTE: This procedure attempts to call the OpenAI API and return results
+    #       of the specified prompt.  The apiKey argument may be empty if the
+    #       OPENAI_API_KEY or OPENAI_API_KEY_FILE environment variables have
+    #       been set.  Currently, the model argument may be an empty string or
+    #       the value "gpt-3.5-turbo".  Currently, the type argument may be an
+    #       empty string or the value "chat".  This procedure may raise script
+    #       errors.
+    #
+    # <public>
+    nproc openAI_chatCompletion {
+            prompt {apiKey ""} {model ""} {type ""} {options ""} {proxy false}
+            {whatIf true} {fake false} {channel stdout} {quiet false} } {
+      setupTestPackageVars false
+
+      variable baseUri
+      variable openAiProxyUri
+      variable openAiProxyUrn
+      variable openAiUri
+      variable openAiUrn
+      variable whatIfUri
+      variable whatIfUrn
+
+      #########################################################################
+
+      set useProxy false
+      maybeInvokeForTester ::beforeOpenAI_ApiKey; # HOOK
+
+      if {[string length $apiKey] == 0} then {
+        set apiKey [openAI_getAnyApiKey $proxy useProxy]
+      }
+
+      maybeInvokeForTester ::afterOpenAI_ApiKey; # HOOK
+
+      if {[string length $apiKey] == 0} then {
+        error [appendArgs \
+            "please set either the OPENAI_API_KEY or " \
+            "OPENAI_API_KEY_FILE environment variables " \
+            "and/or \[load\] the security plugin first"]
+      }
+
+      #########################################################################
+
+      if {[string length $model] == 0} then {
+        if {$useProxy} then {
+          set model [openAI_getStandardModel $type $channel $quiet]
+        } else {
+          set model [openAI_getDefaultModel $type $channel $quiet]
+        }
+      }
+
+      #########################################################################
+      #
+      # NOTE: Choose the correct URI for the endpoint.  This will
+      #       either be the OpenAI chat completions endpoint -OR-
+      #       the "what-if" endpoint, depending on the value of
+      #       the whatIf argument.  These URIs are configurable,
+      #       via overridding these script variables, which were
+      #       originally created in the [::setupTestPackageVars]
+      #       procedure.
+      #
+      if {$whatIf} then {
+        set uri [subst $whatIfUri]
+      } elseif {$useProxy} then {
+        set uri [subst $openAiProxyUri]
+      } else {
+        set uri [subst $openAiUri]
+      }
+
+      #
+      # HACK: Since the "Authorization" header is required by our
+      #       Open API requests and the .NET Framework will strip
+      #       it out following any 3xx redirects, we must manually
+      #       follow the (first?) redirect instead, using "preview
+      #       mode", prior to sending the request to the redirected
+      #       endpoint.
+      #
+      set uri [maybeFullyResolveUri $uri 20 $channel $quiet]
+
+      #########################################################################
+
+      openAI_setupScriptWebClient true savedTestFlags $channel $quiet
+
+      try {
+        if {$useProxy} then {
+          set data [list \
+              nop false prompt $prompt apiKey $apiKey model $model \
+              type $type options $options whatIf $whatIf fake $fake]
+
+          maybeInvokeForTester ::beforeProxyAI; # HOOK
+
+          if {!$quiet} then {
+            if {![info exists ::no(NoShowProxyAiRequestJson)] && \
+                ![info exists ::env(NoShowProxyAiRequestJson)]} then {
+              set dataId [eagle_buildDataId $data]
+
+              set message [appendArgs \
+                  "---- request \"" $dataId "\" raw data for ProxyAI: " \
+                  $data \n]
+
+              host result Ok $message
+
+              if {![info exists ::no(NoKapokLogProxyAiRequestJson)] && \
+                  ![info exists ::env(NoKapokLogProxyAiRequestJson)]} then {
+                if {[llength [info commands kapok]] > 0} then {
+                  catch {kapok log $message {+Highest ForceFlush}}
+                }
+              }
+
+              if {![info exists ::no(NoLogProxyAiRequestJson)] && \
+                  ![info exists ::env(NoLogProxyAiRequestJson)]} then {
+                tputs $channel $message
+              }
+            }
+          }
+
+          set result [uri upload \
+              -timeouttype network -inline -retries 0 \
+              -data $data -- $uri]
+
+          maybeInvokeForTester ::afterProxyAI; # HOOK
+        } else {
+          set json [openAI_getJson $prompt $model $options $channel $quiet]
+          maybeInvokeForTester ::beforeOpenAI; # HOOK
+
+          if {!$quiet} then {
+            if {![info exists ::no(NoShowOpenAiRequestJson)] && \
+                ![info exists ::env(NoShowOpenAiRequestJson)]} then {
+              set dataId [eagle_buildDataId $prompt]
+
+              set message [appendArgs \
+                  "---- request \"" $dataId "\" raw JSON for OpenAI: " \
+                  $json \n]
+
+              host result Ok $message
+
+              if {![info exists ::no(NoKapokLogOpenAiRequestJson)] && \
+                  ![info exists ::env(NoKapokLogOpenAiRequestJson)]} then {
+                if {[llength [info commands kapok]] > 0} then {
+                  catch {kapok log $message {+Highest ForceFlush}}
+                }
+              }
+
+              if {![info exists ::no(NoLogOpenAiRequestJson)] && \
+                  ![info exists ::env(NoLogOpenAiRequestJson)]} then {
+                tputs $channel $message
+              }
+            }
+          }
+
+          set data [list [object create String $json]]; # HACK: Need object.
+
+          if {$fake} then {; # NOTE: Simulated response?
+            set dataId [eagle_buildDataId $json]
+
+            set fileName [file join \
+                [info binary] [appendArgs fake-response- $dataId .json]]
+
+            if {![file exists $fileName]} then {
+              set fileName [file join [info binary] fake-response.json]
+            }
+
+            maybeInvokeForTester ::beforeOpenAI_fake; # HOOK
+
+            if {[file exists $fileName]} then {
+              set result [readSharedFile $fileName]
+            } else {
+              set result ""
+              maybeInvokeForTester ::missingOpenAI_fake; # HOOK
+
+              if {[string length $result] == 0} then {
+                error [appendArgs \
+                    "simulated OpenAI response \"" \
+                    $dataId "\" data is missing"]
+              }
+            }
+
+            maybeInvokeForTester ::afterOpenAI_fake; # HOOK
+          } else {
+            set result [uri upload \
+                -timeouttype network -inline -raw -retries 0 \
+                -data $data -- $uri]
+          }
+
+          maybeInvokeForTester ::afterOpenAI; # HOOK
+        }
+
+        return $result
+      } finally {
+        openAI_setupScriptWebClient false savedTestFlags $channel $quiet
+      }
+    }
+
     proc recursiveGetDirectories { path pattern } {
       #
       # HACK: Use brute-force search of all files beneath the specified
@@ -8066,8 +10350,10 @@ namespace eval ::Eagle {
 
               if {$::eagle_tests(Total) > 0} then {
                 tresult Ok "OVERALL RESULT: SUCCESS\n"
+                maybeInvokeForTester ::overallSuccess; # HOOK
               } else {
                 tresult Ok "OVERALL RESULT: NONE\n"
+                maybeInvokeForTester ::overallNone; # HOOK
               }
             }
 
@@ -8086,6 +10372,7 @@ namespace eval ::Eagle {
               }
 
               tresult Error "OVERALL RESULT: FAILURE\n"
+              maybeInvokeForTester ::overallFailure; # HOOK
             }
 
             return false
@@ -8105,6 +10392,7 @@ namespace eval ::Eagle {
 
             tresult Error "OVERALL RESULT: MISSING test counts (1)\n"
             tresult Error "OVERALL RESULT: FAILURE\n"
+            maybeInvokeForTester ::overallFailure; # HOOK
           }
 
           return false
@@ -8134,10 +10422,14 @@ namespace eval ::Eagle {
                 tresult Ok [appendArgs \
                     "OVERALL RESULT: SUCCESS (" \
                     $percent "% >= " $::test_threshold %)\n]
+
+                maybeInvokeForTester ::overallSuccess; # HOOK
               } else {
                 tresult Ok [appendArgs \
                     "OVERALL RESULT: NONE (" \
                     $percent "% >= " $::test_threshold %)\n]
+
+                maybeInvokeForTester ::overallNone; # HOOK
               }
             }
 
@@ -8157,6 +10449,7 @@ namespace eval ::Eagle {
 
               tresult Error "OVERALL RESULT: MISSING test counts (2)\n"
               tresult Error "OVERALL RESULT: FAILURE\n"
+              maybeInvokeForTester ::overallFailure; # HOOK
             }
 
             return false
@@ -8177,6 +10470,8 @@ namespace eval ::Eagle {
             tresult Error [appendArgs \
                 "OVERALL RESULT: FAILURE (" \
                 $percent "% < " $::test_threshold %)\n]
+
+            maybeInvokeForTester ::overallFailure; # HOOK
           }
 
           return false
@@ -9292,6 +11587,14 @@ namespace eval ::Eagle {
       configureTcltest "" [list] [list] [list] [list] false
     }
 
+    #
+    # NOTE: If needed, enable seamless shell integration via [::unknown]
+    #       handler.
+    #
+    if {[hasRuntimeOption shellUnknown]} then {
+      eagle_enableShellUnknown true
+    }
+
     ###########################################################################
     ############################# END Eagle ONLY ##############################
     ###########################################################################
@@ -9366,8 +11669,10 @@ namespace eval ::Eagle {
 
               if {$::tcltest::numTests(Total) > 0} then {
                 tputs $channel "OVERALL RESULT: SUCCESS\n"
+                maybeInvokeForTester ::overallSuccess; # HOOK
               } else {
                 tputs $channel "OVERALL RESULT: NONE\n"
+                maybeInvokeForTester ::overallNone; # HOOK
               }
             }
 
@@ -9386,6 +11691,7 @@ namespace eval ::Eagle {
               }
 
               tputs $channel "OVERALL RESULT: FAILURE\n"
+              maybeInvokeForTester ::overallFailure; # HOOK
             }
 
             return false
@@ -9405,6 +11711,7 @@ namespace eval ::Eagle {
 
             tputs $channel "OVERALL RESULT: MISSING test counts (1)\n"
             tputs $channel "OVERALL RESULT: FAILURE\n"
+            maybeInvokeForTester ::overallFailure; # HOOK
           }
 
           return false
@@ -9434,10 +11741,14 @@ namespace eval ::Eagle {
                 tputs $channel [appendArgs \
                     "OVERALL RESULT: SUCCESS (" \
                     $percent "% >= " $::test_threshold %)\n]
+
+                maybeInvokeForTester ::overallSuccess; # HOOK
               } else {
                 tputs $channel [appendArgs \
                     "OVERALL RESULT: NONE (" \
                     $percent "% >= " $::test_threshold %)\n]
+
+                maybeInvokeForTester ::overallNone; # HOOK
               }
             }
 
@@ -9457,6 +11768,7 @@ namespace eval ::Eagle {
 
               tputs $channel "OVERALL RESULT: MISSING test counts (2)\n"
               tputs $channel "OVERALL RESULT: FAILURE\n"
+              maybeInvokeForTester ::overallFailure; # HOOK
             }
 
             return false
@@ -9477,6 +11789,8 @@ namespace eval ::Eagle {
             tputs $channel [appendArgs \
                 "OVERALL RESULT: FAILURE (" \
                 $percent "% < " $::test_threshold %)\n]
+
+            maybeInvokeForTester ::overallFailure; # HOOK
           }
 
           return false
@@ -9554,17 +11868,25 @@ namespace eval ::Eagle {
     #       namespace as well.
     #
     exportAndImportPackageCommands [namespace current] [list \
-        hideMyself removeTemporarySubDirectories enableInteractiveCommands \
-        cloneProcedure getTclMinimumVersion getTclMaximumVersion \
-        tryToLoadZeus loadTetrisViaTclTk breakOnError \
+        getParameterFromAny getIndexForDirectory maybeAddToAutoPath \
+        haveModernNetFx haveInfinitySymbol private annotateProcedure \
+        createPairs flattenPairs tclLogForTester maybeInvokeForTester \
+        haveCaches resetCaches reportCaches maybeMakeHighPriority \
+        removeTemporarySubDirectories enableInteractiveCommands \
+        getProcedureArguments cloneProcedure getTclMinimumVersion \
+        getTclMaximumVersion tryToLoadZeus loadTetrisViaTclTk breakOnError \
         getEnvironmentViaComSpec getNameForDebugHook announceForDebugHook \
         forceInteractiveLoopForDebugHook debugBreakHook skipTestHook \
         noFailTestHook whatIfTestHook errorTestHook failTestHook \
         maybeGetArgv addToArgv removeFromArgv addConstraintToArgv \
         removeConstraintFromArgv enableSystemAliasFlags setupSystemAliases \
-        reopenHost breakpoint debugBreakWithNewConsole getTestRunTag \
-        setupTestRunTag makeProcedureCommand enableFlags enableHostFlags \
-        enableInterpreterFlags enableInterpreterStateFlags enablePluginFlags \
+        reopenHost breakpoint debugBreakWithNewConsole setupTestPackageVars \
+        getTestRunTag setupTestRunTag makeProcedureCommand enableFlags \
+        enableDataFlags enableHostFlags enableInterpreterFlags \
+        enableInterpreterStateFlags enablePluginFlags \
+        enableSharedProcedureFlags enableContextProcedureFlags \
+        enableSharedPackageFlags enableContextPackageFlags \
+        enableSharedPackageIndexFlags enableContextPackageIndexFlags \
         enableSharedEngineFlags enableContextEngineFlags \
         enableDefaultInterpreterFlags enableExpressionFlags \
         enableInterpreterTestFlags enableInteractiveLoopFlags \
@@ -9603,13 +11925,14 @@ namespace eval ::Eagle {
         getTestAssemblyName canTestExec testExec testClrExec execTestShell \
         isRandomOrder isBreakOnDemand isBreakOnLeak isStopOnFailure \
         isStopOnLeak isExitOnComplete returnInfoScript runTestPrologue \
-        runTestEpilogue hookPuts unhookPuts runTest testShim tsource \
-        getKnownEagleVersions isStableEagleRelease changeArrayElement \
-        enableTestStatisticsLists recordTestStatistics \
-        getNamesForTestStatistics reportTestStatistics formatList \
-        formatListAsDict pathToRegexp assemblyNameToRegexp maybeGetOption \
-        inverseLsearchGlob removePathFromFileNames formatDecimal \
-        clearTestPercent reportTestPercent reportArrayGet \
+        runTestEpilogue hookPuts unhookPuts getTestFile getTestName runTest \
+        testShim tsource getKnownEagleVersions isStableEagleRelease \
+        changeArrayElement enableTestStatisticsLists \
+        maybeRecordTestStatistics maybeReportTestStatistics \
+        recordTestStatistics getNamesForTestStatistics reportTestStatistics \
+        formatList formatListAsDict pathToRegexp assemblyNameToRegexp \
+        maybeGetOption inverseLsearchGlob removePathFromFileNames \
+        formatDecimal clearTestPercent reportTestPercent reportArrayGet \
         reportTestStatisticCounts runAllTests isTestSuiteRunning \
         getTestChannelOrDefault tryVerifyTestPath checkForAndSetTestPath \
         configureTcltest machineToPlatform architectureForPlatform \

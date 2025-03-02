@@ -98,6 +98,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static DataFlags DataFlags = DataFlags.Default;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static DelegateFlags DelegateFlags = DelegateFlags.Default;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ValueFlags ValueFlags = ValueFlags.None;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static OptionBehaviorFlags OptionBehaviorFlags =
+            OptionBehaviorFlags.None;
         #endregion
     }
 }

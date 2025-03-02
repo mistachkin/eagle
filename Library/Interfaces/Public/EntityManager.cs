@@ -24,6 +24,11 @@ using Eagle._Components.Public;
 using Eagle._Components.Public.Delegates;
 using Eagle._Containers.Public;
 
+using AutomaticCollection = System.Collections.Generic.IEnumerable<
+    System.Collections.Generic.KeyValuePair<string,
+    Eagle._Components.Public.AnyPair<System.Delegate,
+    Eagle._Components.Public.DelegateFlags>>>;
+
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("c6db1693-7821-4859-b5a9-d37406aefec9")]
@@ -532,7 +537,19 @@ namespace Eagle._Interfaces.Public
             IPlugin plugin,
             CommandFlags commandFlags,
             ref long token,
-            ref Result result);
+            ref Result result
+            );
+
+        ReturnCode AddExecuteCallback(
+            string name,
+            ExecuteCallback callback,
+            IClientData clientData,
+            IPlugin plugin,
+            EnsembleDictionary subCommands,
+            CommandFlags commandFlags,
+            ref long token,
+            ref Result result
+            );
 
         ReturnCode AddExecuteCallbacks(
             IEnumerable<IExecuteCallbackData> collection,
@@ -541,6 +558,20 @@ namespace Eagle._Interfaces.Public
             bool ignoreNull,
             bool stopOnError,
             ref int errorCount,
+            ref Result result
+            );
+
+        ReturnCode AddAutomaticCommands(
+            IPlugin plugin,
+            IClientData clientData,
+            IEnumerable<TypedInstance> typedInstances,
+            IDelegateMapper mapper,
+            BindingFlags? bindingFlags,
+            MarshalFlags? marshalFlags,
+            DelegateFlags? delegateFlags,
+            bool? safe,
+            ref long count,
+            ref LongList tokens,
             ref Result result
             );
 
@@ -924,6 +955,8 @@ namespace Eagle._Interfaces.Public
             ProcedureFlags procedureFlags,
             ArgumentList arguments,
             ArgumentDictionary namedArguments,
+            ArgumentList overwriteArguments,
+            ArgumentList cleanArguments,
             string body,
             IScriptLocation location,
             IClientData clientData,
@@ -990,6 +1023,12 @@ namespace Eagle._Interfaces.Public
         ReturnCode MakeProcedureAtomic( /* EXPERIMENTAL */
             string name,
             bool atomic,
+            ref Result error
+            );
+
+        ReturnCode MakeProcedureInline(
+            string name,
+            bool inline,
             ref Result error
             );
 

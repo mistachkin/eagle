@@ -15,12 +15,13 @@ using Eagle._Attributes;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("b3e65c6d-0831-4d74-8ed9-6b6fcd085517")]
-    public interface ITypedInstance
+    public interface ITypedInstance : IHaveObjectFlags
     {
         Type Type { get; }
+        object Object { get; }
         string ObjectName { get; }
         string FullObjectName { get; }
-        object Object { get; }
         string[] ExtraParts { get; }
+        void Reset();
     }
 }

@@ -19,16 +19,13 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Wrappers
 {
     [ObjectId("ff6aa9bc-def1-4ae1-9264-e3d653374767")]
-    internal sealed class Command : Default, ICommand
+    internal sealed class Command : Core, ICommand
     {
         #region Public Constructors
-        public Command(
-            long token,
-            ICommand command
-            )
-            : base(token)
+        public Command()
+            : base()
         {
-            this.command = command;
+            // do nothing.
         }
         #endregion
 
@@ -111,10 +108,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (command != null)
-                return command.Initialize(interpreter, clientData, ref result);
-            else
+            if (command == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return command.Initialize(interpreter, clientData, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -125,10 +125,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (command != null)
-                return command.Terminate(interpreter, clientData, ref result);
-            else
+            if (command == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return command.Terminate(interpreter, clientData, ref result);
         }
         #endregion
 
@@ -167,24 +170,6 @@ namespace Eagle._Wrappers
         {
             get { return (command != null) ? command.DisallowedSubCommands : null; }
             set { if (command != null) { command.DisallowedSubCommands = value; } }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IExecute Members
-        public ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
-            )
-        {
-            if (command != null)
-                return command.Execute(
-                    interpreter, clientData, arguments, ref result);
-            else
-                return ReturnCode.Error;
         }
         #endregion
 
@@ -325,6 +310,11 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return command; }
+            set
+            {
+                command = (ICommand)value; /* throw */
+                execute = (IExecute)value; /* throw */
+            }
         }
         #endregion
     }

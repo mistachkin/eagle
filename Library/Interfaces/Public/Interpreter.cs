@@ -132,11 +132,14 @@ namespace Eagle._Interfaces.Public
         int? ReadyTimeout { get; set; }
 
         //
-        // NOTE: The default script flags used by the engine (i.e. in the
-        //       EvaluateFile method) when requesting a script from the
-        //       interpreter host.
+        // NOTE: The default data and script flags used by the engine (i.e.
+        //       in the EvaluateFile method) when requesting a script from
+        //       the interpreter host.
         //
+        DataFlags DataFlags { get; set; }
         ScriptFlags ScriptFlags { get; set; }
+
+        IBundleManager BundleManager { get; set; }
 
         //
         // NOTE: The host could be almost anything, minimally it must be an

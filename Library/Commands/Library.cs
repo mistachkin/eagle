@@ -31,7 +31,8 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Commands
 {
     [ObjectId("a4d151e8-05d7-4051-9dc3-80665197ccd5")]
-    [CommandFlags(CommandFlags.NativeCode | CommandFlags.Unsafe | CommandFlags.NonStandard)]
+    [CommandFlags(CommandFlags.NativeCode | CommandFlags.Unsafe |
+        CommandFlags.Critical | CommandFlags.NonStandard)]
     [ObjectGroup("nativeEnvironment")]
     internal sealed class Library : Core
     {

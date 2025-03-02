@@ -20,16 +20,13 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Wrappers
 {
     [ObjectId("fad094ee-bd3a-4e0a-ae90-165bd7a14b26")]
-    internal sealed class Lambda : Default, ILambda
+    internal sealed class Lambda : Core, ILambda
     {
         #region Public Constructors
-        public Lambda(
-            long token,
-            ILambda lambda
-            )
-            : base(token)
+        public Lambda()
+            : base()
         {
-            this.lambda = lambda;
+            // do nothing.
         }
         #endregion
 
@@ -101,7 +98,8 @@ namespace Eagle._Wrappers
             ref long value
             )
         {
-            return (lambda != null) ? lambda.ResetUsage(type, ref value) : false;
+            return (lambda != null) ?
+                lambda.ResetUsage(type, ref value) : false;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -111,7 +109,8 @@ namespace Eagle._Wrappers
             ref long value
             )
         {
-            return (lambda != null) ? lambda.GetUsage(type, ref value) : false;
+            return (lambda != null) ?
+                lambda.GetUsage(type, ref value) : false;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -121,7 +120,8 @@ namespace Eagle._Wrappers
             ref long value
             )
         {
-            return (lambda != null) ? lambda.SetUsage(type, ref value) : false;
+            return (lambda != null) ?
+                lambda.SetUsage(type, ref value) : false;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -206,6 +206,22 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        public ArgumentList OverwriteArguments
+        {
+            get { return (lambda != null) ? lambda.OverwriteArguments : null; }
+            set { if (lambda != null) { lambda.OverwriteArguments = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ArgumentList CleanArguments
+        {
+            get { return (lambda != null) ? lambda.CleanArguments : null; }
+            set { if (lambda != null) { lambda.CleanArguments = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public string Body
         {
             get { return (lambda != null) ? lambda.Body : null; }
@@ -233,24 +249,6 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IExecute Members
-        public ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
-            )
-        {
-            if (lambda != null)
-                return lambda.Execute(
-                    interpreter, clientData, arguments, ref result);
-            else
-                return ReturnCode.Error;
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
         #region IWrapper Members
         public override bool IsDisposable
         {
@@ -262,6 +260,11 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return lambda; }
+            set
+            {
+                lambda = (ILambda)value; /* throw */
+                execute = (IExecute)value; /* throw */
+            }
         }
         #endregion
     }

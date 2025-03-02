@@ -73,6 +73,38 @@ namespace Eagle._Interfaces.Public
         bool SetMark(bool mark, string name, object value);
         bool SetMark(bool mark, CallFrameFlags flags, string name, object value);
 
+        ReturnCode Save(
+            Interpreter interpreter,               /* in */
+            ArgumentList arguments,                /* in: OPTIONAL */
+            ref VariableDictionary savedVariables, /* out */
+            ref int count,                         /* in, out */
+            ref Result error                       /* out */
+        );
+
+        ReturnCode Save(
+            Interpreter interpreter,               /* in */
+            ArgumentDictionary arguments,          /* in: OPTIONAL */
+            ref VariableDictionary savedVariables, /* out */
+            ref int count,                         /* in, out */
+            ref Result error                       /* out */
+        );
+
+        ReturnCode Restore(
+            Interpreter interpreter,               /* in */
+            ArgumentList arguments,                /* in: OPTIONAL */
+            ref VariableDictionary savedVariables, /* in, out */
+            ref int count,                         /* in, out */
+            ref Result error                       /* out */
+        );
+
+        ReturnCode Restore(
+            Interpreter interpreter,               /* in */
+            ArgumentDictionary arguments,          /* in: OPTIONAL */
+            ref VariableDictionary savedVariables, /* in, out */
+            ref int count,                         /* in, out */
+            ref Result error                       /* out */
+        );
+
         void Free(bool global);
     }
 }

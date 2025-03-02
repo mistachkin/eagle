@@ -165,13 +165,13 @@ namespace Eagle._Containers.Public
 
                 return ParserOps<string>.ListToString(
                     list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), pattern, noCase);
+                    Characters.SpaceString, pattern, noCase);
             }
             else
             {
                 return ParserOps<Type>.ListToString(
                     this, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), pattern, noCase);
+                    Characters.SpaceString, pattern, noCase);
             }
         }
 

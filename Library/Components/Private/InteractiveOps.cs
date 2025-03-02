@@ -836,8 +836,7 @@ namespace Eagle._Components.Private
             string command,          /* in */
             IClientData clientData,  /* in */
             bool usePrefix,          /* in */
-            bool exact,              /* in */
-            bool extensions          /* in */
+            bool exact               /* in */
             )
         {
             bool verbose = false; /* NOTE: Mask substitution errors. */
@@ -5287,11 +5286,13 @@ namespace Eagle._Components.Private
                     topic = StringOps.NullIfEmpty(debugArguments[1]);
                 }
 
+                TextFlags textFlags = HelpOps.GetDefaultTextFlags();
                 bool found = false; /* NOT USED */
 
                 localCode = HelpOps.WriteInteractiveHelp(
-                    interpreter, topic, false, false, false, false, true,
-                    true, false, false, ref found, ref localResult);
+                    interpreter, topic, StringOps.DefaultMatchMode,
+                    textFlags, false, false, false, false, true,
+                    true, false, null, ref found, ref localResult);
             }
 
             ///////////////////////////////////////////////////////////////////////

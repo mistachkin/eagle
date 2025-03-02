@@ -72,8 +72,8 @@
     -->
     <?pragma eagle.EvaluateScript
       #
-      # NOTE: This is a fairly trivial example of how to do something useful in
-      #       an Eagle script that is being evaluated from inside the WiX
+      # NOTE: This is a fairly trivial example of how to do something useful
+      #       in an Eagle script that is being evaluated from inside the WiX
       #       preprocessor.  The final result of this script will be inserted
       #       as raw XML into the XML document at this location.
       #

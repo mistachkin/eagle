@@ -24,13 +24,10 @@ namespace Eagle._Wrappers
     internal sealed class Delegate : Default, IDelegate
     {
         #region Public Constructors
-        public Delegate(
-            long token,
-            IDelegate @delegate
-            )
-            : base(token)
+        public Delegate()
+            : base()
         {
-            this.@delegate = @delegate;
+            // do nothing.
         }
         #endregion
 
@@ -161,10 +158,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (@delegate != null)
-                return @delegate.Resolve(module, functionName, ref error);
-            else
+            if (@delegate == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return @delegate.Resolve(module, functionName, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -176,11 +176,14 @@ namespace Eagle._Wrappers
             ref Exception exception
             )
         {
-            if (@delegate != null)
-                return @delegate.Resolve(
-                    module, functionName, ref error, ref exception);
-            else
+            if (@delegate == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return @delegate.Resolve(
+                module, functionName, ref error, ref exception);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -189,10 +192,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (@delegate != null)
-                return @delegate.Unresolve(ref error);
-            else
+            if (@delegate == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return @delegate.Unresolve(ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -202,10 +208,13 @@ namespace Eagle._Wrappers
             ref Exception exception
             )
         {
-            if (@delegate != null)
-                return @delegate.Unresolve(ref error, ref exception);
-            else
+            if (@delegate == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return @delegate.Unresolve(ref error, ref exception);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -216,10 +225,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (@delegate != null)
-                return @delegate.Invoke(arguments, ref returnValue, ref error);
-            else
+            if (@delegate == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return @delegate.Invoke(arguments, ref returnValue, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -231,11 +243,14 @@ namespace Eagle._Wrappers
             ref Exception exception
             )
         {
-            if (@delegate != null)
-                return @delegate.Invoke(
-                    arguments, ref returnValue, ref error, ref exception);
-            else
+            if (@delegate == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return @delegate.Invoke(
+                arguments, ref returnValue, ref error, ref exception);
         }
         #endregion
 
@@ -252,6 +267,7 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return @delegate; }
+            set { @delegate = (IDelegate)value; } /* throw */
         }
         #endregion
     }

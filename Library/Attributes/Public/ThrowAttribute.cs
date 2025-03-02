@@ -21,7 +21,7 @@ namespace Eagle._Attributes
     //       communication of "exceptional" conditions failure ReturnCode
     //       should be used); however, in the event of an unanticipated
     //       exception or other catastrophic condition, the Interpreter and
-    //       Engine components "guarantee" that exceptions will not propogate
+    //       Engine components "guarantee" that exceptions will not propagate
     //       outward from methods that are officially allowed to throw
     //       exceptions (i.e. ones officially tagged with this attribute).
     //

@@ -18,6 +18,8 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 #endif
 
+using DelegateWrapper = Eagle._Wrappers.Delegate;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -26,7 +28,7 @@ namespace Eagle._Containers.Private
 {
     [ObjectId("30c67aea-9696-4ead-907a-5f65de826476")]
     internal sealed class DelegateWrapperDictionary :
-            WrapperDictionary<string, _Wrappers.Delegate>
+            WrapperDictionary<string, DelegateWrapper>
     {
         public DelegateWrapperDictionary()
             : base()

@@ -16,7 +16,7 @@ using Eagle._Attributes;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("de49741d-ea05-4c95-9323-cdbc8eeaf73d")]
-    public interface ITypedMember
+    public interface ITypedMember : IHaveObjectFlags
     {
         Type Type { get; }
         object Object { get; }
@@ -25,5 +25,6 @@ namespace Eagle._Interfaces.Public
         MemberInfo[] MemberInfo { get; }
         MethodInfo FirstMethodInfo { get; }
         bool ShouldHaveObject { get; }
+        void Reset();
     }
 }

@@ -119,7 +119,7 @@ namespace Eagle._Containers.Private
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -137,7 +137,7 @@ namespace Eagle._Containers.Private
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 #endif
         #endregion

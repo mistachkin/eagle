@@ -27,7 +27,6 @@ using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Components.Private;
 using Eagle._Constants;
-using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
@@ -1557,8 +1556,13 @@ namespace Eagle._Hosts
 
                     foreach (bool? useCertificate in useCertificates)
                     {
-                        System.Console.Title = BuildTitle(
+                        string title = BuildTitle(
                             interpreter, useCertificate);
+
+                        if (title == null)
+                            continue;
+
+                        System.Console.Title = title;
                     }
                 }
 

@@ -63,12 +63,15 @@ namespace Eagle._Commands
                             bool isPrivate = false;
                             bool isFast = false;
                             bool isAtomic = false;
+                            bool isInline = false;
 
 #if ARGUMENT_CACHE || PARSE_CACHE
                             bool isNonCaching = false;
 #endif
 
                             bool isMatchTypes = false;
+                            ArgumentList overwriteArguments = null;
+                            ArgumentList cleanArguments = null;
 
                             if (!interpreter.InternalIsSafe())
                             {
@@ -77,10 +80,28 @@ namespace Eagle._Commands
                                     interpreter.InternalCultureInfo,
                                     out isLibrary, out isPrivate,
                                     out isFast, out isAtomic,
+                                    out isInline,
 #if ARGUMENT_CACHE || PARSE_CACHE
                                     out isNonCaching,
 #endif
-                                    out isMatchTypes);
+                                    out isMatchTypes, out overwriteArguments,
+                                    out cleanArguments);
+
+                                if (isInline && (isFast || isMatchTypes))
+                                {
+                                    result = String.Format(
+                                        "cannot use the procedure annotations {0} or {1} " +
+                                        "with the {2} procedure annotation.",
+                                        FormatOps.WrapOrNull(
+                                            ScriptOps.FormatAnnotation(Annotations.Fast)),
+                                        FormatOps.WrapOrNull(
+                                            ScriptOps.FormatAnnotation(Annotations.MatchTypes)),
+                                        FormatOps.WrapOrNull(
+                                            ScriptOps.FormatAnnotation(Annotations.Inline)));
+
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
                             }
 
                             StringPairList list2 = new StringPairList();
@@ -173,7 +194,7 @@ namespace Eagle._Commands
                                     if (isPrivate)
                                         procedureFlags |= ProcedureFlags.Private;
 
-                                    if (isLibrary)
+                                    if (!isInline && isLibrary)
                                         procedureFlags |= ProcedureFlags.Library;
 
                                     if (isFast)
@@ -181,6 +202,9 @@ namespace Eagle._Commands
 
                                     if (isAtomic)
                                         procedureFlags |= ProcedureFlags.Atomic;
+
+                                    if (isInline)
+                                        procedureFlags |= ProcedureFlags.NoPushFrame;
 
 #if ARGUMENT_CACHE || PARSE_CACHE
                                     if (isLibrary || isNonCaching)
@@ -198,8 +222,8 @@ namespace Eagle._Commands
                                         NamespaceOps.MakeQualifiedName(interpreter, name) :
                                         ScriptOps.MakeCommandName(name), null, null,
                                         procedureFlags, formalArguments, namedArguments,
-                                        (Argument)body, ScriptLocation.Create(body),
-                                        clientData, ref error);
+                                        overwriteArguments, cleanArguments, (Argument)body,
+                                        ScriptLocation.Create(body), clientData, ref error);
 
                                     if (procedure != null)
                                     {
@@ -243,6 +267,8 @@ namespace Eagle._Commands
                 result = "invalid interpreter";
                 code = ReturnCode.Error;
             }
+
+        done:
 
             return code;
         }

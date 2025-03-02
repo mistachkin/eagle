@@ -9,13 +9,17 @@
  * RCS: @(#) $Id: $
  */
 
-using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Private;
+
+using LambdaWrapper = Eagle._Wrappers.Lambda;
+
+using LambdaPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Lambda>;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -25,7 +29,7 @@ namespace Eagle._Containers.Private
 {
     [ObjectId("b1b72fd7-6519-43e4-81ec-e989965a3a18")]
     internal sealed class LambdaWrapperDictionary :
-            WrapperDictionary<string, _Wrappers.Lambda>
+            WrapperDictionary<string, LambdaWrapper>
     {
         public LambdaWrapperDictionary()
             : base()
@@ -61,7 +65,7 @@ namespace Eagle._Containers.Private
             {
                 inputList = new StringList();
 
-                foreach (KeyValuePair<string, _Wrappers.Lambda> pair in this)
+                foreach (LambdaPair pair in this)
                 {
                     ILambda lambda = pair.Value;
 

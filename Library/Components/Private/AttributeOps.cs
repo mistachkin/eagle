@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 
 #if NET_40
 using System.Runtime.Versioning;
@@ -48,6 +49,10 @@ namespace Eagle._Components.Private
         //       by this class will be reported in detail.
         //
         private static bool VerboseExceptions = true;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long RandomMethodPrefix = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -484,6 +489,142 @@ namespace Eagle._Components.Private
 
             return true;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetMethodDataName(
+            Interpreter interpreter, /* in */
+            int index,               /* in */
+            MethodBase method,       /* in */
+            bool noPrefix            /* in */
+            )
+        {
+            if (method == null)
+                return null;
+
+            ParameterInfo returnInfo;
+            ParameterInfo[] parameterInfos;
+
+            MarshalOps.GetParameterInfos(method,
+                out returnInfo, out parameterInfos);
+
+            string prefix = null;
+
+            if (!noPrefix)
+            {
+                long token = Interlocked.CompareExchange(
+                    ref RandomMethodPrefix, 0, 0);
+
+                if (token == 0)
+                {
+                    if (interpreter != null)
+                        token = interpreter.GetSignedRandomNumber();
+                    else
+                        token = GlobalState.GetSignedRandomNumber();
+
+                    Interlocked.CompareExchange(
+                        ref RandomMethodPrefix, token, 0);
+                }
+
+                prefix = String.Format(
+                    "Process_{0}_Method_{1}",
+                    FormatOps.Hexadecimal(token, true),
+                    typeof(CommandFlags).Name);
+            }
+
+            return String.Format("{0} {1}",
+                prefix, FormatOps.MethodOverload(
+                    index, FormatOps.TypeName(
+                    method.DeclaringType, false),
+                method.Name, returnInfo, parameterInfos,
+                MarshalFlags.ShowSignatures)).Trim();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SetCachedCommandFlags(
+            Interpreter interpreter,   /* in */
+            AppDomain appDomain,       /* in */
+            int index,                 /* in */
+            MethodBase method,         /* in */
+            CommandFlags? commandFlags /* in */
+            )
+        {
+            if (appDomain == null)
+                return false;
+
+            string name = GetMethodDataName(
+                interpreter, index, method, false);
+
+            if (name == null)
+                return false;
+
+            try
+            {
+                appDomain.SetData(name, commandFlags);
+                return true;
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(AttributeOps).Name,
+                    TracePriority.RemotingError);
+
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static CommandFlags? GetCachedCommandFlags(
+            Interpreter interpreter, /* in */
+            AppDomain appDomain,     /* in */
+            int index,               /* in */
+            MethodBase method        /* in */
+            )
+        {
+            if (appDomain == null)
+                return null;
+
+            string name = GetMethodDataName(
+                interpreter, index, method, false);
+
+            if (name == null)
+                return null;
+
+            object enumValue;
+
+            try
+            {
+                enumValue = appDomain.GetData(name);
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(AttributeOps).Name,
+                    TracePriority.RemotingError);
+
+                return null;
+            }
+
+            if (enumValue is CommandFlags)
+                return (CommandFlags)enumValue;
+
+            if ((enumValue is string) &&
+                (interpreter != null))
+            {
+                enumValue = EnumOps.TryParseFlags(
+                    interpreter, typeof(CommandFlags),
+                    null, (string)enumValue,
+                    interpreter.InternalCultureInfo,
+                    true, true, true);
+
+                if (enumValue is CommandFlags)
+                    return (CommandFlags)enumValue;
+            }
+
+            return null;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -566,6 +707,56 @@ namespace Eagle._Components.Private
         }
 #endif
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsSafe(
+            MemberInfo memberInfo
+            )
+        {
+            CommandFlags commandFlags = GetCommandFlags(memberInfo);
+
+            if (FlagOps.HasFlags(commandFlags, CommandFlags.Unsafe, true))
+                return false;
+
+            if (!FlagOps.HasFlags(commandFlags, CommandFlags.Safe, true))
+                return false;
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsCachedSafe(
+            Interpreter interpreter,
+            int? index,
+            MethodBase method
+            )
+        {
+            AppDomain appDomain = (interpreter != null) ?
+                interpreter.GetAppDomain() : AppDomainOps.GetCurrent();
+
+            CommandFlags? commandFlags = GetCachedCommandFlags(
+                interpreter, appDomain, (index != null) ? (int)index : 0,
+                method);
+
+            if (commandFlags == null)
+                return false;
+
+            if (FlagOps.HasFlags(
+                    (CommandFlags)commandFlags, CommandFlags.Unsafe, true))
+            {
+                return false;
+            }
+
+            if (!FlagOps.HasFlags(
+                    (CommandFlags)commandFlags, CommandFlags.Safe, true))
+            {
+                return false;
+            }
+
+            return true;
+        }
 
         ///////////////////////////////////////////////////////////////////////
 

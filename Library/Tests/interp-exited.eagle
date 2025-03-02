@@ -151,9 +151,10 @@ runTest {test interp-1.4.2 {create and use interpreter alias} -setup {
 
   rename newPwd ""
 } -constraints {eagle} -match regexp -result {^(?:interp)?\d+ safePwd\
-\{::tcltest::testConstraint(?: iga igap mrogsf oip reader rogsf scalar)?\
-testConstraint\} safePwd 1 \{\} \{::tcltest::testConstraint(?: iga igap mrogsf\
-oip reader rogsf scalar)? testConstraint\} \{\} \{\}$}}
+\{::tcltest::testConstraint(?: iga igap mrogsf nq oc ocp oi oic oicp oip reader\
+rogsf scalar)? testConstraint\} safePwd 1 \{\} \{::tcltest::testConstraint(?:\
+iga igap mrogsf nq oc ocp oi oic oicp oip reader rogsf scalar)?\
+testConstraint\} \{\} \{\}$}}
 
 ###############################################################################
 
@@ -480,10 +481,13 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
   #
   # NOTE: Create a simple ruleset to make sure it works right.
   #
-  set ruleSet [object invoke RuleSet Create {{id 1\
-      type Include kind Command mode Glob regExOptions None patterns o*} {id 2\
-      type Exclude kind Command mode Exact regExOptions None patterns open}} \
-      null error]
+  set ruleSet [object invoke RuleSet Create {{id 1 type Include\
+      kind Command mode {Include Glob} regExOptions None patterns\
+      o*} {id 2 type Exclude kind Command mode {Exclude Exact}\
+      regExOptions None patterns open} {id 3 type Include kind\
+      Command mode {Include Exact} regExOptions None patterns\
+      puts} {id 4 type Include kind Command mode {Include Exact}\
+      regExOptions None patterns set}} null error]
 
   if {![isNonNullObjectHandle $ruleSet]} then {
     error [getStringFromObjectHandle $error]
@@ -498,7 +502,7 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
   $is(2) Args [set args [object create StringList a b c d]]
   $is(2) RuleSet $ruleSet
   $is(2) Culture en-US
-  $is(2) CreateFlags Default
+  $is(2) CreateFlags {Default -Initialize UseNamespaces}
   $is(2) HostCreateFlags Default
   $is(2) InitializeFlags "Default, Test"
   $is(2) ScriptFlags Default
@@ -583,9 +587,11 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
   unset -nocomplain error code obj args ruleSet is list fileName
 } -constraints {eagle command.object compile.XML compile.SERIALIZATION\
 file_settings.xml} -result {True True True True True True True True True True\
-{{id 1 type Include kind Command mode Glob patterns o*} {id 2 type Exclude kind\
-Command mode Exact patterns open}} True True True True True True True True\
-True}}
+{{id 1 type Include kind Command mode {Glob, Include} patterns o*} {id 2 type\
+Exclude kind Command mode {Exact, Exclude} patterns open} {id 3 type Include\
+kind Command mode {Exact, Include} patterns puts} {id 4 type Include kind\
+Command mode {Exact, Include} patterns set}} True True True True True True True\
+True True}}
 
 ###############################################################################
 
@@ -609,10 +615,13 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
   #
   # NOTE: Create a simple ruleset to make sure it works right.
   #
-  set ruleSet [object invoke RuleSet Create {{id 1\
-      type Include kind Command mode Glob regExOptions None patterns o*} {id 2\
-      type Exclude kind Command mode Exact regExOptions None patterns open}} \
-      null error]
+  set ruleSet [object invoke RuleSet Create {{id 1 type Include\
+      kind Command mode {Include Glob} regExOptions None patterns\
+      o*} {id 2 type Exclude kind Command mode {Exclude Exact}\
+      regExOptions None patterns open} {id 3 type Include kind\
+      Command mode {Include Exact} regExOptions None patterns\
+      puts} {id 4 type Include kind Command mode {Include Exact}\
+      regExOptions None patterns set}} null error]
 
   if {![isNonNullObjectHandle $ruleSet]} then {
     error [getStringFromObjectHandle $error]
@@ -627,7 +636,7 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
   $is(2) Args [set args [object create StringList a b c d]]
   $is(2) RuleSet $ruleSet
   $is(2) Culture en-US
-  $is(2) CreateFlags Default
+  $is(2) CreateFlags {Default -Initialize UseNamespaces}
   $is(2) HostCreateFlags Default
   $is(2) InitializeFlags "Default, Test"
   $is(2) ScriptFlags Default
@@ -711,15 +720,24 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
 
   unset -nocomplain error code obj args ruleSet is list fileName
 } -constraints {eagle command.object file_settings.ini} -result {True True True\
-True True True True True True True {{id 1 type Include kind Command mode Glob\
-patterns o*} {id 2 type Exclude kind Command mode Exact patterns open}} True\
+True True True True True True True {{id 1 type Include kind Command mode {Glob,\
+Include} patterns o*} {id 2 type Exclude kind Command mode {Exact, Exclude}\
+patterns open} {id 3 type Include kind Command mode {Exact, Include} patterns\
+puts} {id 4 type Include kind Command mode {Exact, Include} patterns set}} True\
 True True True True True True True True}}
 
 ###############################################################################
 
 runTest {test interp-1.11.1 {load/use interpreter settings XML} -body {
+  #
+  # BUGFIX: Per the pre-initialization script (which uses [puts])
+  #         and the subsequent call to EvaluateScript (which uses
+  #         [set]), we need to make 100% sure those commands are
+  #         matched by the referenced rule set(s).
+  #
   set settings null
   set error null
+
   set code [object invoke -alias InterpreterSettings LoadFrom \
       [file join $test_data_path settings.xml] null false true \
       settings error]
@@ -750,6 +768,8 @@ runTest {test interp-1.11.1 {load/use interpreter settings XML} -body {
           [$interp -flags +NonPublic preInitializeText]] \
       [string equal [$settings LibraryPath] [$interp LibraryPath]] \
       [string equal [$settings Args] $args] \
+      [string equal [getStringFromObjectHandle [$settings RuleSet]] \
+          [getStringFromObjectHandle [$interp GetRuleSet]]] \
       [string equal [$settings CreateFlags] \
           [$interp -flags +NonPublic CreateFlags]] \
       [string equal [$settings InitializeFlags] \
@@ -769,13 +789,20 @@ runTest {test interp-1.11.1 {load/use interpreter settings XML} -body {
   unset -nocomplain args result interp error code settings
 } -constraints \
 {eagle command.object compile.XML compile.SERIALIZATION file_settings.xml} \
--result {True True True True True True True True True True True True}}
+-result {True True True True True True True True True True True True True}}
 
 ###############################################################################
 
 runTest {test interp-1.11.2 {load/use interpreter settings INI} -body {
+  #
+  # BUGFIX: Per the pre-initialization script (which uses [puts])
+  #         and the subsequent call to EvaluateScript (which uses
+  #         [set]), we need to make 100% sure those commands are
+  #         matched by the referenced rule set(s).
+  #
   set settings null
   set error null
+
   set code [object invoke -alias InterpreterSettings LoadFrom \
       [file join $test_data_path settings.ini] null false true \
       settings error]
@@ -806,6 +833,8 @@ runTest {test interp-1.11.2 {load/use interpreter settings INI} -body {
           [$interp -flags +NonPublic preInitializeText]] \
       [string equal [$settings LibraryPath] [$interp LibraryPath]] \
       [string equal [$settings Args] $args] \
+      [string equal [getStringFromObjectHandle [$settings RuleSet]] \
+          [getStringFromObjectHandle [$interp GetRuleSet]]] \
       [string equal [$settings CreateFlags] \
           [$interp -flags +NonPublic CreateFlags]] \
       [string equal [$settings InitializeFlags] \
@@ -825,7 +854,7 @@ runTest {test interp-1.11.2 {load/use interpreter settings INI} -body {
   unset -nocomplain args result interp error code settings
 } -constraints \
 {eagle command.object file_settings.ini} \
--result {True True True True True True True True True True True True}}
+-result {True True True True True True True True True True True True True}}
 
 ###############################################################################
 
@@ -2815,9 +2844,9 @@ runTest {test interp-1.80 {info subcommands in "safe" interp} -setup {
   unset -nocomplain i
 } -constraints {eagle} -result {{active cancel clear counts dump enable flags\
 idle info} {buildnumber clicks days duration filetime format isvalid\
-microseconds milliseconds now scan seconds start stop} {atime attributes\
-channels cleanup copy ctime delete dirname drive executable exists extension\
-glob information isdirectory isfile join list lstat magic mkdir mtime\
+microseconds milliseconds monthdays now scan seconds start stop} {atime\
+attributes channels cleanup copy ctime delete dirname drive executable exists\
+extension glob information isdirectory isfile join list lstat magic mkdir mtime\
 nativename normalize objectid owned pathtype readable rename rights rmdir\
 rootname rootpath same sddl separator size split stat system tail tempname\
 temppath touch trusted type under validname verified version volumes writable}\
@@ -2841,22 +2870,22 @@ scopelimit service set shareinterp shareobject sleeptime source stub subcommand\
 subst target timeout unset varlimit watchdog} {addreference alias\
 aliasnamespaces assemblies callbackflags certificate cleanup create declare\
 dispose exists flags foreach fromvar get hash import interfaces invoke\
-invokeall invokeraw isnull isoftype list lmap load members namespaces\
-referencecount removecallback removereference resolve search strongname type\
-types unalias unaliasnamespace undeclare unimport untype verifyall} {absent\
-forget ifneeded indexes info loaded names pending present provide\
-relativefilename require reset scan unknown vcompare versions vloaded\
+invokeall invokeraw isdisposed isnull isoftype list lmap load members\
+namespaces referencecount removecallback removereference resolve search\
+strongname type types unalias unaliasnamespace undeclare unimport untype\
+verifyall} {absent forget ifneeded indexes info loaded names pending present\
+provide relativefilename require reset scan unknown vcompare versions vloaded\
 vsatisfies vsort withdraw} {} {} {compare create download escape get host\
 isvalid join offline parse ping post scheme security softwareupdates time\
 unescape upload} {active cancel clear counts dump enable flags idle info}\
-{buildnumber days duration filetime format isvalid scan seconds} {channels\
-dirname join split validname} {appdomain args body commands complete context\
-default engine ensembles exists functions globals level library locals nprocs\
-objects operands operators patchlevel procs script subcommands tclversion vars}\
-{alias aliases cancel children exists issafe issdk rename} {dispose exists\
-invoke invokeall invokeraw isnull isoftype} {absent forget ifneeded info loaded\
-names pending present provide require unknown vcompare versions vsatisfies\
-vsort withdraw} {} {} {get isvalid post}}}
+{buildnumber days duration filetime format isvalid monthdays scan seconds}\
+{channels dirname join split validname} {appdomain args body commands complete\
+context default engine ensembles exists functions globals level library locals\
+nprocs objects operands operators patchlevel procs script subcommands\
+tclversion vars} {alias aliases cancel children exists issafe issdk rename}\
+{dispose exists invoke invokeall invokeraw isnull isoftype} {absent forget\
+ifneeded info loaded names pending present provide require unknown vcompare\
+versions vsatisfies vsort withdraw} {} {} {get isvalid post}}}
 
 ###############################################################################
 
@@ -5231,8 +5260,11 @@ runTest {test interp-1.60000 {save/restore [pwd] on disposal} -setup {
   set pwd(1) [pwd]
 
   interp eval $i {
-    set fileName [file tempname]
+    package require Eagle.Test
+
+    set fileName [getTemporaryFileName]
     file cleanup $fileName
+
     writeFile $fileName [expr {random()}]
   }
 
@@ -5318,8 +5350,8 @@ runTest {test interp-1.60002 {file search w/NullOnNotFound} -setup {
   unset -nocomplain flags
   set flags {Standard +NullOnNotFound}
 } -body {
-  list [string equal [file nativename [info nameofexecutable]] \
-      [object invoke Utility SearchForPath "" [info nameofexecutable] \
+  list [string equal [file nativename [getShellExecutableName]] \
+      [object invoke Utility SearchForPath "" [getShellExecutableName] \
       $flags]] [string equal {} [object invoke Utility SearchForPath "" \
       [appendArgs not_found_ [format %lX [expr {random()}]] .txt] $flags]]
 } -cleanup {
@@ -5414,10 +5446,418 @@ SecuritySdk\} list\} \{\{Core, NoAdd, Safe, Standard, Initialize\} namespace\}\
 \{\{Core, Safe, NonStandard, NoAttributes\} nop\} \{\{Core, Safe, Standard,\
 NoAttributes, SecuritySdk\} rename\} \{\{Core, Safe, Standard, NoAttributes,\
 Initialize, SecuritySdk\} string\}\} hiddenCommands \{\{\{Core, Hidden, Unsafe,\
-Standard, NoAttributes, SecuritySdk, LicenseSdk\} load\} \{\{Core, Hidden,\
-Unsafe, Standard, NoAttributes, Initialize, SecuritySdk, LicenseSdk\} package\}\
-\{\{Core, Hidden, (?:NativeCode, )?Unsafe, Standard, NoAttributes,\
-SecuritySdk\} file\}\}\}$}}
+Standard, NoAttributes, SecuritySdk, LicenseSdk, Critical\} load\} \{\{Core,\
+Hidden, Unsafe, Standard, NoAttributes, Initialize, SecuritySdk, LicenseSdk\}\
+package\} \{\{Core, Hidden, (?:NativeCode, )?Unsafe, Standard, NoAttributes,\
+SecuritySdk, Critical\} file\}\}\}$}}
+
+###############################################################################
+
+runTest {test interp-1.70001 {automatic object commands} -setup {
+  proc appendToResults { index command args } {
+    set code [catch {
+      uplevel 1 [list $command] $args
+    } result]
+
+    if {$code == 1} then {
+      set pattern {\.((?:[A-Za-z][0-9A-Za-z]*)?Exception): }
+
+      if {[regexp -skip 1 -- $pattern $result exception]} then {
+        lappend ::results($index) [list $code $exception]
+      } elseif {[string first "bad option " $result] >= 0} then {
+        lappend ::results($index) [list $code bad_option]
+      } else {
+        lappend ::results($index) [list $code $result]
+      }
+    } else {
+      lappend ::results($index) [list $code $result]
+    }
+
+    return ""
+  }
+
+  set interp [interp create]
+
+  interp eval $interp \
+      [list proc appendToResults \
+      [info args appendToResults] \
+      [info body appendToResults]]
+
+  interp eval $interp {
+    package require Eagle.Test; # NOTE: For [testArrayGet].
+  }
+
+  set interpreter null; set error null
+
+  set code [object invoke -alias \
+      Value GetInterpreter "" $interp Default interpreter error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set typeName(1) Int64
+  set typeName(2) Interpreter
+  set typeName(3) Interpreter
+  set typeName(4) Eagle._Tests.Default+Automatic
+
+  set instance(1) [object invoke -create \
+      $typeName(1) Parse [expr random()]]
+
+  set instance(2) $interpreter
+  set instance(3) $interpreter
+  set instance(4) [object invoke -alias $typeName(4) Create]
+
+  oip $instance(4) createCount 0;              # Default.cs:28574
+  oip $instance(4) instanceCount 0;            # Default.cs:28577
+  oip $instance(4) staticCount 0;              # Default.cs:28580
+  oip $instance(4) dispose0Count 0;            # Default.cs:28583
+  oip $instance(4) significantDispose1Count 0; # Default.cs:28586
+  oip $instance(4) significantRelease1Count 0; # Default.cs:28589
+  oip $instance(4) redundantDispose1Count 0;   # Default.cs:28592
+  oip $instance(4) redundantRelease1Count 0;   # Default.cs:28595
+  oip $instance(4) destroyCount 0;             # Default.cs:28598
+  oip $typeName(4) neutralStaticField 1;       # Default.cs:28603
+  oip $typeName(4) safeStaticField 2;          # Default.cs:28606
+  oip $typeName(4) unsafeStaticField 3;        # Default.cs:28609
+
+  interp set $interp instance(4) $instance(4)
+  interp shareobject $interp $instance(4)
+
+  set typedInstances [object create -alias \
+      [appendArgs System.Collections.Generic.List`1 \
+      \[Eagle._Components.Public.TypedInstance\]]]
+
+  set typedInstance(1) [object create -alias \
+      TypedInstance $typeName(1) None $instance(1) int64 null null]
+
+  set typedInstance(2) [object create -alias \
+      TypedInstance $typeName(2) None $instance(2) some null null]
+
+  set typedInstance(3) [object create -alias \
+      TypedInstance $typeName(3) None $instance(3) thing null null]
+
+  set typedInstance(4) [object create -alias \
+      TypedInstance $typeName(4) None $instance(4) automatic null null]
+
+  $typedInstances Clear
+  $typedInstances Add $typedInstance(1)
+  $typedInstances Add $typedInstance(2)
+  $typedInstances Add $typedInstance(3)
+  $typedInstances Add $typedInstance(4)
+
+  set bindingFlags {Public NonPublic Instance Static}
+  set delegateFlags null; set count 0; set tokens null
+  set result null
+
+  set code [oip $interpreter AddAutomaticCommands \
+      null null $typedInstances null $bindingFlags \
+      null $delegateFlags false count tokens result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+} -body {
+  interp eval $interp {
+    appendToResults 1 int64 ToString
+    appendToResults 1 int64 GetHashCode
+    appendToResults 1 int64 GetType
+    appendToResults 1 int64 GetTypeCode
+  }
+
+  interp eval $interp {
+    appendToResults 2 some ToString
+  }
+
+  interp eval $interp {
+    appendToResults 3 thing GetType
+    appendToResults 3 thing ToString
+    appendToResults 3 thing GetHashCode
+
+    appendToResults 3 thing Equals \
+        [object invoke Interpreter GetActive]
+  }
+
+  interp eval $interp {
+    appendToResults 4 thing -flags +NonPublic
+    appendToResults 4 thing -flags +NonPublic get_Token
+    appendToResults 4 thing get_Token
+  }
+
+  interp eval $interp {
+    appendToResults 5 thing -flags +NonPublic \
+        TryGetEventManager 0 false
+
+    appendToResults 5 thing -autolimit 1 -flags +NonPublic \
+        TryGetEventManager 0 false
+
+    appendToResults 5 thing -autoindex 1 -flags +NonPublic \
+        TryGetEventManager 0 false
+
+    set limit 0; set error null
+
+    appendToResults 5 thing -flags +NonPublic \
+        TryGetEventManager limit error
+  }
+
+  interp eval $interp {
+    appendToResults 6 automatic createCount
+    appendToResults 6 automatic instanceCount
+    appendToResults 6 automatic staticCount
+    appendToResults 6 automatic dispose0Count
+    appendToResults 6 automatic significantDispose1Count
+    appendToResults 6 automatic significantRelease1Count
+    appendToResults 6 automatic redundantDispose1Count
+    appendToResults 6 automatic redundantRelease1Count
+    appendToResults 6 automatic destroyCount
+    appendToResults 6 automatic neutralStaticField
+    appendToResults 6 automatic safeStaticField
+    appendToResults 6 automatic unsafeStaticField
+    appendToResults 6 automatic neutralInstanceField
+    appendToResults 6 automatic safeInstanceField
+    appendToResults 6 automatic unsafeInstanceField
+    appendToResults 6 automatic Create
+  }
+
+  interp eval $interp {
+    appendToResults 7 automatic NeutralStaticMethod
+    appendToResults 7 automatic NeutralStaticMethod 1234
+    appendToResults 7 automatic NeutralStaticMethod one
+    appendToResults 7 automatic NeutralStaticMethod 0xFEEDF00D
+    appendToResults 7 automatic NeutralStaticMethod 5678 two
+    appendToResults 7 automatic NeutralStaticMethod 5678 0xCAFE
+  }
+
+  interp eval $interp {
+    appendToResults 8 automatic SafeStaticMethod
+    appendToResults 8 automatic SafeStaticMethod 4321
+    appendToResults 8 automatic SafeStaticMethod three
+    appendToResults 8 automatic SafeStaticMethod 0xDEADDEAD
+    appendToResults 8 automatic SafeStaticMethod 8765 four
+    appendToResults 8 automatic SafeStaticMethod 8765 0xBEEF
+  }
+
+  interp eval $interp {
+    appendToResults 9 automatic UnsafeStaticMethod
+    appendToResults 9 automatic UnsafeStaticMethod 9876
+    appendToResults 9 automatic UnsafeStaticMethod five
+    appendToResults 9 automatic UnsafeStaticMethod 0xFEEDBEEF
+    appendToResults 9 automatic UnsafeStaticMethod 6543 six
+    appendToResults 9 automatic UnsafeStaticMethod 6543 0xFEED
+  }
+
+  interp eval $interp {
+    appendToResults 10 automatic NeutralInstanceMethod
+    appendToResults 10 automatic NeutralInstanceMethod 1111
+    appendToResults 10 automatic NeutralInstanceMethod seven
+    appendToResults 10 automatic NeutralInstanceMethod 0xC0FFEE
+    appendToResults 10 automatic NeutralInstanceMethod 2222 eight
+    appendToResults 10 automatic NeutralInstanceMethod 2222 0x1234
+  }
+
+  interp eval $interp {
+    appendToResults 11 automatic SafeInstanceMethod
+    appendToResults 11 automatic SafeInstanceMethod 3333
+    appendToResults 11 automatic SafeInstanceMethod nine
+    appendToResults 11 automatic SafeInstanceMethod 0xDEED
+    appendToResults 11 automatic SafeInstanceMethod 4444 ten
+    appendToResults 11 automatic SafeInstanceMethod 4444 0x9999
+  }
+
+  interp eval $interp {
+    appendToResults 12 automatic UnsafeInstanceMethod
+    appendToResults 12 automatic UnsafeInstanceMethod 5555
+    appendToResults 12 automatic UnsafeInstanceMethod eleven
+    appendToResults 12 automatic UnsafeInstanceMethod 0x7777
+    appendToResults 12 automatic UnsafeInstanceMethod 8888 twelve
+    appendToResults 12 automatic UnsafeInstanceMethod 8888 0x8888
+  }
+
+  interp eval $interp {
+    appendToResults 13 automatic get_NeutralInstanceProperty
+    appendToResults 13 automatic get_SafeInstanceProperty
+    appendToResults 13 automatic get_UnsafeInstanceProperty
+  }
+
+  interp eval $interp {
+    appendToResults 14 automatic ToString
+    appendToResults 14 automatic Equals null
+    appendToResults 14 automatic Equals $instance(4)
+    appendToResults 14 automatic GetHashCode
+    appendToResults 14 automatic GetType
+  }
+
+  interp eval $interp {
+    appendToResults 15 automatic Dispose
+    appendToResults 15 automatic ToString
+  }
+
+  interp eval $interp {
+    appendToResults 16 automatic get_NeutralStaticProperty
+    appendToResults 16 automatic get_SafeStaticProperty
+    appendToResults 16 automatic get_UnsafeStaticProperty
+  }
+
+  set destroyCount [interp eval $interp {
+    oip $instance(4) destroyCount
+  }]
+
+  #
+  # TODO: How can the destroy (finalization) count legally
+  #       be non-zero at this point?  Results differ here
+  #       between the .NET Framework 2.0 (incorrect?) and
+  #       .NET Framework 4.0 (correct?); furthermore, the
+  #       (apparently incorrect?) results also differ when
+  #       running on Mono -OR- the .NET runtime, on Linux.
+  #
+  if {$destroyCount != 0} then {
+    tputs [getTestChannelOrDefault] [appendArgs \
+        "==== WARNING: possibly broken (???) " \
+        "runtime GC semantics, finalizer count " \
+        $destroyCount " should be exactly zero\n"]
+
+    set counts(names) [list \
+        createCount instanceCount \
+        staticCount dispose0Count \
+        significantDispose1Count \
+        significantRelease1Count \
+        redundantDispose1Count \
+        redundantRelease1Count \
+        destroyCount]
+
+    foreach counts(name) $counts(names) {
+      if {[catch {
+        set counts($counts(name)) \
+            [oip $instance(4) $counts(name)]
+      } counts(error)]} then {
+        set counts($counts(name)) <error>
+      }
+    }
+
+    unset -nocomplain counts(error) counts(name) counts(names)
+
+    tputs [getTestChannelOrDefault] [appendArgs \
+        "---- automatic counters: " [testArrayGet counts] "\n"]
+  }
+
+  interp eval $interp {
+    appendToResults 17 oip $instance(4) createCount
+    appendToResults 17 oip $instance(4) dispose0Count
+    appendToResults 17 oip $instance(4) significantDispose1Count
+    appendToResults 17 oip $instance(4) significantRelease1Count
+    appendToResults 17 oip $instance(4) destroyCount
+  }
+
+  interp eval $interp {
+    appendToResults 18 oip $instance(4) neutralStaticField
+    appendToResults 18 oip $instance(4) safeStaticField
+    appendToResults 18 oip $instance(4) unsafeStaticField
+  }
+
+  interp eval $interp {
+    appendToResults 19 oip $instance(4) neutralInstanceField
+    appendToResults 19 oip $instance(4) safeInstanceField
+    appendToResults 19 oip $instance(4) unsafeInstanceField
+  }
+
+  interp eval $interp {
+    appendToResults 20 automatic -autostatus false something
+    appendToResults 20 automatic -autostatus true something
+
+    appendToResults 20 automatic -autoflush true something
+    appendToResults 20 automatic -autoflush false something
+
+    appendToResults 20 automatic -autostatus false something
+    appendToResults 20 automatic -autostatus true something
+  }
+
+  interp eval $interp {
+    appendToResults 21 \
+        purgeAndCleanup [getTestChannelOrDefault] \
+        body-assembly-GC-interp-1.70001
+  }
+
+  join [interp eval $interp {testArrayGet results}] \n
+} -cleanup {
+  catch {interp eval $interp {
+    catch {rename automatic ""}
+    catch {rename thing ""}
+    catch {rename some ""}
+    catch {rename int64 ""}
+  }}
+
+  catch {
+    purgeAndCleanup [getTestChannelOrDefault] \
+        cleanup-assembly-GC-interp-1.70001
+  }
+
+  catch {interp delete $interp}
+  unset -nocomplain interp
+
+  unset -nocomplain counts destroyCount
+  unset -nocomplain typedInstances typedInstance instance
+  unset -nocomplain bindingFlags delegateFlags typeName
+  unset -nocomplain result error code count tokens interpreter
+
+  rename appendToResults ""
+} -constraints {eagle command.object} -match regexp -result {^1
+\{0 -?\d+\} \{0 -?\d+\} \{0 (?:System\.Int64|System#RuntimeType#\d+)\} \{0\
+Int64\}
+10
+\{0 5\} \{0 1116\} \{1 TargetInvocationException\} \{0 12649546\} \{1\
+TargetInvocationException\} \{0 25312640\}
+11
+\{0 6\} \{0 3339\} \{1 TargetInvocationException\} \{0 60408\} \{1\
+TargetInvocationException\} \{0 177913\}
+12
+\{0 7\} \{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1\
+bad_option\}
+13
+\{0 12658650\} \{0 108617\} \{0 7\}
+14
+\{0 Eagle\._Tests\.Default\+Automatic\} \{0 False\} \{0 True\} \{0 -?\d+\} \{0\
+(?:Eagle\._Tests\.Default\+Automatic|System#RuntimeType#\d+)\}
+15
+\{0 \{\}\} \{1 TargetInvocationException\}
+16
+\{0 -17896389\} \{0 -558959878\} \{0 4\}
+17
+\{0 1\} \{0 1\} \{0 1\} \{0 (?:1|2)\} \{0 (?:0|1)\}
+18
+\{0 -17896389\} \{0 -558959878\} \{0 4\}
+19
+\{0 12658650\} \{0 108617\} \{0 7\}
+2
+\{1 \{invalid command name "some"\}\}
+20
+\{0 3\} \{0 41\} \{0 71\} \{0 3\} \{0 0\} \{0 0\}
+21
+\{0 \{\}\}
+3
+\{0 (?:Eagle\._Components\.Public\.Interpreter|System#RuntimeType#\d+)\} \{0\
+\d+\} \{0 -?\d+\} \{0 True\}
+4
+\{1 \{wrong # args: should be "thing \?options\? method \?arg \.\.\.\?"\}\} \{0\
+\{\}\} \{0 \{\}\}
+5
+\{0 EventManager#\d+\} \{1 \{could not convert method #0\
+"Eagle\._Components\.Public\.Interpreter\.TryGetEventManager" argument #0\
+"limit" with value "0" to type "System\.Int32&": can't read "0": no such\
+variable\}\} \{0 EventManager#\d+\} \{0 EventManager#\d+\}
+6
+\{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1\
+bad_option\} \{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1\
+bad_option\} \{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1\
+bad_option\} \{1 bad_option\} \{1 bad_option\} \{0 Automatic#\d+\}
+7
+\{0 2\} \{0 1236\} \{1 TargetInvocationException\} \{0 -17959711\} \{1\
+TargetInvocationException\} \{0 -35844744\}
+8
+\{0 3\} \{0 4324\} \{1 TargetInvocationException\} \{0 -559026287\} \{1\
+TargetInvocationException\} \{0 -1117968635\}
+9
+\{0 4\} \{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1\
+bad_option\}$}}
 
 ###############################################################################
 

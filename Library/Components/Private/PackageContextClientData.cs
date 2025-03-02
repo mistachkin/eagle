@@ -16,6 +16,11 @@ using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+using PackageWrapper = Eagle._Wrappers.Package;
+
+using PackagePair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Package>;
+
 using PackageIndexPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Containers.Private.PackageWrapperDictionary>;
 
@@ -204,7 +209,7 @@ namespace Eagle._Components.Private
             if (packages == null)
                 return ReturnCode.Error;
 
-            _Wrappers.Package wrapper;
+            PackageWrapper wrapper;
 
             if (!packages.TryGetValue(name, out wrapper))
             {
@@ -278,14 +283,25 @@ namespace Eagle._Components.Private
             }
 
             bool success = false;
-            _Wrappers.Package wrapper = null;
+            IWrapper wrapper = null;
 
             try
             {
                 long id = EntityOps.NextTokenIdNoThrow(package);
-                wrapper = new _Wrappers.Package(id, package);
 
-                packages.Add(name, wrapper);
+                wrapper = EntityOps.MaybeNewWrapperWith<PackageWrapper>(
+                    id, package);
+
+                if (wrapper == null)
+                {
+                    result = String.Format(
+                        "can't add {0}: no wrapper",
+                        FormatOps.WrapOrNull(name));
+
+                    return ReturnCode.Error;
+                }
+
+                packages.Add(name, wrapper as PackageWrapper);
                 success = true;
 
                 return ReturnCode.Ok;

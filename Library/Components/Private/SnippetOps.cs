@@ -169,8 +169,13 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            bool isScript = PathOps.IsScriptFile(
-                fileName, false, false);
+            ScriptFlags scriptFlags = ScriptOps.GetFlags(
+                interpreter, ScriptFlags.UserRequiredFile,
+                false, false);
+
+            bool isScript = PathOps.IsScriptFile(interpreter,
+                fileName, ScriptOps.ViaGetScriptFlag(null,
+                ref scriptFlags), false, false);
 
             if (!isScript && FlagOps.HasFlags(snippetFlags,
                     SnippetFlags.MustBeScript, true))
@@ -285,8 +290,13 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            bool isScript = PathOps.IsScriptFile(
-                otherFileName, false, false);
+            ScriptFlags scriptFlags = ScriptOps.GetFlags(
+                interpreter, ScriptFlags.UserRequiredFile,
+                false, false);
+
+            bool isScript = PathOps.IsScriptFile(interpreter,
+                otherFileName, ScriptOps.ViaGetScriptFlag(
+                null, ref scriptFlags), false, false);
 
             if (!isScript && FlagOps.HasFlags(snippetFlags,
                     SnippetFlags.MustBeScript, true))

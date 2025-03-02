@@ -603,30 +603,6 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static bool IsAtomic(
-            IProcedure procedure
-            )
-        {
-            return (procedure != null) ?
-                FlagOps.HasFlags(procedure.Flags,
-                    ProcedureFlags.Atomic, true) : false;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-#if ARGUMENT_CACHE || PARSE_CACHE
-        public static bool IsNonCaching(
-            IProcedure procedure
-            )
-        {
-            return (procedure != null) ?
-                FlagOps.HasFlags(procedure.Flags,
-                    ProcedureFlags.NonCaching, true) : false;
-        }
-#endif
-
-        ///////////////////////////////////////////////////////////////////////
-
         public static bool IsDisabled(
             IProcedure procedure
             )
@@ -1558,7 +1534,7 @@ namespace Eagle._Components.Private
             //
             // HACK: Also check if the call frame is undefined.  Technically,
             //       this is now always required and so we do this here rather
-            //       than propogate this check all throughout the code.
+            //       than propagate this check all throughout the code.
             //
             if (variable == null)
                 return false;
@@ -2216,6 +2192,39 @@ namespace Eagle._Components.Private
         {
             if (wrapper != null)
                 wrapper.Token = token;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: It should be noted that the wrapperData parameter to
+        //       this method should not actually be a "wrapper" class;
+        //       instead, it should be of the class type to be wrapped
+        //       (e.g. _Wrappers.Command, etc).  All of those wrapper
+        //       classes (also) implement the IWrapperData interface.
+        //
+        public static IWrapper MaybeNewWrapperWith<T>(
+            long token,              /* in */
+            IWrapperData wrapperData /* in */
+            ) where T : IWrapper, new()
+        {
+            try
+            {
+                IWrapper wrapper = new T(); /* throw (?) */
+
+                wrapper.Token = token; /* NOTE: Via IWrapperData. */
+                wrapper.Object = wrapperData; /* NOTE: Via IWrapper. */
+
+                return wrapper;
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(EntityOps).Name,
+                    TracePriority.EntityError);
+
+                return null;
+            }
         }
         #endregion
 
@@ -2895,6 +2904,7 @@ namespace Eagle._Components.Private
                     result.Add(traceData.TraceFlags.ToString());
                 }
 
+#if SHELL
                 IUpdateData updateData = @object as IUpdateData;
 
                 if (updateData != null)
@@ -2909,6 +2919,7 @@ namespace Eagle._Components.Private
                     result.Add("UpdateType");
                     result.Add(updateData.UpdateType.ToString());
                 }
+#endif
 
                 IVariable variable = @object as IVariable;
 

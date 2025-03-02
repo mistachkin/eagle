@@ -9,6 +9,7 @@
  * RCS: @(#) $Id: $
  */
 
+using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Eagle._Attributes;
@@ -18,7 +19,7 @@ using Eagle._Components.Public.Delegates;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("ab967cb8-e9dd-4855-82c1-4ee5960f0616")]
-    public interface IRuleSet : IRuleSetData
+    public interface IRuleSet : IRuleSetData, ICloneable
     {
         string GetName();
 

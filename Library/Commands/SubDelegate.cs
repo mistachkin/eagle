@@ -19,7 +19,10 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Commands
 {
     [ObjectId("f1bdac7d-857c-49a1-9bee-0a1dd38545bd")]
-    [CommandFlags(CommandFlags.SubDelegate)]
+    [CommandFlags(
+        CommandFlags.NoPopulate | CommandFlags.NoAdd |
+        CommandFlags.SubDelegate
+    )]
     [ObjectGroup("delegate")]
     public class SubDelegate : _Delegate
     {
@@ -96,7 +99,9 @@ namespace Eagle._Commands
                 return ReturnCode.Error;
             }
 
-            if (arguments.Count < 2)
+            int argumentCount = arguments.Count;
+
+            if (argumentCount < 2)
             {
                 result = String.Format(
                     "wrong # args: should be \"{0} option ?arg ...?\"",
@@ -146,60 +151,26 @@ namespace Eagle._Commands
                 newArguments = arguments;
             }
 
+            bool allowOptions = FlagOps.HasFlags(
+                delegateFlags, DelegateFlags.UseCallOptions, true);
+
             ReturnCode code;
-            Result localResult = null;
+            Result returnValue = null;
 
             code = ScriptOps.ExecuteOrInvokeDelegate(
                 interpreter, @delegate, newArguments,
-                2 /* cmd subCmd ... */, delegateFlags,
-                ref localResult);
+                allowOptions, 2 /* cmd subCmd ... */,
+                2, delegateFlags, ref returnValue);
 
             if (code != ReturnCode.Ok)
             {
-                result = localResult;
+                result = returnValue;
                 return code;
             }
 
-            Type returnType = null;
-
-            if (DelegateOps.NeedReturnType(
-                    @delegate, ref returnType))
-            {
-                if ((localResult == null) ||
-                    Result.IsSupported(returnType))
-                {
-                    result = localResult;
-                }
-                else
-                {
-                    object returnValue = localResult.Value;
-
-                    if (FlagOps.HasFlags(delegateFlags,
-                            DelegateFlags.MakeIntoObject, true))
-                    {
-                        if (MarshalOps.FixupReturnValue(
-                                interpreter, delegateFlags,
-                                returnValue, false, false, false,
-                                ref result) != ReturnCode.Ok)
-                        {
-                            return ReturnCode.Error;
-                        }
-                    }
-                    else if (FlagOps.HasFlags(delegateFlags,
-                            DelegateFlags.WrapReturnType, true))
-                    {
-                        result = Result.FromObject(
-                            returnValue, false, false, false);
-                    }
-                    else
-                    {
-                        result = StringOps.GetStringFromObject(
-                            returnValue);
-                    }
-                }
-            }
-
-            return code;
+            return ScriptOps.HandleDelegateResult(
+                interpreter, @delegate, delegateFlags, returnValue,
+                ref result);
         }
         #endregion
     }

@@ -86,11 +86,21 @@ using SharedAttributeOps = Eagle._Components.Shared.AttributeOps;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using _StringDictionary = Eagle._Containers.Public.StringDictionary;
 
+#if NETWORK
+using CidrDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Containers.Public.StringList>;
+#endif
+
 using ActiveInterpreterPair = Eagle._Interfaces.Public.IAnyPair<
     Eagle._Components.Public.Interpreter, Eagle._Interfaces.Public.IClientData>;
 
 using AssemblyFilePluginNames = System.Collections.Generic.Dictionary<
     string, Eagle._Containers.Public.StringList>;
+
+using DelegateList = System.Collections.Generic.List<
+    Eagle._Components.Public.MutableAnyTriplet<
+    System.Reflection.MethodBase, System.Delegate,
+    Eagle._Components.Public.DelegateFlags>>;
 
 namespace Eagle._Components.Public
 {
@@ -98,6 +108,30 @@ namespace Eagle._Components.Public
     public static class Utility /* FOR EXTERNAL USE ONLY */
     {
         #region External Use Only Helper Methods
+        public static string FormatDatabaseConnectionName(
+            object @object,                    /* in */
+            DbConnectionType dbConnectionType, /* in */
+            Interpreter interpreter            /* in */
+            )
+        {
+            return FormatOps.DatabaseConnectionName(
+                @object, dbConnectionType, interpreter);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string FormatDatabaseTransactionName(
+            object @object,                    /* in */
+            DbConnectionType dbConnectionType, /* in: NOT USED */
+            Interpreter interpreter            /* in */
+            )
+        {
+            return FormatOps.DatabaseTransactionName(
+                @object, interpreter);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string GetManagedExecutableName()
         {
             return PathOps.GetManagedExecutableName();
@@ -936,8 +970,8 @@ namespace Eagle._Components.Public
             bool noCase
             ) /* DEADLOCK-ON-DISPOSE */
         {
-            return HelpOps.GetInteractiveCommandNames(
-                interpreter, pattern, noCase);
+            return HelpOps.GetInteractiveCommandNames(interpreter,
+                pattern, noCase, HelpOps.GetDefaultTextFlags());
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -947,7 +981,33 @@ namespace Eagle._Components.Public
             string name
             ) /* DEADLOCK-ON-DISPOSE */
         {
-            return HelpOps.GetInteractiveCommandHelpItem(interpreter, name);
+            return HelpOps.GetInteractiveCommandHelpItem(
+                interpreter, name, HelpOps.GetDefaultTextFlags());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static StringList GetInteractiveCommandNames(
+            Interpreter interpreter,
+            string pattern,
+            bool noCase,
+            TextFlags textFlags
+            ) /* DEADLOCK-ON-DISPOSE */
+        {
+            return HelpOps.GetInteractiveCommandNames(
+                interpreter, pattern, noCase, textFlags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static StringPair GetInteractiveCommandHelpItem(
+            Interpreter interpreter,
+            string name,
+            TextFlags textFlags
+            ) /* DEADLOCK-ON-DISPOSE */
+        {
+            return HelpOps.GetInteractiveCommandHelpItem(
+                interpreter, name, textFlags);
         }
 #endif
 
@@ -1223,6 +1283,17 @@ namespace Eagle._Components.Public
         public static bool HasFlags(
             ScriptFlags flags,
             ScriptFlags hasFlags,
+            bool all
+            )
+        {
+            return FlagOps.HasFlags(flags, hasFlags, all);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            ScriptSecurityFlags flags,
+            ScriptSecurityFlags hasFlags,
             bool all
             )
         {
@@ -2803,6 +2874,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool? IsDisposed(
+            Interpreter interpreter,
+            object @object,
+            bool force,
+            bool? cannotCheck,
+            bool? caughtException
+            )
+        {
+            return ObjectOps.IsDisposed(
+                interpreter, @object, force, cannotCheck, caughtException);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode TryDisposeObjectOrTrace<T>(
             ref T @object
             )
@@ -2839,6 +2924,16 @@ namespace Eagle._Components.Public
             )
         {
             return FormatOps.Id(prefix, null, id);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsEqualFileName(
+            string path1,
+            string path2
+            )
+        {
+            return PathOps.IsEqualFileName(path1, path2);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3778,11 +3873,32 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static string NormalizePath(
+            string path,
+            bool? unix
+            )
+        {
+            return NormalizePath(null, path, unix);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string NormalizePath(
             Interpreter interpreter,
             string path
             ) /* DEADLOCK-ON-DISPOSE */
         {
             return PathOps.ResolvePath(interpreter, path);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string NormalizePath(
+            Interpreter interpreter, /* in */
+            string path,             /* in */
+            bool? unix               /* in */
+            ) /* DEADLOCK-ON-DISPOSE */
+        {
+            return PathOps.ResolvePath(interpreter, path, unix);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4618,16 +4734,18 @@ namespace Eagle._Components.Public
 
         public static ReturnCode InvokeDelegate(
             Interpreter interpreter,
-            Delegate @delegate,
-            DelegateFlags delegateFlags,
+            DelegateList delegates,
             ArgumentList arguments,
+            bool allowOptions,
             int nameCount,
+            int nameIndex,
+            ref Delegate @delegate,
             ref Result result
             ) /* DEADLOCK-ON-DISPOSE */
         {
             return ObjectOps.InvokeDelegate(
-                interpreter, @delegate, delegateFlags, arguments,
-                nameCount, ref result);
+                interpreter, delegates, arguments, allowOptions,
+                nameCount, nameIndex, ref @delegate, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4896,6 +5014,17 @@ namespace Eagle._Components.Public
         {
             return TraceOps.ProcessClientData(traceClientData, ref result);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NATIVE
+        public static void OutputDebugString(
+            string message
+            )
+        {
+            DebugOps.Output(message);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -5390,6 +5519,8 @@ namespace Eagle._Components.Public
             Interpreter interpreter,
             IDbConnectionParameters dbConnectionParameters,
             ref IDbConnection connection,
+            ref DbConnectionType dbConnectionType,
+            ref byte[] publicKeyToken,
             ref Result error
             ) /* DEADLOCK-ON-DISPOSE */
         {
@@ -5400,14 +5531,18 @@ namespace Eagle._Components.Public
             }
 
             return DataOps.CreateDbConnection(interpreter,
-                dbConnectionParameters.DbConnectionType,
+                dbConnectionParameters.DbConnectionType1,
+                dbConnectionParameters.DbConnectionType2,
+                dbConnectionParameters.PublicKeyToken1,
+                dbConnectionParameters.PublicKeyToken2,
                 dbConnectionParameters.ConnectionString,
                 dbConnectionParameters.AssemblyFileName,
                 dbConnectionParameters.TypeFullName,
                 dbConnectionParameters.TypeName,
                 dbConnectionParameters.Type,
                 dbConnectionParameters.ValueFlags,
-                ref connection, ref error);
+                ref connection, ref dbConnectionType,
+                ref publicKeyToken, ref error);
         }
 #endif
 
@@ -6103,6 +6238,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string MakeAbsoluteName(
+            string name
+            )
+        {
+            return NamespaceOps.MakeAbsoluteName(name);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string MakeCommandName(
             string name
             )
@@ -6118,6 +6262,164 @@ namespace Eagle._Components.Public
             )
         {
             return FileOps.GetPeFileDateTime(fileName, ref dateTime);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static IDelegateMapper CreateDelegateMapper()
+        {
+            return new DelegateMapper();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetMethodDataName(
+            Interpreter interpreter,
+            int index,
+            MethodBase method
+            )
+        {
+            return AttributeOps.GetMethodDataName(
+                interpreter, index, method, true);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static CommandFlags? GetCachedCommandFlags(
+            Interpreter interpreter,
+            AppDomain appDomain,
+            int index,
+            MethodBase method
+            )
+        {
+            return AttributeOps.GetCachedCommandFlags(
+                interpreter, appDomain, index, method);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SetCachedCommandFlags(
+            Interpreter interpreter,
+            AppDomain appDomain,
+            int index,
+            MethodBase method,
+            CommandFlags? commandFlags
+            )
+        {
+            return AttributeOps.SetCachedCommandFlags(
+                interpreter, appDomain, index, method,
+                commandFlags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsPowerOfTwo(
+            ulong value
+            )
+        {
+            return MathOps.IsPowerOfTwo(value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NETWORK
+        public static ReturnCode LoadForCIDR(
+            string fileName,
+            byte? prefixLength,
+            IpFlags ipFlags,
+            bool? wildcard,
+            ref CidrDictionary dictionary,
+            ref int count,
+            ref Result error
+            )
+        {
+            return SocketOps.LoadForCIDR(
+                fileName, prefixLength, ipFlags, wildcard,
+                ref dictionary, ref count, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode UpdateVariableWithCIDR(
+            Interpreter interpreter,
+            string varName,
+            CidrDictionary dictionary,
+            IpFlags ipFlags,
+            ref Result error
+            )
+        {
+            return SocketOps.UpdateVariableWithCIDR(
+                interpreter, varName, dictionary, ipFlags, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool? MatchViaCIDR(
+            string address,
+            string pattern,
+            IpFlags ipFlags,
+            ref Result error
+            )
+        {
+            return SocketOps.MatchViaCIDR(
+                address, pattern, ipFlags, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool? MatchViaCIDR(
+            string address,
+            IEnumerable<string> patterns,
+            IpFlags ipFlags
+            )
+        {
+            bool? match;
+            Result error = null;
+
+            match = SocketOps.MatchViaCIDR(
+                address, patterns, ipFlags, ref error);
+
+            if (match == null)
+                DebugOps.Complain(ReturnCode.Error, error);
+
+            return match;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool? MatchViaCIDR(
+            string address,
+            IEnumerable<string> patterns,
+            IpFlags ipFlags,
+            ref Result error
+            )
+        {
+            return SocketOps.MatchViaCIDR(
+                address, patterns, ipFlags, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool? MatchViaCIDR(
+            string address,
+            IEnumerable<string> patterns,
+            IpFlags ipFlags,
+            out int? index,
+            ref Result error
+            )
+        {
+            return SocketOps.MatchViaCIDR(
+                address, patterns, ipFlags, out index, ref error);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string FormatIso8601FullDateTime(
+            DateTime value
+            )
+        {
+            return FormatOps.Iso8601FullDateTime(value);
         }
 
         ///////////////////////////////////////////////////////////////////////

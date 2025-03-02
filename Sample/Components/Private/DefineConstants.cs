@@ -158,6 +158,10 @@ namespace Sample
             "OFFICIAL",
 #endif
 
+#if OFFICIAL_BINARY
+            "OFFICIAL_BINARY",
+#endif
+
 #if PATCHLEVEL
             "PATCHLEVEL",
 #endif

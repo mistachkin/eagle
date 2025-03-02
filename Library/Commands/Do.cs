@@ -125,7 +125,12 @@ namespace Eagle._Commands
                                 {
                                     code = interpreter.EvaluateScript(arguments[1], ref result);
 
-                                    if (code == ReturnCode.Error)
+                                    if (code == ReturnCode.Ok)
+                                    {
+                                        if (interpreter.ExitNoThrow)
+                                            break;
+                                    }
+                                    else if (code == ReturnCode.Error)
                                     {
                                         /* IGNORED */
                                         Engine.AddErrorInformation(interpreter, result,

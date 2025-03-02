@@ -73,6 +73,10 @@ namespace Eagle._Shell
             "OFFICIAL",
 #endif
 
+#if OFFICIAL_BINARY
+            "OFFICIAL_BINARY",
+#endif
+
 #if PATCHLEVEL
             "PATCHLEVEL",
 #endif

@@ -17,9 +17,17 @@ namespace Eagle._Interfaces.Public
 {
     [ObjectId("15da79ef-3b2a-42fc-97bc-da5b0384e23e")]
     public interface IScript :
-            IScriptData, IScriptFlags, IScriptLocation,
+            IScriptData, IHaveScriptFlags, IScriptLocation,
             ICollection, IIdentifier
     {
+        bool ShouldTreatAsFile(
+            out string fileName, out byte[] fileBytes
+        );
+
+#if XML
+        string GetBlockTypeString();
+#endif
+
         ObjectDictionary MaybeGetExtra();
         ObjectDictionary GetExtra();
 

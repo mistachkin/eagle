@@ -21,7 +21,6 @@ using System.Runtime.InteropServices;
 
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Private.Delegates;
 using Eagle._Components.Public;
@@ -126,9 +125,19 @@ namespace Eagle._Components.Private
         internal static readonly MatchMode DefaultObjectMatchMode = DefaultMatchMode;
         internal static readonly MatchMode DefaultUnloadMatchMode = MatchMode.Exact;
 
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if SHELL && INTERACTIVE_COMMANDS && XML
-        private static readonly Regex TwoOrMoreWhiteSpaceRegEx = RegExOps.Create("\\s{2,}");
+        private static readonly string TwoOrMoreQuantifier = "{2,}";
+
+        private static readonly Regex TwoOrMoreWhiteSpaceRegEx = RegExOps.Create(
+            String.Format("\\s{0}", TwoOrMoreQuantifier));
+
+        private static readonly Regex TwoOrMoreSpaceRegEx = RegExOps.Create(
+            String.Format("[ ]{0}", TwoOrMoreQuantifier));
 #endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
 
         internal static readonly RegexOptions DefaultRegExOptions = RegexOptions.None;
         internal static readonly RegexOptions DefaultRegExTestOptions = RegexOptions.Singleline; /* COMPAT: Tcl. */
@@ -213,35 +222,38 @@ namespace Eagle._Components.Private
 
         #region Radix Regular Expressions
         internal static readonly Regex sha1HashValueRegEx = RegExOps.Create(
-            "^0x[0-9a-f]{40}$", RegexOptions.None);
+            "^0x[0-9a-f]{40}$");
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         internal static readonly Regex sha512HashValueRegEx = RegExOps.Create(
-            "^0x[0-9a-f]{128}$", RegexOptions.None);
+            "^0x[0-9a-f]{128}$");
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static readonly Regex base16RegEx = RegExOps.Create(
-            "^(?:0x)?(?:[0-9A-F][0-9A-F])*$", RegexOptions.IgnoreCase);
+            "^(?:0x)?(?:[0-9A-F][0-9A-F])*$", RegexOptions.IgnoreCase |
+            RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private const int Base26GroupsPerLine = 25;
 
         private static readonly Regex base26RegEx = RegExOps.Create(
-            "^(?:[A-Z\\s][A-Z\\s])*$", RegexOptions.IgnoreCase);
+            "^(?:[A-Z\\s][A-Z\\s])*$", RegexOptions.IgnoreCase |
+            RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static readonly Regex base64RegEx = RegExOps.Create(
             "^(?:[0-9A-Z+/]{4})*(?:[0-9A-Z+/]{3}=|[0-9A-Z+/]{2}==)?$",
-            RegexOptions.IgnoreCase);
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static readonly Regex hexadecimalBytesRegEx = RegExOps.Create(
-            "^(?:0x[0-9A-F]{2}(?:\\s+0x[0-9A-F]{2})*)?$", RegexOptions.IgnoreCase);
+            "^(?:0x[0-9A-F]{2}(?:\\s+0x[0-9A-F]{2})*)?$",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2337,8 +2349,7 @@ namespace Eagle._Components.Private
                     // NOTE: Make friendly to Enum.Parse for flags fields.
                     //
                     result = list.ToString(
-                        Characters.Comma.ToString() + Characters.Space.ToString(),
-                        null, false);
+                        Characters.CommaSpaceString, null, false);
 
                     return ReturnCode.Ok;
                 }
@@ -3465,18 +3476,123 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL && INTERACTIVE_COMMANDS && XML
-        public static string CollapseWhiteSpace(
-            string text
+        private static Regex GetRegExForCollapseWhiteSpace(
+            TextFlags textFlags /* in */
             )
         {
-            if (String.IsNullOrEmpty(text) ||
-                (TwoOrMoreWhiteSpaceRegEx == null))
+            if (FlagOps.HasFlags(
+                    textFlags, TextFlags.KeepNothing, true))
             {
+                return TwoOrMoreWhiteSpaceRegEx;
+            }
+            else if (FlagOps.HasFlags(
+                    textFlags, TextFlags.KeepNonSpaces, true))
+            {
+                return TwoOrMoreSpaceRegEx;
+            }
+            else
+            {
+                StringBuilder builder = StringBuilderFactory.Create();
+
+                if (!FlagOps.HasFlags(
+                        textFlags, TextFlags.KeepHorizontalTabs, true))
+                {
+                    builder.Append(Characters.Backslash_t);
+                }
+
+                if (!FlagOps.HasFlags(
+                        textFlags, TextFlags.KeepLineFeeds, true))
+                {
+                    builder.Append(Characters.Backslash_n);
+                }
+
+                if (!FlagOps.HasFlags(
+                        textFlags, TextFlags.KeepVerticalTabs, true))
+                {
+                    builder.Append(Characters.Backslash_v);
+                }
+
+                if (!FlagOps.HasFlags(
+                        textFlags, TextFlags.KeepFormFeeds, true))
+                {
+                    builder.Append(Characters.Backslash_f);
+                }
+
+                if (!FlagOps.HasFlags(
+                        textFlags, TextFlags.KeepCarriageReturns, true))
+                {
+                    builder.Append(Characters.Backslash_r);
+                }
+
+                if (!FlagOps.HasFlags(
+                        textFlags, TextFlags.KeepSpaces, true))
+                {
+                    builder.Append(Characters.Space);
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.Insert(0, Characters.OpenBracket);
+                    builder.Append(Characters.CloseBracket);
+                    builder.Append(TwoOrMoreQuantifier);
+
+                    return RegExOps.Create(
+                        StringBuilderCache.GetStringAndRelease(
+                        ref builder));
+                }
+                else
+                {
+                    /* IGNORED */
+                    StringBuilderCache.Release(ref builder);
+
+                    return null;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string CollapseWhiteSpace(
+            string text,
+            TextFlags textFlags
+            )
+        {
+            if (FlagOps.HasFlags(textFlags, TextFlags.NoCollapse, true))
                 return text;
+
+            Regex regEx = GetRegExForCollapseWhiteSpace(textFlags);
+
+            if (String.IsNullOrEmpty(text) || (regEx == null))
+                return text;
+
+            string result = regEx.Replace(text, Characters.SpaceString);
+
+            if (!String.IsNullOrEmpty(result) &&
+                FlagOps.HasFlags(textFlags, TextFlags.AllowEscapes, true))
+            {
+                StringBuilder builder = StringBuilderFactory.Create(
+                    result);
+
+                builder.Replace(Characters.Backslash_t_String,
+                    Characters.HorizontalTabString);
+
+                builder.Replace(Characters.Backslash_n_String,
+                    Characters.LineFeedString);
+
+                builder.Replace(Characters.Backslash_v_String,
+                    Characters.VerticalTabString);
+
+                builder.Replace(Characters.Backslash_f_String,
+                    Characters.FormFeedString);
+
+                builder.Replace(Characters.Backslash_r_String,
+                    Characters.CarriageReturnString);
+
+                return StringBuilderCache.GetStringAndRelease(
+                    ref builder);
             }
 
-            return TwoOrMoreWhiteSpaceRegEx.Replace(text,
-                Characters.Space.ToString());
+            return result;
         }
 #endif
 
@@ -5535,7 +5651,7 @@ namespace Eagle._Components.Private
                                     else
                                     {
                                         segment.Insert(
-                                            0, Characters.Space.ToString(),
+                                            0, Characters.SpaceString,
                                             (width - segment.Length));
                                     }
                                 }
@@ -6079,7 +6195,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static StringComparison GetUserComparisonType(
+        private static StringComparison GetUserComparisonType(
             bool noCase
             )
         {
@@ -6478,7 +6594,7 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
-                    error = "invlid match callback";
+                    error = "invalid match callback";
                 }
             }
             else if (FlagOps.HasFlags(mode, MatchMode.Exact, false))
@@ -6540,6 +6656,50 @@ namespace Eagle._Components.Private
 
                 return ReturnCode.Ok;
             }
+#if NETWORK
+            else if (FlagOps.HasFlags(mode, MatchMode.CIDR, false))
+            {
+                IpFlags ipFlags = IpFlags.Default;
+
+                if (FlagOps.HasFlags(
+                        mode, MatchMode.StopOnError, false))
+                {
+                    ipFlags |= IpFlags.StopOnError;
+                }
+
+                bool? maybeMatch; /* REUSED */
+
+                if (FlagOps.HasFlags(mode, MatchMode.ListPattern, false))
+                {
+                    StringList listValue = null;
+
+                    if (ParserOps<string>.SplitList(
+                            interpreter, pattern, 0, Length.Invalid, true,
+                            ref listValue, ref error) == ReturnCode.Ok)
+                    {
+                        maybeMatch = SocketOps.MatchViaCIDR(
+                            text, listValue, ipFlags, ref error);
+
+                        if (maybeMatch != null)
+                        {
+                            match = (bool)maybeMatch;
+                            return ReturnCode.Ok;
+                        }
+                    }
+                }
+                else
+                {
+                    maybeMatch = SocketOps.MatchViaCIDR(
+                        text, pattern, ipFlags, ref error);
+
+                    if (maybeMatch != null)
+                    {
+                        match = (bool)maybeMatch;
+                        return ReturnCode.Ok;
+                    }
+                }
+            }
+#endif
             else if (FlagOps.HasFlags(mode, MatchMode.Glob, false))
             {
                 //

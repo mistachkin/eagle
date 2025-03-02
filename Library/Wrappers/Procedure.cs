@@ -19,16 +19,13 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Wrappers
 {
     [ObjectId("40effd9c-7211-4999-9a32-04392e4387b2")]
-    internal sealed class Procedure : Default, IProcedure
+    internal sealed class Procedure : Core, IProcedure
     {
         #region Public Constructors
-        public Procedure(
-            long token,
-            IProcedure procedure
-            )
-            : base(token)
+        public Procedure()
+            : base()
         {
-            this.procedure = procedure;
+            // do nothing.
         }
         #endregion
 
@@ -210,6 +207,22 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        public ArgumentList OverwriteArguments
+        {
+            get { return (procedure != null) ? procedure.OverwriteArguments : null; }
+            set { if (procedure != null) { procedure.OverwriteArguments = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ArgumentList CleanArguments
+        {
+            get { return (procedure != null) ? procedure.CleanArguments : null; }
+            set { if (procedure != null) { procedure.CleanArguments = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public string Body
         {
             get { return (procedure != null) ? procedure.Body : null; }
@@ -237,24 +250,6 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IExecute Members
-        public ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
-            )
-        {
-            if (procedure != null)
-                return procedure.Execute(
-                    interpreter, clientData, arguments, ref result);
-            else
-                return ReturnCode.Error;
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
         #region IWrapper Members
         public override bool IsDisposable
         {
@@ -266,6 +261,11 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return procedure; }
+            set
+            {
+                procedure = (IProcedure)value; /* throw */
+                execute = (IExecute)value; /* throw */
+            }
         }
         #endregion
     }

@@ -580,14 +580,6 @@ if {$argc >= 2 && $argc <= 4} then {
                   set patchLevel [lindex $fields 4]
 
                   #
-                  # NOTE: If no notes were specified, carry over the notes
-                  #       from the previous release.
-                  #
-                  if {![info exists notes]} then {
-                    set notes [lindex $fields 10]; # NOTE: Already escaped.
-                  }
-
-                  #
                   # NOTE: Does this line refer to an update protocol that
                   #       is supported by this tool?
                   #
@@ -632,6 +624,18 @@ if {$argc >= 2 && $argc <= 4} then {
                         #
                         if {$protocolId eq "1"} then {
                           #
+                          # NOTE: If no notes were specified, carry over
+                          #       the notes from the previous release.  At
+                          #       this point, all sources used for notes
+                          #       are already escaped.
+                          #
+                          if {[info exists notes]} then {
+                            set localNotes $notes
+                          } else {
+                            set localNotes [lindex $fields 10]
+                          }
+
+                          #
                           # NOTE: This is an update build line.  All fields
                           #       will get new values, including the three
                           #       hashes that we calculated of the assembly
@@ -649,7 +653,7 @@ if {$argc >= 2 && $argc <= 4} then {
                               $buildTypes($buildType,Md5) \
                               $buildTypes($buildType,Sha1) \
                               $buildTypes($buildType,Sha512) \
-                              $notes] \t]
+                              $localNotes] \t]
                         } else {
                           #
                           # NOTE: This is an update script line OR an
@@ -724,6 +728,12 @@ if {$argc >= 2 && $argc <= 4} then {
             if {![info exists no(addBuildTypes)]} then {
               foreach buildType $buildTypes(list) {
                 if {![info exists buildTypes($buildType,done)]} then {
+                  if {[info exists notes]} then {
+                    set localNotes $notes
+                  } else {
+                    set localNotes ""
+                  }
+
                   set newLine [join [list 1 \
                       $buildTypes($buildType,PublicKeyToken) \
                       [getBuildName $buildType \
@@ -736,7 +746,7 @@ if {$argc >= 2 && $argc <= 4} then {
                       $buildTypes($buildType,Md5) \
                       $buildTypes($buildType,Sha1) \
                       $buildTypes($buildType,Sha512) \
-                      $notes] \t]
+                      $localNotes] \t]
 
                   puts stdout [appendArgs \
                       "added \"" $fileName "\" " $mode " " $newLine]

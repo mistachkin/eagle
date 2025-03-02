@@ -185,7 +185,7 @@ runTest {test socket-1.2 {server sockets} -setup {
   #       and the server thread may not be fully ready yet.
   #
   if {[isEagle]} then {
-    vwait -force ::y
+    vwait -force -timeout [expr {$::test_long_timeout * 10}] ::y
   } else {
     vwait ::y
   }
@@ -207,7 +207,7 @@ runTest {test socket-1.2 {server sockets} -setup {
     waitForProcesses [list [info previouspid]] 5000
   }
 
-  set ::y
+  expr {[info exists ::y] ? [set ::y] : ""}
 } -cleanup {
   if {[info exists sock(server)]} then {catch {close $sock(server)}}
   if {[info exists sock(listen)]} then {catch {close $sock(listen)}}

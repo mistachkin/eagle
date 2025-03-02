@@ -520,6 +520,10 @@ namespace Eagle._Constants
             "OFFICIAL",
 #endif
 
+#if OFFICIAL_BINARY
+            "OFFICIAL_BINARY",
+#endif
+
 #if PARSE_CACHE
             "PARSE_CACHE",
 #endif

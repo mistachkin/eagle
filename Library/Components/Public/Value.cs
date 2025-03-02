@@ -80,7 +80,8 @@ namespace Eagle._Components.Public
             "^(" + noneName + "|" + startName + "|" + endName + "|" +
             countName + "|\\d+){1}([\\+\\-\\*\\/\\%]{1})(" +
             noneName + "|" + startName + "|" + endName + "|" +
-            countName + "|\\d+)$", RegexOptions.CultureInvariant);
+            countName + "|\\d+)$", RegexOptions.CultureInvariant |
+            RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -88,7 +89,10 @@ namespace Eagle._Components.Public
         // HACK: These are purposely not read-only.
         //
         private static string annotationsPattern1 = "#\\s+<<(\\w+)>>\\s+";
-        private static string annotationsPattern2 = "#\\s+<<(\\w+):(\\w+)>>\\s+";
+        private static string annotationsPattern2 = "#\\s+<<(\\w+):(\\w+(?: \\w+)*)>>\\s+";
+
+        private static string annotationsPattern3 = "^(\\w+)$";
+        private static string annotationsPattern4 = "^(\\w+):(\\w+(?: \\w+)*)$";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -96,7 +100,8 @@ namespace Eagle._Components.Public
         // HACK: This is purposely not read-only.
         //
         private static Regex versionRegEx = RegExOps.Create(
-            "^\\d+\\.\\d+(?:\\.\\d+){0,2}$", RegexOptions.CultureInvariant);
+            "^\\d+\\.\\d+(?:\\.\\d+){0,2}$",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -107,7 +112,7 @@ namespace Eagle._Components.Public
             "^(?:[0-9A-F]{32}|[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}" +
             "|\\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\}|" +
             "\\([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\))$",
-            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -116,7 +121,7 @@ namespace Eagle._Components.Public
         //
         private static Regex versionRangeRegEx = RegExOps.Create(
             "^(\\d+\\.\\d+(?:\\.\\d+(?:\\.\\d+)?)?)?-(\\d+\\.\\d+(?:\\.\\d+(?:\\.\\d+)?)?)?$",
-            RegexOptions.CultureInvariant);
+            RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -826,6 +831,12 @@ namespace Eagle._Components.Public
 
             text = StringOps.NormalizeLineEndings(text);
 
+            if (text == null)
+            {
+                error = "could not normalize text";
+                return ReturnCode.Error;
+            }
+
             string[] lines = text.Split(Characters.LineFeed);
 
             if (lines == null)
@@ -1091,6 +1102,87 @@ namespace Eagle._Components.Public
             data = localOtherData;
 
             return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal static ReturnCode GetAnnotations(
+            ref StringDictionary annotations /* in, out */
+            )
+        {
+            Result error = null;
+
+            return GetAnnotations(ref annotations, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetAnnotations(
+            ref StringDictionary annotations, /* in, out */
+            ref Result error                  /* out */
+            )
+        {
+            try
+            {
+                FieldInfo[] fieldInfos = typeof(Annotations).GetFields();
+
+                if (fieldInfos == null)
+                {
+                    error = "annotations unavailable";
+                    return ReturnCode.Error;
+                }
+
+                foreach (FieldInfo fieldInfo in fieldInfos)
+                {
+                    if (fieldInfo == null)
+                        continue;
+
+                    if (annotations == null)
+                        annotations = new StringDictionary();
+
+                    object fieldValue = fieldInfo.GetValue(null);
+
+                    if (!(fieldValue is string))
+                        continue;
+
+                    string annotation = (string)fieldValue;
+
+                    if (String.IsNullOrEmpty(annotation))
+                        continue;
+
+                    if (annotations.ContainsKey(annotation))
+                        continue;
+
+                    annotations[annotation] = null;
+                }
+
+                return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsAnnotation(
+            string text /* in */
+            )
+        {
+            foreach (string pattern in new string[] {
+                    annotationsPattern3, annotationsPattern4
+                })
+            {
+                if (pattern == null)
+                    continue;
+
+                if (Regex.IsMatch(text, pattern, RegexOptions.None))
+                    return true;
+            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1548,7 +1640,7 @@ namespace Eagle._Components.Public
             bool noCase
             )
         {
-            ValueFlags result = flags;
+            ValueFlags result = flags | Defaults.ValueFlags;
 
             if (allowInteger)
                 result |= ValueFlags.AllowInteger;
@@ -1571,7 +1663,7 @@ namespace Eagle._Components.Public
             OptionFlags flags
             )
         {
-            ValueFlags result = ValueFlags.None;
+            ValueFlags result = Defaults.ValueFlags;
 
             if (FlagOps.HasFlags(flags, OptionFlags.AllowInteger, true))
                 result |= ValueFlags.AllowInteger;
@@ -1612,7 +1704,7 @@ namespace Eagle._Components.Public
             bool noComObject
             )
         {
-            ValueFlags result = flags;
+            ValueFlags result = flags | Defaults.ValueFlags;
 
             if (strict)
                 result |= ValueFlags.Strict;
@@ -1640,7 +1732,7 @@ namespace Eagle._Components.Public
             bool noComObject
             )
         {
-            ValueFlags result = flags;
+            ValueFlags result = flags | Defaults.ValueFlags;
 
             if (noNested)
                 result |= ValueFlags.NoNested;
@@ -1657,7 +1749,7 @@ namespace Eagle._Components.Public
             bool strict
             )
         {
-            ValueFlags result = ValueFlags.None;
+            ValueFlags result = Defaults.ValueFlags;
 
             if (strict)
                 result |= ValueFlags.Strict;
@@ -2073,6 +2165,51 @@ namespace Eagle._Components.Public
                 FormatOps.WrapOrNull(text)));
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetNullableGuid(
+            string text,
+            CultureInfo cultureInfo,
+            ref Guid? value,
+            ref Result error
+            )
+        {
+            Exception exception = null;
+
+            return GetNullableGuid(
+                text, cultureInfo, ref value,
+                ref error, ref exception);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetNullableGuid(
+            string text,
+            CultureInfo cultureInfo,
+            ref Guid? value,
+            ref Result error,
+            ref Exception exception
+            )
+        {
+            if (String.IsNullOrEmpty(text))
+            {
+                value = null;
+                return ReturnCode.Ok;
+            }
+
+            Guid guid = Guid.Empty;
+
+            if (GetGuid(
+                    text, cultureInfo, ref guid, ref error,
+                    ref exception) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            value = guid;
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3480,6 +3617,60 @@ namespace Eagle._Components.Public
                 text, ObjectOps.GetDefaultDateTimeFormat(), flags,
                 kind, styles, GetDefaultCulture(), ref value,
                 ref error);
+        }
+
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetNullableDateTime2(
+            string text,
+            string format,
+            ValueFlags flags,
+            DateTimeKind kind,
+            DateTimeStyles styles,
+            CultureInfo cultureInfo,
+            ref DateTime? value,
+            ref Result error
+            )
+        {
+            Exception exception = null;
+
+            return GetNullableDateTime2(
+                text, format, flags, kind, styles, cultureInfo,
+                ref value, ref error, ref exception);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetNullableDateTime2(
+            string text,
+            string format,
+            ValueFlags flags,
+            DateTimeKind kind,
+            DateTimeStyles styles,
+            CultureInfo cultureInfo,
+            ref DateTime? value,
+            ref Result error,
+            ref Exception exception
+            )
+        {
+            if (String.IsNullOrEmpty(text))
+            {
+                value = null;
+                return ReturnCode.Ok;
+            }
+
+            DateTime dateTime = DateTime.MinValue;
+
+            if (GetDateTime2(text, format,
+                    flags, kind, styles, cultureInfo, ref dateTime,
+                    ref error, ref exception) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            value = dateTime;
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6523,6 +6714,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode GetPublicKeyToken(
+            string value,
+            CultureInfo cultureInfo,
+            ref byte[] publicKeyToken,
+            ref Result error
+            )
+        {
+            return RuntimeOps.GetPublicKeyToken(
+                value, cultureInfo, ref publicKeyToken, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Dead Code
 #if DEAD_CODE
         private static ReturnCode GetByte( /* NOT USED */
@@ -8444,7 +8648,7 @@ namespace Eagle._Components.Public
                             //
                             value = new TypedInstance(
                                 (objectType != null) ? objectType : localObjectType,
-                                objectFlags, text, text, @object, extraParts);
+                                objectFlags, @object, text, text, extraParts);
 
                             return ReturnCode.Ok;
                         }
@@ -8467,7 +8671,7 @@ namespace Eagle._Components.Public
                                 if ((interpreter != null) && interpreter.InternalIsSafe() &&
                                     !PolicyOps.IsTrustedType(
                                         interpreter, text, (objectType != null) ? objectType :
-                                        localObjectType, ref error))
+                                        localObjectType, valueFlags, ref error))
                                 {
                                     error = MaybeInvokeErrorCallback(error);
                                     return ReturnCode.Error;
@@ -8478,7 +8682,7 @@ namespace Eagle._Components.Public
                                 //
                                 value = new TypedInstance(
                                     (objectType != null) ? objectType : localObjectType,
-                                    ObjectFlags.None, text, text, null, extraParts);
+                                    ObjectFlags.None, null, text, text, extraParts);
 
                                 return ReturnCode.Ok;
                             }
@@ -8637,7 +8841,8 @@ namespace Eagle._Components.Public
 
                                                         if ((interpreter != null) && interpreter.InternalIsSafe() &&
                                                             !PolicyOps.IsTrustedType(
-                                                                interpreter, text, localObjectType, ref localError))
+                                                                interpreter, text, localObjectType, valueFlags,
+                                                                ref localError))
                                                         {
                                                             if (localError != null)
                                                             {
@@ -8839,7 +9044,8 @@ namespace Eagle._Components.Public
 
                                                             if ((interpreter != null) && interpreter.InternalIsSafe() &&
                                                                 !PolicyOps.IsTrustedType(
-                                                                    interpreter, text, localObjectType, ref localError))
+                                                                    interpreter, text, localObjectType, valueFlags,
+                                                                    ref localError))
                                                             {
                                                                 if (localError != null)
                                                                 {
@@ -8925,7 +9131,7 @@ namespace Eagle._Components.Public
                                         //
                                         value = new TypedInstance(
                                             (objectType != null) ? objectType : localObjectType,
-                                            objectFlags, text, text, @object, extraParts);
+                                            objectFlags, @object, text, text, extraParts);
 
                                         return ReturnCode.Ok;
                                     }

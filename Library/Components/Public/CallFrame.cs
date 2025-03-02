@@ -17,6 +17,9 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+using VariablePair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Interfaces.Public.IVariable>;
+
 namespace Eagle._Components.Public
 {
     [ObjectId("af168784-9b42-40cd-87a6-18eb4c3a663f")]
@@ -1072,6 +1075,76 @@ namespace Eagle._Components.Public
             // NOTE: For whatever reason, we did not set the mark.
             //
             return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ReturnCode Save(
+            Interpreter interpreter,               /* in */
+            ArgumentList arguments,                /* in: OPTIONAL */
+            ref VariableDictionary savedVariables, /* out */
+            ref int count,                         /* in, out */
+            ref Result error                       /* out */
+            )
+        {
+            CheckDisposed();
+
+            return Save(
+                interpreter, new ArgumentDictionary(arguments),
+                ref savedVariables, ref count, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ReturnCode Save(
+            Interpreter interpreter,               /* in */
+            ArgumentDictionary arguments,          /* in: OPTIONAL */
+            ref VariableDictionary savedVariables, /* out */
+            ref int count,                         /* in, out */
+            ref Result error                       /* out */
+            )
+        {
+            CheckDisposed();
+
+            savedVariables = new VariableDictionary();
+
+            return CallFrameOps.MoveNamedVariables(
+                interpreter, variables, savedVariables, arguments,
+                false, false, false, false, ref count, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ReturnCode Restore(
+            Interpreter interpreter,               /* in */
+            ArgumentList arguments,                /* in: OPTIONAL */
+            ref VariableDictionary savedVariables, /* in, out */
+            ref int count,                         /* in, out */
+            ref Result error                       /* out */
+            )
+        {
+            CheckDisposed();
+
+            return Restore(
+                interpreter, new ArgumentDictionary(arguments),
+                ref savedVariables, ref count, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ReturnCode Restore(
+            Interpreter interpreter,               /* in */
+            ArgumentDictionary arguments,          /* in: OPTIONAL */
+            ref VariableDictionary savedVariables, /* in, out */
+            ref int count,                         /* in, out */
+            ref Result error                       /* out */
+            )
+        {
+            CheckDisposed();
+
+            return CallFrameOps.MoveNamedVariables(
+                interpreter, savedVariables, variables, arguments,
+                false, false, false, false, ref count, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

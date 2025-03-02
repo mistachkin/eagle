@@ -184,6 +184,19 @@
     <EagleOfficial Condition="'$(EagleOfficial)' == ''">false</EagleOfficial>
 
     <!--
+        NOTE: Is the current project being built as part of an official Eagle
+              binary release?  By default, this is disabled.  If this is enabled,
+              this build will be considered an officially licensed binary, with
+              its associated commercial licensing requirements; otherwise, this
+              build will not be considered an officially licensed binary.  This
+              should only be set to true by the Eagle Development Team.  Do not
+              change this setting unless you are on the Eagle Development Team
+              -OR- have sought and received written permission beforehand.  You
+              have been warned.
+    -->
+    <EagleOfficialBinary Condition="'$(EagleOfficialBinary)' == ''">false</EagleOfficialBinary>
+
+    <!--
         NOTE: Is the current project being built as part of a stable Eagle
               release?  By default, this is disabled.  If this is enabled, this
               build will be considered stable; otherwise, this build will not

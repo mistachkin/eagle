@@ -285,6 +285,18 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public void AddFrom(
+            object key,
+            object value
+            )
+        {
+            base.Add(
+                StringOps.GetStringFromObject(key),
+                StringOps.GetStringFromObject(value));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public void AddKeys(
             IList<string> list,
             int startIndex
@@ -500,7 +512,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -527,7 +539,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -541,7 +553,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, regExOptions);
+                Characters.SpaceString, pattern, regExOptions);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -559,7 +571,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -573,7 +585,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -587,7 +599,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, regExOptions);
+                Characters.SpaceString, pattern, regExOptions);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -603,7 +615,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -619,7 +631,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -633,7 +645,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////

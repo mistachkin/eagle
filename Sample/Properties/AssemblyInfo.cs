@@ -82,7 +82,12 @@ using Eagle._Components.Shared;
 [assembly: AssemblyTag("PLUGIN")]
 #endif
 
-[assembly: AssemblyLicense(License.Summary, License.Text)]
+#if OFFICIAL_BINARY
+[assembly: AssemblyLicense(BinaryLicense.Summary, BinaryLicense.Text)]
+#else
+[assembly: AssemblyLicense(SourceLicense.Summary, SourceLicense.Text)]
+#endif
+
 [assembly: AssemblyUri("https://urn.to/r/eagle")]
 [assembly: AssemblyUri("update", "https://urn.to/r/update_sample")]
 [assembly: AssemblyUri("license", "https://urn.to/r/license")]

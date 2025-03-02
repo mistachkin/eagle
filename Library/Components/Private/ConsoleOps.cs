@@ -390,6 +390,13 @@ namespace Eagle._Components.Private
             bool verbose  /* in */
             )
         {
+            if (GlobalConfiguration.DoesValueExist(
+                    EnvVars.NoWritePrompt, GlobalConfiguration.GetFlags(
+                    ConfigurationFlags.ConsoleOps, verbose)))
+            {
+                return;
+            }
+
             MaybeDisableConsole(ref console);
             MaybeDisableVerbose(ref verbose);
 

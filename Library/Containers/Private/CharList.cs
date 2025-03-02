@@ -111,7 +111,7 @@ namespace Eagle._Containers.Private
             )
         {
             return ParserOps<char>.ListToString(this, Index.Invalid, Index.Invalid,
-                ToStringFlags.None, Characters.Space.ToString(), pattern, noCase);
+                ToStringFlags.None, Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

@@ -532,7 +532,7 @@ namespace Eagle._Components.Public
 
                 return ParserOps<string>.ListToString(
                     list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), null, false);
+                    Characters.SpaceString, null, false);
             }
 
             return null;
@@ -563,7 +563,7 @@ namespace Eagle._Components.Public
 
                 return ParserOps<string>.ListToString(
                     list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), null, false);
+                    Characters.SpaceString, null, false);
             }
 
             return null;

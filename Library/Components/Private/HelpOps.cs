@@ -18,7 +18,6 @@ using System.Diagnostics;
 using System.Globalization;
 #endif
 
-using System.IO;
 using System.Reflection;
 
 #if INTERACTIVE_COMMANDS
@@ -49,6 +48,9 @@ using SharedAttributeOps = Eagle._Components.Shared.AttributeOps;
 #endif
 
 using SharedStringOps = Eagle._Components.Shared.StringOps;
+
+using PluginPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Plugin>;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -88,15 +90,16 @@ namespace Eagle._Components.Private
         private const string groupAndListFormat = "{0} -- {1}";
 
         private const string descriptionOnlyFormat2 = "{2}";
-        private const string descriptionOnlyFormat3 = "{2} -- {3}";
+        private const string descriptionOnlyFormat3 = "{2} --{4}{3}";
 
         private const string topicOnlyFormat = "{0}{1}";
         private const string topicListFormat = "{0,X}{1}"; /* NOTE: 'X' is replaced by an integer. */
         private const string topicWithArgumentsFormat = "{0}{1} {2}";
-        private const string topicAndDescriptionFormat = "{0}{1} -- {2}";
-        private const string topicWithArgumentsAndDescriptionFormat = "{0}{1} {2} -- {3}";
+        private const string topicAndDescriptionFormat = "{0}{1} --{3}{2}";
+        private const string topicWithArgumentsAndDescriptionFormat = "{0}{1} {2} --{4}{3}";
 
-        private const string descriptionSeparator = " -- ";
+        private const string descriptionPrefix = " ";
+        private const string descriptionSeparator = " --{0}";
 
 #if XML
         //
@@ -119,6 +122,13 @@ namespace Eagle._Components.Private
         private static bool DefaultUseSyntax = true;      /* TODO: Good default? */
         private static bool DefaultShowHeader = true;     /* TODO: Good default? */
         private static bool DefaultMatchingOnly = false;  /* TODO: Good default? */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static TextFlags DefaultTextFlags = TextFlags.Default;
         #endregion
 #endif
 
@@ -274,7 +284,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static string ExtractHelpFromScript(
-            string text /* in */
+            string text,        /* in */
+            TextFlags textFlags /* in */
             )
         {
             if ((text == null) || (text.Length == 0))
@@ -329,17 +340,18 @@ namespace Eagle._Components.Private
                 return null;
             }
 
-            return StringOps.CollapseWhiteSpace(value);
+            return StringOps.CollapseWhiteSpace(value, textFlags);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static string GetHelp(
-            IIdentifier identifier /* in */
+            IIdentifier identifier, /* in */
+            TextFlags textFlags     /* in */
             )
         {
             return ExtractHelpFromScript(
-                GetBody(identifier as IProcedure));
+                GetBody(identifier as IProcedure), textFlags);
         }
 #endif
 
@@ -403,13 +415,15 @@ namespace Eagle._Components.Private
         private static string MaybeAdjustHelpItemTopic(
             string topic,         /* in */
             string defaultPrefix, /* in */
+            TextFlags textFlags,  /* in */
             out string prefix     /* out */
             )
         {
             string helpType;
 
             return MaybeAdjustHelpItemTopic(
-                topic, defaultPrefix, out prefix, out helpType);
+                topic, defaultPrefix, textFlags, out prefix,
+                out helpType);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -417,6 +431,7 @@ namespace Eagle._Components.Private
         private static string MaybeAdjustHelpItemTopic(
             string topic,         /* in */
             string defaultPrefix, /* in */
+            TextFlags textFlags,  /* in */
             out string prefix,    /* out */
             out string helpType   /* out */
             )
@@ -451,7 +466,25 @@ namespace Eagle._Components.Private
 
                                 if (topic[prefixLength] != prefixChar)
                                 {
-                                    prefix = localPrefix;
+                                    if (FlagOps.HasFlags(textFlags,
+                                            TextFlags.PrefixWithSpace, true))
+                                    {
+                                        //
+                                        // HACK: This formatting needs
+                                        //       to "match up" with the
+                                        //       preserve format option
+                                        //       for extracted XML help
+                                        //       comment blocks.
+                                        //
+                                        prefix = String.Format(
+                                            "{0}{1}", Characters.Space,
+                                            localPrefix);
+                                    }
+                                    else
+                                    {
+                                        prefix = localPrefix;
+                                    }
+
                                     helpType = localHelpType;
 
                                     return topic.Substring(prefixLength);
@@ -462,7 +495,18 @@ namespace Eagle._Components.Private
                 }
             }
 
-            prefix = defaultPrefix;
+            if (FlagOps.HasFlags(textFlags,
+                    TextFlags.PrefixWithSpace, true))
+            {
+                prefix = String.Format(
+                    "{0}{1}", Characters.Space,
+                    defaultPrefix);
+            }
+            else
+            {
+                prefix = defaultPrefix;
+            }
+
             helpType = defaultHelpType;
 
             return topic;
@@ -517,7 +561,8 @@ namespace Eagle._Components.Private
             Interpreter interpreter, /* in */
             IExecute execute,        /* in */
             string name,             /* in */
-            bool summary             /* in */
+            bool summary,            /* in */
+            TextFlags textFlags      /* in */
             )
         {
             StringBuilder builder = StringBuilderFactory.Create();
@@ -563,12 +608,17 @@ namespace Eagle._Components.Private
                 if (!summary)
                 {
                     string description = GetDescriptionForIExecute(
-                        execute, null);
+                        execute, null, textFlags);
 
                     if (description != null)
                     {
                         if (builder.Length > 0)
-                            builder.Append(descriptionSeparator);
+                        {
+                            builder.AppendFormat(
+                                descriptionSeparator,
+                                GetDescriptionPrefix(description,
+                                textFlags));
+                        }
 
                         builder.Append(description);
                     }
@@ -586,6 +636,234 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static string GetDescriptionPrefix(
+            string description, /* in */
+            TextFlags textFlags /* in */
+            )
+        {
+            if (FlagOps.HasFlags(textFlags, TextFlags.PrefixWithNewLine, true))
+            {
+                if (String.IsNullOrEmpty(description)) /* IMPOSSIBLE? */
+                    return null;
+
+                if (description.IndexOfAny(
+                        Characters.LineTerminatorChars) != Index.Invalid)
+                {
+                    return String.Format(
+                        "{0}{0}{1}", Environment.NewLine, Characters.Space);
+                }
+            }
+
+            return descriptionPrefix;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string FormatHelpItem(
+            IPair<string> helpItem, /* in */
+            string helpType,        /* in */
+            string topic,           /* in */
+            string topicType,       /* in */
+            string prefix,          /* in */
+            bool noError,           /* in */
+            bool summary,           /* in */
+            bool noTopic,           /* in */
+            TextFlags textFlags,    /* in */
+            out string type         /* out */
+            )
+        {
+            type = helpType;
+
+            if (helpItem != null)
+            {
+                if ((helpItem.X != null) && (helpItem.Y != null))
+                {
+                    if (summary)
+                    {
+                        return String.Format(
+                            noTopic ? descriptionOnlyFormat2 :
+                            topicWithArgumentsFormat, prefix,
+                            topic, helpItem.X);
+                    }
+                    else
+                    {
+                        return String.Format(
+                            noTopic ? descriptionOnlyFormat3 :
+                            topicWithArgumentsAndDescriptionFormat,
+                            prefix, topic, helpItem.X,
+                            helpItem.Y, GetDescriptionPrefix(
+                            helpItem.Y, textFlags));
+                    }
+                }
+                else if (helpItem.X != null)
+                {
+                    if (summary)
+                    {
+                        return String.Format(
+                            noTopic ? descriptionOnlyFormat2 :
+                            topicWithArgumentsFormat, prefix,
+                            topic, helpItem.X);
+                    }
+                    else
+                    {
+                        return String.Format(
+                            noTopic ? descriptionOnlyFormat2 :
+                            topicAndDescriptionFormat, prefix,
+                            topic, helpItem.X,
+                            GetDescriptionPrefix(helpItem.X,
+                            textFlags));
+                    }
+                }
+                else if (helpItem.Y != null)
+                {
+                    if (summary)
+                    {
+                        if (noTopic)
+                        {
+                            if (noError)
+                            {
+                                type = null;
+
+                                return null;
+                            }
+                            else
+                            {
+                                return String.Format(
+                                    "No help is available for {0} {1}.",
+                                    topicType, FormatOps.WrapOrNull(
+                                    topic));
+                            }
+                        }
+                        else
+                        {
+                            return String.Format(
+                                topicOnlyFormat, prefix,
+                                topic);
+                        }
+                    }
+                    else
+                    {
+                        return String.Format(
+                            noTopic ? descriptionOnlyFormat2 :
+                            topicAndDescriptionFormat, prefix,
+                            topic, helpItem.Y,
+                            GetDescriptionPrefix(helpItem.Y,
+                            textFlags));
+                    }
+                }
+                else
+                {
+                    if (summary)
+                    {
+                        if (noTopic)
+                        {
+                            if (noError)
+                            {
+                                type = null;
+
+                                return null;
+                            }
+                            else
+                            {
+                                return String.Format(
+                                    "No help is available for {0} {1}.",
+                                    topicType, FormatOps.WrapOrNull(
+                                    topic));
+                            }
+                        }
+                        else
+                        {
+                            return String.Format(
+                                topicOnlyFormat, prefix,
+                                topic);
+                        }
+                    }
+                    else
+                    {
+                        if (noError)
+                        {
+                            type = null;
+
+                            return null;
+                        }
+                        else
+                        {
+                            return String.Format(
+                                "No help is available for {0} {1}.",
+                                topicType, FormatOps.WrapOrNull(
+                                topic));
+                        }
+                    }
+                }
+            }
+            else
+            {
+                if (noError)
+                {
+                    type = null;
+
+                    return null;
+                }
+                else
+                {
+                    return String.Format(
+                        "Invalid help item for {0} {1}.",
+                        topicType, FormatOps.WrapOrNull(
+                        topic));
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string FormatHelpGroup(
+            StringList helpGroup, /* in */
+            string groupType,     /* in */
+            string topic,         /* in */
+            string topicType,     /* in */
+            string prefix,        /* in */
+            bool noError,         /* in */
+            out string type       /* out */
+            )
+        {
+            type = groupType;
+
+            if (helpGroup != null)
+            {
+                if (helpGroup.Count > 0)
+                {
+                    return String.Format(
+                        groupAndListFormat, topic,
+                        GenericOps<string>.ListToEnglish(
+                            helpGroup, itemSeparator,
+                            Characters.SpaceString,
+                            itemSuffix, prefix, null));
+                }
+                else
+                {
+                    return String.Format(groupOnlyFormat, topic);
+                }
+            }
+            else
+            {
+                if (noError)
+                {
+                    type = null;
+
+                    return null;
+                }
+                else
+                {
+                    return String.Format(
+                        "Invalid help group for {0} {1}.",
+                        topicType, FormatOps.WrapOrNull(
+                        topic));
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static string FormatHelpItem( /* CANNOT RETURN NULL */
             Interpreter interpreter,     /* in */
             StringListDictionary groups, /* in */
@@ -594,12 +872,14 @@ namespace Eagle._Components.Private
             string helpType,             /* in */
             string topic,                /* in */
             string topicType,            /* in */
+            MatchMode mode,              /* in */
             bool noError,                /* in */
             bool noPrefix,               /* in */
             bool summary,                /* in */
             bool noTopic,                /* in */
             bool useInterpreter,         /* in */
             bool useSyntax,              /* in */
+            TextFlags textFlags,         /* in */
             out string type              /* out */
             )
         {
@@ -621,9 +901,9 @@ namespace Eagle._Components.Private
             string localTopic;
             string prefix;
 
-            localTopic = MaybeAdjustHelpItemTopic(topic,
-                noPrefix ? null : ShellOps.DefaultInteractiveCommandPrefix,
-                out prefix);
+            localTopic = MaybeAdjustHelpItemTopic(topic, noPrefix ?
+                null : ShellOps.DefaultInteractiveCommandPrefix,
+                textFlags, out prefix);
 
             if (localTopic == null)
             {
@@ -640,45 +920,78 @@ namespace Eagle._Components.Private
                 }
             }
 
+            string localType; /* REUSED */
+            StringBuilder builder; /* REUSED */
+
             if (groups != null)
             {
-                StringList helpGroup;
+                StringList helpGroup; /* REUSED */
 
-                if (groups.TryGetValue(localTopic, out helpGroup))
+                if (mode == MatchMode.Exact)
                 {
-                    type = groupType;
-
-                    if (helpGroup != null)
+                    if (groups.TryGetValue(localTopic, out helpGroup))
                     {
-                        if (helpGroup.Count > 0)
-                        {
-                            return String.Format(
-                                groupAndListFormat, localTopic,
-                                GenericOps<string>.ListToEnglish(
-                                    helpGroup, itemSeparator,
-                                    Characters.Space.ToString(),
-                                    itemSuffix, prefix, null));
-                        }
-                        else
-                        {
-                            return String.Format(groupOnlyFormat, localTopic);
-                        }
+                        return FormatHelpGroup(
+                            helpGroup, groupType, localTopic, topicType,
+                            prefix, noError, out type);
                     }
-                    else
+                }
+                else
+                {
+                    builder = null;
+
+                    try
                     {
-                        if (noError)
+                        foreach (KeyValuePair<string, StringList> pair in groups)
+                        {
+                            helpGroup = pair.Value;
+
+                            if (helpGroup == null)
+                                continue;
+
+                            if ((localTopic != null) && !StringOps.Match(
+                                    null, mode, pair.Key, localTopic, true))
+                            {
+                                continue;
+                            }
+
+                            if (FlagOps.HasFlags(mode, MatchMode.StopOnMatch, true))
+                            {
+                                return FormatHelpGroup(
+                                    helpGroup, groupType, pair.Key, topicType,
+                                    prefix, noError, out type);
+                            }
+                            else
+                            {
+                                if (builder != null)
+                                {
+                                    if (builder.Length > 0)
+                                    {
+                                        builder.AppendLine();
+                                        builder.AppendLine();
+                                    }
+                                }
+                                else
+                                {
+                                    builder = StringBuilderFactory.Create();
+                                }
+
+                                builder.Append(FormatHelpGroup(
+                                    helpGroup, groupType, pair.Key, topicType,
+                                    prefix, noError, out localType));
+                            }
+                        }
+
+                        if (builder != null)
                         {
                             type = null;
 
-                            return null;
+                            return builder.ToString();
                         }
-                        else
-                        {
-                            return String.Format(
-                                "Invalid help group for {0} {1}.",
-                                topicType, FormatOps.WrapOrNull(
-                                localTopic));
-                        }
+                    }
+                    finally
+                    {
+                        StringBuilderCache.Release(ref builder);
                     }
                 }
             }
@@ -687,142 +1000,71 @@ namespace Eagle._Components.Private
             {
                 IPair<string> helpItem;
 
-                if (help.TryGetValue(localTopic, out helpItem))
+                if (mode == MatchMode.Exact)
                 {
-                    type = helpType;
-
-                    if (helpItem != null)
+                    if (help.TryGetValue(localTopic, out helpItem))
                     {
-                        if ((helpItem.X != null) && (helpItem.Y != null))
-                        {
-                            if (summary)
-                            {
-                                return String.Format(
-                                    noTopic ? descriptionOnlyFormat2 :
-                                    topicWithArgumentsFormat, prefix,
-                                    localTopic, helpItem.X);
-                            }
-                            else
-                            {
-                                return String.Format(
-                                    noTopic ? descriptionOnlyFormat3 :
-                                    topicWithArgumentsAndDescriptionFormat,
-                                    prefix, localTopic, helpItem.X,
-                                    helpItem.Y);
-                            }
-                        }
-                        else if (helpItem.X != null)
-                        {
-                            if (summary)
-                            {
-                                return String.Format(
-                                    noTopic ? descriptionOnlyFormat2 :
-                                    topicWithArgumentsFormat, prefix,
-                                    localTopic, helpItem.X);
-                            }
-                            else
-                            {
-                                return String.Format(
-                                    noTopic ? descriptionOnlyFormat2 :
-                                    topicAndDescriptionFormat, prefix,
-                                    localTopic, helpItem.X);
-                            }
-                        }
-                        else if (helpItem.Y != null)
-                        {
-                            if (summary)
-                            {
-                                if (noTopic)
-                                {
-                                    if (noError)
-                                    {
-                                        type = null;
-
-                                        return null;
-                                    }
-                                    else
-                                    {
-                                        return String.Format(
-                                            "No help is available for {0} {1}.",
-                                            topicType, FormatOps.WrapOrNull(
-                                            localTopic));
-                                    }
-                                }
-                                else
-                                {
-                                    return String.Format(
-                                        topicOnlyFormat, prefix,
-                                        localTopic);
-                                }
-                            }
-                            else
-                            {
-                                return String.Format(
-                                    noTopic ? descriptionOnlyFormat2 :
-                                    topicAndDescriptionFormat, prefix,
-                                    localTopic, helpItem.Y);
-                            }
-                        }
-                        else
-                        {
-                            if (summary)
-                            {
-                                if (noTopic)
-                                {
-                                    if (noError)
-                                    {
-                                        type = null;
-
-                                        return null;
-                                    }
-                                    else
-                                    {
-                                        return String.Format(
-                                            "No help is available for {0} {1}.",
-                                            topicType, FormatOps.WrapOrNull(
-                                            localTopic));
-                                    }
-                                }
-                                else
-                                {
-                                    return String.Format(
-                                        topicOnlyFormat, prefix,
-                                        localTopic);
-                                }
-                            }
-                            else
-                            {
-                                if (noError)
-                                {
-                                    type = null;
-
-                                    return null;
-                                }
-                                else
-                                {
-                                    return String.Format(
-                                        "No help is available for {0} {1}.",
-                                        topicType, FormatOps.WrapOrNull(
-                                        localTopic));
-                                }
-                            }
-                        }
+                        return FormatHelpItem(
+                            helpItem, helpType, localTopic, topicType, prefix,
+                            noError, summary, noTopic, textFlags, out type);
                     }
-                    else
+                }
+                else
+                {
+                    builder = null;
+
+                    try
                     {
-                        if (noError)
+                        foreach (KeyValuePair<string, IPair<string>> pair in help)
+                        {
+                            helpItem = pair.Value;
+
+                            if (helpItem == null)
+                                continue;
+
+                            if ((localTopic != null) && !StringOps.Match(
+                                    null, mode, pair.Key, localTopic, true))
+                            {
+                                continue;
+                            }
+
+                            if (FlagOps.HasFlags(mode, MatchMode.StopOnMatch, true))
+                            {
+                                return FormatHelpItem(
+                                    helpItem, helpType, pair.Key, topicType, prefix,
+                                    noError, summary, noTopic, textFlags, out type);
+                            }
+                            else
+                            {
+                                if (builder != null)
+                                {
+                                    if (builder.Length > 0)
+                                    {
+                                        builder.AppendLine();
+                                        builder.AppendLine();
+                                    }
+                                }
+                                else
+                                {
+                                    builder = StringBuilderFactory.Create();
+                                }
+
+                                builder.Append(FormatHelpItem(
+                                    helpItem, helpType, pair.Key, topicType, prefix,
+                                    noError, summary, noTopic, textFlags, out localType));
+                            }
+                        }
+
+                        if (builder != null)
                         {
                             type = null;
 
-                            return null;
+                            return builder.ToString();
                         }
-                        else
-                        {
-                            return String.Format(
-                                "Invalid help item for {0} {1}.",
-                                topicType, FormatOps.WrapOrNull(
-                                localTopic));
-                        }
+                    }
+                    finally
+                    {
+                        StringBuilderCache.Release(ref builder);
                     }
                 }
             }
@@ -847,7 +1089,8 @@ namespace Eagle._Components.Private
                         type = "command";
 
                     return FormatHelpItem(
-                        interpreter, execute, name, summary);
+                        interpreter, execute, name, summary,
+                        textFlags);
                 }
             }
 
@@ -866,7 +1109,8 @@ namespace Eagle._Components.Private
                 //       sub-command.
                 //
                 string syntax;
-                string localType = null;
+
+                localType = null;
 
                 syntax = SyntaxOps.GetFormatted(
                     interpreter, topic, null, null, ref localType);
@@ -906,11 +1150,12 @@ namespace Eagle._Components.Private
         public static StringList GetInteractiveCommandNames(
             Interpreter interpreter, /* in */
             string pattern,          /* in */
-            bool noCase              /* in */
+            bool noCase,             /* in */
+            TextFlags textFlags      /* in */
             )
         {
             StringPairDictionary help = GetCachedInteractiveCommandHelp(
-                interpreter, pattern, noCase);
+                interpreter, pattern, noCase, textFlags);
 
             return (help != null) ? new StringList(help.Keys) : null;
         }
@@ -919,13 +1164,14 @@ namespace Eagle._Components.Private
 
         public static StringPair GetInteractiveCommandHelpItem(
             Interpreter interpreter, /* in */
-            string name              /* in */
+            string name,             /* in */
+            TextFlags textFlags      /* in */
             )
         {
             if (name != null)
             {
                 StringPairDictionary help = GetCachedInteractiveCommandHelp(
-                    interpreter, null, false);
+                    interpreter, null, false, textFlags);
 
                 IPair<string> result;
 
@@ -943,7 +1189,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static StringListDictionary GetInteractiveCommandGroups(
-            Interpreter interpreter /* in */
+            Interpreter interpreter, /* in */
+            TextFlags textFlags      /* in */
             ) /* CANNOT RETURN NULL */
         {
             StringListDictionary result = new StringListDictionary();
@@ -1276,7 +1523,7 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Extension Related Commands
-            AddInteractiveCommandExtensionGroup(interpreter, ref result);
+            AddInteractiveCommandExtensionGroup(interpreter, textFlags, ref result);
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1288,6 +1535,7 @@ namespace Eagle._Components.Private
 
         private static void AddInteractiveCommandExtensionGroup(
             Interpreter interpreter,        /* in */
+            TextFlags textFlags,            /* in */
             ref StringListDictionary groups /* in, out */
             )
         {
@@ -1295,7 +1543,7 @@ namespace Eagle._Components.Private
 
             GetInteractiveExtensionCommandNames(
                 interpreter, ShellOps.InteractiveCommandPrefix,
-                ref names);
+                textFlags, ref names);
 
             if ((names != null) && (names.Count > 0))
             {
@@ -1313,7 +1561,8 @@ namespace Eagle._Components.Private
         private static StringListDictionary GetCachedInteractiveCommandGroups(
             Interpreter interpreter, /* in */
             string pattern,          /* in */
-            bool noCase              /* in */
+            bool noCase,             /* in */
+            TextFlags textFlags      /* in */
             ) /* CANNOT RETURN NULL */
         {
             StringListDictionary result = null;
@@ -1321,7 +1570,7 @@ namespace Eagle._Components.Private
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 if (commandGroups == null)
-                    commandGroups = GetInteractiveCommandGroups(null);
+                    commandGroups = GetInteractiveCommandGroups(null, textFlags);
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -1330,7 +1579,7 @@ namespace Eagle._Components.Private
                 ///////////////////////////////////////////////////////////////////////////////////////
 
                 #region Extension Related Commands
-                AddInteractiveCommandExtensionGroup(interpreter, ref result);
+                AddInteractiveCommandExtensionGroup(interpreter, textFlags, ref result);
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -1590,7 +1839,7 @@ namespace Eagle._Components.Private
                 if ((arguments != null) && (arguments.Count > 0))
                 {
                     string result = arguments.ToRawString(
-                        ToStringFlags.Decorated, Characters.Space.ToString());
+                        ToStringFlags.Decorated, Characters.SpaceString);
 
                     if (!String.IsNullOrEmpty(result))
                     {
@@ -1607,7 +1856,7 @@ namespace Eagle._Components.Private
                 if ((arguments != null) && (arguments.Count > 0))
                 {
                     string result = arguments.ToRawString(
-                        ToStringFlags.Decorated, Characters.Space.ToString());
+                        ToStringFlags.Decorated, Characters.SpaceString);
 
                     if (!String.IsNullOrEmpty(result))
                     {
@@ -1731,7 +1980,8 @@ namespace Eagle._Components.Private
 
         private static string GetDescriptionForProcedure(
             IProcedure procedure, /* in */
-            string @default       /* in */
+            string @default,      /* in */
+            TextFlags textFlags   /* in */
             )
         {
             string result = GetDescription(procedure, null);
@@ -1740,7 +1990,8 @@ namespace Eagle._Components.Private
                 return result;
 
 #if XML
-            result = ExtractHelpFromScript(GetBody(procedure));
+            result = ExtractHelpFromScript(
+                GetBody(procedure), textFlags);
 
             if (!String.IsNullOrEmpty(result))
                 return result;
@@ -1752,8 +2003,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static string GetDescriptionForIExecute(
-            IExecute execute, /* in */
-            string @default   /* in */
+            IExecute execute,   /* in */
+            string @default,    /* in */
+            TextFlags textFlags /* in */
             )
         {
             ICommand command = execute as ICommand;
@@ -1764,7 +2016,10 @@ namespace Eagle._Components.Private
             IProcedure procedure = execute as IProcedure;
 
             if (procedure != null)
-                return GetDescriptionForProcedure(procedure, @default);
+            {
+                return GetDescriptionForProcedure(
+                    procedure, @default, textFlags);
+            }
 
             IIdentifier identifier = execute as IIdentifier;
 
@@ -1779,13 +2034,15 @@ namespace Eagle._Components.Private
         private static void GetInteractiveExtensionCommandNames(
             Interpreter interpreter, /* in */
             string prefix,           /* in */
+            TextFlags textFlags,     /* in */
             ref StringList names     /* in, out */
             )
         {
             StringPairDictionary help = null;
 
-            GetInteractiveExtensionCommandNamesOrHelp(interpreter,
-                prefix, true, false, ref names, ref help);
+            GetInteractiveExtensionCommandNamesOrHelp(
+                interpreter, prefix, true, false, textFlags,
+                ref names, ref help);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1793,13 +2050,15 @@ namespace Eagle._Components.Private
         private static void GetInteractiveExtensionCommandHelp(
             Interpreter interpreter,      /* in */
             string prefix,                /* in */
+            TextFlags textFlags,          /* in */
             ref StringPairDictionary help /* in, out */
             )
         {
             StringList names = null;
 
-            GetInteractiveExtensionCommandNamesOrHelp(interpreter,
-                prefix, false, true, ref names, ref help);
+            GetInteractiveExtensionCommandNamesOrHelp(
+                interpreter, prefix, false, true, textFlags,
+                ref names, ref help);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1809,6 +2068,7 @@ namespace Eagle._Components.Private
             string prefix,                /* in */
             bool getNames,                /* in */
             bool getHelp,                 /* in */
+            TextFlags textFlags,          /* in */
             ref StringList names,         /* in, out */
             ref StringPairDictionary help /* in, out */
             )
@@ -1943,7 +2203,8 @@ namespace Eagle._Components.Private
                             help[newName] = new StringPair(
                                 GetSyntaxForProcedure(procedure, null),
                                     GetDescriptionForProcedure(procedure,
-                                        "Interactive extension procedure."));
+                                        "Interactive extension procedure.",
+                                        textFlags));
                         }
                     }
                 }
@@ -1977,7 +2238,8 @@ namespace Eagle._Components.Private
                             help[newName] = new StringPair(
                                 GetSyntaxForIExecute(interpreter, execute,
                                     null, false, false), GetDescriptionForIExecute(
-                                        execute, "Interactive extension."));
+                                        execute, "Interactive extension.",
+                                        textFlags));
                         }
                     }
                 }
@@ -2045,7 +2307,8 @@ namespace Eagle._Components.Private
                             help[newName] = new StringPair(
                                 GetSyntaxForProcedure(procedure, null),
                                     GetDescriptionForProcedure(procedure,
-                                        "Interactive extension procedure (hidden)."));
+                                        "Interactive extension procedure (hidden).",
+                                        textFlags));
                         }
                     }
                 }
@@ -2079,7 +2342,8 @@ namespace Eagle._Components.Private
                             help[newName] = new StringPair(
                                 GetSyntaxForIExecute(interpreter, execute,
                                     null, false, false), GetDescriptionForIExecute(
-                                        execute, "Interactive extension (hidden)."));
+                                        execute, "Interactive extension (hidden).",
+                                        textFlags));
                         }
                     }
                 }
@@ -2116,83 +2380,83 @@ namespace Eagle._Components.Private
             string createFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(CreateFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string scriptFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(ScriptFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string engineFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(EngineFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string interpreterFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(InterpreterFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string interpreterTestFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(InterpreterTestFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string initializeFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(InitializeFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string substitutionFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(SubstitutionFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string eventFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(EventFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string expressionFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(ExpressionFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string headerFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(HeaderFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string detailFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(DetailFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string packageFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(PackageFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string pluginFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(PluginFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string procedureFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(ProcedureFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
 #if NOTIFY || NOTIFY_OBJECT
             string notifyTypesHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(NotifyType))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 
             string notifyFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(NotifyFlags))),
-                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+                    itemSeparator, Characters.SpaceString, itemSuffix));
 #endif
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2209,11 +2473,11 @@ namespace Eagle._Components.Private
 
             result.Add("ainfo",
                 new StringPair(null,
-                    "Displays the argument information for this interactive debuggging session."));
+                    "Displays the argument information for this interactive debugging session."));
 
             result.Add("args",
                 new StringPair(null,
-                    "Displays the command line arguments as they were passed to this interactive debuggging session."));
+                    "Displays the command line arguments as they were passed to this interactive debugging session."));
 
 #if DEBUGGER
             result.Add("break",
@@ -2310,7 +2574,7 @@ namespace Eagle._Components.Private
 
             result.Add("dinfo",
                 new StringPair(null,
-                    "Displays the debugger information for this interactive debuggging session."));
+                    "Displays the debugger information for this interactive debugging session."));
 #endif
 
             result.Add("dizflags",
@@ -2319,7 +2583,7 @@ namespace Eagle._Components.Private
 
             result.Add("done",
                 new StringPair("?code? ?result?",
-                    "Unconditionally exits this interactive debuggging session."));
+                    "Unconditionally exits this interactive debugging session."));
 
             result.Add("dpath",
                 new StringPair("?flags?",
@@ -2369,12 +2633,12 @@ namespace Eagle._Components.Private
 
             result.Add("exit",
                 new StringPair(null,
-                    "Exits the interactive debuggging session immediately."));
+                    "Exits the interactive debugging session immediately."));
 
             result.Add("finfo",
                 new StringPair(null,
                     "Displays the flags for the interactive interpreter and the flags that were passed to this " +
-                    "interactive debuggging session."));
+                    "interactive debugging session."));
 
             result.Add("fmkeys",
                 new StringPair("?force?",
@@ -2417,7 +2681,7 @@ namespace Eagle._Components.Private
                     "Queues an asynchronous event that causes the interpreter host to cancel pending evaluations in all interpreters."));
 
             result.Add("help",
-                new StringPair("?topic? ?showGroups? ?showTopics? ?useInterpreter? ?useSyntax? ?showHeader? ?matchingOnly?",
+                new StringPair("?topic? ?showGroups? ?showTopics? ?useInterpreter? ?useSyntax? ?showHeader? ?matchingOnly? ?matchMode? ?textFlags?",
                     "Displays information on the specified command, sub-command, help topic, or a list of available help topics."));
 
             result.Add("hexit",
@@ -2582,11 +2846,11 @@ namespace Eagle._Components.Private
 
             result.Add("pause",
                 new StringPair("?threadId? ?appDomainId? ?microseconds?",
-                    "Pauses the specified interactive debuggging session."));
+                    "Pauses the specified interactive debugging session."));
 
             result.Add("paused",
                 new StringPair(null,
-                    "Returns the list of paused interactive debuggging sessions."));
+                    "Returns the list of paused interactive debugging sessions."));
 
             result.Add("pflags",
                 new StringPair("?flags?",
@@ -2739,12 +3003,12 @@ namespace Eagle._Components.Private
 
             result.Add("tcancel",
                 new StringPair("?cancel?",
-                    "Displays or sets the cancel flag within the variable trace information for this interactive debuggging session."));
+                    "Displays or sets the cancel flag within the variable trace information for this interactive debugging session."));
 
 #if NATIVE && TCL
             result.Add("tclinterp",
                 new StringPair("?interp?",
-                    "Displays or sets the the selected native Tcl interpreter for this interactive debuggging session, if available."));
+                    "Displays or sets the the selected native Tcl interpreter for this interactive debugging session, if available."));
 
             result.Add("tclsh",
                 new StringPair(null,
@@ -2758,7 +3022,7 @@ namespace Eagle._Components.Private
 
             result.Add("tcode",
                 new StringPair("?code?",
-                    "Displays or sets the return code within the variable trace information for this interactive debuggging session."));
+                    "Displays or sets the return code within the variable trace information for this interactive debugging session."));
 
             result.Add("test",
                 new StringPair("?pattern? ?all? ?extraPath?",
@@ -2779,11 +3043,11 @@ namespace Eagle._Components.Private
 
             result.Add("tinfo",
                 new StringPair("?flags?",
-                    "Displays the variable trace information for this interactive debuggging session or from the per-thread cache."));
+                    "Displays the variable trace information for this interactive debugging session or from the per-thread cache."));
 
             result.Add("toinfo",
                 new StringPair(null,
-                    "Displays the token information for this interactive debuggging session."));
+                    "Displays the token information for this interactive debugging session."));
 
             result.Add("trustclr",
                 new StringPair(null,
@@ -2795,15 +3059,15 @@ namespace Eagle._Components.Private
 
             result.Add("toldvalue",
                 new StringPair("?value?",
-                    "Displays or sets the old value within the variable trace information for this interactive debuggging session."));
+                    "Displays or sets the old value within the variable trace information for this interactive debugging session."));
 
             result.Add("tnewvalue",
                 new StringPair("?value?",
-                    "Displays or sets the new value within the variable trace information for this interactive debuggging session."));
+                    "Displays or sets the new value within the variable trace information for this interactive debugging session."));
 
             result.Add("unpause",
                 new StringPair("?threadId? ?appDomainId?",
-                    "Unpauses the specified interactive debuggging session."));
+                    "Unpauses the specified interactive debugging session."));
 
             result.Add("usage",
                 new StringPair("?banner? ?legalese? ?options? ?environment? ?compactMode?",
@@ -2844,7 +3108,8 @@ namespace Eagle._Components.Private
         private static StringPairDictionary GetCachedInteractiveCommandHelp(
             Interpreter interpreter, /* in */
             string pattern,          /* in */
-            bool noCase              /* in */
+            bool noCase,             /* in */
+            TextFlags textFlags      /* in */
             ) /* CANNOT RETURN NULL */
         {
             StringPairDictionary result = null;
@@ -2862,7 +3127,7 @@ namespace Eagle._Components.Private
 
                 GetInteractiveExtensionCommandHelp(
                     interpreter, ShellOps.InteractiveCommandPrefix,
-                    ref result);
+                    textFlags, ref result);
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -3362,7 +3627,7 @@ namespace Eagle._Components.Private
 
                         if (plugins != null)
                         {
-                            foreach (KeyValuePair<string, _Wrappers.Plugin> pair in plugins)
+                            foreach (PluginPair pair in plugins)
                             {
                                 IPlugin plugin = pair.Value;
 
@@ -3999,6 +4264,11 @@ namespace Eagle._Components.Private
                             if (showError || showBanner || showLegalese || showUsage || showOptions)
                                 displayHost.WriteLine();
 
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+                            Uri trustedRemoteUri = SharedAttributeOps.GetAssemblyTrustedRemoteUri(
+                                GlobalState.GetAssembly());
+#endif
+
                             WriteSectionHeader(displayHost, "Environment Notes", UsageWidth);
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
@@ -4050,6 +4320,8 @@ namespace Eagle._Components.Private
                                 "{0}converted to an integer, it will be ignored.",
                                 Characters.HorizontalTab, EnvVars.BumpCacheLevel));
                             displayHost.WriteLine();
+#endif
+#if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set, its value will be used\n" +
                                 "{0}to alter or set the cache flags for the interpreter.  If the value\n" +
@@ -4094,6 +4366,12 @@ namespace Eagle._Components.Private
                                 "{0}used to alter or set the creation flags for the interpreter.  If the\n" +
                                 "{0}value cannot be converted to creation flags, it will be ignored.",
                                 Characters.HorizontalTab, EnvVars.CreateFlags));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set, its value will be used\n" +
+                                "{0}to alter or set the script data flags for the interpreter.  If the\n" +
+                                "{0}value cannot be converted to script data flags, it will be ignored.",
+                                Characters.HorizontalTab, EnvVars.DataFlags));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], debug mode is\n" +
@@ -4200,6 +4478,16 @@ namespace Eagle._Components.Private
                                 "{0}platforms where they would normally be ignored.",
                                 Characters.HorizontalTab, EnvVars.ForceTrustedHashes));
                             displayHost.WriteLine();
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything],\n" +
+                                "{0}trusted script library initialization via the configured remote URI\n" +
+                                "{0}(i.e. \"{2}\") will be forcibly enabled for created\n" +
+                                "{0}interpreters.",
+                                Characters.HorizontalTab, EnvVars.ForceTrustedRemote, FormatOps.MaybeNull(
+                                trustedRemoteUri)));
+                            displayHost.WriteLine();
+#endif
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything],\n" +
                                 "{0}its value will be used to alter or set the default trace priority\n" +
@@ -4451,6 +4739,15 @@ namespace Eagle._Components.Private
                                 "{0}lists of trusted hashes will not be used when making trust decisions.",
                                 Characters.HorizontalTab, EnvVars.NoTrustedHashes));
                             displayHost.WriteLine();
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything],\n" +
+                                "{0}trusted script library initialization via the configured remote URI\n" +
+                                "{0}(i.e. \"{2}\") will be skipped.",
+                                Characters.HorizontalTab, EnvVars.NoTrustedRemote, FormatOps.MaybeNull(
+                                trustedRemoteUri)));
+                            displayHost.WriteLine();
+#endif
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], checking\n" +
                                 "{0}for updates will be disabled.  This restriction only applies automatic\n" +
@@ -4477,6 +4774,12 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab, EnvVars.NoWorkers));
                             displayHost.WriteLine();
 #endif
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], no\n" +
+                                "{0}prompts for important (and/or selected) configuration settings will be\n" +
+                                "{0}written to the console.",
+                                Characters.HorizontalTab, EnvVars.NoWritePrompt));
+                            displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set\n" +
                                 "{0}[to anything], its value will be used to set the list of \"penalty\"\n" +
@@ -4694,6 +4997,13 @@ namespace Eagle._Components.Private
                                 "{0}be interpreted as a list of flags to use when determining if assembly\n" +
                                 "{0}files should be trusted.",
                                 Characters.HorizontalTab, EnvVars.TrustFlags));
+                            displayHost.WriteLine();
+#endif
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to\n" +
+                                "{0}anything], it will be used to decrypt trusted remote script bundles.",
+                                Characters.HorizontalTab, EnvVars.TrustedBundlePassword));
                             displayHost.WriteLine();
 #endif
                             displayHost.WriteLine(String.Format(
@@ -5275,7 +5585,7 @@ namespace Eagle._Components.Private
                                     bool wroteMultiLine = false;
                                     bool wroteBox = false;
 
-                                    foreach (KeyValuePair<string, _Wrappers.Plugin> pair in plugins)
+                                    foreach (PluginPair pair in plugins)
                                     {
                                         IPlugin plugin = pair.Value;
 
@@ -5497,6 +5807,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static TextFlags GetDefaultTextFlags()
+        {
+            return DefaultTextFlags;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode WriteInteractiveHelp(
             Interpreter interpreter, /* in */
             ArgumentList arguments,  /* in */
@@ -5509,7 +5826,7 @@ namespace Eagle._Components.Private
                 topic = StringOps.NullIfEmpty(arguments[1]);
 
             CultureInfo cultureInfo = interpreter.InternalCultureInfo;
-            bool boolValue; /* REUSED */
+            object enumValue; /* REUSED */
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5517,16 +5834,12 @@ namespace Eagle._Components.Private
 
             if ((arguments != null) && (arguments.Count >= 3))
             {
-                boolValue = false;
-
-                if (Value.GetBoolean2(
+                if (Value.GetNullableBoolean2(
                         arguments[2], ValueFlags.AnyBoolean, cultureInfo,
-                        ref boolValue, ref result) != ReturnCode.Ok)
+                        ref showGroups, ref result) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }
-
-                showGroups = boolValue;
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -5535,16 +5848,12 @@ namespace Eagle._Components.Private
 
             if ((arguments != null) && (arguments.Count >= 4))
             {
-                boolValue = false;
-
-                if (Value.GetBoolean2(
+                if (Value.GetNullableBoolean2(
                         arguments[3], ValueFlags.AnyBoolean, cultureInfo,
-                        ref boolValue, ref result) != ReturnCode.Ok)
+                        ref showTopics, ref result) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }
-
-                showTopics = boolValue;
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -5553,16 +5862,12 @@ namespace Eagle._Components.Private
 
             if ((arguments != null) && (arguments.Count >= 5))
             {
-                boolValue = false;
-
-                if (Value.GetBoolean2(
+                if (Value.GetNullableBoolean2(
                         arguments[4], ValueFlags.AnyBoolean, cultureInfo,
-                        ref boolValue, ref result) != ReturnCode.Ok)
+                        ref useInterpreter, ref result) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }
-
-                useInterpreter = boolValue;
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -5571,16 +5876,12 @@ namespace Eagle._Components.Private
 
             if ((arguments != null) && (arguments.Count >= 6))
             {
-                boolValue = false;
-
-                if (Value.GetBoolean2(
+                if (Value.GetNullableBoolean2(
                         arguments[5], ValueFlags.AnyBoolean, cultureInfo,
-                        ref boolValue, ref result) != ReturnCode.Ok)
+                        ref useSyntax, ref result) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }
-
-                useSyntax = boolValue;
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -5589,16 +5890,12 @@ namespace Eagle._Components.Private
 
             if ((arguments != null) && (arguments.Count >= 7))
             {
-                boolValue = false;
-
-                if (Value.GetBoolean2(
+                if (Value.GetNullableBoolean2(
                         arguments[6], ValueFlags.AnyBoolean, cultureInfo,
-                        ref boolValue, ref result) != ReturnCode.Ok)
+                        ref showHeader, ref result) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }
-
-                showHeader = boolValue;
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -5607,16 +5904,44 @@ namespace Eagle._Components.Private
 
             if ((arguments != null) && (arguments.Count >= 8))
             {
-                boolValue = false;
-
-                if (Value.GetBoolean2(
+                if (Value.GetNullableBoolean2(
                         arguments[7], ValueFlags.AnyBoolean, cultureInfo,
-                        ref boolValue, ref result) != ReturnCode.Ok)
+                        ref matchingOnly, ref result) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }
+            }
 
-                matchingOnly = boolValue;
+            ///////////////////////////////////////////////////////////////////
+
+            MatchMode mode = StringOps.DefaultMatchMode;
+
+            if ((arguments != null) && (arguments.Count >= 9))
+            {
+                enumValue = EnumOps.TryParseFlags(
+                    interpreter, typeof(MatchMode), mode.ToString(),
+                    arguments[8], cultureInfo, true, true, true, ref result);
+
+                if (!(enumValue is MatchMode))
+                    return ReturnCode.Error;
+
+                mode = (MatchMode)enumValue;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            TextFlags textFlags = DefaultTextFlags;
+
+            if ((arguments != null) && (arguments.Count >= 10))
+            {
+                enumValue = EnumOps.TryParseFlags(
+                    interpreter, typeof(TextFlags), textFlags.ToString(),
+                    arguments[9], cultureInfo, true, true, true, ref result);
+
+                if (!(enumValue is TextFlags))
+                    return ReturnCode.Error;
+
+                textFlags = (TextFlags)enumValue;
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -5624,9 +5949,9 @@ namespace Eagle._Components.Private
             bool found = false; /* NOT USED */
 
             return WriteInteractiveHelp(
-                interpreter, topic, false, false, showGroups, showTopics,
-                useInterpreter, useSyntax, showHeader, matchingOnly,
-                ref found, ref result);
+                interpreter, topic, mode, textFlags, false, false,
+                showGroups, showTopics, useInterpreter, useSyntax,
+                showHeader, matchingOnly, ref found, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5634,6 +5959,8 @@ namespace Eagle._Components.Private
         public static ReturnCode WriteInteractiveHelp(
             Interpreter interpreter, /* in */
             string topic,            /* in */
+            MatchMode mode,          /* in */
+            TextFlags textFlags,     /* in */
             bool noError,            /* in */
             bool noTopic,            /* in */
             bool? showGroups,        /* in */
@@ -5665,7 +5992,7 @@ namespace Eagle._Components.Private
             string helpType;
 
             pattern = MaybeAdjustHelpItemTopic(
-                topic, null, out prefix, out helpType);
+                topic, null, textFlags, out prefix, out helpType);
 
             bool localShowGroups;
 
@@ -5711,12 +6038,12 @@ namespace Eagle._Components.Private
 
             StringListDictionary groups = localShowGroups &&
                 !localMatchingOnly ? GetCachedInteractiveCommandGroups(
-                    interpreter, null, false) : null;
+                    interpreter, null, false, textFlags) : null;
 
             StringPairDictionary help = localShowTopics ?
                 GetCachedInteractiveCommandHelp(
                     interpreter, localMatchingOnly ? pattern : null,
-                    false) : null;
+                    false, textFlags) : null;
 
             string groupType = "interactive command group"; /* CONST? */
             string topicType = "topic";                     /* CONST? */
@@ -5741,9 +6068,9 @@ namespace Eagle._Components.Private
 
                 formatted = FormatHelpItem(
                     interpreter, groups, help, groupType, helpType,
-                    topic, topicType, noError, noPrefix, false,
+                    topic, topicType, mode, noError, noPrefix, false,
                     noTopic, localUseInterpreter, localUseSyntax,
-                    out type);
+                    textFlags, out type);
 
                 if (formatted != null)
                 {

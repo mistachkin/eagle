@@ -265,7 +265,7 @@ namespace eval ::Eagle {
     if {$cleanup} then {
       unset -nocomplain ipUrns
     } elseif {$force || ![info exists ipUrns]} then {
-      set ipUrns [list ip_01]
+      set ipUrns [list ip_01 ip_02 ip_03 ip_04 ip_05 ip_06 ip_07]
     }
   }
 
@@ -294,7 +294,7 @@ namespace eval ::Eagle {
     set fileName [getTemporaryFileName]
 
     if {[isEagle]} then {
-      uri download -timeouttype network $uri $fileName
+      uri download -timeouttype network -- $uri $fileName
     } else {
       package require Eagle.Tools.Common
 
@@ -351,6 +351,13 @@ namespace eval ::Eagle {
       #
       set needDirectory true
 
+      #
+      # NOTE: Build an obviously (?) bogus package name that will be used
+      #       in order to force the package indexes to be refreshed.
+      #
+      set bogusPackageName [appendArgs \
+          bogus_package_ [string trim [clock seconds] -]]
+
       if {[isEagle]} then {
         #
         # NOTE: Force Eagle to find *ALL* available package index files.
@@ -359,9 +366,7 @@ namespace eval ::Eagle {
         #       subsystem can be accessed.  Use [catch] here just in case
         #       a package index file raises a script error.
         #
-        catch {
-          uplevel #0 [list package scan -host -normal -primary -refresh]
-        }
+        catch {::tclPkgUnknown $bogusPackageName}
       } else {
         #
         # HACK: Force Tcl to find *ALL* available package index files.
@@ -370,10 +375,7 @@ namespace eval ::Eagle {
         #       unless the package is already loaded.  Use [catch] here
         #       just in case a package index file raises a script error.
         #
-        catch {
-          package require [appendArgs \
-              bogus_package_ [string trim [clock seconds] -]]
-        }
+        catch {package require $bogusPackageName}
       }
 
       #
@@ -477,7 +479,7 @@ namespace eval ::Eagle {
     }
 
     #
-    # NOTE: If the caller wants to fetch an official key ring from remote
+    # NOTE: If the caller wants to fetch an official keyring from remote
     #       URI (i.e. within Harpy), attempt to do that now.  Only treat
     #       a failure here as fatal if the caller said so.
     #
@@ -552,7 +554,7 @@ namespace eval ::Eagle {
     set fileName [getTemporaryFileName]
 
     if {[isEagle]} then {
-      uri download -timeouttype network $uri $fileName
+      uri download -timeouttype network -- $uri $fileName
     } else {
       package require Eagle.Tools.Common
 
@@ -604,7 +606,7 @@ namespace eval ::Eagle {
     set fileName [getTemporaryFileName]
 
     if {[isEagle]} then {
-      uri download -timeouttype network $uri $fileName
+      uri download -timeouttype network -- $uri $fileName
     } else {
       package require Eagle.Tools.Common
 
@@ -662,7 +664,7 @@ namespace eval ::Eagle {
     set fileName [getTemporaryFileName]
 
     if {[isEagle]} then {
-      uri download -timeouttype network $uri $fileName
+      uri download -timeouttype network -- $uri $fileName
     } else {
       package require Eagle.Tools.Common
 
@@ -865,7 +867,7 @@ namespace eval ::Eagle {
     }
 
     if {[isEagle]} then {
-      set data [uri download -timeouttype network -inline $uri]
+      set data [uri download -timeouttype network -inline -- $uri]
     } else {
       package require Eagle.Tools.Common
 
@@ -947,7 +949,8 @@ namespace eval ::Eagle {
 
     if {[isEagle]} then {
       return [uri upload \
-          -timeouttype network -inline -data $query $uri]
+          -timeouttype network -inline -retries 0 \
+          -data $query -- $uri]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -1016,7 +1019,7 @@ namespace eval ::Eagle {
             [uri escape data $name] = [uri escape data $value]
       }
 
-      set data [uri download -timeouttype network -inline $fullUri]
+      set data [uri download -timeouttype network -inline -- $fullUri]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -1107,7 +1110,7 @@ namespace eval ::Eagle {
             [uri escape data $name] = [uri escape data $value]
       }
 
-      set data [uri download -timeouttype network -inline $fullUri]
+      set data [uri download -timeouttype network -inline -- $fullUri]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -1221,7 +1224,7 @@ namespace eval ::Eagle {
             [uri escape data $name] = [uri escape data $value]
       }
 
-      set data [uri download -timeouttype network -inline $fullUri]
+      set data [uri download -timeouttype network -inline -- $fullUri]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -1331,7 +1334,7 @@ namespace eval ::Eagle {
       }
 
       set data [string trim [uri download \
-          -timeouttype network -inline $fullUri]]
+          -timeouttype network -inline -- $fullUri]]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common

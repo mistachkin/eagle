@@ -58,7 +58,7 @@ namespace Eagle._Containers.Private
 
             return ParserOps<IInterpreter>.ListToString(
                 list, Index.Invalid, Index.Invalid,
-                ToStringFlags.None, Characters.Space.ToString(),
+                ToStringFlags.None, Characters.SpaceString,
                 pattern, noCase);
         }
 

@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Resources;
+using System.Text;
 using System.Text.RegularExpressions;
 using Eagle._Attributes;
 using Eagle._Components.Private.Delegates;
@@ -22,6 +23,8 @@ using Eagle._Constants;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+using BundlePair = System.Collections.Generic.KeyValuePair<string, byte[]>;
+using BundleDictionary = System.Collections.Generic.Dictionary<string, byte[]>;
 
 using PathList = System.Collections.Generic.IEnumerable<string>;
 using SearchDictionary = Eagle._Containers.Public.PathDictionary<object>;
@@ -99,6 +102,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
+        // NOTE: This pattern ends up being "*/pkgIndex.eagle".  This is
+        //       specifically designed for use with bundled scripts.
+        //
+        private static readonly string BundleFileNamePattern = "*/{0}";
+
+        //
         // NOTE: This pattern ends up being "pkgIndex_*.eagle".  This is
         //       specifically designed to exclude "pkgIndex.eagle" because
         //       that is handled separately.
@@ -112,7 +121,8 @@ namespace Eagle._Components.Private
         //
         private static readonly Regex IndexFileNameRegEx = RegExOps.Create(
             "^" + ScriptTypes.PackageIndex + "_([0-9a-f]{16})\\" +
-            FileExtension.Script + "$", RegexOptions.IgnoreCase);
+            FileExtension.Script + "$", RegexOptions.IgnoreCase |
+            RegexOptions.Compiled);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -908,6 +918,7 @@ namespace Eagle._Components.Private
 
             list.Add("scan");
             list.Add("-host");
+            list.Add("-bundle");
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
             //
@@ -1290,6 +1301,7 @@ namespace Eagle._Components.Private
             string path,                             /* in */
             string fileName,                         /* in */
             string tag,                              /* in */
+            PackageType type,                        /* in */
             PackageIndexFlags initialFlags,          /* in */
             PackageIndexDictionary packageIndexes,   /* in */
             PackageContextClientData packageContext, /* in */
@@ -1347,8 +1359,8 @@ namespace Eagle._Components.Private
                         Result result = null;
 
                         if (callback(
-                                interpreter, path, fileName,
-                                tag, ref flags, ref clientData,
+                                interpreter, path, fileName, tag,
+                                type, ref flags, ref clientData,
                                 ref result) != ReturnCode.Ok)
                         {
                             error = result;
@@ -1438,7 +1450,9 @@ namespace Eagle._Components.Private
             //       library and test library packages.
             //
             PackageFileNameList fileNames = GetIndexFileNames(
-                interpreter, packageIndexFlags);
+                interpreter, interpreter.InternalCultureInfo,
+                StringOps.GetEncoding(EncodingType.Script),
+                packageIndexFlags);
 
             if (fileNames == null)
             {
@@ -1460,10 +1474,9 @@ namespace Eagle._Components.Private
             //       will be purged.
             //
             if (MarkIndexes(
-                    packageIndexes, fileNames, PackageIndexFlags.Host,
-                    PackageIndexFlags.NonHostMask,
-                    PackageIndexFlags.Found, true, false,
-                    false, ref error) != ReturnCode.Ok)
+                    packageIndexes, fileNames, PackageIndexFlags.HostMask,
+                    PackageIndexFlags.NonHostMask, PackageIndexFlags.Found,
+                    false, false, false, ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
             }
@@ -1473,7 +1486,7 @@ namespace Eagle._Components.Private
             //       the correct type of search.
             //
             packageIndexFlags &= ~PackageIndexFlags.NonHostMask;
-            packageIndexFlags |= PackageIndexFlags.Host;
+            packageIndexFlags |= PackageIndexFlags.HostMask;
 
             //
             // NOTE: If we are refreshing package indexes or we have
@@ -1490,8 +1503,7 @@ namespace Eagle._Components.Private
             // NOTE: What are the package index flags to add when the
             //       package index is found?
             //
-            PackageIndexFlags addFlags = PackageIndexFlags.Host |
-                PackageIndexFlags.Found;
+            PackageIndexFlags addFlags = PackageIndexFlags.Found;
 
             if (temporary)
                 addFlags |= PackageIndexFlags.Temporary;
@@ -1508,8 +1520,22 @@ namespace Eagle._Components.Private
                 //       non-full and full file names for this package
                 //       type.
                 //
+                PackageType fileType = anyTriplet.X;
                 string relativeFileName = anyTriplet.Y;
                 string fileName = anyTriplet.Z;
+
+                //
+                // NOTE: Setup the package index files for this file,
+                //       starting with the common package index flags
+                //       for all package types and then adding those
+                //       specific to this package type.
+                //
+                PackageIndexFlags fileFlags = addFlags;
+
+                if (fileType == PackageType.Bundle)
+                    fileFlags |= PackageIndexFlags.Bundle;
+                else
+                    fileFlags |= PackageIndexFlags.Host;
 
                 //
                 // HACK: Have we seen this package index before?  This
@@ -1537,9 +1563,9 @@ namespace Eagle._Components.Private
                 {
                     if (InvokeCallback(
                             interpreter, callback, null,
-                            relativeFileName, null, packageIndexFlags,
-                            packageIndexes, packageContext,
-                            addFlags, ref purge,
+                            relativeFileName, null, fileType,
+                            packageIndexFlags, packageIndexes,
+                            packageContext, fileFlags, ref purge,
                             ref error) != ReturnCode.Ok)
                     {
                         return ReturnCode.Error;
@@ -1555,7 +1581,7 @@ namespace Eagle._Components.Private
                 if (!purge)
                 {
                     AddFileNameWithFlags(
-                        packageIndexes, fileName, null, addFlags);
+                        packageIndexes, fileName, null, fileFlags);
                 }
             }
 
@@ -1564,10 +1590,9 @@ namespace Eagle._Components.Private
             //       still marked as "not found".
             //
             if (PurgeIndexes(
-                    packageIndexes, fileNames, PackageIndexFlags.Host,
-                    PackageIndexFlags.NonHostMask |
-                    PackageIndexFlags.Found, true, false,
-                    ref error) != ReturnCode.Ok)
+                    packageIndexes, fileNames, PackageIndexFlags.HostMask,
+                    PackageIndexFlags.NonHostMask | PackageIndexFlags.Found,
+                    false, false, ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
             }
@@ -1702,7 +1727,7 @@ namespace Eagle._Components.Private
                     path);
 
                 //
-                // HACK: If path has been expicitly disabled, skip it.
+                // HACK: If path has been explicitly disabled, skip it.
                 //
                 if (IsDisabled(newPath))
                     continue;
@@ -1827,7 +1852,7 @@ namespace Eagle._Components.Private
                                     continue;
 
                                 //
-                                // HACK: If this name has been expicitly
+                                // HACK: If this name has been explicitly
                                 //       disabled, skip it.
                                 //
                                 if (IsDisabled(fileName))
@@ -1964,9 +1989,9 @@ namespace Eagle._Components.Private
                                 {
                                     if (InvokeCallback(
                                             interpreter, callback, newPath,
-                                            fileName, null, packageIndexFlags,
-                                            packageIndexes, packageContext,
-                                            addFlags, ref purge,
+                                            fileName, null, PackageType.None,
+                                            packageIndexFlags, packageIndexes,
+                                            packageContext, addFlags, ref purge,
                                             ref error) != ReturnCode.Ok)
                                     {
                                         return ReturnCode.Error;
@@ -2133,7 +2158,7 @@ namespace Eagle._Components.Private
                     path);
 
                 //
-                // HACK: If path has been expicitly disabled, skip it.
+                // HACK: If path has been explicitly disabled, skip it.
                 //
                 if (IsDisabled(newPath))
                     continue;
@@ -2343,7 +2368,7 @@ namespace Eagle._Components.Private
                             continue;
 
                         //
-                        // HACK: If this name has been expicitly
+                        // HACK: If this name has been explicitly
                         //       disabled, skip it.
                         //
                         if (IsDisabled(fileName))
@@ -2389,9 +2414,9 @@ namespace Eagle._Components.Private
 
                             if (InvokeCallback(
                                     interpreter, callback, newPath,
-                                    fileName, tag, packageIndexFlags,
-                                    packageIndexes, packageContext,
-                                    addFlags, ref purge,
+                                    fileName, tag, PackageType.None,
+                                    packageIndexFlags, packageIndexes,
+                                    packageContext, addFlags, ref purge,
                                     ref error) != ReturnCode.Ok)
                             {
                                 return ReturnCode.Error;
@@ -2469,6 +2494,8 @@ namespace Eagle._Components.Private
             switch (packageType)
             {
                 case PackageType.None:
+                case PackageType.Host:
+                case PackageType.Bundle:
                     {
                         fileName = FileNameOnly.PackageIndex;
                         break;
@@ -2567,6 +2594,8 @@ namespace Eagle._Components.Private
 
         private static PackageFileNameList GetIndexFileNames(
             Interpreter interpreter,            /* in */
+            CultureInfo cultureInfo,            /* in */
+            Encoding encoding,                  /* in */
             PackageIndexFlags packageIndexFlags /* in */
             )
         {
@@ -2590,8 +2619,65 @@ namespace Eagle._Components.Private
 
             if (interpreter != null)
             {
+                if (FlagOps.HasFlags(
+                        packageIndexFlags, PackageIndexFlags.Bundle, true))
+                {
+                    IBundleManager bundleManager = interpreter.BundleManager;
+
+                    if (bundleManager != null)
+                    {
+                        BundleDictionary dictionary =
+                            bundleManager.FileNames as BundleDictionary;
+
+                        if (dictionary != null)
+                        {
+                            foreach (BundlePair pair in dictionary)
+                            {
+                                string fileName = pair.Key;
+
+                                if (String.IsNullOrEmpty(fileName))
+                                    continue;
+
+                                byte[] password = pair.Value;
+                                List<Script> scripts = null;
+
+                                if (DataOps.GatherBundleScripts(
+                                        interpreter, cultureInfo, null,
+                                        null, encoding, fileName, password,
+                                        String.Format(BundleFileNamePattern,
+                                        GetIndexFileName(interpreter,
+                                        PackageType.Bundle, false)), false,
+                                        true, ref scripts) != ReturnCode.Ok)
+                                {
+                                    continue;
+                                }
+
+                                foreach (Script script in scripts)
+                                {
+                                    IBundleData bundleData = script.BundleData;
+
+                                    if (bundleData == null)
+                                        continue;
+
+                                    string fullName = bundleData.FullName;
+
+                                    string path = DataOps.BuildBundlePath(
+                                        fileName, fullName, true);
+
+                                    if (path == null)
+                                        continue;
+
+                                    fileNames.Add(new PackageFileNameTriplet(
+                                        PackageType.Bundle, path, null));
+                                }
+                            }
+                        }
+                    }
+                }
+
                 ScriptFlags scriptFlags = ScriptOps.GetFlags(
-                    interpreter, IndexScriptFlags, false, true);
+                    interpreter, IndexScriptFlags, PackageType.Host,
+                    false, true);
 
                 scriptFlags &= ~ScriptFlags.AutomaticPackage;
 
@@ -2924,7 +3010,7 @@ namespace Eagle._Components.Private
             )
         {
             bool host = FlagOps.HasFlags(
-                packageIndexFlags, PackageIndexFlags.Host, true);
+                packageIndexFlags, PackageIndexFlags.HostMask, false);
 
             bool normal = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.Normal, true);
@@ -2957,7 +3043,8 @@ namespace Eagle._Components.Private
                         ref error) == ReturnCode.Ok)))
                 {
                     if (!FlagOps.HasFlags(packageIndexFlags,
-                            PackageIndexFlags.AllowDuplicateFile, true) &&
+                            PackageIndexFlags.AllowDuplicateFile,
+                            true) &&
                         (RemoveLogicalDuplicates(
                             interpreter, ref packageIndexes,
                             ref error) != ReturnCode.Ok))
@@ -2989,7 +3076,8 @@ namespace Eagle._Components.Private
                         ref error) == ReturnCode.Ok)))
                 {
                     if (!FlagOps.HasFlags(packageIndexFlags,
-                            PackageIndexFlags.AllowDuplicateFile, true) &&
+                            PackageIndexFlags.AllowDuplicateFile,
+                            true) &&
                         (RemoveLogicalDuplicates(
                             interpreter, ref packageIndexes,
                             ref error) != ReturnCode.Ok))
@@ -3065,14 +3153,15 @@ namespace Eagle._Components.Private
                 fileName = anyTriplet.Y;
 
                 if ((fileName != null) &&
-                    packageIndexes.TryGetValue(fileName, out anyPair) &&
+                    packageIndexes.TryGetValue(
+                        fileName, out anyPair) &&
                     (anyPair != null))
                 {
                     flags = anyPair.Y;
 
                     if (MatchFlags(
-                            flags, hasFlags, notHasFlags, hasAll,
-                            notHasAll))
+                            flags, hasFlags, notHasFlags,
+                             hasAll, notHasAll))
                     {
                         if (mark)
                             flags |= markFlags;
@@ -3086,14 +3175,15 @@ namespace Eagle._Components.Private
                 fileName = anyTriplet.Z;
 
                 if ((fileName != null) &&
-                    packageIndexes.TryGetValue(fileName, out anyPair) &&
+                    packageIndexes.TryGetValue(
+                        fileName, out anyPair) &&
                     (anyPair != null))
                 {
                     flags = anyPair.Y;
 
                     if (MatchFlags(
-                            flags, hasFlags, notHasFlags, hasAll,
-                            notHasAll))
+                            flags, hasFlags, notHasFlags,
+                            hasAll, notHasAll))
                     {
                         if (mark)
                             flags |= markFlags;
@@ -3145,14 +3235,15 @@ namespace Eagle._Components.Private
 
                 PackageIndexAnyPair anyPair;
 
-                if (packageIndexes.TryGetValue(fileName, out anyPair) &&
+                if (packageIndexes.TryGetValue(
+                        fileName, out anyPair) &&
                     (anyPair != null))
                 {
                     PackageIndexFlags flags = anyPair.Y;
 
                     if (MatchFlags(
-                            flags, hasFlags, notHasFlags, hasAll,
-                            notHasAll))
+                            flags, hasFlags, notHasFlags,
+                            hasAll, notHasAll))
                     {
                         if (mark)
                             flags |= markFlags;
@@ -3206,14 +3297,15 @@ namespace Eagle._Components.Private
                 fileName = anyTriplet.Y;
 
                 if ((fileName != null) &&
-                    packageIndexes.TryGetValue(fileName, out anyPair) &&
+                    packageIndexes.TryGetValue(
+                        fileName, out anyPair) &&
                     (anyPair != null))
                 {
                     flags = anyPair.Y;
 
                     if (MatchFlags(
-                            flags, hasFlags, notHasFlags, hasAll,
-                            notHasAll))
+                            flags, hasFlags, notHasFlags,
+                            hasAll, notHasAll))
                     {
                         packageIndexes.Remove(fileName);
                     }
@@ -3222,14 +3314,15 @@ namespace Eagle._Components.Private
                 fileName = anyTriplet.Z;
 
                 if ((fileName != null) &&
-                    packageIndexes.TryGetValue(fileName, out anyPair) &&
+                    packageIndexes.TryGetValue(
+                        fileName, out anyPair) &&
                     (anyPair != null))
                 {
                     flags = anyPair.Y;
 
                     if (MatchFlags(
-                            flags, hasFlags, notHasFlags, hasAll,
-                            notHasAll))
+                            flags, hasFlags, notHasFlags,
+                            hasAll, notHasAll))
                     {
                         packageIndexes.Remove(fileName);
                     }
@@ -3276,14 +3369,15 @@ namespace Eagle._Components.Private
 
                 PackageIndexAnyPair anyPair;
 
-                if (packageIndexes.TryGetValue(fileName, out anyPair) &&
+                if (packageIndexes.TryGetValue(
+                        fileName, out anyPair) &&
                     (anyPair != null))
                 {
                     PackageIndexFlags flags = anyPair.Y;
 
                     if (MatchFlags(
-                            flags, hasFlags, notHasFlags, hasAll,
-                            notHasAll))
+                            flags, hasFlags, notHasFlags,
+                            hasAll, notHasAll))
                     {
                         packageIndexes.Remove(fileName);
                     }
@@ -3779,6 +3873,7 @@ namespace Eagle._Components.Private
             string path,                 /* in */
             string fileName,             /* in */
             string tag,                  /* in */
+            PackageType type,            /* in */
             ref PackageIndexFlags flags, /* in, out */
             ref IClientData clientData,  /* in, out */
             ref Result result            /* out */
@@ -3797,7 +3892,7 @@ namespace Eagle._Components.Private
             try
             {
                 bool host = FlagOps.HasFlags(
-                    flags, PackageIndexFlags.Host, true);
+                    flags, PackageIndexFlags.HostMask, false);
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
                 bool plugin = FlagOps.HasFlags(
@@ -3840,7 +3935,8 @@ namespace Eagle._Components.Private
                     //       index file provided by the host.
                     //
                     ScriptFlags scriptFlags = ScriptOps.GetFlags(
-                        interpreter, IndexScriptFlags, false, noNormal);
+                        interpreter, IndexScriptFlags, type, false,
+                        noNormal);
 
                     //
                     // BUGFIX: This should not be hard-coded to use the

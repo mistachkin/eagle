@@ -15,11 +15,7 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Resources;
-
-#if SHELL
 using System.Text;
-#endif
-
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -359,7 +355,14 @@ namespace Eagle._Components.Private
                         if (!interpreter.Disposed)
                         {
                             interactiveHost = interpreter.GetInteractiveHost();
+
+                            ///////////////////////////////////////////////////
+
+#if SHELL
                             promptFlags = interpreter.InternalPromptFlags;
+#else
+                            promptFlags = PromptFlags.Default;
+#endif
                         }
                     }
                 }
@@ -2186,6 +2189,59 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Data Support Methods
+        public static DataFlags GetDataFlags(
+            string culture,          /* in */
+            bool specific,           /* in */
+            CreateFlags createFlags, /* in */
+            bool verbose             /* in */
+            )
+        {
+            DataFlags dataFlags = Defaults.DataFlags;
+
+            string value = GlobalConfiguration.GetValue(
+                EnvVars.DataFlags, GlobalConfiguration.GetFlags(
+                ConfigurationFlags.Interpreter, verbose));
+
+            if (!String.IsNullOrEmpty(value))
+            {
+                object enumValue;
+                Result error = null;
+
+                enumValue = EnumOps.TryParseFlags(
+                    null, typeof(DataFlags), dataFlags.ToString(),
+                    value, RuntimeOps.GetCultureInfo(culture,
+                    specific), true, true, true, ref error);
+
+                if (enumValue is DataFlags)
+                {
+                    //
+                    // HACK: Do not allow a "safe" interpreter
+                    //       to use "unsafe" data flags, e.g.
+                    //       those other than the ones needed
+                    //       for diagnostic tracing.
+                    //
+                    DataFlags localDataFlags = (DataFlags)enumValue;
+
+                    if (Interpreter.InternalIsRestricted(createFlags))
+                        localDataFlags &= DataFlags.SafeMask;
+
+                    dataFlags = localDataFlags;
+                }
+                else
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "GetDataFlags: error = {0}",
+                        FormatOps.WrapOrNull(error)),
+                        typeof(HostOps).Name,
+                        TracePriority.EnumError);
+                }
+            }
+
+            return dataFlags;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static DataFlags CombineDataFlags(
             Interpreter interpreter, /* in */
             DataFlags dataFlags      /* in */
@@ -2197,7 +2253,7 @@ namespace Eagle._Components.Private
             {
                 lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                 {
-                    result |= interpreter.DataFlags;
+                    result |= interpreter.DataFlagsNoLock;
                 }
             }
 

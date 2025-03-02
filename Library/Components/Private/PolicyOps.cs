@@ -81,7 +81,7 @@ namespace Eagle._Components.Private
         internal static readonly StringDictionary AllowedClockSubCommandNames =
             new StringDictionary(new string[] {
             "buildnumber", "days", "duration", "filetime", "format",
-            "isvalid", "scan", "seconds"
+            "isvalid", "monthdays", "scan", "seconds"
         }, true, false);
 
         ///////////////////////////////////////////////////////////////////////
@@ -753,7 +753,7 @@ namespace Eagle._Components.Private
         public static bool IsTrustedObject(
             Interpreter interpreter, /* in */
             string text,             /* in */
-            ObjectFlags flags,       /* in */
+            ObjectFlags objectFlags, /* in */
             object @object,          /* in: NOT USED */
             ref Result error         /* out */
             )
@@ -764,7 +764,7 @@ namespace Eagle._Components.Private
                 return false;
             }
 
-            if (FlagOps.HasFlags(flags, ObjectFlags.Safe, true))
+            if (FlagOps.HasFlags(objectFlags, ObjectFlags.Safe, true))
                 return true;
 
             error = String.Format(
@@ -779,6 +779,7 @@ namespace Eagle._Components.Private
             Interpreter interpreter, /* in */
             string text,             /* in */
             Type type,               /* in */
+            ValueFlags valueFlags,   /* in */
             ref Result error         /* in */
             )
         {
@@ -810,6 +811,22 @@ namespace Eagle._Components.Private
                 trustedTypes.ContainsKey(name))
             {
                 return true;
+            }
+
+            if (!FlagOps.HasFlags(valueFlags, ValueFlags.TrustedOnly, true))
+            {
+                ObjectFlags objectFlags = AttributeOps.GetObjectFlags(type);
+
+                if (FlagOps.HasFlags(objectFlags, ObjectFlags.Safe, true))
+                    return true;
+
+                CommandFlags commandFlags = AttributeOps.GetCommandFlags(type);
+
+                if (FlagOps.HasFlags(commandFlags, CommandFlags.Safe, true) &&
+                    !FlagOps.HasFlags(commandFlags, CommandFlags.Unsafe, true))
+                {
+                    return true;
+                }
             }
 
             error = String.Format(
@@ -1000,13 +1017,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static PolicyDecision FinalDecision(
-            PolicyFlags flags,      /* in */
-            ReturnCode? code,       /* in */
-            PolicyDecision decision /* in */
+            PolicyFlags policyFlags, /* in */
+            ReturnCode? code,        /* in */
+            PolicyDecision decision  /* in */
             )
         {
             bool before = FlagOps.HasFlags(
-                flags, PolicyFlags.EngineBeforeMask, false);
+                policyFlags, PolicyFlags.EngineBeforeMask, false);
 
             if ((code == null) ||
                 !IsSuccess((ReturnCode)code, decision))
@@ -1613,7 +1630,7 @@ namespace Eagle._Components.Private
                 //
                 // BUGBUG: This method call is a serious problem for isolated
                 //         plugins.  The command type cannot be sent cleanly
-                //         across the AppDomain boundry.  This is now handled
+                //         across AppDomain boundaries.  This is now handled
                 //         (correctly) by the plugin isolation check above.
                 //
                 command = null;
@@ -1644,7 +1661,7 @@ namespace Eagle._Components.Private
         #region Policy Implementations
         #region Trusted Sub-Command Policy Implementation
         public static ReturnCode CheckViaSubCommand( /* POLICY IMPLEMENTATION */
-            PolicyFlags flags,                /* in */
+            PolicyFlags policyFlags,          /* in */
             Type commandType,                 /* in */
             long commandToken,                /* in */
             StringDictionary subCommandNames, /* in */
@@ -1742,7 +1759,7 @@ namespace Eagle._Components.Private
 
         #region Trusted URI Policy Implementation
         public static ReturnCode CheckViaUri( /* POLICY IMPLEMENTATION */
-            PolicyFlags flags,          /* in */
+            PolicyFlags policyFlags,    /* in */
             Type commandType,           /* in */
             long commandToken,          /* in */
             Uri uri,                    /* in */
@@ -1806,7 +1823,7 @@ namespace Eagle._Components.Private
 
         #region Trusted Directory Policy Implementation
         public static ReturnCode CheckViaDirectory( /* POLICY IMPLEMENTATION */
-            PolicyFlags flags,                  /* in */
+            PolicyFlags policyFlags,            /* in */
             Type commandType,                   /* in */
             long commandToken,                  /* in */
             string fileName,                    /* in */
@@ -1886,7 +1903,7 @@ namespace Eagle._Components.Private
 
         #region Trusted Object Type Policy Implementation
         public static ReturnCode CheckViaType( /* POLICY IMPLEMENTATION */
-            PolicyFlags flags,       /* in */
+            PolicyFlags policyFlags, /* in */
             Type commandType,        /* in */
             long commandToken,       /* in */
             Type objectType,         /* in */
@@ -1953,7 +1970,7 @@ namespace Eagle._Components.Private
 
         #region Dynamic User Managed Callback Policy Implementation
         public static ReturnCode CheckViaCallback( /* POLICY IMPLEMENTATION */
-            PolicyFlags flags,       /* in */
+            PolicyFlags policyFlags, /* in */
             Type commandType,        /* in */
             long commandToken,       /* in */
             ICallback callback,      /* in */
@@ -2052,7 +2069,7 @@ namespace Eagle._Components.Private
 
         #region Dynamic User Script Evaluation Policy Implementation
         public static ReturnCode CheckViaScript( /* POLICY IMPLEMENTATION */
-            PolicyFlags flags,             /* in */
+            PolicyFlags policyFlags,       /* in */
             Type commandType,              /* in */
             long commandToken,             /* in */
             Interpreter policyInterpreter, /* in */
@@ -2088,7 +2105,7 @@ namespace Eagle._Components.Private
             Result localResult = null;
 
             localCode = EvaluateScript(
-                policyInterpreter, text, arguments, flags,
+                policyInterpreter, text, arguments, policyFlags,
                 ref localResult);
 
             switch (localCode)

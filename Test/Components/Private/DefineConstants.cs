@@ -126,6 +126,14 @@ namespace Eagle._Components.Private
             "NOTIFY_OBJECT",
 #endif
 
+#if OFFICIAL
+            "OFFICIAL",
+#endif
+
+#if OFFICIAL_BINARY
+            "OFFICIAL_BINARY",
+#endif
+
 #if SHELL
             "SHELL",
 #endif

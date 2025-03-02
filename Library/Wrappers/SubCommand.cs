@@ -19,16 +19,13 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Wrappers
 {
     [ObjectId("d05e6f6c-1798-4301-bea1-371428f8ae53")]
-    internal sealed class SubCommand : Default, ISubCommand
+    internal sealed class SubCommand : Core, ISubCommand
     {
         #region Public Constructors
-        public SubCommand(
-            long token,
-            ISubCommand subCommand
-            )
-            : base(token)
+        public SubCommand()
+            : base()
         {
-            this.subCommand = subCommand;
+            // do nothing.
         }
         #endregion
 
@@ -149,24 +146,6 @@ namespace Eagle._Wrappers
         {
             get { return (subCommand != null) ? subCommand.DisallowedSubCommands : null; }
             set { if (subCommand != null) { subCommand.DisallowedSubCommands = value; } }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IExecute Members
-        public ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
-            )
-        {
-            if (subCommand != null)
-                return subCommand.Execute(
-                    interpreter, clientData, arguments, ref result);
-            else
-                return ReturnCode.Error;
         }
         #endregion
 
@@ -315,6 +294,11 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return subCommand; }
+            set
+            {
+                subCommand = (ISubCommand)value; /* throw */
+                execute = (IExecute)value; /* throw */
+            }
         }
         #endregion
     }

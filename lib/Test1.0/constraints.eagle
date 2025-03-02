@@ -64,9 +64,9 @@ namespace eval ::Eagle {
         NET_CORE_30 NET_STANDARD_20 NET_STANDARD_21 NON_WORKING_CODE NOTIFY \
         NOTIFY_ACTIVE NOTIFY_ARGUMENTS NOTIFY_EXCEPTION NOTIFY_EXECUTE \
         NOTIFY_EXPRESSION NOTIFY_GLOBAL NOTIFY_OBJECT NOTIFY_TCL OBSOLETE \
-        OBFUSCATION OFFICIAL PARSE_CACHE PATCHLEVEL PLUGIN_COMMANDS \
-        POLICY_TRACE PREVIOUS_RESULT PROFILER RANDOMIZE_ID REMOTING \
-        RESULT_LIMITS SAMPLE SCRIPT_ARGUMENTS SECURITY SERIALIZATION \
+        OBFUSCATION OFFICIAL OFFICIAL_BINARY PARSE_CACHE PATCHLEVEL \
+        PLUGIN_COMMANDS POLICY_TRACE PREVIOUS_RESULT PROFILER RANDOMIZE_ID \
+        REMOTING RESULT_LIMITS SAMPLE SCRIPT_ARGUMENTS SECURITY SERIALIZATION \
         SHARED_ID_POOL SHELL SOURCE_ID SOURCE_TIMESTAMP STATIC \
         STRICT_FEATURES TCL TCL_KITS TCL_THREADED TCL_THREADS TCL_UNICODE \
         TCL_WRAPPER TEST TEST_PLUGIN THREADING THROW_ON_DISPOSED TRACE \
@@ -152,6 +152,8 @@ namespace eval ::Eagle {
         addConstraint [appendArgs dotNetBug $constraintVersion Only]
         addConstraint [appendArgs dotNetCrash $constraintVersion]
         addConstraint [appendArgs dotNetCrash $constraintVersion Only]
+        addConstraint [appendArgs dotNetHang $constraintVersion]
+        addConstraint [appendArgs dotNetHang $constraintVersion Only]
       }
     } else {
       #
@@ -161,7 +163,7 @@ namespace eval ::Eagle {
       # WARNING: None of these constraints are used by the core library
       #          test suite itself.
       #
-      set constraints [list dotNetToDo dotNetBug dotNetCrash]
+      set constraints [list dotNetToDo dotNetBug dotNetCrash dotNetHang]
 
       foreach constraint $constraints {
         addConstraint $constraint
@@ -225,13 +227,15 @@ namespace eval ::Eagle {
         addConstraint [appendArgs monoBug $constraintVersion Only]
         addConstraint [appendArgs monoCrash $constraintVersion]
         addConstraint [appendArgs monoCrash $constraintVersion Only]
+        addConstraint [appendArgs monoHang $constraintVersion]
+        addConstraint [appendArgs monoHang $constraintVersion Only]
       }
     } else {
       #
       # NOTE: Also add just the generic Mono constraints that do not have
       #       a trailing version.
       #
-      set constraints [list monoToDo monoBug monoCrash]
+      set constraints [list monoToDo monoBug monoCrash monoHang]
 
       foreach constraint $constraints {
         addConstraint $constraint
@@ -310,7 +314,7 @@ namespace eval ::Eagle {
     }
 
     if {$force || ![info exists ::no(tclVersions)]} then {
-      return [list [list 8 4] [list 8 5] [list 8 6] [list 8 7]]
+      return [list [list 8 4] [list 8 5] [list 8 6] [list 8 7] [list 9 0]]
     } else {
       return [list]
     }
@@ -1749,7 +1753,7 @@ namespace eval ::Eagle {
             if {[isEagle] && \
                 ![info exists ::no(detectRepositoryUrlType)]} then {
               if {[catch {
-                uri download -timeouttype Network -inline $remoteUrl
+                uri download -timeouttype Network -inline -- $remoteUrl
               } remoteBody] == 0} then {
                 if {[regexp -- {<!--\s*?TestBaseUrl\s*?=\s*?"(.*?)"\s*?-->} \
                         $remoteBody dummy baseUrl] || \
@@ -1954,6 +1958,7 @@ namespace eval ::Eagle {
       #
       addConstraint tclBug
       addConstraint tclCrash
+      addConstraint tclHang
 
       #
       # NOTE: Add the necessary constraints for each
@@ -1964,6 +1969,7 @@ namespace eval ::Eagle {
 
         addConstraint [appendArgs tclBug $version]
         addConstraint [appendArgs tclCrash $version]
+        addConstraint [appendArgs tclHang $version]
       }
 
       tputs $channel yes\n
@@ -1995,6 +2001,7 @@ namespace eval ::Eagle {
 
             addConstraint [appendArgs tclBug $version]
             addConstraint [appendArgs tclCrash $version]
+            addConstraint [appendArgs tclHang $version]
           }
         }
       }
@@ -2006,6 +2013,7 @@ namespace eval ::Eagle {
       #
       addConstraint eagleBug
       addConstraint eagleCrash
+      addConstraint eagleHang
 
       tputs $channel no\n
     }
@@ -3486,7 +3494,7 @@ namespace eval ::Eagle {
           channel uri timeout {pattern ""} {quiet false} } {
     if {[isEagle]} then {
       if {[catch {
-        uri download -timeouttype Network -inline -timeout $timeout $uri
+        uri download -timeouttype Network -inline -timeout $timeout -- $uri
       } response] == 0} then {
         if {[string length $pattern] == 0 || \
             [regexp -- $pattern $response]} then {
@@ -4808,6 +4816,7 @@ namespace eval ::Eagle {
               addConstraint [appendArgs monoToDo $constraintVersion]
               addConstraint [appendArgs monoBug $constraintVersion]
               addConstraint [appendArgs monoCrash $constraintVersion]
+              addConstraint [appendArgs monoHang $constraintVersion]
             }
 
             #
@@ -4836,6 +4845,7 @@ namespace eval ::Eagle {
                 addConstraint [appendArgs monoToDo $constraintVersion Only]
                 addConstraint [appendArgs monoBug $constraintVersion Only]
                 addConstraint [appendArgs monoCrash $constraintVersion Only]
+                addConstraint [appendArgs monoHang $constraintVersion Only]
               }
             }
           }

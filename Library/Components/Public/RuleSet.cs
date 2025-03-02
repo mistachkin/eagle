@@ -50,8 +50,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private long nextRuleId;
-        private RuleDictionary rules;
         private bool readOnly;
+        private RuleDictionary rules;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -63,6 +63,20 @@ namespace Eagle._Components.Public
         {
             return Create(
                 null, null, Rule.DefaultAllowMissing,
+                Rule.DefaultAllowExtra, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal static IRuleSet Create(
+            string text,            /* in */
+            CultureInfo cultureInfo /* in */
+            )
+        {
+            Result error = null; /* NOT USED */
+
+            return Create(
+                text, cultureInfo, Rule.DefaultAllowMissing,
                 Rule.DefaultAllowExtra, ref error);
         }
 
@@ -144,6 +158,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static IRuleSet Clone(
+            IRuleSet ruleSet /* in */
+            )
+        {
+            return (ruleSet != null) ?
+                ruleSet.Clone() as IRuleSet : null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if TEST
         public static IRuleSet CreateFromFile(
             string fileName,         /* in: OPTIONAL */
@@ -207,9 +231,22 @@ namespace Eagle._Components.Public
 
         #region Private Constructors
         private RuleSet()
+            : this(null)
+        {
+            // do nothing.
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private RuleSet(
+            RuleSet ruleSet /* in */
+            )
             : base()
         {
-            Initialize(false);
+            if (ruleSet != null)
+                Copy(ruleSet, true);
+            else
+                Initialize(false);
         }
         #endregion
 
@@ -448,6 +485,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private void Copy(
+            RuleSet ruleSet, /* in */
+            bool deepCopy    /* in */
+            )
+        {
+            if (ruleSet == null)
+                return;
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                nextRuleId = ruleSet.nextRuleId;
+                rules = ruleSet.CloneRules(deepCopy);
+                clientData = ruleSet.clientData;
+                id = ruleSet.id;
+                comparer = ruleSet.comparer;
+                readOnly = ruleSet.readOnly;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private StringList ToList()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -640,8 +698,13 @@ namespace Eagle._Components.Public
                     {
                         IRule rule = pair.Value;
 
-                        if (rule != null)
-                            rule = rule.Clone() as IRule;
+                        if (rule == null)
+                            continue;
+
+                        rule = rule.Clone() as IRule;
+
+                        if (rule == null)
+                            continue;
 
                         result.Add(pair.Key, rule);
                     }
@@ -1693,6 +1756,15 @@ namespace Eagle._Components.Public
                 error = errors;
 
             return ReturnCode.Error;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ICloneable Members
+        public object Clone()
+        {
+            return new RuleSet(this);
         }
         #endregion
 

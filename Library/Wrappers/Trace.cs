@@ -22,13 +22,10 @@ namespace Eagle._Wrappers
     internal sealed class Trace : Default, ITrace
     {
         #region Public Constructors
-        public Trace(
-            long token,
-            ITrace trace
-            )
-            : base(token)
+        public Trace()
+            : base()
         {
-            this.trace = trace;
+            // do nothing.
         }
         #endregion
 
@@ -114,11 +111,14 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (trace != null)
-                return trace.Execute(
-                    breakpointType, interpreter, traceInfo, ref result);
-            else
+            if (trace == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return trace.Execute(
+                breakpointType, interpreter, traceInfo, ref result);
         }
         #endregion
 
@@ -191,10 +191,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (trace != null)
-                return trace.Setup(ref error);
-            else
+            if (trace == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return trace.Setup(ref error);
         }
         #endregion
 
@@ -211,6 +214,7 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return trace; }
+            set { trace = (ITrace)value; } /* throw */
         }
         #endregion
     }

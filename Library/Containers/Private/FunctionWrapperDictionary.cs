@@ -9,13 +9,17 @@
  * RCS: @(#) $Id: $
  */
 
-using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+
+using FunctionWrapper = Eagle._Wrappers.Function;
+
+using FunctionPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Function>;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -25,7 +29,7 @@ namespace Eagle._Containers.Private
 {
     [ObjectId("17f0e175-db07-43d8-a9ca-a7bab22700dd")]
     internal sealed class FunctionWrapperDictionary :
-            WrapperDictionary<string, _Wrappers.Function>
+            WrapperDictionary<string, FunctionWrapper>
     {
         public FunctionWrapperDictionary()
             : base()
@@ -60,7 +64,7 @@ namespace Eagle._Containers.Private
                 {
                     inputList = new StringList();
 
-                    foreach (KeyValuePair<string, _Wrappers.Function> pair in this)
+                    foreach (FunctionPair pair in this)
                     {
                         IFunction function = pair.Value;
 
@@ -82,7 +86,7 @@ namespace Eagle._Containers.Private
             {
                 inputList = new StringList();
 
-                foreach (KeyValuePair<string, _Wrappers.Function> pair in this)
+                foreach (FunctionPair pair in this)
                 {
                     IFunction function = pair.Value;
 

@@ -70,7 +70,7 @@ namespace Eagle._Containers.Private
             bool noCase
             )
         {
-            return ToString(Characters.Space.ToString(), pattern, noCase);
+            return ToString(Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////

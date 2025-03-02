@@ -53,7 +53,7 @@ namespace Eagle._Containers.Public
         {
             return ParserOps<TypeCode>.ListToString(this,
                 Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
         #endregion
     }

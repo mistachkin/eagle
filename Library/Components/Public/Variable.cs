@@ -1028,6 +1028,9 @@ namespace Eagle._Components.Public
             bool withValues = FlagOps.HasFlags(
                 flags, CloneFlags.WithValues, true);
 
+            bool withArrayValues = FlagOps.HasFlags(
+                flags, CloneFlags.WithArrayValues, true);
+
             bool withTraces = FlagOps.HasFlags(
                 flags, CloneFlags.WithTraces, true);
 
@@ -1050,22 +1053,32 @@ namespace Eagle._Components.Public
             EventWaitHandle newEvent = (interpreter != null) ?
                 interpreter.VariableEvent : null;
 
+            ElementDictionary newArrayValue ;
+
+            if (withValues && withArrayValues && (arrayValue != null))
+            {
+                newArrayValue = new ElementDictionary(
+                    @event, arrayValue);
+            }
+            else
+            {
+                newArrayValue = null;
+            }
+
             IVariable variable = new Variable(
-                withFrames ? frame : null, name, this.flags,
-                withFrames ? qualifiedName : null,
-                link, linkIndex, withValues ? value : null,
-                withValues ? arrayValue : null, withTraces ?
-                traces : null, withLocks ? threadId : null,
-                (newEvent != null) ? newEvent : this.@event);
+                withFrames ? frame : null, name, this.flags, withFrames ?
+                qualifiedName : null, link, linkIndex, withValues ? value :
+                null, newArrayValue, withTraces ? traces : null, withLocks ?
+                threadId : null, (newEvent != null) ? newEvent : @event);
 
             if (fireTraces && (interpreter != null))
             {
                 Result localResult = null;
 
                 if (interpreter.FireCloneTraces(
-                        BreakpointType.BeforeVariableSet,
-                        this.flags, frame, name, null, null,
-                        value, null, arrayValue, variable,
+                        BreakpointType.BeforeVariableSet, this.flags,
+                        frame, name, null, null, withValues ? value :
+                        null, null, newArrayValue, variable,
                         ref localResult) != ReturnCode.Ok)
                 {
                     error = localResult;

@@ -298,6 +298,7 @@ runTest {test commands-1.1.1 {commands/procs compared with Tcl 8.4} -setup {
 
   set eagle_commands [lsort [info commands]]
   set eagle_procs [lsort [info procs]]
+  set eagle_nprocs [lsort [info nprocs]]
   set eagle_aliases [lsort [interp aliases]]
   set eagle_reserved [list [getNopCommandName] tcltest::testConstraint]
 
@@ -328,6 +329,7 @@ runTest {test commands-1.1.1 {commands/procs compared with Tcl 8.4} -setup {
           #         commands.
           #
           if {$eagle_command ni $eagle_procs && \
+              $eagle_command ni $eagle_nprocs && \
               $eagle_command ni $eagle_aliases} then {
             lappend eagle_extra [list extra cmd $eagle_command]
           }
@@ -341,8 +343,8 @@ runTest {test commands-1.1.1 {commands/procs compared with Tcl 8.4} -setup {
   tclUnloadForTest false tcl_loaded
 
   unset -nocomplain eagle_command eagle_commands eagle_extra eagle_missing \
-      eagle_procs eagle_aliases eagle_reserved tcl_command tcl_commands \
-      tcl_procs tcl_reserved
+      eagle_procs eagle_nprocs eagle_aliases eagle_reserved tcl_command \
+      tcl_commands tcl_procs tcl_reserved
 } -constraints [fixConstraints {eagle dotNetCoreOrShell native dynamic\
 tclLibrary84 command.tcl compile.EMIT compile.NATIVE compile.LIBRARY\
 compile.TCL primaryThread !security.enabled}] -result [getCmdList84]}
@@ -358,6 +360,7 @@ runTest {test commands-1.1.2 {commands/procs compared with Tcl 8.5} -setup {
 
   set eagle_commands [lsort [info commands]]
   set eagle_procs [lsort [info procs]]
+  set eagle_nprocs [lsort [info nprocs]]
   set eagle_aliases [lsort [interp aliases]]
   set eagle_reserved [list [getNopCommandName] tcltest::testConstraint]
 
@@ -388,6 +391,7 @@ runTest {test commands-1.1.2 {commands/procs compared with Tcl 8.5} -setup {
           #         commands.
           #
           if {$eagle_command ni $eagle_procs && \
+              $eagle_command ni $eagle_nprocs && \
               $eagle_command ni $eagle_aliases} then {
             lappend eagle_extra [list extra cmd $eagle_command]
           }
@@ -401,8 +405,8 @@ runTest {test commands-1.1.2 {commands/procs compared with Tcl 8.5} -setup {
   tclUnloadForTest false tcl_loaded
 
   unset -nocomplain eagle_command eagle_commands eagle_extra eagle_missing \
-      eagle_procs eagle_aliases eagle_reserved tcl_command tcl_commands \
-      tcl_procs tcl_reserved
+      eagle_procs eagle_nprocs eagle_aliases eagle_reserved tcl_command \
+      tcl_commands tcl_procs tcl_reserved
 } -constraints [fixConstraints {eagle dotNetCoreOrShell native dynamic\
 tclLibrary85 command.tcl compile.EMIT compile.NATIVE compile.LIBRARY\
 compile.TCL primaryThread !security.enabled}] -result [getCmdList85]}
@@ -418,6 +422,7 @@ runTest {test commands-1.1.3 {commands/procs compared with Tcl 8.6} -setup {
 
   set eagle_commands [lsort [info commands]]
   set eagle_procs [lsort [info procs]]
+  set eagle_nprocs [lsort [info nprocs]]
   set eagle_aliases [lsort [interp aliases]]
   set eagle_reserved [list [getNopCommandName] tcltest::testConstraint]
 
@@ -448,6 +453,7 @@ runTest {test commands-1.1.3 {commands/procs compared with Tcl 8.6} -setup {
           #         commands.
           #
           if {$eagle_command ni $eagle_procs && \
+              $eagle_command ni $eagle_nprocs && \
               $eagle_command ni $eagle_aliases} then {
             lappend eagle_extra [list extra cmd $eagle_command]
           }
@@ -463,8 +469,8 @@ runTest {test commands-1.1.3 {commands/procs compared with Tcl 8.6} -setup {
   tclUnloadForTest false tcl_loaded
 
   unset -nocomplain eagle_command eagle_commands eagle_extra eagle_missing \
-      eagle_procs eagle_aliases eagle_reserved tcl_command tcl_commands \
-      tcl_procs tcl_reserved
+      eagle_procs eagle_nprocs eagle_aliases eagle_reserved tcl_command \
+      tcl_commands tcl_procs tcl_reserved
 } -constraints [fixConstraints {eagle dotNetCoreOrShell native dynamic\
 tclLibrary86 tclShell86 command.tcl compile.EMIT compile.NATIVE compile.LIBRARY\
 compile.TCL primaryThread !security.enabled}] -result [getCmdList86]}

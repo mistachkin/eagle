@@ -77,10 +77,12 @@ namespace Eagle._Commands
             {
                 callbacks = new Dictionary<string, CharIsCallback>();
 
+                callbacks.Add("annotation", null);   // *SPECIAL CASE*, whole string only
                 callbacks.Add("array", null);        // *SPECIAL CASE*, whole string only
                 callbacks.Add("base64", null);       // *SPECIAL CASE*, whole string only
                 callbacks.Add("boolean", null);      // *SPECIAL CASE*, whole string only
                 callbacks.Add("byte", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("cidr", null);         // *SPECIAL CASE*, whole string only
                 callbacks.Add("command", null);      // *SPECIAL CASE*, whole string only
                 callbacks.Add("component", null);    // *SPECIAL CASE*, whole string only
                 callbacks.Add("datetime", null);     // *SPECIAL CASE*, whole string only
@@ -106,6 +108,7 @@ namespace Eagle._Commands
                 callbacks.Add("path", null);         // *SPECIAL CASE*, whole string only
                 callbacks.Add("plugin", null);       // *SPECIAL CASE*, whole string only
                 callbacks.Add("real", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("ruleset", null);      // *SPECIAL CASE*, whole string only
                 callbacks.Add("scalar", null);       // *SPECIAL CASE*, whole string only
                 callbacks.Add("single", null);       // *SPECIAL CASE*, whole string only
                 callbacks.Add("timespan", null);     // *SPECIAL CASE*, whole string only
@@ -893,6 +896,18 @@ namespace Eagle._Commands
                                                                 {
                                                                     switch (subSubCommand)
                                                                     {
+                                                                        case "annotation":
+                                                                            {
+                                                                                if (Value.IsAnnotation(@string))
+                                                                                {
+                                                                                    valid = !not;
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    valid = not;
+                                                                                }
+                                                                                break;
+                                                                            }
                                                                         case "array":
                                                                             {
                                                                                 VariableFlags flags = VariableFlags.ArrayCommandMask;
@@ -970,6 +985,21 @@ namespace Eagle._Commands
                                                                                     valid = !not;
                                                                                 }
                                                                                 else
+                                                                                {
+                                                                                    valid = not;
+                                                                                }
+                                                                                break;
+                                                                            }
+                                                                        case "cidr":
+                                                                            {
+#if NETWORK
+                                                                                if (SocketOps.IsValidCIDR(
+                                                                                        @string, IpFlags.Default))
+                                                                                {
+                                                                                    valid = !not;
+                                                                                }
+                                                                                else
+#endif
                                                                                 {
                                                                                     valid = not;
                                                                                 }
@@ -1398,6 +1428,21 @@ namespace Eagle._Commands
                                                                                         @string, ValueFlags.AnyRealAnyRadix,
                                                                                         interpreter.InternalCultureInfo,
                                                                                         ref number) == ReturnCode.Ok)
+                                                                                {
+                                                                                    valid = !not;
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    valid = not;
+                                                                                }
+                                                                                break;
+                                                                            }
+                                                                        case "ruleset":
+                                                                            {
+                                                                                IRuleSet ruleSet = RuleSet.Create(
+                                                                                    @string, interpreter.InternalCultureInfo);
+
+                                                                                if (ruleSet != null)
                                                                                 {
                                                                                     valid = !not;
                                                                                 }

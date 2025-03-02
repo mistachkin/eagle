@@ -556,9 +556,9 @@ namespace Eagle._Components.Public.Delegates
     [ObjectId("b2e36d0b-7929-41a3-923e-44f0fc4094d8")]
     public delegate bool TraceFilterCallback(
         Interpreter interpreter, // TODO: Change to use the IInterpreter type.
-        string message,
-        string category,
-        TracePriority priority
+        ref string message,
+        ref string category,
+        ref TracePriority priority
     );
 
     ///////////////////////////////////////////////////////////////////////////

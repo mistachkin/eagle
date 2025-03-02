@@ -774,6 +774,9 @@ namespace Eagle._Forms
             ReturnCode code;
 
             ScriptFlags scriptFlags = ScriptFlags.UserRequiredFile;
+
+            scriptFlags |= interpreter.ScriptFlags;
+
             IClientData clientData = ClientData.Empty;
 
             Result result = null;

@@ -120,7 +120,7 @@ namespace Eagle._Cmdlets
 
         #region Protected Delegates
         //
-        // NOTE: This is used to facilitate dynamically determing whether
+        // NOTE: This is used to facilitate dynamically determining whether
         //       output should be sent to WriteWarning, WriteCommandDetail,
         //       WriteVerbose, or WriteDebug.
         //
@@ -1178,7 +1178,9 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Write State Helper Methods (BeginProcessing / EndProcessing)
-        protected ReturnCode WriteState(string text)
+        protected ReturnCode WriteState(
+            string text
+            )
         {
             return WriteState(stateCallback, text);
         }

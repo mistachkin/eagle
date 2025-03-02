@@ -178,9 +178,7 @@ runTest {test function-2.12.1 {double function} -body {
   list [expr {double(-1.79769e+308)}] [expr {double(0)}] \
       [expr {double(1.79769e+308)}] [expr {double(0.0) / double(0.0)}] \
       [expr {double(-1.0) / double(0.0)}] [expr {double(1.0) / double(0.0)}]
-} -constraints {eagle} -constraintExpression {(![haveConstraint dotNetCore] || \
-[haveConstraint windows]) && (![haveConstraint osVersion.WindowsNT_10.0] || \
-[haveConstraint mono])} -result \
+} -constraints {eagle} -constraintExpression {![haveInfinitySymbol]} -result \
 {-1.79769E+308 0 1.79769E+308 NaN -Infinity Infinity}}
 
 ###############################################################################
@@ -189,9 +187,7 @@ runTest {test function-2.12.2 {double function} -body {
   list [expr {double(-1.79769e+308)}] [expr {double(0)}] \
       [expr {double(1.79769e+308)}] [expr {double(0.0) / double(0.0)}] \
       [expr {double(-1.0) / double(0.0)}] [expr {double(1.0) / double(0.0)}]
-} -constraints {eagle} -constraintExpression {([haveConstraint dotNetCore] && \
-![haveConstraint windows]) || ([haveConstraint osVersion.WindowsNT_10.0] && \
-![haveConstraint mono])} -result \
+} -constraints {eagle} -constraintExpression {[haveInfinitySymbol]} -result \
 "-1.79769E+308 0 1.79769E+308 NaN -\u221E \u221E"}
 
 ###############################################################################
@@ -1905,7 +1901,17 @@ True True False True True}}
 
 if {[isEagle] && [llength [info commands object]] > 0} then {
   object invoke Interpreter.GetActive DateTimeKind $savedDateTimeKind
-  object invoke Interpreter.GetActive DateTimeFormat $savedDateTimeFormat
+
+  if {[string length $savedDateTimeFormat] > 0} then {
+    object invoke Interpreter.GetActive DateTimeFormat $savedDateTimeFormat
+  } else {
+    #
+    # HACK: Yikes.  Using an emtpy string instead of null here caused
+    #       a failure of test "clock-20.24"; so, avoid doing that.
+    #
+    object invoke Interpreter.GetActive DateTimeFormat null
+  }
+
   unset -nocomplain savedDateTimeKind savedDateTimeFormat
 }
 
@@ -2054,6 +2060,20 @@ runTest {test clock-19.85 {clock scan, present future in the past} -body {
   unset -nocomplain second
 } -constraints {eagle monoBug312} -result \
 {1445470140 2015.10.21T23:29:00.000 1445480880 2015.10.22T02:28:00.000}}
+
+###############################################################################
+
+runTest {test clock-20.24 {the human duration} -setup {
+  unset -nocomplain flags
+
+  set flags {+Human WithNames}
+} -body {
+  list [clock duration -flags $flags 2007-10-01 2024-11-30] \
+      [clock duration -flags $flags 2024-11-30 2007-10-01]
+} -cleanup {
+  unset -nocomplain flags
+} -constraints {eagle} -result {{approximately 1 decade, 7 years, 65 days}\
+{approximately 1 decade, 7 years, 65 days ago}}}
 
 ###############################################################################
 

@@ -271,7 +271,7 @@ namespace Eagle._Commands
 
             //
             // NOTE: We are "catching" (masking) the error; therefore, do not
-            //       propogate it.
+            //       propagate it.
             //
             return ReturnCode.Ok;
         }

@@ -20,8 +20,11 @@ using Eagle._Containers.Public;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("a2691e49-85f6-4df3-8725-3aded340e6eb")]
-    public interface IObjectData : IIdentifier, IHaveObjectFlags, IWrapperData
+    public interface IObjectData : IIdentifier, IHaveObjectFlags, IWrapperData, IMaybeDisposed
     {
+        new bool Disposed { get; set; }
+        new bool Disposing { get; set; }
+
         Type Type { get; set; }
 
         IAlias Alias { get; set; }

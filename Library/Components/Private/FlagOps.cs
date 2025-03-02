@@ -502,6 +502,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasFlags(
+            DurationFlags flags,
+            DurationFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != DurationFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
             EventFlags flags,
             EventFlags hasFlags,
             bool all
@@ -642,6 +656,22 @@ namespace Eagle._Components.Private
                 return ((flags & hasFlags) == hasFlags);
             else
                 return ((flags & hasFlags) != FindFlags.None);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if SHELL && INTERACTIVE_COMMANDS
+        public static bool HasFlags(
+            TextFlags flags,
+            TextFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != TextFlags.None);
         }
 #endif
 
@@ -903,6 +933,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if NETWORK
+        public static bool HasFlags(
+            IpFlags flags,
+            IpFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != IpFlags.None);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool HasFlags(
             IsolationDetail flags,
             IsolationDetail hasFlags,
@@ -913,6 +959,20 @@ namespace Eagle._Components.Private
                 return ((flags & hasFlags) == hasFlags);
             else
                 return ((flags & hasFlags) != IsolationDetail.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            IsolationLevel flags,
+            IsolationLevel hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != IsolationLevel.None);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1373,6 +1433,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool HasFlags(
+            PeerType flags,
+            PeerType hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != PeerType.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if TEST
         public static bool HasFlags(
             PkgInstallType flags,
@@ -1667,6 +1741,20 @@ namespace Eagle._Components.Private
                 (SecretDataFlags)flags : SecretDataFlags.None;
 
             return FlagOps.HasFlags(localFlags, hasFlags, all);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            SecurityLevel flags,
+            SecurityLevel hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != SecurityLevel.None);
         }
 
         ///////////////////////////////////////////////////////////////////////

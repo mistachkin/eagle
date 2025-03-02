@@ -15,6 +15,8 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+using ExecuteWrapper = Eagle._Wrappers._Execute;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -23,7 +25,7 @@ namespace Eagle._Containers.Private
 {
     [ObjectId("57cd06de-b117-4e92-b7ed-4fe7d4a95476")]
     internal sealed class ExecuteWrapperDictionary :
-            WrapperDictionary<string, _Wrappers._Execute>
+            WrapperDictionary<string, ExecuteWrapper>
     {
         #region Public Constructors
         public ExecuteWrapperDictionary()

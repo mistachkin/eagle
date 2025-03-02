@@ -50,6 +50,14 @@ namespace Eagle._Components.Private
             "NET_20_ONLY",
 #endif
 
+#if OFFICIAL
+            "OFFICIAL",
+#endif
+
+#if OFFICIAL_BINARY
+            "OFFICIAL_BINARY",
+#endif
+
 #if SHELL
             "SHELL",
 #endif

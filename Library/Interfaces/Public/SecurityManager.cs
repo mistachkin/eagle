@@ -39,6 +39,8 @@ namespace Eagle._Interfaces.Public
         bool IsAnySdk();
         bool IsSdk(SdkType sdkType, bool all);
 
+        bool IsHideUnsafe();
+
         bool IsSafe();
         ReturnCode MakeSafe(MakeFlags makeFlags, bool safe, ref Result error);
 

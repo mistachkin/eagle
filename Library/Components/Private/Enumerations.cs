@@ -14,6 +14,67 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Private
 {
+    [ObjectId("67126d39-f60d-4ee3-b436-af3c78436030")]
+    internal enum BundleField
+    {
+        Id = 0,
+        Language,
+        Sequence,
+        Vendor,
+        HashAlgorithm,
+        IsolationLevel,
+        SecurityLevel,
+        SecurityFlags,
+        RuleSet,
+        BlockType,
+        FullName,
+        Group,
+        Description,
+        TimeStamp,
+        PublicKeyToken,
+        Text,
+        Signature,
+        Count = 17
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
+    [ObjectId("4c3b273f-6e21-46be-a4b6-dfc4470a10f4")]
+    internal enum PeerType
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        Normal = 0x100,
+
+        NoArguments = 0x1000,
+        Object = 0x4000,
+        Alias = 0x8000,
+
+        Default = None
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
+    [ObjectId("c3fbb06f-39b3-4cf7-8d4a-3ba94b6691f2")]
+    internal enum ContextType : ulong
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        //
+        // WARNING: Do not change these names, including
+        //          their (lower) casing.  They are used
+        //          directly in error messages.
+        //
+        interpreter = 0x20000000,
+        command = 0x40000000
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     [Flags()]
     [ObjectId("37642c03-7be0-4f32-86d8-05345880f8c4")]
     internal enum TestResultType
@@ -483,17 +544,18 @@ namespace Eagle._Components.Private
         None = 0x0,
         Invalid = 0x1,
 
-        Core = 0x100,
-        Plugins = 0x200,
+        Vendor = 0x100,
+        Core = 0x200,
+        Plugins = 0x400,
 
         AllowNull = 0x1000,
 
         ForSetup = 0x10000,
         ForDefault = 0x20000,
 
-        Setup = Core | ForSetup,
+        Setup = Vendor | Core | ForSetup,
 
-        Default = Core | Plugins | AllowNull | ForDefault
+        Default = Vendor | Core | Plugins | AllowNull | ForDefault
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -574,36 +636,6 @@ namespace Eagle._Components.Private
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    [Flags()]
-    [ObjectId("86eaf199-af64-47d9-a546-e9331fa8f2d8")]
-    internal enum ScriptSecurityFlags
-    {
-        None = 0x0,      /* No special handling. */
-        Invalid = 0x1,   /* Invalid, do not use. */
-
-        ReadOnly = 0x2,  /* The associated IScript instance is
-                          * logically read-only and must not be
-                          * modified, e.g. property set accessors
-                          * should fail with an exception.  When
-                          * using property get accessors for any
-                          * non-immutable data types, a deep copy
-                          * may be returned.
-                          */
-
-        Immutable = 0x4, /* The associated IScript instance is
-                          * logically immutable.  This implies
-                          * that the IScript is read-only and
-                          * further prohibits usage of property
-                          * get accessors that may return any
-                          * non-immutable and non-copyable data
-                          * types, e.g. arbitrary IClientData.
-                          */
-
-        AnyMask = ReadOnly | Immutable
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-
     [ObjectId("4af85b57-4920-4117-9a07-d8c647e8ee3c")]
     internal enum MetaMemberTypes
     {
@@ -637,44 +669,45 @@ namespace Eagle._Components.Private
         PublicInstanceGetField = 13,    /* MarshalOps */
         PublicInstanceGetProperty = 14, /* MarshalOps */
         PublicInstanceMethod = 15,      /* MarshalOps */
-        PublicStaticGetProperty = 16,   /* MarshalOps */
-        PublicStaticMethod = 17,        /* MarshalOps */
+        PublicStaticGetField = 16,      /* MarshalOps */
+        PublicStaticGetProperty = 17,   /* MarshalOps */
+        PublicStaticMethod = 18,        /* MarshalOps */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Default = 18,                   /* MarshalOps */
-        EnumField = 19,                 /* MarshalOps */
-        HostInfo = 20,                  /* MarshalOps */
-        ListProperties = 21,            /* MarshalOps */
-        LooseMethod = 22,               /* MarshalOps */
-        NestedObject = 23,              /* MarshalOps */
-        UnsafeObject = 24,              /* MarshalOps */
+        Default = 19,                   /* MarshalOps */
+        EnumField = 20,                 /* MarshalOps */
+        HostInfo = 21,                  /* MarshalOps */
+        ListProperties = 22,            /* MarshalOps */
+        LooseMethod = 23,               /* MarshalOps */
+        NestedObject = 24,              /* MarshalOps */
+        UnsafeObject = 25,              /* MarshalOps */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        DomainId = 25,                  /* AppDomainOps */
-        IsLegacyCasPolicyEnabled = 26,  /* AppDomainOps */
-        FlagsEnum = 27,                 /* EnumOps */
-        ByteBuffer = 28,                /* FileOps */
-        HostProperty = 29,              /* _Hosts.Default */
-        Items = 30,                     /* ArrayOps */
-        Size = 31,                      /* ArrayOps */
-        DisposedField = 32,             /* ObjectOps */
-        DisposedProperty = 33,          /* ObjectOps */
-        Guru = 34,                      /* ObjectOps */
-        InvokeRaw = 35,                 /* ObjectOps */
-        ObjectDefault = 36,             /* ObjectOps */
-        Delegate = 37,                  /* RuntimeOps */
-        SocketPrivate = 38,             /* SocketOps */
-        SocketPublic = 39,              /* SocketOps */
-        Trace = 40,                     /* _Plugins.Trace */
-        TransferHelper = 41,            /* TransferHelper */
-        InterpreterSettings = 42,       /* SettingsOps */
-        TypeDefaultLookup = 43,         /* MarshalOps (System.Type) */
+        DomainId = 26,                  /* AppDomainOps */
+        IsLegacyCasPolicyEnabled = 27,  /* AppDomainOps */
+        FlagsEnum = 28,                 /* EnumOps */
+        ByteBuffer = 29,                /* FileOps */
+        HostProperty = 30,              /* _Hosts.Default */
+        Items = 31,                     /* ArrayOps */
+        Size = 32,                      /* ArrayOps */
+        DisposedField = 33,             /* ObjectOps */
+        DisposedProperty = 34,          /* ObjectOps */
+        Guru = 35,                      /* ObjectOps */
+        InvokeRaw = 36,                 /* ObjectOps */
+        ObjectDefault = 37,             /* ObjectOps */
+        Delegate = 38,                  /* RuntimeOps */
+        SocketPrivate = 39,             /* SocketOps */
+        SocketPublic = 40,              /* SocketOps */
+        Trace = 41,                     /* _Plugins.Trace */
+        TransferHelper = 42,            /* TransferHelper */
+        InterpreterSettings = 43,       /* SettingsOps */
+        TypeDefaultLookup = 44,         /* MarshalOps (System.Type) */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        DynamicMethodHandle = 44,       /* HookOps */
+        DynamicMethodHandle = 45,       /* HookOps */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1199,6 +1232,44 @@ namespace Eagle._Components.Private
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     [Flags()]
+    [ObjectId("a46be931-fb82-4bbd-9dfd-0e67a9914af0")]
+    internal enum DurationFlags : ulong
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        Human = 0x1000,
+        WithNames = 0x2000,
+        PluralOnly = 0x4000,
+        AsList = 0x8000,
+
+        IncludeWeeks = 0x10000,
+        IncludeMonths = 0x20000,
+        IncludeMilliseconds = 0x40000,
+
+        ApproximateMonths = 0x80000,
+        ApproximateYears = 0x100000,
+
+        CountLeapDays = 0x200000,
+
+        NoJoin = 0x400000,
+        NoPrefix = 0x800000,
+        NoSuffix = 0x1000000,
+
+        Precise = 0x2000000,
+        IncludeIterations = 0x4000000,
+
+        ForDefault = 0x80000000,
+
+        FullHuman = Human | WithNames | IncludeWeeks | IncludeMonths |
+                    ApproximateMonths | CountLeapDays,
+
+        Default = ForDefault
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
     [ObjectId("2fc84796-ec90-471c-ad91-6d5f218c3102")]
     internal enum DisposalPhase : ulong
     {
@@ -1461,6 +1532,13 @@ namespace Eagle._Components.Private
 
         LibraryScriptPending = 0x40000000, /* When set, a script (file) from the core script
                                             * library is being evaluated. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+        TrustedRemoteOk = 0x80000000,      /* When set, the trusted remote script bundle has
+                                            * been successfully evaluated. */
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 

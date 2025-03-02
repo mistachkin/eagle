@@ -2571,7 +2571,7 @@ namespace Eagle._Components.Private
                     FormatOps.WrapOrNull(@operator),
                     FormatOps.WrapOrNull(GenericOps<char>.ListToEnglish(
                         (operators != null) ? operators.ToCharArray() : null,
-                        ", ", Characters.Space.ToString(), "or ")));
+                        ", ", Characters.SpaceString, "or ")));
 
                 return false;
             }

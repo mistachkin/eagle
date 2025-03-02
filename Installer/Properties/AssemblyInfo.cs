@@ -64,5 +64,11 @@ using Eagle._Components.Shared;
 #endif
 
 [assembly: AssemblyTag("beta")]
-[assembly: AssemblyLicense(License.Summary, License.Text)]
+
+#if OFFICIAL_BINARY
+[assembly: AssemblyLicense(BinaryLicense.Summary, BinaryLicense.Text)]
+#else
+[assembly: AssemblyLicense(SourceLicense.Summary, SourceLicense.Text)]
+#endif
+
 [assembly: AssemblyUri("https://urn.to/r/eagle")]

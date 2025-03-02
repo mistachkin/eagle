@@ -468,6 +468,7 @@ namespace Eagle._Components.Private
             public static readonly string User = "user";
             public static readonly string WordSize = "wordSize";
             public static readonly string DirectorySeparator = "dirSeparator"; // NOTE: Not in Tcl.
+            public static readonly string AlternateDirectorySeparator = "altDirSeparator"; // NOTE: Not in Tcl.
             public static readonly string PathSeparator = "pathSeparator"; // NOTE: Not in Tcl, proposed by TIP #315.
 
             ///////////////////////////////////////////////////////////////////

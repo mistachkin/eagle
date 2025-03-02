@@ -126,7 +126,8 @@ namespace Eagle._Commands
                             //
                             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-                            new Option(null, OptionFlags.NoCase | OptionFlags.MustHaveRuleSetValue, Index.Invalid, Index.Invalid, "-ruleSet", null),
+                            new Option(null, OptionFlags.NoCase | OptionFlags.MustHaveRuleSetValue | OptionFlags.CouldBePath | OptionFlags.Unsafe,
+                                Index.Invalid, Index.Invalid, "-ruleSet", null),
                             new Option(null, OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-noCase", null),
                             new Option(null, OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-visibleSpace", null),
                             new Option(typeof(RegexOptions), OptionFlags.NoCase | OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe, Index.Invalid,

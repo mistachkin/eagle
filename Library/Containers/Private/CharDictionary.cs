@@ -106,7 +106,7 @@ namespace Eagle._Containers.Private
             StringList list = new StringList(this.Keys);
 
             return ParserOps<string>.ListToString(list, Index.Invalid, Index.Invalid,
-                ToStringFlags.None, Characters.Space.ToString(), pattern, noCase);
+                ToStringFlags.None, Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

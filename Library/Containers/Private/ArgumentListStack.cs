@@ -37,7 +37,7 @@ namespace Eagle._Containers.Private
             )
         {
             return GenericOps<ArgumentList>.EnumerableToString(
-                this, ToStringFlags.None, Characters.Space.ToString(),
+                this, ToStringFlags.None, Characters.SpaceString,
                 null, false);
         }
         #endregion

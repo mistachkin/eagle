@@ -21,6 +21,8 @@ namespace Eagle._Interfaces.Public
         ProcedureFlags Flags { get; set; }
         ArgumentList Arguments { get; set; }
         ArgumentDictionary NamedArguments { get; set; }
+        ArgumentList OverwriteArguments { get; set; }
+        ArgumentList CleanArguments { get; set; }
         string Body { get; set; }
         IScriptLocation Location { get; set; }
     }

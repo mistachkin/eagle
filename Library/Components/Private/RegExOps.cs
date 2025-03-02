@@ -45,6 +45,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Data
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static bool ForceCompiled1 = true;
+        private static bool ForceCompiled2 = false;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Regular Expression Support Methods
         private static void MaybeMutatePattern(
             ref string pattern /* in, out */
@@ -716,7 +726,13 @@ namespace Eagle._Components.Private
         public static Regex Create(string pattern)
         {
             MaybeMutatePattern(ref pattern);
-            return new Regex(pattern);
+
+            RegexOptions regExOptions = RegexOptions.None;
+
+            if (ForceCompiled1)
+                regExOptions |= RegexOptions.Compiled;
+
+            return new Regex(pattern, regExOptions);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -730,6 +746,10 @@ namespace Eagle._Components.Private
             )
         {
             MaybeMutatePattern(ref pattern);
+
+            if (ForceCompiled2)
+                regExOptions |= RegexOptions.Compiled;
+
             return new Regex(pattern, regExOptions);
         }
         #endregion

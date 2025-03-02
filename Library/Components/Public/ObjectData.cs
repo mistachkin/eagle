@@ -41,6 +41,8 @@ namespace Eagle._Components.Public
             string group,
             string description,
             IClientData clientData,
+            bool disposed,
+            bool disposing,
             Type type,
             IAlias alias,
             ObjectFlags objectFlags,
@@ -60,6 +62,8 @@ namespace Eagle._Components.Public
             this.group = group;
             this.description = description;
             this.clientData = clientData;
+            this.disposed = disposed;
+            this.disposing = disposing;
             this.type = type;
             this.alias = alias;
             this.objectFlags = objectFlags;
@@ -90,6 +94,8 @@ namespace Eagle._Components.Public
                 group = objectData.Group;
                 description = objectData.Description;
                 clientData = objectData.ClientData;
+                disposed = objectData.Disposed;
+                disposing = objectData.Disposing;
                 type = objectData.Type;
                 alias = objectData.Alias;
                 objectFlags = objectData.ObjectFlags;
@@ -253,6 +259,24 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IObjectData Members
+        private bool disposed;
+        public virtual bool Disposed
+        {
+            get { return disposed; }
+            set { disposed = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool disposing;
+        public virtual bool Disposing
+        {
+            get { return disposing; }
+            set { disposing = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private Type type;
         public virtual Type Type
         {

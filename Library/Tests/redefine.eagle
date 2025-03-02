@@ -1176,7 +1176,9 @@ runTest {test redefine-6.1 {custom package fallback (non-isolated)} -setup {
   }
 
   set directory [getTemporaryFileName]
-  file delete $directory; file mkdir $directory
+
+  catch {file delete $directory}; # BUGFIX: May not exist.
+  file mkdir $directory
 
   writeFile [file join $directory pkgIndex.eagle] {
     if {![package vsatisfies [package provide Tcl] 8.4]} {return}
@@ -1318,7 +1320,9 @@ runTest {test redefine-6.2 {custom package fallback (isolated)} -setup {
   }
 
   set directory [getTemporaryFileName]
-  file delete $directory; file mkdir $directory
+
+  catch {file delete $directory}; # BUGFIX: May not exist.
+  file mkdir $directory
 
   writeFile [file join $directory pkgIndex.eagle] {
     if {![package vsatisfies [package provide Tcl] 8.4]} {return}
@@ -2176,7 +2180,7 @@ runTest {test newWebClientCallback-1.1 {WebClient customization} -setup {
 
   list [expr {
     [string first -nocase <html [uri download \
-        -timeouttype network -inline $uri]] >= 0
+        -timeouttype network -inline -- $uri]] >= 0
   }] [debug pluginexecute [getPluginName \
       [appendArgs "Sample\\.Class3, .*"]] copyState]
 } -cleanup {

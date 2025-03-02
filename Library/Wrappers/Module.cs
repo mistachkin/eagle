@@ -21,13 +21,10 @@ namespace Eagle._Wrappers
     internal sealed class _Module : Default, IModule
     {
         #region Public Constructors
-        public _Module(
-            long token,
-            IModule module
-            )
-            : base(token)
+        public _Module()
+            : base()
         {
-            this.module = module;
+            // do nothing.
         }
         #endregion
 
@@ -128,10 +125,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (module != null)
-                return module.Load(ref error);
-            else
+            if (module == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return module.Load(ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -141,10 +141,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (module != null)
-                return module.Load(ref loaded, ref error);
-            else
+            if (module == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return module.Load(ref loaded, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -153,10 +156,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (module != null)
-                return module.Unload(ref error);
-            else
+            if (module == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return module.Unload(ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -166,10 +172,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (module != null)
-                return module.Unload(ref loaded, ref error);
-            else
+            if (module == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return module.Unload(ref loaded, ref error);
         }
         #endregion
 
@@ -186,6 +195,7 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return module; }
+            set { module = (IModule)value; } /* throw */
         }
         #endregion
     }

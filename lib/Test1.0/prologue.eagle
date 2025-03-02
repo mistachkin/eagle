@@ -427,14 +427,33 @@ if {![info exists no([file tail [info script]])]} then {
   if {[isEagle] && [llength [info commands object]] > 0} then {
     #
     # NOTE: Check the name of the current call frame against the one
-    #       that should be used for evaluating this script file.
+    #       that SHOULD be used for evaluating this script file.
     #
-    if {[object invoke -flags +NonPublic \
-            Interpreter.GetActive.CurrentFrame Name] ne \
-        [list source [file normalize [info script]]]} then {
-      unset -nocomplain test_suite_running
-      error "cannot run prologue, current frame not for this script"
+    if {![info exists no(currentFrameName)]} then {
+      #
+      # HACK: This [object invoke] cannot be inside of a [catch] block
+      #       because that would alter the current call frame.  Do not
+      #       change this code without fully understanding what it is.
+      #
+      set frameName [object invoke -flags +NonPublic \
+          Interpreter.GetActive.CurrentFrame Name]
+
+      if {[file pathtype [info script]] eq "absolute"} then {
+        if {$frameName ne [list \
+              source [file normalize [info script]]]} then {
+          unset -nocomplain frameName test_suite_running
+          error "cannot run prologue, current frame not absolute script"
+        }
+      } else {
+        if {$frameName ne [list \
+              source [info script]]} then {
+          unset -nocomplain frameName test_suite_running
+          error "cannot run prologue, current frame not relative script"
+        }
+      }
     }
+
+    unset -nocomplain frameName
 
     #
     # NOTE: Attempt to determine if the this script file being run as
@@ -442,9 +461,11 @@ if {![info exists no([file tail [info script]])]} then {
     #       issue a warning about the inability to detect "leaks" from
     #       the tests.
     #
-    if {[lsearch -glob -index 0 -- [object invoke -flags +NonPublic \
-            Interpreter.GetActive ScriptLocations.ToString] \
-            {*[/\]all.eagle}] == -1} then {
+    if {[catch {
+      object invoke -flags +NonPublic \
+          Interpreter.GetActive ScriptLocations.ToString
+    } scriptLocations] == 0 && [lsearch -glob -index 0 \
+        -- $scriptLocations {*[/\]all.eagle}] == -1} then {
       #
       # NOTE: Check if the warning should actually be emitted.  If this
       #       warning has specifically been disabled or we are in quiet
@@ -457,6 +478,8 @@ if {![info exists no([file tail [info script]])]} then {
             "\"all.eagle\", resource leaks will probably not be reported.\n"]
       }
     }
+
+    unset -nocomplain scriptLocations
   }
 
   #############################################################################
@@ -2604,7 +2627,7 @@ if {![info exists no([file tail [info script]])]} then {
             *TestGetScriptStreamXmlData*
 
         checkForObjectMember $test_channel Eagle._Tests.Default \
-            *TestGetScriptStreamXmlSignature*
+            *TestGetScriptStreamXmlDataCertificate*
 
         checkForObjectMember $test_channel Eagle._Tests.Default \
             *TestGetScriptStreamXmlBlock1Signature*

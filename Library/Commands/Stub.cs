@@ -19,7 +19,11 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Commands
 {
     [ObjectId("ebb5400c-203d-4e16-b2e3-0715421a6b0d")]
-    [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard)]
+    [CommandFlags(
+        CommandFlags.Safe | CommandFlags.NonStandard |
+        CommandFlags.NoPopulate | CommandFlags.NoAdd |
+        CommandFlags.Delegate
+    )]
     [ObjectGroup("ensemble")]
     internal sealed class Stub : Core
     {

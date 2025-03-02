@@ -887,6 +887,7 @@ namespace Eagle._Components.Private
             Interpreter interpreter,
             StringList list,
             Encoding encoding,
+            EncodingType type,
             ref byte[] bytes,
             ref Result error
             )
@@ -925,6 +926,9 @@ namespace Eagle._Components.Private
                     }
                     else if (value is string)
                     {
+                        if (encoding == null)
+                            encoding = StringOps.GetEncoding(type);
+
                         if (encoding != null)
                         {
                             bytes = encoding.GetBytes((string)value);

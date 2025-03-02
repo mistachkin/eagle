@@ -10,29 +10,33 @@
  */
 
 using System;
+using System.Collections.Generic;
 using Eagle._Attributes;
+using Eagle._Components.Private;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Components.Public
 {
     [ObjectId("c71b2e97-868d-453d-94f5-53e3f31e16ec")]
-    public sealed class TypedInstance : IHaveObjectFlags, ITypedInstance
+    public sealed class TypedInstance :
+            ITypedInstance, IEqualityComparer<ITypedInstance>
     {
         #region Public Constructors
         public TypedInstance(
             Type type,
             ObjectFlags objectFlags,
+            object @object,
             string objectName,
             string fullObjectName,
-            object @object,
             string[] extraParts
             )
         {
             this.type = type;
             this.objectFlags = objectFlags;
+            this.@object = @object;
             this.objectName = objectName;
             this.fullObjectName = fullObjectName;
-            this.@object = @object;
             this.extraParts = extraParts;
         }
         #endregion
@@ -59,6 +63,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private object @object;
+        public object Object
+        {
+            get { return @object; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private string objectName;
         public string ObjectName
         {
@@ -75,18 +87,99 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        private object @object;
-        public object Object
-        {
-            get { return @object; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
         private string[] extraParts;
         public string[] ExtraParts
         {
             get { return extraParts; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void Reset()
+        {
+            objectFlags = ObjectFlags.None;
+            type = null;
+            objectName = null;
+            fullObjectName = null;
+            @object = null;
+            extraParts = null;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IEqualityComparer<ITypedInstance> Members
+        public bool Equals(
+            ITypedInstance left,
+            ITypedInstance right
+            )
+        {
+            if ((left == null) && (right == null))
+            {
+                return true;
+            }
+            else if ((left == null) || (right == null))
+            {
+                return false;
+            }
+            else
+            {
+                if (left.ObjectFlags != right.ObjectFlags)
+                    return false;
+
+                if (!Object.ReferenceEquals(left.Type, right.Type))
+                    return false;
+
+                if (!Object.ReferenceEquals(left.Object, right.Object))
+                    return false;
+
+                if (!SharedStringOps.SystemEquals(
+                        left.ObjectName, right.ObjectName))
+                {
+                    return false;
+                }
+
+                if (!SharedStringOps.SystemEquals(
+                        left.FullObjectName, right.FullObjectName))
+                {
+                    return false;
+                }
+
+                if (!Object.ReferenceEquals(
+                        left.ExtraParts, right.ExtraParts))
+                {
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public int GetHashCode(
+            ITypedInstance value /* in */
+            )
+        {
+            int result = 0;
+
+            if (value != null)
+            {
+                foreach (object innerValue in new object[] {
+                        value.ObjectFlags, value.Type,
+                        value.Object, value.ObjectName,
+                        value.FullObjectName, value.ExtraParts
+                    })
+                {
+                    if (innerValue == null)
+                        continue;
+
+                    result = CommonOps.HashCodes.Combine(
+                        result, innerValue.GetHashCode());
+                }
+            }
+
+            return result;
         }
         #endregion
     }

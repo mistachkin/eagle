@@ -17,6 +17,11 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Private;
 
+using OperatorWrapper = Eagle._Wrappers.Operator;
+
+using OperatorPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Operator>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -25,7 +30,7 @@ namespace Eagle._Containers.Private
 {
     [ObjectId("9d65ae2d-b85f-42df-a860-6357d2b09246")]
     internal sealed class OperatorWrapperDictionary :
-            WrapperDictionary<string, _Wrappers.Operator>
+            WrapperDictionary<string, OperatorWrapper>
     {
         public OperatorWrapperDictionary()
             : base()
@@ -60,7 +65,7 @@ namespace Eagle._Containers.Private
                 {
                     inputList = new StringList();
 
-                    foreach (KeyValuePair<string, _Wrappers.Operator> pair in this)
+                    foreach (OperatorPair pair in this)
                     {
                         IOperator @operator = pair.Value;
 
@@ -83,7 +88,7 @@ namespace Eagle._Containers.Private
             {
                 inputList = new StringList();
 
-                foreach (KeyValuePair<string, _Wrappers.Operator> pair in this)
+                foreach (OperatorPair pair in this)
                 {
                     IOperator @operator = pair.Value;
 

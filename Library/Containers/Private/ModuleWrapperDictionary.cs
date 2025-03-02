@@ -18,6 +18,8 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 #endif
 
+using ModuleWrapper = Eagle._Wrappers._Module;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -25,7 +27,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("10badaa0-3d77-4dc1-9e9c-1a79467113ec")]
-    internal sealed class ModuleWrapperDictionary : WrapperDictionary<string, _Wrappers._Module>
+    internal sealed class ModuleWrapperDictionary : WrapperDictionary<string, ModuleWrapper>
     {
         public ModuleWrapperDictionary()
             : base()

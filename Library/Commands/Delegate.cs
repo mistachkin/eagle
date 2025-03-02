@@ -19,7 +19,10 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Commands
 {
     [ObjectId("20e001ff-f8bc-46ed-b12f-1aba126fefd0")]
-    [CommandFlags(CommandFlags.Delegate)]
+    [CommandFlags(
+        CommandFlags.NoPopulate | CommandFlags.NoAdd |
+        CommandFlags.Delegate
+    )]
     [ObjectGroup("delegate")]
     public class _Delegate : Default, IDelegateData
     {
@@ -107,10 +110,15 @@ namespace Eagle._Commands
             ref Result result
             )
         {
+            DelegateFlags delegateFlags = this.DelegateFlags;
+
+            bool allowOptions = FlagOps.HasFlags(
+                delegateFlags, DelegateFlags.UseCallOptions, true);
+
             return ScriptOps.ExecuteOrInvokeDelegate(
                 interpreter, this.Delegate, arguments,
-                1 /* cmd ... */, this.DelegateFlags,
-                ref result);
+                allowOptions, 1 /* cmd ... */, 1,
+                delegateFlags, ref result);
         }
         #endregion
     }

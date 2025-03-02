@@ -9,13 +9,17 @@
  * RCS: @(#) $Id: $
  */
 
-using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+
+using AliasWrapper = Eagle._Wrappers.Alias;
+
+using AliasPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Alias>;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -25,7 +29,7 @@ namespace Eagle._Containers.Private
 {
     [ObjectId("4e42c6a9-dd44-4f10-b668-5cdbe71a1266")]
     internal sealed class AliasWrapperDictionary :
-            WrapperDictionary<string, _Wrappers.Alias>
+            WrapperDictionary<string, AliasWrapper>
     {
         public AliasWrapperDictionary()
             : base()
@@ -61,7 +65,7 @@ namespace Eagle._Containers.Private
             {
                 inputList = new StringList();
 
-                foreach (KeyValuePair<string, _Wrappers.Alias> pair in this)
+                foreach (AliasPair pair in this)
                 {
                     IAlias alias = pair.Value;
 

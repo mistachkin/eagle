@@ -44,13 +44,20 @@ namespace Eagle._Components.Public
         ICloneable
     {
         #region Public Static Data
-        public static readonly IScript Empty = new Script(
-            ScriptSecurityFlags.AnyMask);
+        public static readonly IScript Empty = new Script(new BundleData(
+            null, 0, null, null, null, null, null, IsolationLevel.None,
+            SecurityLevel.None, ScriptSecurityFlags.AnyMask, null));
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Data
+        private static readonly IBundleData EmptyBundleData = new BundleData(
+            null, 0, null, null, null, null, null, IsolationLevel.None,
+            SecurityLevel.None, ScriptSecurityFlags.None, null);
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if XML
         //
         // HACK: These are purposely not read-only.
@@ -74,19 +81,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Private Data
-        private ScriptSecurityFlags securityFlags;
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
         #region Private Constructors
         private Script(
-            ScriptSecurityFlags securityFlags
+            IBundleData bundleData
             )
         {
             this.id = Guid.Empty;
-            this.securityFlags = securityFlags;
+            this.bundleData = bundleData;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -120,9 +121,9 @@ namespace Eagle._Components.Public
             EventFlags eventFlags,
             ExpressionFlags expressionFlags,
             IClientData clientData,
-            ScriptSecurityFlags securityFlags
+            IBundleData bundleData
             )
-            : this(securityFlags)
+            : this(bundleData)
         {
             this.kind = IdentifierKind.Script;
             this.id = id;
@@ -164,16 +165,22 @@ namespace Eagle._Components.Public
         #region Private Methods
         private bool IsImmutable()
         {
+            if (bundleData == null)
+                return false;
+
             return FlagOps.HasFlags(
-                securityFlags, ScriptSecurityFlags.Immutable, true);
+                bundleData.SecurityFlags, ScriptSecurityFlags.Immutable, true);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private bool HasAnyRestrictions()
         {
+            if (bundleData == null)
+                return false;
+
             return FlagOps.HasFlags(
-                securityFlags, ScriptSecurityFlags.AnyMask, false);
+                bundleData.SecurityFlags, ScriptSecurityFlags.AnyMask, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -257,7 +264,7 @@ namespace Eagle._Components.Public
             /* IGNORED */
             ScriptOps.ExtractId(text, ref id);
 
-            IScript script = PrivateCreate(id,
+            IScript script = InternalCreate(id,
                 snippet.Name, snippet.Group, snippet.Description,
                 ScriptTypes.Snippet, text, snippet.Path,
                 Parser.UnknownLine, Parser.UnknownLine, false,
@@ -268,7 +275,7 @@ namespace Eagle._Components.Public
                 EngineMode.EvaluateScript, ScriptFlags.None,
                 EngineFlags.None, SubstitutionFlags.Default,
                 EventFlags.None, ExpressionFlags.Default,
-                snippet.ClientData, ScriptSecurityFlags.None);
+                snippet.ClientData, new BundleData(EmptyBundleData));
 
             if (script == null)
             {
@@ -370,15 +377,15 @@ namespace Eagle._Components.Public
             /* IGNORED */
             ScriptOps.ExtractId(text, ref id);
 
-            return PrivateCreate(
+            return InternalCreate(
                 id, name, group, description, type, text,
                 fileName, startLine, endLine, viaSource,
 #if XML
                 XmlBlockType.None, timeStamp, null, null,
 #endif
-                engineMode, scriptFlags, engineFlags, substitutionFlags,
-                eventFlags, expressionFlags, clientData,
-                ScriptSecurityFlags.None);
+                engineMode, scriptFlags, engineFlags,
+                substitutionFlags, eventFlags, expressionFlags,
+                clientData, new BundleData(EmptyBundleData));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -561,13 +568,13 @@ namespace Eagle._Components.Public
                 localClientData = clientData;
             }
 
-            return PrivateCreate(
+            return InternalCreate(
                 id, name, group, description, type, text, null,
                 Parser.UnknownLine, Parser.UnknownLine, false,
                 blockType, timeStamp, publicKeyToken, signature,
                 engineMode, scriptFlags, engineFlags,
                 substitutionFlags, eventFlags, expressionFlags,
-                localClientData, ScriptSecurityFlags.None);
+                localClientData, new BundleData(EmptyBundleData));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -603,7 +610,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private
-        private static IScript PrivateCreate(
+        internal static IScript InternalCreate(
             Guid id,
             string name,
             string group,
@@ -627,7 +634,7 @@ namespace Eagle._Components.Public
             EventFlags eventFlags,
             ExpressionFlags expressionFlags,
             IClientData clientData,
-            ScriptSecurityFlags securityFlags
+            IBundleData bundleData
             )
         {
             return new Script(
@@ -644,7 +651,7 @@ namespace Eagle._Components.Public
 #endif
                 engineMode, scriptFlags, engineFlags,
                 substitutionFlags, eventFlags,
-                expressionFlags, clientData, securityFlags);
+                expressionFlags, clientData, bundleData);
         }
         #endregion
         #endregion
@@ -939,9 +946,17 @@ namespace Eagle._Components.Public
 
 #if XML
             list.Add("blockType", blockType.ToString());
-            list.Add("timeStamp", timeStamp.ToString());
+
+            list.Add("timeStamp",
+                FormatOps.Iso8601FullDateTime(timeStamp));
+
             list.Add("publicKeyToken", publicKeyToken);
-            list.Add("signature", ArrayOps.ToHexadecimalString(signature));
+
+            if (signature != null)
+            {
+                list.Add("signature", Convert.ToBase64String(
+                    signature, Base64FormattingOptions.InsertLineBreaks));
+            }
 #endif
 
 #if CAS_POLICY
@@ -966,7 +981,59 @@ namespace Eagle._Components.Public
                     list.Add("extra", extra.ToString());
             }
 
-            list.Add("securityFlags", securityFlags.ToString());
+            if (!scrub && (bundleData != null))
+            {
+                string language = bundleData.Language;
+
+                if (language != null)
+                    list.Add("language", language);
+
+                list.Add("sequence",
+                    bundleData.Sequence.ToString());
+
+                string vendor = bundleData.Vendor;
+
+                if (vendor != null)
+                    list.Add("vendor", vendor);
+
+                string path = bundleData.Path;
+
+                if (path != null)
+                    list.Add("path", path);
+
+                string fullName = bundleData.FullName;
+
+                if (fullName != null)
+                    list.Add("fullName", fullName);
+
+                string hashAlgorithmName = bundleData.HashAlgorithmName;
+
+                if (hashAlgorithmName != null)
+                    list.Add("hashAlgorithmName", hashAlgorithmName);
+
+                byte[] fileBytes = bundleData.FileBytes;
+
+                if (fileBytes != null)
+                {
+                    list.Add("fileBytes",
+                        Convert.ToBase64String(fileBytes,
+                        Base64FormattingOptions.InsertLineBreaks));
+                }
+
+                list.Add("isolationLevel",
+                    bundleData.IsolationLevel.ToString());
+
+                list.Add("securityLevel",
+                    bundleData.SecurityLevel.ToString());
+
+                IRuleSet ruleSet = bundleData.RuleSet;
+
+                if (ruleSet != null)
+                    list.Add("ruleSet", ruleSet.ToString());
+
+                list.Add("securityFlags",
+                    bundleData.SecurityFlags.ToString());
+            }
 
             return list;
         }
@@ -1083,15 +1150,24 @@ namespace Eagle._Components.Public
             get { return hashAlgorithm; }
         }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private IBundleData bundleData;
+        public IBundleData BundleData
+        {
+            get { return bundleData; }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IScriptFlags Members
+        #region IHaveScriptFlags Members
         private EngineMode engineMode;
         public EngineMode EngineMode
         {
             get { return engineMode; }
+            set { throw new NotImplementedException(); }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1100,6 +1176,7 @@ namespace Eagle._Components.Public
         public ScriptFlags ScriptFlags
         {
             get { return scriptFlags; }
+            set { throw new NotImplementedException(); }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1108,6 +1185,7 @@ namespace Eagle._Components.Public
         public EngineFlags EngineFlags
         {
             get { return engineFlags; }
+            set { throw new NotImplementedException(); }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1116,6 +1194,7 @@ namespace Eagle._Components.Public
         public SubstitutionFlags SubstitutionFlags
         {
             get { return substitutionFlags; }
+            set { throw new NotImplementedException(); }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1124,6 +1203,7 @@ namespace Eagle._Components.Public
         public EventFlags EventFlags
         {
             get { return eventFlags; }
+            set { throw new NotImplementedException(); }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1132,12 +1212,47 @@ namespace Eagle._Components.Public
         public ExpressionFlags ExpressionFlags
         {
             get { return expressionFlags; }
+            set { throw new NotImplementedException(); }
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region IScript Members
+        public bool ShouldTreatAsFile(
+            out string fileName,
+            out byte[] fileBytes
+            )
+        {
+            if ((bundleData != null) && FlagOps.HasFlags(
+                    bundleData.SecurityFlags,
+                    ScriptSecurityFlags.TreatAsFile, true))
+            {
+                fileName = bundleData.FullName;
+                fileBytes = bundleData.FileBytes;
+
+                return true;
+            }
+            else
+            {
+                fileName = null;
+                fileBytes = null;
+
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if XML
+        public string GetBlockTypeString()
+        {
+            return blockType.ToString().ToLowerInvariant();
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public ObjectDictionary MaybeGetExtra()
         {
             if (IsImmutable())
@@ -1168,17 +1283,14 @@ namespace Eagle._Components.Public
 
         public void MakeImmutable()
         {
-            //
-            // WARNING: Once this method is called, it cannot be undone from
-            //          external to this class.  This is by design, for the
-            //          sake of security (e.g. for IScript objects passed to
-            //          the policy engine).  Further, there is no way for an
-            //          external caller to determine if an IScript instance
-            //          is read-only or immutable (i.e. via an introspection
-            //          property) without causing an exception to be thrown.
-            //          This restriction may be relaxed in the future.
-            //
-            securityFlags |= ScriptSecurityFlags.Immutable;
+            if (bundleData == null)
+            {
+                throw new ScriptException(String.Format(
+                    "cannot make immutable, missing {0}",
+                    typeof(IBundleData)));
+            }
+
+            bundleData.MakeImmutable();
         }
         #endregion
 
@@ -1187,14 +1299,14 @@ namespace Eagle._Components.Public
         #region ICloneable Members
         public object Clone()
         {
-            return PrivateCreate(
+            return InternalCreate(
                 id, name, group, description, type, text, fileName,
                 startLine, endLine, viaSource,
 #if XML
                 blockType, timeStamp, publicKeyToken, signature,
 #endif
                 engineMode, scriptFlags, engineFlags, substitutionFlags,
-                eventFlags, expressionFlags, clientData, securityFlags);
+                eventFlags, expressionFlags, clientData, bundleData);
         }
         #endregion
 

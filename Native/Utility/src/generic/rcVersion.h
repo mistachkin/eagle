@@ -12,7 +12,7 @@
 #ifndef _RC_VERSION_H_
 #define _RC_VERSION_H_
 
-#define LIBRARY_PATCH_LEVEL	1.0.8734.30319
-#define RC_VERSION		1,0,8734,30319
+#define LIBRARY_PATCH_LEVEL	1.0.0.0
+#define RC_VERSION		1,0,0,0
 
 #endif /* _RC_VERSION_H_ */

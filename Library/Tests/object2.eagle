@@ -232,16 +232,27 @@ runTest {test object-2.8 {honor NoDispose flag during interp disposal} -body {
   object dispose $interp
   lappend results [getStringFromObjectHandle $object]
 
+  #
+  # HACK: This Dispose() method call here will make the
+  #       [isNonNullObjectHandle] core library procedure
+  #       return false, which will prevent its ToString
+  #       method from being called, which will then make
+  #       the [getStringFromObjectHandle] core library
+  #       procedure return its original argument, which
+  #       is the opaque object handle.
+  #
   object invoke $object Dispose
   lappend results [getStringFromObjectHandle $object]
 
   set results
 } -cleanup {
+  catch {object dispose $object}
+
   unset -nocomplain parameters result code interp object results
 } -constraints {eagle command.object compile.TEST\
 member_Eagle._Tests.Default.Disposable.ToString} -match regexp -result \
 {^\{id = \d+, disposing = False, disposed = False\} \{id = \d+, disposing =\
-False, disposed = False\} \{id = \d+, disposing = True, disposed = True\}$}}
+False, disposed = False\} Disposable#\d+$}}
 
 ###############################################################################
 

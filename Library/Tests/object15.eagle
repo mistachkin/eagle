@@ -429,10 +429,14 @@ ReferenceEquals methodType Method methodName ReferenceEquals callingConvention\
 Standard returnType System.Boolean parameterTypes {System.Object\
 System.Object}} {memberType Method memberName ShellMain methodType Method\
 methodName ShellMain callingConvention Standard returnType EComP.ExitCode\
-parameterTypes {{System.Collections.Generic.IEnumerable`1[System.String]}}}\
-{memberType Method memberName ShellMainCore methodType Method methodName\
-ShellMainCore callingConvention Standard returnType EComP.ExitCode\
-parameterTypes {EComP.Interpreter EIP.IShellCallbackData EIP.IClientData\
+parameterTypes {EComP.InterpreterSettings\
+{System.Collections.Generic.IEnumerable`1[System.String]}}} {memberType Method\
+memberName ShellMain methodType Method methodName ShellMain callingConvention\
+Standard returnType EComP.ExitCode parameterTypes\
+{{System.Collections.Generic.IEnumerable`1[System.String]}}} {memberType Method\
+memberName ShellMainCore methodType Method methodName ShellMainCore\
+callingConvention Standard returnType EComP.ExitCode parameterTypes\
+{EComP.Interpreter EIP.IShellCallbackData EIP.IClientData\
 {System.Collections.Generic.IEnumerable`1[System.String]} System.Boolean\
 System.Boolean EComP.Result&}} {memberType Method memberName TryStaticLock\
 methodType Method methodName TryStaticLock callingConvention Standard\

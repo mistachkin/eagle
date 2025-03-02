@@ -369,7 +369,7 @@ namespace Eagle._Components.Private
 
         public static string Concat(IList list, int startIndex, int stopIndex)
         {
-            return Concat(list, startIndex, stopIndex, Characters.Space.ToString());
+            return Concat(list, startIndex, stopIndex, Characters.SpaceString);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -377,7 +377,7 @@ namespace Eagle._Components.Private
         public static string Concat(IList list, int startIndex, string separator)
         {
             return (list != null) ? Concat(list, startIndex, list.Count - 1,
-                (separator != null) ? separator : Characters.Space.ToString()) : String.Empty;
+                (separator != null) ? separator : Characters.SpaceString) : String.Empty;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -844,7 +844,7 @@ namespace Eagle._Components.Private
             // NOTE: If this element was seen before,
             //       skip it now.
             //
-            if (dictionary.ContainsKey(key))
+            if ((dictionary != null) && dictionary.ContainsKey(key))
                 return true;
 
             return false;

@@ -527,8 +527,8 @@ proc getStringIsClasses { type } {
           wideinteger
 
       if {[isEagle]} then {
-        lappend result base64 byte datetime decimal dict guid \
-            inetaddr list none number numeric timespan uri value \
+        lappend result annotation base64 byte datetime decimal dict \
+            guid inetaddr list none number numeric timespan uri value \
             variant version xml
       }
     }
@@ -550,6 +550,12 @@ proc resetStringIsRefs {} {
 
 proc getStringIsValues { class } {
   switch -exact -- $class {
+    annotation {
+      set ::refs(73X) private
+      set ::refs(74X) public-
+
+      return [list $::refs(73X) $::refs(74X)]
+    }
     base64 {
       set ::refs(27X) "this is a test."
       set ::refs(28X) [base64 encode $::refs(27X)]
@@ -562,6 +568,26 @@ proc getStringIsValues { class } {
       return [list \
           $::refs(27X) $::refs(28X) $::refs(29X) $::refs(30X) \
           $::refs(31X) $::refs(32X) $::refs(33X)]
+    }
+    cidr {
+      set ::refs(76X) 1.0.0
+      set ::refs(77X) 1.0.0.0
+      set ::refs(78X) 1.0.0/23
+      set ::refs(79X) 1.0.0.0/23
+      set ::refs(80X) 1.0.0.0/0
+      set ::refs(81X) 1.0.0.0/33
+      set ::refs(82X) 1.299.0.0/2
+      set ::refs(83X) ::1
+      set ::refs(84X) 2001:4:112::/0
+      set ::refs(85X) 2001:4:112::/48
+      set ::refs(86X) 2001:4:112::/129
+      set ::refs(87X) 2001:4:112:::/12
+
+      return [list \
+          null true false -1 0 1 1.0 Eagle Eagle* Eagle.* $::refs(76X) \
+          $::refs(77X) $::refs(78X) $::refs(79X) $::refs(80X) $::refs(81X) \
+          $::refs(82X) $::refs(83X) $::refs(84X) $::refs(85X) $::refs(86X) \
+          $::refs(87X)]
     }
     component -
     directory -
@@ -684,6 +710,17 @@ proc getStringIsValues { class } {
       return [list \
           null true false -1 0 1 1.0 Eagle Eagle* Eagle.* $::refs(25X) \
           $::refs(26X)]
+    }
+    ruleset {
+      set ::refs(75X) {
+        {id 1 type Include kind Command mode {Include Glob} patterns o*}
+        {id 2 type Exclude kind Command mode {Exclude Exact} patterns open}
+        {id 3 type Include kind Command mode {Include Exact} patterns puts}
+        {id 4 type Include kind Command mode {Include Exact} patterns set}
+      }
+
+      return [list \
+          null true false -1 0 1 1.0 Eagle Eagle* Eagle.* $::refs(75X)]
     }
     type {
       set ::refs(14X) [appendArgs \
@@ -2035,6 +2072,43 @@ runTest {test string-99.416 {string is versionrange} -body {
 
 ###############################################################################
 
+runTest {test string-99.417 {string is annotation} -setup {
+  resetStringIsRefs
+} -body {
+  getStringIsResults $test_channel annotation
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle compile.NETWORK command.object} -result {empty 1 strict 0\
+<refs(73X)> 1 <refs(74X)> 0}}
+
+###############################################################################
+
+runTest {test string-99.418 {string is cidr} -setup {
+  resetStringIsRefs
+} -body {
+  getStringIsResults $test_channel cidr
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle compile.NETWORK command.object} -result {empty 1 strict 0\
+null 0 true 0 false 0 -1 0 0 0 1 0 1.0 0 Eagle 0 Eagle* 0 Eagle.* 0 <refs(76X)>\
+0 <refs(77X)> 0 <refs(78X)> 1 <refs(79X)> 1 <refs(80X)> 1 <refs(81X)> 0\
+<refs(82X)> 0 <refs(83X)> 0 <refs(84X)> 1 <refs(85X)> 1 <refs(86X)> 0\
+<refs(87X)> 0}}
+
+###############################################################################
+
+runTest {test string-99.419 {string is ruleset} -setup {
+  resetStringIsRefs
+} -body {
+  getStringIsResults $test_channel ruleset
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle compile.NETWORK command.object} -result {empty 1 strict 0\
+null 0 true 0 false 0 -1 0 0 0 1 0 1.0 0 Eagle 0 Eagle* 0 Eagle.* 0 <refs(75X)>\
+1}}
+
+###############################################################################
+
 rename resetStringIsRefs ""
 rename getStringIsAnyResult ""
 rename getStringIsResults ""
@@ -2045,13 +2119,13 @@ rename getStringIsClasses ""
 
 runTest {test string-99.500 {string classes} -body {
   lsort [string classes]
-} -constraints {eagle} -result {alnum alpha array ascii asciialnum asciialpha\
-asciidigit base64 boolean byte command component control datetime decimal dict\
-digit directory double element encoding false file graph guid hexadecimal\
-identifier inetaddr integer interpreter list lower none not number numeric\
-object path plugin print punct real reserved scalar single space timespan true\
-type upper uri value variant version versionrange wideinteger wordchar xdigit\
-xml}}
+} -constraints {eagle} -result {alnum alpha annotation array ascii asciialnum\
+asciialpha asciidigit base64 boolean byte cidr command component control\
+datetime decimal dict digit directory double element encoding false file graph\
+guid hexadecimal identifier inetaddr integer interpreter list lower none not\
+number numeric object path plugin print punct real reserved ruleset scalar\
+single space timespan true type upper uri value variant version versionrange\
+wideinteger wordchar xdigit xml}}
 
 ###############################################################################
 
@@ -2442,7 +2516,7 @@ runTest {test stringMatch-101.2 {callback match mode error} -setup {
   unset -nocomplain result error match code interp
 } -constraints {eagle command.object compile.TEST\
 Eagle._Tests.Default.TestSetMatchCallback} -result \
-{{Error False {invlid match callback}}}}
+{{Error False {invalid match callback}}}}
 
 ###############################################################################
 

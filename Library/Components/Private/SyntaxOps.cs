@@ -21,6 +21,9 @@ using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+using PluginPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Plugin>;
+
 using SyntaxData = System.Collections.Generic.Dictionary<
     string, Eagle._Containers.Public.StringList>;
 
@@ -288,8 +291,7 @@ namespace Eagle._Components.Private
                     {
                         resourceName = PluginResourceName;
 
-                        foreach (KeyValuePair<string, _Wrappers.Plugin> pair
-                                in plugins)
+                        foreach (PluginPair pair in plugins)
                         {
                             IPlugin plugin = pair.Value;
 

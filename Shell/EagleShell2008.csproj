@@ -149,6 +149,7 @@
       EagleCopyResourcePngs;
       EagleCopySQLite3;
       EagleCopySystemDataSQLite;
+      EagleCopyNewtonsoftJson;
       EagleCopyShellExe;
       CopyConfigurations;
       FixCopyFilesToOutputDirectory;

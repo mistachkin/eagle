@@ -101,6 +101,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
       <DisableSpecificWarnings>$(WIN32_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OleAut32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -149,6 +150,7 @@ $(COPY_BUILD_COMMAND_DEBUG_WIN32)</Command>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
       <DisableSpecificWarnings>$(WIN32_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OleAut32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -197,6 +199,7 @@ $(COPY_BUILD_COMMAND_DEBUG_ARM)</Command>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
       <DisableSpecificWarnings>$(WIN32_WARNINGS);$(X64_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OleAut32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -247,6 +250,7 @@ $(COPY_BUILD_COMMAND_DEBUG_X64)</Command>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
       <DisableSpecificWarnings>$(WIN32_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OleAut32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -297,6 +301,7 @@ $(COPY_BUILD_COMMAND_RELEASE_WIN32)</Command>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
       <DisableSpecificWarnings>$(WIN32_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OleAut32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -347,6 +352,7 @@ $(COPY_BUILD_COMMAND_RELEASE_ARM)</Command>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
       <DisableSpecificWarnings>$(WIN32_WARNINGS);$(X64_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OleAut32.lib;%(AdditionalDependencies)</AdditionalDependencies>

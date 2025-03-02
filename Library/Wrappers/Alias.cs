@@ -22,13 +22,10 @@ namespace Eagle._Wrappers
     internal sealed class Alias : Default, IAlias
     {
         #region Public Constructors
-        public Alias(
-            long token,
-            IAlias alias
-            )
-            : base(token)
+        public Alias()
+            : base()
         {
-            this.alias = alias;
+            // do nothing.
         }
         #endregion
 
@@ -198,6 +195,7 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return alias; }
+            set { alias = (IAlias)value; } /* throw */
         }
         #endregion
     }

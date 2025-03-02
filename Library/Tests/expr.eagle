@@ -873,9 +873,8 @@ runTest {test expr-1.40.1 {named System.Single values} -body {
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
   unset -nocomplain x y
-} -constraints {eagle command.object} -constraintExpression \
-{(![haveConstraint dotNetCore] || [haveConstraint windows]) && \
-(![haveConstraint osVersion.WindowsNT_10.0] || [haveConstraint mono])} -result \
+} -constraints {eagle command.object} \
+-constraintExpression {![haveInfinitySymbol]} -result \
 {{[+Inf, Infinity]} {[+Infinity, Infinity]} {[-Inf, -Infinity]} {[-Infinity,\
 -Infinity]} {[Inf, Infinity]} {[Infinity, Infinity]} {[NaN, NaN]}}}
 
@@ -887,9 +886,8 @@ runTest {test expr-1.40.2 {named System.Single values} -body {
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
   unset -nocomplain x y
-} -constraints {eagle command.object} -constraintExpression {([haveConstraint \
-dotNetCore] && ![haveConstraint windows]) || ([haveConstraint \
-osVersion.WindowsNT_10.0] && ![haveConstraint mono])} -result "\{\[+Inf,\
+} -constraints {eagle command.object} \
+-constraintExpression {[haveInfinitySymbol]} -result "\{\[+Inf,\
 \u221E\]\} \{\[+Infinity, \u221E\]\} \{\[-Inf, -\u221E\]\} \{\[-Infinity,\
 -\u221E\]\} \{\[Inf, \u221E\]\} \{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\}"}
 
@@ -901,9 +899,8 @@ runTest {test expr-1.41.1 {named System.Double values} -body {
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
   unset -nocomplain x y
-} -constraints {eagle command.object} -constraintExpression \
-{(![haveConstraint dotNetCore] || [haveConstraint windows]) && \
-(![haveConstraint osVersion.WindowsNT_10.0] || [haveConstraint mono])} -result \
+} -constraints {eagle command.object} \
+-constraintExpression {![haveInfinitySymbol]} -result \
 {{[+Inf, Infinity]} {[+Infinity, Infinity]} {[-Inf, -Infinity]} {[-Infinity,\
 -Infinity]} {[Inf, Infinity]} {[Infinity, Infinity]} {[NaN, NaN]}}}
 
@@ -915,9 +912,8 @@ runTest {test expr-1.41.2 {named System.Double values} -body {
   lsort [getStringFromObjectHandle $y]
 } -cleanup {
   unset -nocomplain x y
-} -constraints {eagle command.object} -constraintExpression {([haveConstraint \
-dotNetCore] && ![haveConstraint windows]) || ([haveConstraint \
-osVersion.WindowsNT_10.0] && ![haveConstraint mono])} -result "\{\[+Inf,\
+} -constraints {eagle command.object} \
+-constraintExpression {[haveInfinitySymbol]} -result "\{\[+Inf,\
 \u221E\]\} \{\[+Infinity, \u221E\]\} \{\[-Inf, -\u221E\]\} \{\[-Infinity,\
 -\u221E\]\} \{\[Inf, \u221E\]\} \{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\}"}
 

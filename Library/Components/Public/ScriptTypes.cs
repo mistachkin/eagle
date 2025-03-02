@@ -18,32 +18,35 @@ namespace Eagle._Components.Public
     {
         public static readonly string Invalid = null;
         public static readonly string None = "none";
-        public static readonly string All = "all";                 // test suite wrapper (via GetData)
-        public static readonly string Automatic = "automatic";     // automatically determine based on context
-        public static readonly string Constraints = "constraints"; // test suite constraints (via GetData)
-        public static readonly string Empty = "empty";             // empty string (via GetData)
-        public static readonly string Epilogue = "epilogue";       // test suite epilogue (via GetData)
-        public static readonly string Loader = "loader";           // plugin loader routines (via GetData)
-        public static readonly string Initialization = "init";     // library initialization / routines (via GetData)
-        public static readonly string Embedding = "embed";         // application embedding initialization (via GetData)
-        public static readonly string Vendor = "vendor";           // vendor initialization (via GetData)
-        public static readonly string Startup = "startup";         // application / user initialization (synchronous)
-        public static readonly string Worker = "worker";           // application / user initialization (asynchronous)
-        public static readonly string Safe = "safe";               // safe library initialization / routines (via GetData)
-        public static readonly string Shell = "shell";             // interactive shell customization (synchronous, via GetData)
-        public static readonly string ShellWorker = "shellWorker"; // interactive shell customization (asynchronous, via GetData)
-        public static readonly string Test = "test";               // test library initialization / routines (via GetData)
-        public static readonly string PackageIndex = "pkgIndex";   // package index (via GetData)
-        public static readonly string Prologue = "prologue";       // test suite prologue (via GetData)
-        public static readonly string Queue = "queue";             // queued script (via QueueScript)
-        public static readonly string Idle = "idle";               // idle script (via [after idle])
-        public static readonly string Timer = "timer";             // timer script (via [after ms])
-        public static readonly string Stream = "stream";           // via the engine method ReadScriptStream
-        public static readonly string File = "file";               // via the engine method ReadScriptFile
-        public static readonly string Snippet = "snippet";         // via the ISnippetManager interface
+        public static readonly string All = "all";                     // test suite wrapper (via GetData)
+        public static readonly string Automatic = "automatic";         // automatically determine based on context
+        public static readonly string Constraints = "constraints";     // test suite constraints (via GetData)
+        public static readonly string Empty = "empty";                 // empty string (via GetData)
+        public static readonly string Epilogue = "epilogue";           // test suite epilogue (via GetData)
+        public static readonly string Loader = "loader";               // plugin loader routines (via GetData)
+        public static readonly string Initialization = "init";         // library initialization / routines (via GetData)
+        public static readonly string Embedding = "embed";             // application embedding initialization (via GetData)
+        public static readonly string Vendor = "vendor";               // vendor initialization (via GetData)
+        public static readonly string TrustedRemote = "trustedRemote"; // trusted remote initialization (via GetData)
+        public static readonly string Startup = "startup";             // application / user initialization (synchronous)
+        public static readonly string Worker = "worker";               // application / user initialization (asynchronous)
+        public static readonly string Safe = "safe";                   // safe library initialization / routines (via GetData)
+        public static readonly string Shell = "shell";                 // interactive shell customization (synchronous, via GetData)
+        public static readonly string ShellWorker = "shellWorker";     // interactive shell customization (asynchronous, via GetData)
+        public static readonly string Test = "test";                   // test library initialization / routines (via GetData)
+        public static readonly string PackageIndex = "pkgIndex";       // package index (via GetData)
+        public static readonly string Prologue = "prologue";           // test suite prologue (via GetData)
+        public static readonly string Queue = "queue";                 // queued script (via QueueScript)
+        public static readonly string Idle = "idle";                   // idle script (via [after idle])
+        public static readonly string Timer = "timer";                 // timer script (via [after ms])
+        public static readonly string Stream = "stream";               // via the engine method ReadScriptStream
+        public static readonly string File = "file";                   // via the engine method ReadScriptFile
+        public static readonly string Snippet = "snippet";             // via the ISnippetManager interface
 
 #if XML
-        public static readonly string Block = "block";             // XML script block (via ReadScriptXml)
+        public static readonly string Block = "block";                 // XML script block (via ReadScriptXml)
 #endif
+
+        public static readonly string Bundle = "bundle";
     }
 }

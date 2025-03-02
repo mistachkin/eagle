@@ -21,13 +21,10 @@ namespace Eagle._Wrappers
     internal sealed class Package : Default, IPackage
     {
         #region Public Constructors
-        public Package(
-            long token,
-            IPackage package
-            )
-            : base(token)
+        public Package()
+            : base()
         {
-            this.package = package;
+            // do nothing.
         }
         #endregion
 
@@ -110,10 +107,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (package != null)
-                return package.Initialize(interpreter, clientData, ref result);
-            else
+            if (package == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return package.Initialize(interpreter, clientData, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -124,10 +124,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (package != null)
-                return package.Terminate(interpreter, clientData, ref result);
-            else
+            if (package == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return package.Terminate(interpreter, clientData, ref result);
         }
         #endregion
 
@@ -190,10 +193,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (package != null)
-                return package.Select(preference, ref version, ref error);
-            else
+            if (package == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return package.Select(preference, ref version, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -204,10 +210,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (package != null)
-                return package.Load(interpreter, version, ref result);
-            else
+            if (package == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return package.Load(interpreter, version, ref result);
         }
         #endregion
 
@@ -224,6 +233,7 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return package; }
+            set { package = (IPackage)value; } /* throw */
         }
         #endregion
     }

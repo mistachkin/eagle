@@ -25,7 +25,8 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Commands
 {
     [ObjectId("c37b126c-c84e-4296-9931-4f0033645ff4")]
-    [CommandFlags(CommandFlags.Unsafe | CommandFlags.Standard)]
+    [CommandFlags(CommandFlags.Unsafe | CommandFlags.Critical |
+        CommandFlags.Standard)]
     [ObjectGroup("managedEnvironment")]
     internal sealed class Unload : Core
     {

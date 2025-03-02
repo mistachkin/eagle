@@ -629,6 +629,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool CreateDelegateType(
+            Interpreter interpreter, /* in */
+            MethodBase method,       /* in */
+            ref Type type,           /* out */
+            ref Result error         /* out */
+            )
+        {
+            Type returnType;
+            TypeList parameterTypes;
+
+            MarshalOps.GetReturnAndParameterTypes(
+                method as MethodInfo, out returnType,
+                out parameterTypes);
+
+            Result localError = null;
+
+            if ((CreateManagedDelegateType(
+                    interpreter, null, null, null, null,
+                    returnType, parameterTypes, ref type,
+                    ref localError) != ReturnCode.Ok) ||
+                (type == null))
+            {
+                if (localError == null)
+                {
+                    localError = String.Format(
+                        "failed delegate type creation for {0}",
+                        FormatOps.WrapOrNull(method));
+                }
+
+                error = localError;
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode CreateManagedDelegateType(
             Interpreter interpreter,
             AppDomain appDomain,

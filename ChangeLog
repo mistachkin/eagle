@@ -1,6 +1,75 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
+BUGFIX: fix and/or address Coverity issues from #434153 to #506970.
+
+BUGFIX: restore the ability to create Variant instances with a null value.
+
+BUGFIX: always honor the ForceTrustedHashes environment variable, even when not
+        running on the .NET Core runtime, e.g. for Mono on POSIX, etc.
+
+BUGFIX: always break out of script loops in progress if the [exit] command has
+        been executed in the evaluated body.
+
+BUGFIX: make sure to honor any IRuleSet that may be present within an instance
+        of the InterpreterSettings passed into the Interpreter.Create method.
+
+REFACTOR: cleanup and optimize how notifications are processed.
+
+REFACTOR: improvements to build tools to harmonize / minimize differences with
+          their "sibling" tools present in other projects.
+
+REFACTOR: *BREAKING CHANGE* change the method signature for the trace filter
+          callback delegate.
+
+REFACTOR: *BREAKING CHANGE* heavily revise how the wrapper classes are created
+          and used.
+
+REFACTOR: *BREAKING CHANGE* modify the "enableSecurity" and "disableSecurity"
+          embedded (security package) scripts to be more resilient when script
+          security is already enabled or disabled.
+
+FEATURE: add the [string is ruleset] sub-command.
+
+FEATURE: add CIDR matching mode to [string match] and the [string is cidr]
+         sub-command.
+
+FEATURE: add support for trusted remote script library initialization.  this
+         will only work when not explicitly disabled -AND- when the security
+         plugins (i.e. Harpy and Badge) are available to be loaded locally.
+         the URI to be used is compiled into the core library assembly.  for
+         now, only the official binaries can make use of this feature.
+
+FEATURE: add -type1, -type2, -valueflags, -trustedonly, and -maybetrustedonly
+         options to the [sql open] sub-command.
+
+FEATURE: add experimental support for System.Data.SQLite Enterprise Edition.
+
+FEATURE: add the ScriptLocation property to the IScriptManager interface.
+
+FEATURE: add the Precise, Human, and other flags along with the -flags option
+         to the [clock duration] sub-command.
+
+FEATURE: add the [clock monthdays] sub-command.
+
+FEATURE: add the DataFlags environment variable.  it is used to set or alter
+         the script data flags used when creating an interpreter.
+
+FEATURE: add -peer option to the [interp create] sub-command.
+
+FEATURE: add -package option to the [interp readorgetscriptfile] sub-command.
+
+FEATURE: add the highly experimental AddAutomaticCommands method to the
+         IEntityManager interface.  In order to make best use of this feature
+         attribute your object methods with [CommandFlags(CommandFlags.Safe)]
+         or [CommandFlags(CommandFlags.Unsafe)] attributes.
+
+FEATURE: add the even more highly experimental -bundle option to the [source]
+         command and its associated subsystems.  this is a fairly large change
+         and will take some time to mature.
+
+************************* Beta 1.0.8734.30319 RELEASE *************************
+
 BUGFIX: fix and/or address Coverity issues from #353085 to #399157.
 
 BUGFIX: when the Interpreter.GetStartup method calls the HostOps.GetScript
@@ -3073,7 +3142,7 @@ FEATURE: add undocumented isBreakOnDemand environment variable, supported only
 FEATURE: add ScriptTraceListener class, which can be used to evaluate a script
          when its TraceListener methods are called.
 
-FEATURE: add method overlods of the Utility.DebugTrace method that accept a
+FEATURE: add method overloads of the Utility.DebugTrace method that accept a
          TracePriority parameter.
 
 FEATURE: add TryCombineUris and ExtractPolicyContextAndTextAndBytes methods to
@@ -10144,7 +10213,7 @@ REFACTOR: *BREAKING CHANGE* rename the _Constants.Position and _Constants.Size
           static classes to _Position and _Size, respectively.
 
 FEATURE: add -autopath option to the [package scan] command.  this option will
-         force the auto-path for the interpeter to be rebuilt from scratch.
+         force the auto-path for the interpreter to be rebuilt from scratch.
 
 FEATURE: add ResetErrorInformation method to the Engine class to reset the error
          information for the specified interpreter in a thread-safe manner.

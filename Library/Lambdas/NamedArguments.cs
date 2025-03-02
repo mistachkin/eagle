@@ -97,7 +97,7 @@ namespace Eagle._Lambdas
                             Parser.Quote(procedureName),
                             procedureArguments.ToRawString(
                                 ToStringFlags.Decorated,
-                                Characters.Space.ToString()));
+                                Characters.SpaceString));
                     }
                     else
                     {
@@ -109,7 +109,17 @@ namespace Eagle._Lambdas
                     return ReturnCode.Error;
                 }
 
+                int saveCount = 0;
+                int restoreCount = 0;
+
+                bool noPushFrame = FlagOps.HasFlags(
+                    procedureFlags, ProcedureFlags.NoPushFrame, true);
+
                 ICallFrame frame = null;
+                VariableDictionary savedVariables = null;
+
+                VariableFlags variableFlags = noPushFrame ?
+                    VariableFlags.None : VariableFlags.Argument;
 
                 try
                 {
@@ -124,20 +134,59 @@ namespace Eagle._Lambdas
                     if (maximumId > 0)
                         foundArguments = new bool[maximumId];
 
-                    CallFrameFlags callFrameFlags =
-                        CallFrameFlags.Procedure | CallFrameFlags.Lambda;
+                    ReturnCode code;
 
-                    frame = interpreter.NewProcedureCallFrame(
-                        procedureName, callFrameFlags, null, this, arguments);
+                    if (noPushFrame)
+                    {
+                        code = interpreter.GetVariableFrameViaResolvers(
+                            LookupFlags.Default, ref frame, ref result);
+
+                        if (code != ReturnCode.Ok)
+                            goto done;
+
+                        ArgumentDictionary finalArguments;
+
+                        ScriptOps.GetFinalArguments(
+                            procedureArguments, this.OverwriteArguments,
+                            out finalArguments);
+
+                        code = frame.Save(
+                            interpreter, finalArguments, ref savedVariables,
+                            ref saveCount, ref result);
+
+                        if (code != ReturnCode.Ok)
+                            goto done;
+                    }
+                    else
+                    {
+                        CallFrameFlags callFrameFlags =
+                            CallFrameFlags.Procedure | CallFrameFlags.Lambda;
+
+                        frame = interpreter.NewProcedureCallFrame(
+                            procedureName, callFrameFlags, null, this, arguments);
+
+                        if (frame != null)
+                        {
+                            code = ReturnCode.Ok;
+                        }
+                        else
+                        {
+                            result = "could not create new procedure frame";
+                            code = ReturnCode.Error;
+                            goto done;
+                        }
+                    }
 
                     StringDictionary alreadySet = new StringDictionary();
                     ArgumentList argsArguments = hasArgs ? new ArgumentList() : null;
-                    ArgumentList frameProcedureArguments = new ArgumentList();
+                    ArgumentList frameProcedureArguments = noPushFrame ? null : new ArgumentList();
 
-                    frameProcedureArguments.Add(arguments[0]);
-                    frame.ProcedureArguments = frameProcedureArguments;
+                    if (!noPushFrame)
+                    {
+                        frameProcedureArguments.Add(arguments[0]);
+                        frame.ProcedureArguments = frameProcedureArguments;
+                    }
 
-                    ReturnCode code = ReturnCode.Ok;
                     int argumentIndex = 1;
 
                     for (; argumentIndex < argumentCount; argumentIndex += 2)
@@ -232,8 +281,7 @@ namespace Eagle._Lambdas
                                 varName, argument, interpreter.HasNoCacheArgument());
 
                             code = interpreter.SetVariableValue2(
-                                VariableFlags.Argument, frame, varName, varValue,
-                                ref result);
+                                variableFlags, frame, varName, varValue, ref result);
 
                             if (code != ReturnCode.Ok)
                                 break;
@@ -243,16 +291,19 @@ namespace Eagle._Lambdas
                             //         arguments list.  Primarily because we do not want to
                             //         have to redo this logic later (i.e. for [scope]).
                             //
-                            if (varValue is Argument)
+                            if (!noPushFrame)
                             {
-                                frameProcedureArguments.Add((Argument)varValue);
-                            }
-                            else
-                            {
-                                frameProcedureArguments.Add(Argument.GetOrCreate(
-                                    interpreter, ArgumentFlags.Named |
-                                    ArgumentFlags.FrameOnly, varName, varValue,
-                                    interpreter.HasNoCacheArgument()));
+                                if (varValue is Argument)
+                                {
+                                    frameProcedureArguments.Add((Argument)varValue);
+                                }
+                                else
+                                {
+                                    frameProcedureArguments.Add(Argument.GetOrCreate(
+                                        interpreter, ArgumentFlags.Named |
+                                        ArgumentFlags.FrameOnly, varName, varValue,
+                                        interpreter.HasNoCacheArgument()));
+                                }
                             }
 
                             alreadySet.Add(varName, null);
@@ -298,8 +349,7 @@ namespace Eagle._Lambdas
                                         @default : Argument.NoValue;
 
                                     code = interpreter.SetVariableValue2(
-                                        VariableFlags.Argument, frame, varName, varValue,
-                                        ref result);
+                                        variableFlags, frame, varName, varValue, ref result);
 
                                     if (code != ReturnCode.Ok)
                                         break;
@@ -310,16 +360,19 @@ namespace Eagle._Lambdas
                                     //         because we do not want to have to redo
                                     //         this logic later (i.e. for [scope]).
                                     //
-                                    if (varValue is Argument)
+                                    if (!noPushFrame)
                                     {
-                                        frameProcedureArguments.Add((Argument)varValue);
-                                    }
-                                    else
-                                    {
-                                        frameProcedureArguments.Add(Argument.GetOrCreate(
-                                            interpreter, ArgumentFlags.Named |
-                                            ArgumentFlags.FrameOnly, varName, varValue,
-                                            interpreter.HasNoCacheArgument()));
+                                        if (varValue is Argument)
+                                        {
+                                            frameProcedureArguments.Add((Argument)varValue);
+                                        }
+                                        else
+                                        {
+                                            frameProcedureArguments.Add(Argument.GetOrCreate(
+                                                interpreter, ArgumentFlags.Named |
+                                                ArgumentFlags.FrameOnly, varName, varValue,
+                                                interpreter.HasNoCacheArgument()));
+                                        }
                                     }
                                 }
                                 else
@@ -373,11 +426,11 @@ namespace Eagle._Lambdas
                         if (argsArguments != null)
                         {
                             code = interpreter.SetVariableValue2(
-                                VariableFlags.Argument, frame,
+                                variableFlags, frame,
                                 procedureArguments.GetVariadicName(),
                                 argsArguments, ref result);
 
-                            if (code == ReturnCode.Ok)
+                            if ((code == ReturnCode.Ok) && !noPushFrame)
                             {
                                 frameProcedureArguments.Add(Argument.GetOrCreate(
                                     interpreter, ArgumentFlags.Named |
@@ -395,7 +448,8 @@ namespace Eagle._Lambdas
                     {
                         ICallFrame savedFrame = null;
 
-                        interpreter.PushProcedureCallFrame(frame, true, ref savedFrame);
+                        if (!noPushFrame)
+                            interpreter.PushProcedureCallFrame(frame, true, ref savedFrame);
 
                         try
                         {
@@ -416,7 +470,8 @@ namespace Eagle._Lambdas
 
                                 try
                                 {
-                                    bool atomic = EntityOps.IsAtomic(this);
+                                    bool atomic = FlagOps.HasFlags(
+                                        procedureFlags, ProcedureFlags.Atomic, true);
 
                                     if (atomic)
                                         interpreter.InternalHardTryLock(ref locked); /* TRANSACTIONAL */
@@ -425,7 +480,9 @@ namespace Eagle._Lambdas
                                     {
 #if ARGUMENT_CACHE || PARSE_CACHE
                                         EngineFlags savedEngineFlags = EngineFlags.None;
-                                        bool nonCaching = EntityOps.IsNonCaching(this);
+
+                                        bool nonCaching = FlagOps.HasFlags(
+                                            procedureFlags, ProcedureFlags.NonCaching, true);
 
                                         if (nonCaching)
                                         {
@@ -514,10 +571,15 @@ namespace Eagle._Lambdas
                         }
                         finally
                         {
-                            /* IGNORED */
-                            interpreter.PopProcedureCallFrame(frame, ref savedFrame);
+                            if (!noPushFrame)
+                            {
+                                /* IGNORED */
+                                interpreter.PopProcedureCallFrame(frame, ref savedFrame);
+                            }
                         }
                     }
+
+                done:
 
                     return code;
                 }
@@ -525,12 +587,47 @@ namespace Eagle._Lambdas
                 {
                     if (frame != null)
                     {
-                        IDisposable disposable = frame as IDisposable;
-
-                        if (disposable != null)
+                        if (noPushFrame)
                         {
-                            disposable.Dispose();
-                            disposable = null;
+                            ScriptOps.UnsetArgumentsOrComplain(
+                                interpreter, frame, procedureArguments,
+                                this.CleanArguments);
+
+                            ReturnCode restoreCode;
+                            Result restoreError = null;
+
+                            restoreCode = frame.Restore(interpreter,
+                                procedureArguments, ref savedVariables,
+                                ref restoreCount, ref restoreError);
+
+                            if ((restoreCode == ReturnCode.Ok) &&
+                                (restoreCount != saveCount))
+                            {
+                                restoreError = String.Format(
+                                    "failed to properly restore call frame {0} for " +
+                                    "procedure {1}: restored {2} versus saved {3}",
+                                    frame.Name, procedureName, restoreCount,
+                                    saveCount);
+
+                                restoreCode = ReturnCode.Error;
+                            }
+
+                            if (restoreCode != ReturnCode.Ok)
+                            {
+                                DebugOps.Complain(
+                                    interpreter, restoreCode,
+                                    restoreError);
+                            }
+                        }
+                        else
+                        {
+                            IDisposable disposable = frame as IDisposable;
+
+                            if (disposable != null)
+                            {
+                                disposable.Dispose();
+                                disposable = null;
+                            }
                         }
 
                         frame = null;

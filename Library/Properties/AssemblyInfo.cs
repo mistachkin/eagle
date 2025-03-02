@@ -23,6 +23,8 @@ using System.Security.Permissions;
 #endif
 
 using Eagle._Attributes;
+using Eagle._Components.Private;
+
 
 #if INTERNALS_VISIBLE_TO
 using Eagle._Components.Private;
@@ -91,7 +93,13 @@ using Eagle._Constants;
 #endif
 
 [assembly: AssemblyTag("beta")]
-[assembly: AssemblyLicense(License.Summary, License.Text)]
+
+#if OFFICIAL_BINARY
+[assembly: AssemblyLicense(BinaryLicense.Summary, BinaryLicense.Text)]
+#else
+[assembly: AssemblyLicense(SourceLicense.Summary, SourceLicense.Text)]
+#endif
+
 [assembly: AssemblyUri("https://urn.to/r/eagle")]
 [assembly: AssemblyUri("xmlSchema", "https://eagle.to/2009/schema")]
 [assembly: AssemblyUri("update", "https://update.eagle.to/")]
@@ -100,3 +108,7 @@ using Eagle._Constants;
 [assembly: AssemblyUri("auxiliary", "https://urn.to/r")]
 [assembly: AssemblyUri("license", "https://urn.to/r/license")]
 [assembly: AssemblyUri("provision", "https://urn.to/r/provision")]
+
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+[assembly: AssemblyUri("trustedRemote", "https://urn.to/r/auto")]
+#endif

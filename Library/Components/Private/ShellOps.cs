@@ -809,7 +809,7 @@ namespace Eagle._Components.Private
 
                         //
                         // NOTE: At this point (and only this point), we
-                        //       know that the command line arguemnts,
+                        //       know that the command line arguments,
                         //       if any, were read from the text reader.
                         //
                         readArgv++;

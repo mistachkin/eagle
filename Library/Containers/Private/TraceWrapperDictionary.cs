@@ -11,11 +11,13 @@
 
 using Eagle._Attributes;
 
+using TraceWrapper = Eagle._Wrappers.Trace;
+
 namespace Eagle._Containers.Private
 {
     [ObjectId("54794da1-263d-471d-af62-acf1246d9b6c")]
     internal sealed class TraceWrapperDictionary :
-            WrapperDictionary<string, _Wrappers.Trace>
+            WrapperDictionary<string, TraceWrapper>
     {
         public TraceWrapperDictionary()
             : base()

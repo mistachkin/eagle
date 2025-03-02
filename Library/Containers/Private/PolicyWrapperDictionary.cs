@@ -12,11 +12,13 @@
 using System.Collections.Generic;
 using Eagle._Attributes;
 
+using PolicyWrapper = Eagle._Wrappers.Policy;
+
 namespace Eagle._Containers.Private
 {
     [ObjectId("a8c9a48b-28ec-4f8e-b9ba-9c508bee48ae")]
     internal sealed class PolicyWrapperDictionary :
-            WrapperDictionary<string, _Wrappers.Policy>
+            WrapperDictionary<string, PolicyWrapper>
     {
         public PolicyWrapperDictionary()
             : base()
@@ -27,7 +29,7 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         public PolicyWrapperDictionary(
-            IDictionary<string, _Wrappers.Policy> dictionary
+            IDictionary<string, PolicyWrapper> dictionary
             )
             : base(dictionary)
         {

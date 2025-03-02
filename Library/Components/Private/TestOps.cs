@@ -2542,7 +2542,12 @@ namespace Eagle._Components.Private
                         // NOTE: Finally, move the temporary file, atomically,
                         //       to the new name.
                         //
-                        File.Move(fileNames[0], fileNames[1]); /* throw */
+                        // BUGFIX: Do this only if the file exists.  If not,
+                        //         that is fine and the final file will be
+                        //         created later by our caller.
+                        //
+                        if (File.Exists(fileNames[0]))
+                            File.Move(fileNames[0], fileNames[1]); /* throw */
 
                         //
                         // NOTE: If we got this far, everything should have

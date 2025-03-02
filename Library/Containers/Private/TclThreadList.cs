@@ -45,7 +45,7 @@ namespace Eagle._Containers.Private.Tcl
         public string ToString(string pattern, bool noCase)
         {
             return ParserOps<TclThread>.ListToString(this, Index.Invalid, Index.Invalid,
-                ToStringFlags.None, Characters.Space.ToString(), pattern, noCase);
+                ToStringFlags.None, Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

@@ -39,7 +39,7 @@ namespace Eagle._Containers.Private
     {
         #region Private Constants
         private static readonly bool AllowZero = true;
-        private static readonly string ElementSeparator = Characters.Space.ToString();
+        private static readonly string ElementSeparator = Characters.SpaceString;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

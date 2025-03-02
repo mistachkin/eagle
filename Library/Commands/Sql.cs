@@ -23,6 +23,9 @@ using Eagle._Interfaces.Public;
 using IsolationLevel = System.Data.IsolationLevel;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
+using ConnectionTriplet = Eagle._Components.Public.AnyTriplet<
+    string, string, byte[]>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -420,7 +423,7 @@ namespace Eagle._Commands
 
                                                                             //
                                                                             // NOTE: Set command text itself to the value of the second
-                                                                            //       arguemnt after the options.
+                                                                            //       argument after the options.
                                                                             //
                                                                             command.CommandText = arguments[argumentIndex + 1];
 
@@ -799,7 +802,7 @@ namespace Eagle._Commands
 
                                                                             //
                                                                             // NOTE: Set command text itself to the value of the second
-                                                                            //       arguemnt after the options.
+                                                                            //       argument after the options.
                                                                             //
                                                                             command.CommandText = arguments[argumentIndex + 1];
 
@@ -996,146 +999,305 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
+                                            int argumentIndex; /* REUSED */
+
+                                            IOption strictTypeOption = new Option(
+                                                null, OptionFlags.None, Index.Invalid,
+                                                Index.Invalid, "-stricttype", null);
+
+                                            IOption verboseOption = new Option(
+                                                null, OptionFlags.None, Index.Invalid,
+                                                Index.Invalid, "-verbose", null);
+
+                                            IOption noCaseOption = new Option(
+                                                null, OptionFlags.None, Index.Invalid,
+                                                Index.Invalid, "-nocase", null);
+
+                                            OptionDictionary preOptions = new OptionDictionary(
                                                 new IOption[] {
-                                                new Option(typeof(DbConnectionType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-type", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-assemblyfilename", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-typename", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-typefullname", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-stricttype", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-verbose", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
+                                                strictTypeOption,
+                                                verboseOption,
+                                                noCaseOption,
                                                 Option.CreateEndOfOptions()
                                             });
 
-                                            int argumentIndex = Index.Invalid;
+                                            argumentIndex = Index.Invalid; /* IGNORED */
 
-                                            code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, false, ref argumentIndex, ref result);
+                                            code = interpreter.CheckOptions(
+                                                preOptions, arguments, 0, 2, Index.Invalid,
+                                                ref argumentIndex, ref result);
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                if ((argumentIndex != Index.Invalid) && ((argumentIndex + 1) == arguments.Count))
+                                                //
+                                                // NOTE: Perform case-insensitive search for the
+                                                //       type name?
+                                                //
+                                                bool noCase = false;
+
+                                                if (preOptions.IsPresent("-nocase"))
+                                                    noCase = true;
+
+                                                //
+                                                // NOTE: Prevent any "magical" type searches (i.e.
+                                                //       use their specified type string verbatim)?
+                                                //
+                                                bool strictType = false;
+
+                                                if (preOptions.IsPresent("-stricttype"))
+                                                    strictType = true;
+
+                                                //
+                                                // NOTE: Return all Type exception information (this
+                                                //       can be very costly for performance).
+                                                //
+                                                bool verbose = false;
+
+                                                if (preOptions.IsPresent("-verbose"))
+                                                    verbose = true;
+
+                                                //
+                                                // HACK: The "-stricttype", "-nocase", and "-verbose"
+                                                //       options have now been processed; therefore,
+                                                //       permit it to be present (because they will
+                                                //       __still__ be present in the "arguments" list
+                                                //       if they were before) but just ignore them.
+                                                //
+                                                strictTypeOption.Flags |= OptionFlags.Ignored;
+                                                verboseOption.Flags |= OptionFlags.Ignored;
+                                                noCaseOption.Flags |= OptionFlags.Ignored;
+
+                                                ValueFlags valueFlags = Value.GetTypeValueFlags(
+                                                    strictType, verbose, noCase);
+
+                                                OptionDictionary options = new OptionDictionary(
+                                                    new IOption[] {
+                                                    new Option(typeof(DbConnectionType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-type", null),
+                                                    new Option(typeof(DbConnectionType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-type1", null),
+                                                    new Option(typeof(DbConnectionType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-type2", null),
+                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-assemblyfilename", null),
+                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-typename", null),
+                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-typefullname", null),
+                                                    new Option(typeof(ValueFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-valueflags", new Variant(valueFlags)),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
+                                                    //
+                                                    // HACK: The "-maybetrustedonly" option is allowed in "safe" interpreters due
+                                                    //       to its lack of a value, its relative harmlessness, and because the
+                                                    //       core library binary plugin loader uses it, e.g. for HotKey, et al.
+                                                    //
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
+                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-publickeytoken1", null),
+                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-publickeytoken2", null),
+                                                    strictTypeOption,
+                                                    verboseOption,
+                                                    noCaseOption,
+                                                    Option.CreateEndOfOptions()
+                                                });
+
+                                                argumentIndex = Index.Invalid;
+
+                                                code = interpreter.GetOptions(
+                                                    options, arguments, 0, 2, Index.Invalid, false,
+                                                    ref argumentIndex, ref result);
+
+                                                if (code == ReturnCode.Ok)
                                                 {
-                                                    IVariant value = null;
-                                                    DbConnectionType dbConnectionType = DbConnectionType.Default; /* TODO: Good default? */
-
-                                                    if (options.IsPresent("-type", ref value))
-                                                        dbConnectionType = (DbConnectionType)value.Value;
-
-                                                    string assemblyFileName = null;
-
-                                                    if (options.IsPresent("-assemblyfilename", ref value))
-                                                        assemblyFileName = value.ToString();
-
-                                                    string typeName = null;
-
-                                                    if (options.IsPresent("-typename", ref value))
-                                                        typeName = value.ToString();
-
-                                                    string typeFullName = null;
-
-                                                    if (options.IsPresent("-typefullname", ref value))
-                                                        typeFullName = value.ToString();
-
-                                                    //
-                                                    // NOTE: Perform a case-insensitive search for the type name?
-                                                    //
-                                                    bool noCase = false;
-
-                                                    if (options.IsPresent("-nocase"))
-                                                        noCase = true;
-
-                                                    //
-                                                    // NOTE: Prevent any magical type searches (i.e. use their specified
-                                                    //       type string verbatim)?
-                                                    //
-                                                    bool strictType = false;
-
-                                                    if (options.IsPresent("-stricttype"))
-                                                        strictType = true;
-
-                                                    //
-                                                    // NOTE: Return all Type exception information (this can be very
-                                                    //       costly for performance).
-                                                    //
-                                                    bool verbose = false;
-
-                                                    if (options.IsPresent("-verbose"))
-                                                        verbose = true;
-
-                                                    //
-                                                    // NOTE: We intend to modify the interpreter state,
-                                                    //       make sure this is not forbidden.
-                                                    //
-                                                    if (interpreter.IsModifiable(true, ref result))
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        ((argumentIndex + 1) == arguments.Count))
                                                     {
-                                                        if (interpreter.HasDbConnections(ref result))
+                                                        IVariant value = null;
+                                                        DbConnectionType dbConnectionType1 = DbConnectionType.Default; /* TODO: Good default? */
+                                                        DbConnectionType dbConnectionType2 = DbConnectionType.None; /* TODO: Good default? */
+
+                                                        if (options.IsPresent("-type", ref value))
                                                         {
-                                                            try
+                                                            dbConnectionType1 = (DbConnectionType)value.Value;
+
+                                                            //
+                                                            // HACK: When SQLite is being used, prefer to use its
+                                                            //       Enterprise Edition, when available.
+                                                            //
+                                                            if ((dbConnectionType1 == DbConnectionType.SQLite) &&
+                                                                (dbConnectionType2 == DbConnectionType.None))
                                                             {
-                                                                IDbConnection connection = null;
+                                                                dbConnectionType1 = DbConnectionType.SQLiteEnterprise;
+                                                                dbConnectionType2 = DbConnectionType.SQLite;
+                                                            }
+                                                        }
 
-                                                                code = DataOps.CreateDbConnection(interpreter,
-                                                                    dbConnectionType, arguments[argumentIndex],
-                                                                    assemblyFileName, typeFullName, typeName,
-                                                                    null, Value.GetTypeValueFlags(
-                                                                        strictType, verbose, noCase),
-                                                                    DataOps.GetOtherDbConnectionTypeNames(true, false),
-                                                                    DataOps.GetOtherDbConnectionTypeNames(false, false),
-                                                                    ref connection, ref result);
+                                                        if (options.IsPresent("-type1", ref value))
+                                                            dbConnectionType1 = (DbConnectionType)value.Value;
 
-                                                                if (code == ReturnCode.Ok)
+                                                        if (options.IsPresent("-type2", ref value))
+                                                            dbConnectionType2 = (DbConnectionType)value.Value;
+
+                                                        string assemblyFileName = null;
+
+                                                        if (options.IsPresent("-assemblyfilename", ref value))
+                                                            assemblyFileName = value.ToString();
+
+                                                        string typeName = null;
+
+                                                        if (options.IsPresent("-typename", ref value))
+                                                            typeName = value.ToString();
+
+                                                        string typeFullName = null;
+
+                                                        if (options.IsPresent("-typefullname", ref value))
+                                                            typeFullName = value.ToString();
+
+                                                        if (options.IsPresent("-valueflags", ref value))
+                                                            valueFlags = (ValueFlags)value.Value;
+
+                                                        if (options.IsPresent("-trustedonly"))
+                                                            valueFlags |= ValueFlags.TrustedOnly;
+
+#if !DEBUG
+                                                        if (options.IsPresent("-maybetrustedonly"))
+                                                            valueFlags |= ValueFlags.TrustedOnly;
+#endif
+
+                                                        /////////////////////////////////////////////////////////
+                                                        //
+                                                        // NOTE: These two boolean variables are read from the
+                                                        //       interpreter data flags, not the sub-command
+                                                        //       options.
+                                                        //
+                                                        bool trustedOnly = FlagOps.HasFlags(
+                                                            interpreter.DataFlagsNoLock, DataFlags.TrustedOnly,
+                                                            true);
+
+                                                        bool verifiedOnly = FlagOps.HasFlags(
+                                                            interpreter.DataFlagsNoLock, DataFlags.VerifiedOnly,
+                                                            true);
+
+                                                        /////////////////////////////////////////////////////////
+
+                                                        if (trustedOnly)
+                                                            valueFlags |= ValueFlags.TrustedOnly;
+
+                                                        byte[] publicKeyToken1 = null;
+                                                        byte[] publicKeyToken2 = null;
+
+                                                        value = null;
+
+                                                        if ((code == ReturnCode.Ok) && (verifiedOnly ||
+                                                            options.IsPresent("-publickeytoken1", ref value)))
+                                                        {
+                                                            if (value == null)
+                                                            {
+                                                                value = new Variant(String.Format(
+                                                                    "0x{0}", PublicKeyToken.SQLiteEnterprise));
+                                                            }
+
+                                                            code = RuntimeOps.GetPublicKeyToken(
+                                                                value.ToString(), interpreter.InternalCultureInfo,
+                                                                ref publicKeyToken1, ref result);
+                                                        }
+
+                                                        value = null;
+
+                                                        if ((code == ReturnCode.Ok) && (verifiedOnly ||
+                                                            options.IsPresent("-publickeytoken2", ref value)))
+                                                        {
+                                                            if (value == null)
+                                                            {
+                                                                value = new Variant(String.Format(
+                                                                    "0x{0}", PublicKeyToken.SQLite));
+                                                            }
+
+                                                            code = RuntimeOps.GetPublicKeyToken(
+                                                                value.ToString(), interpreter.InternalCultureInfo,
+                                                                ref publicKeyToken2, ref result);
+                                                        }
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            //
+                                                            // NOTE: We intend to modify the interpreter state,
+                                                            //       make sure this is not forbidden.
+                                                            //
+                                                            if (interpreter.IsModifiable(true, ref result))
+                                                            {
+                                                                if (interpreter.HasDbConnections(ref result))
                                                                 {
-                                                                    if (connection != null)
-                                                                        connection.Open();
+                                                                    try
+                                                                    {
+                                                                        bool usePublicKeyToken = (publicKeyToken1 != null) ||
+                                                                            (publicKeyToken2 != null);
 
-                                                                    result = FormatOps.DatabaseObjectName(connection,
-                                                                        dbConnectionType.ToString() + "Connection",
-                                                                        interpreter.NextId());
+                                                                        IDbConnection connection = null;
+                                                                        DbConnectionType dbConnectionType = DbConnectionType.None;
+                                                                        byte[] publicKeyToken = null; /* NOT USED */
 
-                                                                    interpreter.AddDbConnection(result, connection);
+                                                                        code = DataOps.CreateDbConnection(
+                                                                            interpreter, dbConnectionType1,
+                                                                            dbConnectionType2, publicKeyToken1,
+                                                                            publicKeyToken2, arguments[argumentIndex],
+                                                                            assemblyFileName, typeFullName,
+                                                                            typeName, null, valueFlags,
+                                                                            DataOps.GetOtherDbConnectionTypes(
+                                                                                valueFlags, true, usePublicKeyToken,
+                                                                                true),
+                                                                            DataOps.GetOtherDbConnectionTypes(
+                                                                                valueFlags, true, usePublicKeyToken,
+                                                                                false),
+                                                                            ref connection, ref dbConnectionType,
+                                                                            ref publicKeyToken, ref result);
+
+                                                                        if (code == ReturnCode.Ok)
+                                                                        {
+                                                                            if (connection != null)
+                                                                                connection.Open();
+
+                                                                            result = FormatOps.DatabaseConnectionName(
+                                                                                connection, dbConnectionType, interpreter);
+
+                                                                            interpreter.AddDbConnection(result, connection);
 
 #if NOTIFY
-                                                                    /* IGNORED */
-                                                                    interpreter.CheckNotification(
-                                                                        NotifyType.Connection, NotifyFlags.Added,
-                                                                        connection, interpreter, null, null, null,
-                                                                        ref result);
+                                                                            /* IGNORED */
+                                                                            interpreter.CheckNotification(
+                                                                                NotifyType.Connection, NotifyFlags.Added,
+                                                                                connection, interpreter, null, null, null,
+                                                                                ref result);
 #endif
+                                                                        }
+                                                                    }
+                                                                    catch (Exception e)
+                                                                    {
+                                                                        Engine.SetExceptionErrorCode(interpreter, e);
+
+                                                                        result = e;
+                                                                        code = ReturnCode.Error;
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    code = ReturnCode.Error;
                                                                 }
                                                             }
-                                                            catch (Exception e)
+                                                            else
                                                             {
-                                                                Engine.SetExceptionErrorCode(interpreter, e);
-
-                                                                result = e;
                                                                 code = ReturnCode.Error;
                                                             }
                                                         }
+                                                    }
+                                                    else
+                                                    {
+                                                        if ((argumentIndex != Index.Invalid) &&
+                                                            Option.LooksLikeOption(arguments[argumentIndex]))
+                                                        {
+                                                            result = OptionDictionary.BadOption(
+                                                                options, arguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                        }
                                                         else
                                                         {
-                                                            code = ReturnCode.Error;
+                                                            result = "wrong # args: should be \"sql open ?options? connectionString\"";
                                                         }
-                                                    }
-                                                    else
-                                                    {
+
                                                         code = ReturnCode.Error;
                                                     }
-                                                }
-                                                else
-                                                {
-                                                    if ((argumentIndex != Index.Invalid) &&
-                                                        Option.LooksLikeOption(arguments[argumentIndex]))
-                                                    {
-                                                        result = OptionDictionary.BadOption(
-                                                            options, arguments[argumentIndex], !interpreter.InternalIsSafe());
-                                                    }
-                                                    else
-                                                    {
-                                                        result = "wrong # args: should be \"sql open ?options? connectionString\"";
-                                                    }
-
-                                                    code = ReturnCode.Error;
                                                 }
                                             }
                                         }
@@ -1210,8 +1372,8 @@ namespace Eagle._Commands
                                                                                         IDbTransaction transaction =
                                                                                             connection.BeginTransaction(isolationLevel);
 
-                                                                                        result = FormatOps.DatabaseObjectName(transaction,
-                                                                                            "Transaction", interpreter.NextId());
+                                                                                        result = FormatOps.DatabaseTransactionName(
+                                                                                            transaction, interpreter);
 
                                                                                         interpreter.AddDbTransaction(result, transaction);
 
@@ -1433,10 +1595,11 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 3))
                                         {
-                                            IStringList list = GenericOps<DbConnectionType, StringPair>.Combine(
+                                            IStringList list = GenericOps<string, string>.Combine(
                                                 true, true, true, DataOps.GetDbConnectionTypeNames(),
-                                                DataOps.GetOtherDbConnectionTypeNames(true, false),
-                                                DataOps.GetOtherDbConnectionTypeNames(false, false));
+                                                DataOps.GetOtherDbConnectionTypeNames(true, true, true),
+                                                DataOps.GetOtherDbConnectionTypeNames(true, false, true),
+                                                DataOps.GetOtherDbConnectionTypeNames(false, true, false));
 
                                             string pattern = null;
 

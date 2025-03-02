@@ -1379,6 +1379,24 @@ namespace Eagle._Components.Private
 
             return false;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static long GetSignedRandomNumber()
+        {
+            byte[] bytes = new byte[sizeof(long)];
+
+            if (!GetRandomBytes(ref bytes))
+            {
+                TraceOps.DebugTrace(
+                    "GetSignedRandomNumber: could not get random bytes",
+                    typeof(GlobalState).Name, TracePriority.ScriptError);
+
+                return 0;
+            }
+
+            return BitConverter.ToInt64(bytes, 0);
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

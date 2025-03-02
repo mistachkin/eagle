@@ -27,6 +27,8 @@ using Eagle._Interfaces.Public;
 
 using _Engine = Eagle._Components.Public.Engine;
 
+using ObjectWrapper = Eagle._Wrappers._Object;
+
 #if !CONSOLE
 using ConsoleColor = Eagle._Components.Public.ConsoleColor;
 #endif
@@ -116,6 +118,7 @@ namespace Eagle._Hosts
             ScriptTypes.Initialization,
             ScriptTypes.Embedding,
             ScriptTypes.Vendor,
+            ScriptTypes.TrustedRemote,
             ScriptTypes.Startup,
             ScriptTypes.Worker,
             ScriptTypes.Safe,
@@ -135,6 +138,7 @@ namespace Eagle._Hosts
             FileNameOnly.Initialization,
             FileNameOnly.Embedding,
             FileNameOnly.Vendor,
+            FileNameOnly.TrustedRemote,
             FileNameOnly.Startup,
             FileNameOnly.Worker,
             FileNameOnly.Safe,
@@ -156,6 +160,7 @@ namespace Eagle._Hosts
             FileName.Initialization,
             FileName.Embedding,
             FileName.Vendor,
+            FileName.TrustedRemote,
             FileName.Startup,
             FileName.Worker,
             FileName.Safe,
@@ -3105,7 +3110,7 @@ namespace Eagle._Hosts
             IObject @object
             )
         {
-            _Wrappers._Object objectWrapper = @object as _Wrappers._Object;
+            ObjectWrapper objectWrapper = @object as ObjectWrapper;
 
             if (objectWrapper != null)
                 return AppDomainOps.MaybeGetType(objectWrapper.@object);
@@ -3150,9 +3155,39 @@ namespace Eagle._Hosts
 
             if (@object != null)
             {
+                int hashCode;
+
                 try
                 {
                     StringPairList localList = new StringPairList();
+
+                    if (empty || @object.Disposed)
+                        localList.Add(GetPairKeyWithPrefix(
+                            "ObjectDisposed", prefix), String.Format(
+                            "{0}", FormatOps.MaybeNull(@object.Disposed)));
+
+                    if (empty || @object.Disposing)
+                        localList.Add(GetPairKeyWithPrefix(
+                            "ObjectDisposing", prefix), String.Format(
+                            "{0}", FormatOps.MaybeNull(@object.Disposing)));
+
+                    hashCode = RuntimeOps.GetHashCode((object)@object);
+
+                    if (empty || (hashCode != 0))
+                    {
+                        localList.Add(GetPairKeyWithPrefix(
+                            "ObjectRuntimeHashCode", prefix),
+                            hashCode.ToString());
+                    }
+
+                    hashCode = @object.GetHashCode();
+
+                    if (empty || (hashCode != 0))
+                    {
+                        localList.Add(GetPairKeyWithPrefix(
+                            "ObjectHashCode", prefix),
+                            hashCode.ToString());
+                    }
 
                     if (empty || (@object.Alias != null))
                         localList.Add(GetPairKeyWithPrefix("Alias", prefix),
@@ -3219,6 +3254,15 @@ namespace Eagle._Hosts
                     if (empty || (objectValue != null))
                     {
                         //
+                        // HACK: Attempt to determine if the (target) object
+                        //       has been disposed.  If so, indicate that in
+                        //       the diagnostic output -AND- try to avoid an
+                        //       ObjectDisposedException.
+                        //
+                        bool? disposed = ObjectOps.IsDisposed(
+                            interpreter, objectValue, true, false, false);
+
+                        //
                         // NOTE: What type is this object?
                         //
                         Type valueType = AppDomainOps.MaybeGetType(objectValue);
@@ -3249,21 +3293,39 @@ namespace Eagle._Hosts
 
                         if (objectValue != null)
                         {
-                            string stringValue = objectValue.ToString();
+                            localList.Add(GetPairKeyWithPrefix(
+                                "ValueDisposed", prefix), String.Format(
+                                "{0}", FormatOps.MaybeNull(disposed)));
 
-                            if (empty || (stringValue != null))
-                            {
-                                localList.Add(GetPairKeyWithPrefix(
-                                    "ToString", prefix), (stringValue != null) ?
-                                    stringValue : FormatOps.DisplayNull);
-                            }
-
-                            int hashCode = RuntimeOps.GetHashCode(objectValue);
+                            hashCode = RuntimeOps.GetHashCode(objectValue);
 
                             if (empty || (hashCode != 0))
                             {
                                 localList.Add(GetPairKeyWithPrefix(
-                                    "HashCode", prefix), hashCode.ToString());
+                                    "ValueRuntimeHashCode", prefix),
+                                    hashCode.ToString());
+                            }
+
+                            if ((disposed != null) && ((bool)disposed == false))
+                            {
+                                hashCode = objectValue.GetHashCode();
+
+                                if (empty || (hashCode != 0))
+                                {
+                                    localList.Add(GetPairKeyWithPrefix(
+                                        "ValueHashCode", prefix),
+                                        hashCode.ToString());
+                                }
+
+                                string stringValue = objectValue.ToString();
+
+                                if (empty || (stringValue != null))
+                                {
+                                    localList.Add(GetPairKeyWithPrefix(
+                                        "ValueToString", prefix),
+                                        (stringValue != null) ? stringValue :
+                                        FormatOps.DisplayNull);
+                                }
                             }
                         }
                         else
@@ -7761,7 +7823,7 @@ namespace Eagle._Hosts
                 return true;
 
             string value = (frame != null) ?
-                Characters.Colon.ToString() + Characters.Space.ToString() +
+                Characters.Colon.ToString() + Characters.SpaceString +
                 frame.ToString(detailFlags) : String.Empty;
 
             bool linked = FlagOps.HasFlags(
@@ -10349,7 +10411,7 @@ namespace Eagle._Hosts
                                                             //       the left and the value to the right.
                                                             //
                                                             format = format.Replace(
-                                                                Characters.Space.ToString(),
+                                                                Characters.SpaceString,
                                                                 StringOps.StrRepeat(
                                                                     (length - value.Length) + 1,
                                                                     characterSet[(int)BoxCharacter.Space]));

@@ -41,7 +41,8 @@ namespace Eagle._Commands
     /*
      * POLICY: We allow certain "safe" sub-commands.
      */
-    [CommandFlags(CommandFlags.Unsafe | CommandFlags.Standard
+    [CommandFlags(CommandFlags.Unsafe | CommandFlags.Critical |
+        CommandFlags.Standard
 #if NATIVE && WINDOWS
         //
         // NOTE: Uses native code indirectly for querying various pieces of
@@ -2314,17 +2315,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            try
-                                            {
-                                                result = PathOps.GetTempFileName();
-                                            }
-                                            catch (Exception e)
-                                            {
-                                                Engine.SetExceptionErrorCode(interpreter, e);
-
-                                                result = e;
-                                                code = ReturnCode.Error;
-                                            }
+                                            result = PathOps.GetTempFileName();
                                         }
                                         else
                                         {

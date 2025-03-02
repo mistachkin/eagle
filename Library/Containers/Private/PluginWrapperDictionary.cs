@@ -26,6 +26,11 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+using PluginWrapper = Eagle._Wrappers.Plugin;
+
+using PluginPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Plugin>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -37,7 +42,7 @@ namespace Eagle._Containers.Private
 #endif
     [ObjectId("bc93cd1f-ed24-4078-85a3-c8f658a605f9")]
     internal sealed class PluginWrapperDictionary :
-            WrapperDictionary<string, _Wrappers.Plugin>
+            WrapperDictionary<string, PluginWrapper>
     {
         #region Public Constructors
         public PluginWrapperDictionary()
@@ -49,7 +54,7 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         public PluginWrapperDictionary(
-            IDictionary<string, _Wrappers.Plugin> dictionary
+            IDictionary<string, PluginWrapper> dictionary
             )
             : base(dictionary)
         {
@@ -79,7 +84,7 @@ namespace Eagle._Containers.Private
         {
             StringList list = new StringList();
 
-            foreach (KeyValuePair<string, _Wrappers.Plugin> pair in this)
+            foreach (PluginPair pair in this)
             {
                 IPlugin plugin = pair.Value;
 
@@ -123,7 +128,7 @@ namespace Eagle._Containers.Private
             {
                 inputList = new StringList();
 
-                foreach (KeyValuePair<string, _Wrappers.Plugin> pair in this)
+                foreach (PluginPair pair in this)
                 {
                     IPlugin plugin = pair.Value;
 
@@ -162,7 +167,7 @@ namespace Eagle._Containers.Private
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
         #endregion
     }

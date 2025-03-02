@@ -336,8 +336,8 @@ namespace Eagle._Commands
                             {
                                 OptionDictionary options = new OptionDictionary(
                                     new IOption[] {
-                                    new Option(null, OptionFlags.None, Index.Invalid,
-                                        Index.Invalid, "-addtohistory", null)
+                                    new Option(null, OptionFlags.NoCase, Index.Invalid,
+                                        Index.Invalid, "-addToHistory", null)
                                 }, Utility.GetFixupReturnValueOptions().Values);
 
                                 int argumentIndex = Index.Invalid;
@@ -370,7 +370,7 @@ namespace Eagle._Commands
 
                                         bool addToHistory = false;
 
-                                        if (options.IsPresent("-addtohistory"))
+                                        if (options.IsPresent("-addToHistory"))
                                             addToHistory = true;
 
                                         Collection<PSObject> returnValue = null;

@@ -47,12 +47,13 @@ cd	cd ?dirName?
 clock buildnumber	clock buildnumber ?options? ?dateString?
 clock clicks	clock clicks ?options?
 clock days	clock days ?options? ?dateString?
-clock duration	clock duration startDateString endDateString
+clock duration	clock duration ?options? startDateString endDateString
 clock filetime	clock filetime fileTimeValue ?-format string? ?-gmt boolean? ?-epoch dateString?
 clock format	clock format clockValue ?-format string? ?-gmt boolean? ?-epoch dateString?
 clock isvalid	clock isvalid dateString
 clock microseconds	clock microseconds ?epoch?
 clock milliseconds	clock milliseconds ?epoch?
+clock monthdays	clock monthdays ?month?
 clock now	clock now ?-gmt boolean?
 clock scan	clock scan dateString ?-base clockValue? ?-format string? ?-gmt boolean? ?-epoch dateString?
 clock seconds	clock seconds ?epoch?
@@ -63,6 +64,7 @@ concat	concat ?arg arg ...?
 continue	continue ?string?
 debug break	debug break ?options?
 debug breakpoints	debug breakpoints ?pattern?
+debug bundle	debug bundle fileName ?password? ?pattern?
 debug cacheconfiguration	debug cacheconfiguration ?settings? ?level?
 debug callback	debug callback ?{}|arg ...?
 debug cleanup	debug cleanup ?flags?
@@ -89,6 +91,8 @@ debug lockloop	debug lockloop enabled
 debug lockvar	debug lockvar enabled name
 debug log	debug log ?options? message
 debug memory	debug memory
+debug mount	debug mount fileName ?password?
+debug mounts	debug mounts ?pattern?
 debug null	debug null
 debug oncancel	debug oncancel ?enabled?
 debug onerror	debug onerror ?enabled?
@@ -137,6 +141,7 @@ debug token	debug token fileName startLine endLine ?enabled?
 debug trace	debug trace ?options? ?message?
 debug types	debug types ?types?
 debug undelete	debug undelete ?pattern?
+debug unmount	debug unmount fileName
 debug variable	debug variable ?options? varName
 debug vout	debug vout ?channelId? ?enabled?
 debug watch	debug watch ?varName? ?types?
@@ -381,8 +386,8 @@ interp issafe	interp issafe ?path?
 interp issdk	interp issdk ?path? ?sdkType?
 interp isstandard	interp isstandard ?path?
 interp iterationlimit	interp iterationlimit path ?limit?
-interp makesafe	interp makesafe ?path? ?safe? ?all?
-interp makestandard	interp makestandard ?path? ?standard? ?all?
+interp makesafe	interp makesafe ?path? ?safe? ?flags?
+interp makestandard	interp makestandard ?path? ?standard? ?flags?
 interp marktrusted	interp marktrusted path
 interp maybereadorgetscriptfile	interp maybereadorgetscriptfile ?options? path fileName
 interp namespacelimit	interp namespacelimit path ?limit?
@@ -495,6 +500,7 @@ object interfaces	object interfaces ?pattern?
 object invoke	object invoke ?options? object member ?arg ...?
 object invokeall	object invokeall ?options? object memberAndArgs ?memberAndArgs ...?
 object invokeraw	object invokeraw ?options? object member ?arg ...?
+object isdisposed	object isdisposed ?options? object
 object isnull	object isnull ?options? object
 object isoftype	object isoftype ?options? object type
 object list	object list ?pattern?

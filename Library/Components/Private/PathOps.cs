@@ -267,14 +267,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal static readonly bool NoCase =
+        public static readonly bool NoCase =
             PlatformOps.IsWindowsOperatingSystem() ?
                 true : PlatformOps.IsUnixOperatingSystem() ? false : true;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal static readonly StringComparison ComparisonType =
+        public static readonly StringComparison ComparisonType =
             GetComparisonType();
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static readonly StringComparer Comparer = GetComparer();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -311,12 +315,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal static readonly string CurrentDirectory = _Path.Current;
-        internal static readonly string ParentDirectory = _Path.Parent;
+        public static readonly string CurrentDirectory = _Path.Current;
+        public static readonly string ParentDirectory = _Path.Parent;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static readonly char NonNativeDirectorySeparatorChar =
+        public static readonly char NonNativeDirectorySeparatorChar =
             PlatformOps.IsWindowsOperatingSystem() ?
                 AltDirectorySeparatorChar :
                 DirectorySeparatorChar;
@@ -358,7 +362,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static readonly Regex identifierRegEx = RegExOps.Create(
-            "^[0-9A-Z_]+$", RegexOptions.IgnoreCase);
+            "^[0-9A-Z_]+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -767,19 +771,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static StringComparer GetComparer()
+        {
+            //
+            // WINDOWS: File names are not case-sensitive.
+            //
+            return PlatformOps.IsWindowsOperatingSystem() ?
+                StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static StringComparison GetComparisonType()
         {
             //
             // WINDOWS: File names are not case-sensitive.
             //
             if (PlatformOps.IsWindowsOperatingSystem())
-                return StringOps.GetUserComparisonType(true);
+                return SharedStringOps.GetSystemComparisonType(true);
 
+#if DEAD_CODE
             //
             // UNIX: File names are case-sensitive.
             //
             if (PlatformOps.IsUnixOperatingSystem())
-                return StringOps.GetUserComparisonType(false);
+                return SharedStringOps.GetSystemComparisonType(false);
+#endif
 
             //
             // UNKNOWN: Assume that file names are binary
@@ -2523,7 +2540,9 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
-                    result = Path.GetTempFileName(); /* throw */
+                    return Path.Combine(
+                        Path.GetTempPath(), /* throw */
+                        Path.GetRandomFileName()); /* throw */
                 }
             }
             catch (Exception e)
@@ -6228,7 +6247,7 @@ namespace Eagle._Components.Private
         {
             Uri uri = null;
 
-            return IsRemoteUri(value, ref uri);
+            return IsRemoteUriOrFile(value, false, ref uri);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6236,6 +6255,28 @@ namespace Eagle._Components.Private
         public static bool IsRemoteUri(
             string value, /* in */
             ref Uri uri   /* out */
+            )
+        {
+            return IsRemoteUriOrFile(value, false, ref uri);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsRemoteUriOrFile(
+            string value /* in */
+            )
+        {
+            Uri uri = null;
+
+            return IsRemoteUriOrFile(value, true, ref uri);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool IsRemoteUriOrFile(
+            string value,   /* in */
+            bool allowFile, /* in */
+            ref Uri uri     /* out */
             )
         {
             uri = null;
@@ -6246,11 +6287,14 @@ namespace Eagle._Components.Private
                 // WARNING: *SECURITY* The "UriKind" value here must be
                 //          "Absolute", please do not change it.
                 //
-                if (Uri.TryCreate(value, UriKind.Absolute, out uri))
-                    return !IsFileUriScheme(uri);
+                if (Uri.TryCreate(value, UriKind.Absolute, out uri) &&
+                    !IsFileUriScheme(uri))
+                {
+                    return true;
+                }
             }
 
-            return false;
+            return allowFile ? File.Exists(value) : false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -7745,9 +7789,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static bool IsScriptFile(
-            string path,    /* in */
-            bool noXml,     /* in */
-            bool noValidate /* in */
+            Interpreter interpreter, /* in */
+            string path,             /* in */
+            bool? viaGetScript,      /* in */
+            bool noXml,              /* in */
+            bool noValidate          /* in */
             )
         {
             if (String.IsNullOrEmpty(path))
@@ -7776,22 +7822,80 @@ namespace Eagle._Components.Private
             if (!noXml && SharedStringOps.Equals(extension,
                     FileExtension.Markup, ComparisonType))
             {
+                //
+                // HACK: The general theory here is that if
+                //       we are be called via the GetScript
+                //       pipeline, we should presume that
+                //       any XML file path presented to us
+                //       is actually an XML script file.
+                //
+                // HACK: Therefore, if the file path passed
+                //       to this method is a remote URI or
+                //       a (pre-)existing file on the file
+                //       system, we can check it against the
+                //       XML script schema; otherwise, if we
+                //       are being called via the GetScript
+                //       pipeline, just assume it is an XML
+                //       script file unless the caller has
+                //       explicitly disabled that behavior,
+                //       via setting "viaGetScript" to false
+                //       instead of the default, which would
+                //       be null.
+                //
                 Result error = null;
 
-                if (noValidate || (XmlOps.ValidateScriptFile(
-                        path, true, ref error) == ReturnCode.Ok))
+                if (IsRemoteUri(path) || File.Exists(path))
                 {
-                    return true;
+                    if (noValidate || (XmlOps.ValidateScriptFile(
+                            path, true, ref error) == ReturnCode.Ok))
+                    {
+                        return true;
+                    }
                 }
-                else
+                else if (viaGetScript != null)
                 {
-                    TraceOps.DebugTrace(String.Format(
-                        "IsScriptFile: path = {0}, error = {1}",
-                        FormatOps.WrapOrNull(path),
-                        FormatOps.WrapOrNull(error)),
-                        typeof(PathOps).Name,
-                        TracePriority.ScriptError2);
+                    if ((bool)viaGetScript)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        //
+                        // NOTE: *RARE* Attempt to actually fetch the
+                        //       script file, from any possible source.
+                        //
+                        ScriptFlags scriptFlags = ScriptOps.GetFlags(
+                            interpreter, ScriptFlags.UserOptionalFile,
+                            false, false);
+
+                        IClientData clientData = ClientData.Empty;
+                        Result result = null;
+
+                        if (interpreter.GetScript(
+                                path, ref scriptFlags, ref clientData,
+                                ref result) == ReturnCode.Ok)
+                        {
+                            string xml = result;
+
+                            if (noValidate || (XmlOps.ValidateScriptString(
+                                    xml, true, ref error) == ReturnCode.Ok))
+                            {
+                                return true;
+                            }
+                        }
+                        else
+                        {
+                            error = result;
+                        }
+                    }
                 }
+
+                TraceOps.DebugTrace(String.Format(
+                    "IsScriptFile: path = {0}, error = {1}",
+                    FormatOps.WrapOrNull(path),
+                    FormatOps.WrapOrNull(error)),
+                    typeof(PathOps).Name,
+                    TracePriority.ScriptError2);
             }
 #endif
 
@@ -8627,6 +8731,18 @@ namespace Eagle._Components.Private
         {
             return NormalizePath(
                 interpreter, null, path, null, true, true, null, true, false);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string ResolvePath(
+            Interpreter interpreter, /* in: OPTIONAL */
+            string path,             /* in */
+            bool? unix               /* in */
+            )
+        {
+            return NormalizePath(
+                interpreter, null, path, unix, true, true, null, true, false);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

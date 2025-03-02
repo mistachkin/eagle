@@ -36,6 +36,7 @@ using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
 using RSCD = Eagle._Components.Private.ReadScriptClientData;
 using GSCD = Eagle._Components.Private.GetScriptClientData;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -8687,15 +8688,22 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
-            try
+            if (@delegate != null)
             {
-                returnValue = @delegate.DynamicInvoke(args);
+                try
+                {
+                    returnValue = @delegate.DynamicInvoke(args);
 
-                return ReturnCode.Ok;
+                    return ReturnCode.Ok;
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
             }
-            catch (Exception e)
+            else
             {
-                error = e;
+                error = "invalid delegate";
             }
 
             return ReturnCode.Error;
@@ -12333,7 +12341,8 @@ namespace Eagle._Components.Public
                     ReadCharsCallback charsCallback = null;
 
                     GetStreamCallbacks(
-                        stringReader, ref charCallback, ref charsCallback);
+                        stringReader, ref charCallback,
+                        ref charsCallback);
 
                     engineFlags |= EngineFlags.ExternalScript;
 
@@ -13237,7 +13246,7 @@ namespace Eagle._Components.Public
                             }
 
                             //
-                            // BUGFIX: We cannot use various properties of the interpeter if
+                            // BUGFIX: We cannot use various properties of the interpreter if
                             //         it has been disposed.
                             //
                             if (!usable)
@@ -13472,7 +13481,8 @@ namespace Eagle._Components.Public
 
                 try
                 {
-                    interpreter.InternalEngineTryLock(ref locked); /* TRANSACTIONAL */
+                    interpreter.InternalEngineTryLock(
+                        ref locked); /* TRANSACTIONAL */
 
                     if (locked)
                     {
@@ -13518,7 +13528,8 @@ namespace Eagle._Components.Public
                 }
                 finally
                 {
-                    interpreter.InternalExitLock(ref locked); /* TRANSACTIONAL */
+                    interpreter.InternalExitLock(
+                        ref locked); /* TRANSACTIONAL */
                 }
 
                 //
@@ -14580,6 +14591,183 @@ namespace Eagle._Components.Public
             return ReturnCode.Error;
         }
         #endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        #region Evaluation (Bundle) Methods
+        internal static ReturnCode EvaluateScript(
+            Interpreter interpreter, /* in */
+            IScript script,          /* in */
+            IBundleData bundleData,  /* in */
+            ref Result result,       /* out */
+            ref int errorLine        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (script == null)
+            {
+                result = "invalid script";
+                return ReturnCode.Error;
+            }
+
+            if (bundleData == null)
+            {
+                result = "invalid bundle data";
+                return ReturnCode.Error;
+            }
+
+            string language = bundleData.Language;
+
+            if (!SharedStringOps.SystemEquals(
+                    language, GlobalState.GetPackageName()))
+            {
+                result = String.Format(
+                    "bundle language mismatch: {0}", language);
+
+                return ReturnCode.Error;
+            }
+
+            Interpreter localInterpreter = bundleData.Interpreter;
+            IsolationLevel isolationLevel = bundleData.IsolationLevel;
+            SecurityLevel securityLevel = bundleData.SecurityLevel;
+            IRuleSet ruleSet = bundleData.RuleSet;
+            bool? isolated = null;
+
+            switch (isolationLevel)
+            {
+                case IsolationLevel.None:
+                    {
+                        if (!interpreter.MatchSecurityLevel(
+                                securityLevel))
+                        {
+                            result = String.Format(
+                                "script {0} cannot use " +
+                                "security level {1}",
+                                script.Id, securityLevel);
+
+                            return ReturnCode.Error;
+                        }
+
+                        if (ruleSet != null)
+                        {
+                            result = String.Format(
+                                "script {0} cannot use " +
+                                "ruleset with isolation {1}",
+                                script.Id, isolationLevel);
+
+                            return ReturnCode.Error;
+                        }
+
+                        if (ScriptOps.EnableOrDisableSecurity(
+                                interpreter, true, true,
+                                ref result) != ReturnCode.Ok)
+                        {
+                            return ReturnCode.Error;
+                        }
+
+                        return EvaluateScript(
+                            interpreter, script, ref result,
+                            ref errorLine);
+                    }
+                case IsolationLevel.Interpreter:
+                    {
+                        isolated = false;
+                        goto case IsolationLevel.Isolated;
+                    }
+                case IsolationLevel.AppDomain:
+                    {
+#if ISOLATED_INTERPRETERS
+                        isolated = true;
+                        goto case IsolationLevel.Isolated;
+#else
+                        result = String.Format(
+                            "unimplemented isolation level {0}",
+                            isolationLevel);
+
+                        return ReturnCode.Error;
+#endif
+                    }
+                case IsolationLevel.AppDomainOrInterpreter:
+                    {
+#if ISOLATED_INTERPRETERS
+                        goto case IsolationLevel.AppDomain;
+#else
+                        goto case IsolationLevel.Interpreter;
+#endif
+                    }
+                case IsolationLevel.Isolated:
+                    {
+                        if (localInterpreter == null)
+                        {
+                            try
+                            {
+                                if (isolated == null)
+                                {
+                                    result = "invalid isolation flag";
+                                    return ReturnCode.Error;
+                                }
+
+                                InterpreterSettings interpreterSettings =
+                                    InterpreterSettings.Create(
+                                        ruleSet, null, securityLevel,
+                                        ref result);
+
+                                if (interpreterSettings == null)
+                                    return ReturnCode.Error;
+
+                                if (ruleSet != null)
+                                    interpreterSettings.DisableInitialize();
+
+                                if (interpreter.CreateChildInterpreter(
+                                        null, null, interpreterSettings,
+                                        (bool)isolated, true /* security */,
+                                        ref result) != ReturnCode.Ok)
+                                {
+                                    return ReturnCode.Error;
+                                }
+
+                                string path = result;
+
+                                if (interpreter.GetChildInterpreter(
+                                        path, LookupFlags.Interpreter,
+                                        true, false, ref localInterpreter,
+                                        ref result) != ReturnCode.Ok)
+                                {
+                                    return ReturnCode.Error;
+                                }
+
+                                if (localInterpreter == null)
+                                {
+                                    result = "invalid child interpreter";
+                                    return ReturnCode.Error;
+                                }
+                            }
+                            finally
+                            {
+                                if (localInterpreter != null)
+                                    bundleData.Interpreter = localInterpreter;
+                            }
+                        }
+
+                        return EvaluateScript(
+                            localInterpreter, script, ref result, ref errorLine);
+                    }
+                default:
+                    {
+                        result = String.Format(
+                            "unsupported isolation level {0}",
+                            isolationLevel);
+
+                        return ReturnCode.Error;
+                    }
+            }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////

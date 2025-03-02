@@ -19,7 +19,10 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Commands
 {
     [ObjectId("310a4c0c-135d-4ded-b2b9-ed2d2182f2ef")]
-    [CommandFlags(CommandFlags.Ensemble)]
+    [CommandFlags(
+        CommandFlags.NoPopulate | CommandFlags.NoAdd |
+        CommandFlags.Ensemble
+    )]
     [ObjectGroup("ensemble")]
     public class Ensemble : Default, IEnsembleData, IEnsembleManager
     {

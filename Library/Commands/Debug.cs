@@ -37,7 +37,8 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Commands
 {
     [ObjectId("8d2559ac-e4e4-41c4-8183-52c90008d25f")]
-    [CommandFlags(CommandFlags.Unsafe | CommandFlags.NonStandard | CommandFlags.Diagnostic)]
+    [CommandFlags(CommandFlags.Unsafe | CommandFlags.Critical |
+        CommandFlags.NonStandard | CommandFlags.Diagnostic)]
     [ObjectGroup("debug")]
     internal sealed class Debug : Core
     {
@@ -51,19 +52,19 @@ namespace Eagle._Commands
 
         #region IEnsemble Members
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
-            "break", "breakpoints", "cacheconfiguration", "callback",
+            "break", "breakpoints", "bundle", "cacheconfiguration", "callback",
             "cleanup", "collect", "complaint", "emergency", "enable", "eval",
             "exception", "execute", "function", "gcmemory", "halt", "hook",
             "history", "icommand", "interactive", "invoke", "iqueue",
             "iresult", "keyring", "levels", "lockloop", "lockvar",
-            "log", "memory", "null", "oncancel", "onerror", "onexecute",
+            "log", "memory", "mount", "mounts", "null", "oncancel", "onerror", "onexecute",
             "onexit", "onreturn", "ontest", "ontoken", "operator",
             "output", "paths", "pluginexecute", "pluginflags", "purge",
             "procedureflags", "resume", "restore", "readonly", "ready",
             "refreshautopath", "result", "run", "runtimeoption", "runtimeoverride",
             "secureeval", "self", "set", "setup", "shell", "stack", "status",
             "step", "steps", "subst", "suspend", "sysmemory", "test",
-            "testpath", "token", "trace", "types", "undelete",
+            "testpath", "token", "trace", "types", "undelete", "unmount",
             "variable", "vout", "watch"
         });
 
@@ -339,6 +340,78 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"debug breakpoints ?pattern?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "bundle":
+                                    {
+                                        if ((newArguments.Count >= 3) && (newArguments.Count <= 5))
+                                        {
+                                            byte[] password = null;
+
+                                            if ((newArguments.Count >= 4) &&
+                                                !String.IsNullOrEmpty(newArguments[3]))
+                                            {
+                                                try
+                                                {
+                                                    password = Convert.FromBase64String(
+                                                        newArguments[3]);
+                                                }
+                                                catch (Exception e)
+                                                {
+                                                    result = e;
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                string pattern = null;
+
+                                                if (newArguments.Count >= 5)
+                                                    pattern = newArguments[4];
+
+                                                List<Script> scripts = null;
+
+                                                code = DataOps.GatherBundleScripts(
+                                                    interpreter, interpreter.InternalCultureInfo, null,
+                                                    null, StringOps.GetEncoding(EncodingType.Script),
+                                                    newArguments[2], password, pattern, false, true,
+                                                    ref scripts, ref result);
+
+                                                if (code == ReturnCode.Ok)
+                                                {
+                                                    if (scripts != null)
+                                                    {
+                                                        StringList list = new StringList();
+
+                                                        foreach (Script script in scripts)
+                                                        {
+                                                            if (script == null)
+                                                                continue;
+
+                                                            StringPairList subList = script.ToList();
+
+                                                            if (subList == null)
+                                                                continue;
+
+                                                            list.Add(subList.ToString());
+                                                        }
+
+                                                        result = list;
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "invalid bundle scripts";
+                                                        code = ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"debug bundle fileName ?password? ?pattern?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -2506,6 +2579,81 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"debug memory\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "mount":
+                                    {
+                                        if ((newArguments.Count == 3) || (newArguments.Count == 4))
+                                        {
+                                            byte[] password = null;
+
+                                            if ((newArguments.Count == 4) &&
+                                                !String.IsNullOrEmpty(newArguments[3]))
+                                            {
+                                                try
+                                                {
+                                                    password = Convert.FromBase64String(
+                                                        newArguments[3]);
+                                                }
+                                                catch (Exception e)
+                                                {
+                                                    result = e;
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                IBundleManager bundleManager = interpreter.BundleManager;
+
+                                                if (bundleManager != null)
+                                                {
+                                                    code = bundleManager.Mount(
+                                                        interpreter, newArguments[2],
+                                                        password, true, ref result);
+                                                }
+                                                else
+                                                {
+                                                    result = "bundle manager unavailable";
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"debug mount fileName ?password?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "mounts":
+                                    {
+                                        if ((newArguments.Count == 2) || (newArguments.Count == 3))
+                                        {
+                                            string pattern = null;
+
+                                            if (newArguments.Count == 3)
+                                                pattern = newArguments[2];
+
+                                            IBundleManager bundleManager = interpreter.BundleManager;
+
+                                            if (bundleManager != null)
+                                            {
+                                                code = bundleManager.ListMounts(
+                                                    interpreter, pattern, false,
+                                                    ref result);
+                                            }
+                                            else
+                                            {
+                                                result = "bundle manager unavailable";
+                                                code = ReturnCode.Error;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"debug mounts ?pattern?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -5289,7 +5437,7 @@ namespace Eagle._Commands
 
                                                         TraceListenerCollection listeners; /* REUSED */
 
-#if TEST
+#if TEST && SHELL
                                                         TraceListener listener; /* REUSED */
 #endif
 
@@ -5342,7 +5490,7 @@ namespace Eagle._Commands
                                                                 clientData, resetListeners, ref result);
                                                         }
 
-#if TEST
+#if TEST && SHELL
                                                         if (code == ReturnCode.Ok)
                                                         {
                                                             if (log != null)
@@ -5611,6 +5759,31 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"debug undelete ?pattern?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "unmount":
+                                    {
+                                        if (newArguments.Count == 3)
+                                        {
+                                            IBundleManager bundleManager = interpreter.BundleManager;
+
+                                            if (bundleManager != null)
+                                            {
+                                                code = bundleManager.Unmount(
+                                                    interpreter, newArguments[2],
+                                                    true, ref result);
+                                            }
+                                            else
+                                            {
+                                                result = "bundle manager unavailable";
+                                                code = ReturnCode.Error;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"debug unmount fileName\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

@@ -1105,7 +1105,7 @@ namespace Eagle._Containers.Public
             )
         {
             return GenericOps<string>.DictionaryToEnglish(
-                dictionary, ", ", Characters.Space.ToString(), "or ");
+                dictionary, ", ", Characters.SpaceString, "or ");
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1183,7 +1183,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
         #endregion
 

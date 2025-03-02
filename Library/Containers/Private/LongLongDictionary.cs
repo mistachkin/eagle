@@ -90,7 +90,7 @@ namespace Eagle._Containers.Private
                 KeyFormat, null, null, noCase, RegexOptions.None) as StringList;
 
             return ParserOps<string>.ListToString(list, Index.Invalid, Index.Invalid,
-                ToStringFlags.None, Characters.Space.ToString(), null, false);
+                ToStringFlags.None, Characters.SpaceString, null, false);
         }
         #endregion
 

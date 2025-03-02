@@ -35,6 +35,24 @@ using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using ArrayPair = System.Collections.Generic.KeyValuePair<string, object>;
 
+using ArgumentPair = System.Collections.Generic.KeyValuePair<string,
+    Eagle._Interfaces.Public.IAnyPair<int, Eagle._Components.Public.Argument>>;
+
+using ObjectWrapper = Eagle._Wrappers._Object;
+
+using DelegateTriplet = Eagle._Components.Public.MutableAnyTriplet<
+    System.Reflection.MethodBase, System.Delegate,
+    Eagle._Components.Public.DelegateFlags>;
+
+using DelegateList = System.Collections.Generic.List<
+    Eagle._Components.Public.MutableAnyTriplet<
+    System.Reflection.MethodBase, System.Delegate,
+    Eagle._Components.Public.DelegateFlags>>;
+
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+using SharedAttributeOps = Eagle._Components.Shared.AttributeOps;
+#endif
+
 namespace Eagle._Components.Private
 {
     [ObjectId("81c28526-dd5a-4ba8-b056-b62bbd3b8d90")]
@@ -227,7 +245,8 @@ namespace Eagle._Components.Private
         #region Core Script Class Support Constants
         private static Regex EmbeddedIdRegEx = RegExOps.Create(
             "^\\s*#\\s*<Id>([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-" +
-            "[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})</Id>$", RegexOptions.Multiline);
+            "[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})</Id>$", RegexOptions.Multiline |
+            RegexOptions.Compiled);
         #endregion
         #endregion
 
@@ -408,7 +427,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void GetSecurityPackageIndexPaths(
+        public static void GetSecurityPackageIndexPaths(
             Interpreter interpreter, /* in */
             ref StringList paths     /* in, out */
             )
@@ -503,6 +522,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string FindSecurityPackageFile(
+            Interpreter interpreter, /* in */
+            string fileNameOnly      /* in */
+            )
+        {
+            StringList paths = null;
+
+            GetSecurityPackageIndexPaths(interpreter, ref paths);
+
+            if (paths != null)
+            {
+                foreach (string path in paths)
+                {
+                    if (String.IsNullOrEmpty(path))
+                        continue;
+
+                    string fileName = Path.Combine(path, fileNameOnly);
+
+                    if (!File.Exists(fileName))
+                        continue;
+
+                    return fileName;
+                }
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static bool HaveSecurityPackageIndexes(
             StringList paths,                     /* in */
             PackageIndexDictionary packageIndexes /* in */
@@ -560,16 +609,22 @@ namespace Eagle._Components.Private
                 return ReturnCode.Ok;
             }
 
-            StringList paths = null;
-
-            /* NO RESULT */
-            GetSecurityPackageIndexPaths(interpreter, ref paths);
-
-            if (paths == null)
-                return ReturnCode.Ok;
-
             lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
             {
+                if (interpreter.Disposed)
+                {
+                    error = "interpreter is disposed";
+                    return ReturnCode.Error;
+                }
+
+                StringList paths = null;
+
+                /* NO RESULT */
+                GetSecurityPackageIndexPaths(interpreter, ref paths);
+
+                if (paths == null)
+                    return ReturnCode.Ok;
+
                 PackageIndexDictionary packageIndexes =
                     interpreter.CopyPackageIndexes();
 
@@ -801,8 +856,9 @@ namespace Eagle._Components.Private
             ref Result result         /* out */
             )
         {
-            ScriptFlags scriptFlags =
-                ScriptFlags.CoreLibrarySecurityRequiredFile;
+            ScriptFlags scriptFlags = ScriptOps.GetFlags(interpreter,
+                ScriptFlags.CoreLibrarySecurityRequiredFile, false,
+                false);
 
             IClientData clientData = ClientData.Empty;
             Result localResult = null;
@@ -919,6 +975,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static ReturnCode CanEnableSecurity(
+            Interpreter interpreter, /* in */
+            bool force,              /* in */
+            ref Result error         /* out */
+            )
+        {
+            if (AreSecurityPackagesLikelyBroken(ref error))
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "CanEnableSecurity: security packages likely broken, " +
+                    "error = {0}", FormatOps.WrapOrNull(error)),
+                    typeof(ScriptOps).Name, TracePriority.SecurityError);
+
+                return ReturnCode.Error;
+            }
+
+            if (MaybeFindSecurityPackageIndexes(
+                    interpreter, force, ref error) != ReturnCode.Ok)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "CanEnableSecurity: package indexes scan failed, " +
+                    "error = {0}", FormatOps.WrapOrNull(error)),
+                    typeof(ScriptOps).Name, TracePriority.SecurityError);
+
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode EnableOrDisableSecurity(
             Interpreter interpreter, /* in */
             bool enable,             /* in */
@@ -932,24 +1020,16 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            if (AreSecurityPackagesLikelyBroken(ref error))
-            {
-                TraceOps.DebugTrace(String.Format(
-                    "EnableOrDisableSecurity: security packages likely " +
-                    "broken, error = {0}", FormatOps.WrapOrNull(error)),
-                    typeof(ScriptOps).Name, TracePriority.SecurityError);
-
-                return ReturnCode.Error;
-            }
-
-            if (MaybeFindSecurityPackageIndexes(
+            //
+            // NOTE: First, check if it may be possible to load the security
+            //       plugins (i.e. Harpy and Badge).  This means that either
+            //       their associated package indexes must already be loaded
+            //       -OR- they can be found in one of the locations where we
+            //       expect to find them.
+            //
+            if (CanEnableSecurity(
                     interpreter, force, ref error) != ReturnCode.Ok)
             {
-                TraceOps.DebugTrace(String.Format(
-                    "EnableOrDisableSecurity: package indexes scan " +
-                    "failed, error = {0}", FormatOps.WrapOrNull(error)),
-                    typeof(ScriptOps).Name, TracePriority.SecurityError);
-
                 return ReturnCode.Error;
             }
 
@@ -976,12 +1056,20 @@ namespace Eagle._Components.Private
             //
             Result localResult = null;
 
-            if (EvaluateNamedSecurityScript(interpreter,
-                    enable ? EnableSecurityScriptName :
-                    DisableSecurityScriptName, null,
-                    ref localResult) != ReturnCode.Ok)
+            try
             {
-                error = localResult;
+                if (EvaluateNamedSecurityScript(interpreter,
+                        enable ? EnableSecurityScriptName :
+                        DisableSecurityScriptName, null,
+                        ref localResult) != ReturnCode.Ok)
+                {
+                    error = localResult;
+                    return ReturnCode.Error;
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
                 return ReturnCode.Error;
             }
 
@@ -1466,6 +1554,284 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static void GetFinalArguments(
+            ArgumentDictionary procedureArguments, /* in */
+            ArgumentList overwriteArguments,       /* in */
+            out ArgumentDictionary finalArguments  /* out */
+            )
+        {
+            finalArguments = null;
+
+            if (procedureArguments == null)
+                return;
+
+            finalArguments = new ArgumentDictionary(procedureArguments);
+
+            if (overwriteArguments == null)
+                return;
+
+            foreach (Argument overwriteArgument in overwriteArguments)
+            {
+                if (overwriteArgument == null)
+                    continue;
+
+                string overwriteName = overwriteArgument.Name;
+
+                if (overwriteName == null)
+                    continue;
+
+                finalArguments.Remove(overwriteName);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void GetFinalArguments(
+            ArgumentList procedureArguments, /* in */
+            ArgumentList overwriteArguments, /* in */
+            out ArgumentList finalArguments  /* out */
+            )
+        {
+            finalArguments = null;
+
+            if (procedureArguments == null)
+                return;
+
+            finalArguments = new ArgumentList(procedureArguments);
+
+            if (overwriteArguments == null)
+                return;
+
+            foreach (Argument overwriteArgument in overwriteArguments)
+            {
+                if (overwriteArgument == null)
+                    continue;
+
+                string overwriteName = overwriteArgument.Name;
+
+                if (overwriteName == null)
+                    continue;
+
+                int count = finalArguments.Count;
+
+                for (int index = count - 1; index >= 0; index--)
+                {
+                    Argument finalArgument = finalArguments[index];
+
+                    if (finalArgument == null)
+                        continue;
+
+                    string finalName = finalArgument.Name;
+
+                    if (finalName == null)
+                        continue;
+
+                    if (!SharedStringOps.SystemEquals(
+                            finalName, overwriteName))
+                    {
+                        continue;
+                    }
+
+                    finalArguments.RemoveAt(index);
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void GetUnsetArguments(
+            ArgumentDictionary procedureArguments, /* in */
+            ArgumentList cleanArguments,           /* in */
+            out ArgumentDictionary unsetArguments  /* out */
+            )
+        {
+            unsetArguments = null;
+
+            if (procedureArguments == null)
+                return;
+
+            if (cleanArguments == null)
+                return;
+
+            foreach (Argument cleanArgument in cleanArguments)
+            {
+                if (cleanArgument == null)
+                    continue;
+
+                string cleanName = cleanArgument.Name;
+
+                if (cleanName == null)
+                    continue;
+
+                if (procedureArguments.ContainsKey(cleanName))
+                {
+                    if (unsetArguments == null)
+                        unsetArguments = new ArgumentDictionary();
+
+                    unsetArguments[cleanName] = null;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void GetUnsetArguments(
+            ArgumentList procedureArguments, /* in */
+            ArgumentList cleanArguments,     /* in */
+            out ArgumentList unsetArguments  /* out */
+            )
+        {
+            unsetArguments = null;
+
+            if (procedureArguments == null)
+                return;
+
+            if (cleanArguments == null)
+                return;
+
+            foreach (Argument cleanArgument in cleanArguments)
+            {
+                if (cleanArgument == null)
+                    continue;
+
+                string cleanName = cleanArgument.Name;
+
+                if (cleanName == null)
+                    continue;
+
+                bool found = false;
+                int count = procedureArguments.Count;
+
+                for (int index = 0; index < count; index++)
+                {
+                    Argument procedureArgument = procedureArguments[index];
+
+                    if (procedureArgument == null)
+                        continue;
+
+                    string procedureArgumentName = procedureArgument.Name;
+
+                    if (procedureArgumentName == null)
+                        continue;
+
+                    if (SharedStringOps.SystemEquals(
+                            procedureArgumentName, cleanName))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (found)
+                {
+                    if (unsetArguments == null)
+                        unsetArguments = new ArgumentList();
+
+                    unsetArguments.Add(cleanArgument);
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void UnsetArgumentsOrComplain(
+            Interpreter interpreter,               /* in */
+            ICallFrame frame,                      /* in */
+            ArgumentDictionary procedureArguments, /* in */
+            ArgumentList cleanArguments            /* in */
+            )
+        {
+            ArgumentDictionary unsetArguments;
+
+            GetUnsetArguments(
+                procedureArguments, cleanArguments, out unsetArguments);
+
+            if (unsetArguments == null)
+                return;
+
+            ResultList errors = null;
+
+            foreach (ArgumentPair pair in unsetArguments)
+            {
+                IAnyPair<int, Argument> anyPair = pair.Value;
+
+                if (anyPair == null)
+                    continue;
+
+                Argument unsetArgument = anyPair.Y;
+
+                if (unsetArgument == null)
+                    continue;
+
+                Result error = null;
+
+                if (interpreter.UnsetVariable2(
+                        VariableFlags.None, frame, unsetArgument,
+                        null, null, ref error) != ReturnCode.Ok)
+                {
+                    if (error != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(error);
+                    }
+                }
+            }
+
+            if (errors != null)
+            {
+                DebugOps.Complain(
+                    interpreter, ReturnCode.Error, errors);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void UnsetArgumentsOrComplain(
+            Interpreter interpreter,         /* in */
+            ICallFrame frame,                /* in */
+            ArgumentList procedureArguments, /* in */
+            ArgumentList cleanArguments      /* in */
+            )
+        {
+            ArgumentList unsetArguments;
+
+            GetUnsetArguments(
+                procedureArguments, cleanArguments, out unsetArguments);
+
+            if (unsetArguments == null)
+                return;
+
+            ResultList errors = null;
+
+            foreach (Argument unsetArgument in unsetArguments)
+            {
+                Result error = null;
+
+                if (interpreter.UnsetVariable2(
+                        VariableFlags.None, frame, unsetArgument,
+                        null, null, ref error) != ReturnCode.Ok)
+                {
+                    if (error != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(error);
+                    }
+                }
+            }
+
+            if (errors != null)
+            {
+                DebugOps.Complain(
+                    interpreter, ReturnCode.Error, errors);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void ShouldProcedureHaveFlags(
             Interpreter interpreter,
             string name,
@@ -1474,10 +1840,13 @@ namespace Eagle._Components.Private
             out bool isLibrary,
             out bool isFast,
             out bool isAtomic,
+            out bool isInline,
 #if ARGUMENT_CACHE || PARSE_CACHE
             out bool isNonCaching,
 #endif
-            out bool isMatchTypes
+            out bool isMatchTypes,
+            out ArgumentList overwriteArguments,
+            out ArgumentList cleanArguments
             )
         {
             bool isPrivate; /* NOT USED */
@@ -1485,11 +1854,12 @@ namespace Eagle._Components.Private
             ShouldProcedureHaveFlags(
                 interpreter, name, text, cultureInfo,
                 out isLibrary, out isPrivate, out isFast,
-                out isAtomic,
+                out isAtomic, out isInline,
 #if ARGUMENT_CACHE || PARSE_CACHE
                 out isNonCaching,
 #endif
-                out isMatchTypes);
+                out isMatchTypes, out overwriteArguments,
+                out cleanArguments);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1550,10 +1920,13 @@ namespace Eagle._Components.Private
             out bool isPrivate,
             out bool isFast,
             out bool isAtomic,
+            out bool isInline,
 #if ARGUMENT_CACHE || PARSE_CACHE
             out bool isNonCaching,
 #endif
-            out bool isMatchTypes
+            out bool isMatchTypes,
+            out ArgumentList overwriteArguments,
+            out ArgumentList cleanArguments
             )
         {
             ResultList errors = null;
@@ -1569,15 +1942,20 @@ namespace Eagle._Components.Private
                 isLibrary = false;
             }
 
+            ///////////////////////////////////////////////////////////////////
+
             isPrivate = false;
             isFast = false;
             isAtomic = false;
+            isInline = false;
 
 #if ARGUMENT_CACHE || PARSE_CACHE
             isNonCaching = false;
 #endif
 
             isMatchTypes = false;
+            overwriteArguments = null;
+            cleanArguments = null;
 
             try
             {
@@ -1619,6 +1997,12 @@ namespace Eagle._Components.Private
                         cultureInfo, ref isAtomic,
                         ref errors);
 
+                    /* IGNORED */
+                    HaveAnnotation(
+                        annotations, Annotations.Inline,
+                        cultureInfo, ref isInline,
+                        ref errors);
+
 #if ARGUMENT_CACHE || PARSE_CACHE
                     /* IGNORED */
                     HaveAnnotation(
@@ -1632,6 +2016,35 @@ namespace Eagle._Components.Private
                         annotations, Annotations.MatchTypes,
                         cultureInfo, ref isMatchTypes,
                         ref errors);
+
+                    ///////////////////////////////////////////////////////////
+
+                    string stringValue; /* REUSED */
+                    StringList list; /* REUSED */
+
+                    list = null;
+
+                    if (annotations.TryGetValue(
+                            Annotations.Overwrite, out stringValue) &&
+                        Parser.SplitList(
+                            interpreter, stringValue, 0, Length.Invalid,
+                            true, ref list, ref error) == ReturnCode.Ok)
+                    {
+                        overwriteArguments = new ArgumentList(
+                            list, ArgumentFlags.NameOnly);
+                    }
+
+                    list = null;
+
+                    if (annotations.TryGetValue(
+                            Annotations.Clean, out stringValue) &&
+                        Parser.SplitList(
+                            interpreter, stringValue, 0, Length.Invalid,
+                            true, ref list, ref error) == ReturnCode.Ok)
+                    {
+                        cleanArguments = new ArgumentList(
+                            list, ArgumentFlags.NameOnly);
+                    }
                 }
 
                 return; /* REDUNDANT */
@@ -1982,7 +2395,7 @@ namespace Eagle._Components.Private
                     // NOTE: Grab whatever the caller previously manually
                     //       set the current script file name to, if any.
                     //
-                    location = interpreter.ScriptLocation;
+                    location = interpreter.ManualScriptLocation;
 
                     if (location == null)
                     {
@@ -2342,8 +2755,9 @@ namespace Eagle._Components.Private
             //       must be signed and trusted if the interpreter used
             //       is configured with security enabled.
             //
-            ScriptFlags scriptFlags =
-                ScriptFlags.CoreLibrarySecurityRequiredFile;
+            ScriptFlags scriptFlags = GetFlags(
+                interpreter, ScriptFlags.CoreLibrarySecurityRequiredFile,
+                false, false);
 
             IClientData clientData = ClientData.Empty;
             Result localResult = null;
@@ -2476,8 +2890,9 @@ namespace Eagle._Components.Private
             //       must be signed and trusted if the interpreter used
             //       is configured with security enabled.
             //
-            ScriptFlags scriptFlags =
-                ScriptFlags.CoreLibrarySecurityRequiredFile;
+            ScriptFlags scriptFlags = GetFlags(
+                interpreter, ScriptFlags.CoreLibrarySecurityRequiredFile,
+                false, false);
 
             IClientData clientData = ClientData.Empty;
             Result localResult = null;
@@ -2573,6 +2988,34 @@ namespace Eagle._Components.Private
                     flags, ScriptDataFlags.AllowTemporaryPackages, true))
             {
                 interpreterFlags &= ~InterpreterFlags.TemporaryPackages;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool AreTypicalPluginFlagsInUse(
+            PluginFlags pluginFlags, /* in */
+            bool defaultsOnly        /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                PluginFlags defaultsPluginFlags = Defaults.PluginFlags;
+
+                if (pluginFlags == defaultsPluginFlags)
+                    return true;
+
+                if (defaultsOnly)
+                    return false;
+
+                PluginFlags batchPluginFlags = defaultsPluginFlags;
+
+                batchPluginFlags &= ~PluginFlags.NonInteractiveMask;
+
+                if (pluginFlags == batchPluginFlags)
+                    return true;
+
+                return false;
             }
         }
 
@@ -2961,6 +3404,9 @@ namespace Eagle._Components.Private
                 , out findFlags, out loadFlags
 #endif
                 );
+
+            initializeFlags &= ~InitializeFlags.TrustedRemote;
+            initializeFlags |= InitializeFlags.NoTrustedRemote;
 
             bool enableSecurity = FlagOps.HasFlags(
                 flags, ScriptDataFlags.EnableSecurity, true);
@@ -3909,7 +4355,12 @@ namespace Eagle._Components.Private
                     // NOTE: Finally, move the temporary file, atomically,
                     //       to the new name.
                     //
-                    File.Move(fileNames[0], fileNames[1]); /* throw */
+                    // BUGFIX: Do this only if the file exists.  If not,
+                    //         that is fine and the final file will be
+                    //         created later by our caller.
+                    //
+                    if (File.Exists(fileNames[0]))
+                        File.Move(fileNames[0], fileNames[1]); /* throw */
 
                     //
                     // NOTE: If we got this far, everything should be
@@ -4062,12 +4513,38 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Library Support Methods
-        public static void MaybeExactNameOnly(
-            string name,                /* in */
+        public static bool? ViaGetScriptFlag(
+            bool? viaGetScript,         /* in */
             ref ScriptFlags scriptFlags /* in, out */
             )
         {
-            if (PathOps.IsScriptFile(name, false, false) &&
+            if (viaGetScript != null)
+                return (bool)viaGetScript;
+
+            if (FlagOps.HasFlags(
+                    scriptFlags, ScriptFlags.ViaGetScript, true))
+            {
+                return false;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void MaybeExactNameOnly(
+            Interpreter interpreter,    /* in */
+            string name,                /* in */
+            bool? viaGetScript,         /* in */
+            ref ScriptFlags scriptFlags /* in, out */
+            )
+        {
+            if (PathOps.IsScriptFile(
+                    interpreter, name, ViaGetScriptFlag(
+                    viaGetScript, ref scriptFlags), false,
+                    false) &&
                 (PathOps.GetPathType(name) != PathType.Relative))
             {
                 scriptFlags |= ScriptFlags.ExactNameOnly;
@@ -4083,6 +4560,24 @@ namespace Eagle._Components.Private
             bool noFileSystem        /* in */
             )
         {
+            return GetFlags(
+                interpreter, scriptFlags, PackageType.None,
+                getDataFile, noFileSystem);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ScriptFlags GetFlags(
+            Interpreter interpreter, /* in */
+            ScriptFlags scriptFlags, /* in */
+            PackageType packageType, /* in */
+            bool getDataFile,        /* in */
+            bool noFileSystem        /* in */
+            )
+        {
+            if (packageType == PackageType.Bundle)
+                scriptFlags &= ~ScriptFlags.Library;
+
             if (getDataFile && FlagOps.HasFlags(
                     scriptFlags, ScriptFlags.UseDefault, true))
             {
@@ -4300,7 +4795,8 @@ namespace Eagle._Components.Private
                 {
                     localScriptFlags = scriptFlags;
 
-                    MaybeExactNameOnly(name, ref localScriptFlags);
+                    MaybeExactNameOnly(
+                        interpreter, name, true, ref localScriptFlags);
 
                     localResult = null;
 
@@ -4327,7 +4823,8 @@ namespace Eagle._Components.Private
             {
                 localScriptFlags = scriptFlags;
 
-                MaybeExactNameOnly(name, ref localScriptFlags);
+                MaybeExactNameOnly(
+                    interpreter, name, true, ref localScriptFlags);
 
                 localResult = null;
 
@@ -4385,7 +4882,8 @@ namespace Eagle._Components.Private
         {
             ScriptFlags localScriptFlags = scriptFlags;
 
-            MaybeExactNameOnly(name, ref localScriptFlags);
+            MaybeExactNameOnly(
+                interpreter, name, null, ref localScriptFlags);
 
             Result localResult = null;
 
@@ -4419,7 +4917,8 @@ namespace Eagle._Components.Private
 
                     localScriptFlags = scriptFlags;
 
-                    MaybeExactNameOnly(localName, ref localScriptFlags);
+                    MaybeExactNameOnly(
+                        interpreter, localName, null, ref localScriptFlags);
 
                     localResult = null;
 
@@ -4462,6 +4961,34 @@ namespace Eagle._Components.Private
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static EngineFlags GetEngineFlagsForReadScriptStream(
+            Interpreter interpreter, /* in */
+            DataFlags dataFlags,     /* in: NOT USED */
+            ScriptFlags scriptFlags  /* in */
+            )
+        {
+            //
+            // NOTE: Grab the engine flags as we need them for the calls
+            //       into the engine.
+            //
+            EngineFlags engineFlags = EngineFlags.None;
+
+            if (interpreter != null)
+                engineFlags |= interpreter.EngineFlags;
+
+#if XML
+            if (FlagOps.HasFlags(scriptFlags, ScriptFlags.NoXml, true))
+                engineFlags |= EngineFlags.NoXml;
+#endif
+
+            if (FlagOps.HasFlags(scriptFlags, ScriptFlags.NoPolicy, true))
+                engineFlags |= EngineFlags.NoPolicy;
+
+            return engineFlags;
         }
         #endregion
 
@@ -5245,27 +5772,135 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Delegate Support Methods
+        private static void NewOuterDelegate(
+            Delegate innerDelegate,
+            DelegateFlags delegateFlags,
+            out DelegateTriplet outerDelegate
+            )
+        {
+            outerDelegate = new DelegateTriplet(
+                true, (innerDelegate != null) ?
+                    innerDelegate.Method : null,
+                innerDelegate, delegateFlags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode ExecuteOrInvokeDelegate(
             Interpreter interpreter,
             Delegate @delegate,
             ArgumentList arguments,
+            bool allowOptions,
             int nameCount,
+            int nameIndex,
             DelegateFlags delegateFlags,
+            ref Result result
+            )
+        {
+            DelegateList delegates = new DelegateList();
+            DelegateTriplet outerDelegate;
+
+            NewOuterDelegate(
+                @delegate, delegateFlags, out outerDelegate);
+
+            delegates.Add(outerDelegate);
+
+            Delegate localDelegate = null;
+
+            return ExecuteOrInvokeDelegate(
+                interpreter, delegates, arguments,
+                allowOptions, nameCount, nameIndex,
+                delegateFlags, ref localDelegate,
+                ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ExecuteOrInvokeDelegate(
+            Interpreter interpreter,
+            DelegateList delegates,
+            ArgumentList arguments,
+            bool allowOptions,
+            int nameCount,
+            int nameIndex,
+            DelegateFlags delegateFlags,
+            ref Delegate @delegate,
             ref Result result
             )
         {
             if (FlagOps.HasFlags(
                     delegateFlags, DelegateFlags.UseEngine, true))
             {
+                if ((delegates == null) ||
+                    (delegates.Count == 0) || (delegates[0] == null))
+                {
+                    result = "cannot execute delegate, bad delegates";
+                    return ReturnCode.Error;
+                }
+
+                @delegate = delegates[0].Y;
+
                 return Engine.ExecuteDelegate(
                     @delegate, arguments, ref result);
             }
             else
             {
                 return ObjectOps.InvokeDelegate(
-                    interpreter, @delegate, delegateFlags,
-                    arguments, nameCount, ref result);
+                    interpreter, delegates, arguments,
+                    allowOptions, nameCount, nameIndex,
+                    ref @delegate, ref result);
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode HandleDelegateResult(
+            Interpreter interpreter,     /* in */
+            Delegate @delegate,          /* in */
+            DelegateFlags delegateFlags, /* in */
+            Result returnValue,          /* in */
+            ref Result result            /* out */
+            )
+        {
+            Type returnType = null;
+
+            if (DelegateOps.NeedReturnType(@delegate, ref returnType))
+            {
+                if ((returnValue == null) || Result.IsSupported(returnType))
+                {
+                    result = returnValue;
+                }
+                else
+                {
+                    object innerReturnValue = returnValue.Value;
+
+                    if (FlagOps.HasFlags(delegateFlags,
+                            DelegateFlags.MakeIntoObject, true))
+                    {
+                        if (MarshalOps.FixupReturnValue(
+                                interpreter, delegateFlags,
+                                innerReturnValue, false,
+                                false, false,
+                                ref result) != ReturnCode.Ok)
+                        {
+                            return ReturnCode.Error;
+                        }
+                    }
+                    else if (FlagOps.HasFlags(delegateFlags,
+                            DelegateFlags.WrapReturnType, true))
+                    {
+                        result = Result.FromObject(
+                            innerReturnValue, false, false, false);
+                    }
+                    else
+                    {
+                        result = StringOps.GetStringFromObject(
+                            innerReturnValue);
+                    }
+                }
+            }
+
+            return ReturnCode.Ok;
         }
         #endregion
 
@@ -5325,7 +5960,7 @@ namespace Eagle._Components.Private
                     !String.IsNullOrEmpty(adjective) ? adjective : "bad",
                     !String.IsNullOrEmpty(type) ? type : "value", value,
                     GenericOps<string>.DictionaryToEnglish(
-                        values, ", ", Characters.Space.ToString(),
+                        values, ", ", Characters.SpaceString,
                         !String.IsNullOrEmpty(suffix) ? null : "or ",
                         prefix, null),
                     suffix);
@@ -5467,7 +6102,7 @@ namespace Eagle._Components.Private
                     "wrong # args: should be \"{0}{1}{2}\"",
                     ArgumentList.GetRange(arguments, 0, Math.Min(count - 1,
                         arguments.Count - 1)), !String.IsNullOrEmpty(
-                    suffix) ? Characters.Space.ToString() : null, suffix);
+                    suffix) ? Characters.SpaceString : null, suffix);
             }
 
             //
@@ -5573,10 +6208,7 @@ namespace Eagle._Components.Private
             }
 
             if (commandName == null)
-            {
-                commandName = ScriptOps.TypeNameToEntityName(
-                    typeof(_Commands.Puts));
-            }
+                commandName = TypeNameToEntityName(typeof(_Commands.Puts));
 
             if (channelId == null)
                 channelId = StandardChannel.Output;
@@ -5906,10 +6538,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void ProcessOldObjectsForTrace(
-            Interpreter interpreter,             /* in */
-            IList<_Wrappers._Object> oldObjects, /* in */
-            ref ReturnCode code,                 /* out */
-            ref ResultList errors                /* out */
+            Interpreter interpreter,         /* in */
+            IList<ObjectWrapper> oldObjects, /* in */
+            ref ReturnCode code,             /* out */
+            ref ResultList errors            /* out */
             )
         {
             //
@@ -5923,7 +6555,7 @@ namespace Eagle._Components.Private
             //       values, maybe even duplicate values, when handling an
             //       array).
             //
-            foreach (_Wrappers._Object oldWrapper in oldObjects)
+            foreach (ObjectWrapper oldWrapper in oldObjects)
             {
                 //
                 // NOTE: If the old wrapper object is valid, release a single
@@ -6026,7 +6658,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void ProcessNewObjectsForTrace(
-            IList<_Wrappers._Object> newObjects /* in */
+            IList<ObjectWrapper> newObjects /* in */
             )
         {
             //
@@ -6040,7 +6672,7 @@ namespace Eagle._Components.Private
             //       values, maybe even duplicate values, when handling an
             //       array).
             //
-            foreach (_Wrappers._Object newWrapper in newObjects)
+            foreach (ObjectWrapper newWrapper in newObjects)
             {
                 //
                 // NOTE: If the new wrapper object is valid, add a single
@@ -7245,6 +7877,7 @@ namespace Eagle._Components.Private
                 {
                     safeTclPlatformElementNames = new StringDictionary(
                         new string[] {
+                        TclVars.Platform.AlternateDirectorySeparator,
                         TclVars.Platform.ByteOrder,
                         TclVars.Platform.CharacterSize,
 #if DEBUG
@@ -7461,7 +8094,7 @@ namespace Eagle._Components.Private
                 localName = AttributeOps.GetObjectName(type);
 
             if (localName == null)
-                localName = ScriptOps.TypeNameToEntityName(type);
+                localName = TypeNameToEntityName(type);
 
             ICommand command = new _Commands.Stub(new CommandData(
                 localName, null, null, clientData, (type != null) ?
@@ -7490,7 +8123,7 @@ namespace Eagle._Components.Private
                 localName = AttributeOps.GetObjectName(type);
 
             if (localName == null)
-                localName = ScriptOps.TypeNameToEntityName(type);
+                localName = TypeNameToEntityName(type);
 
             ICommand command = new _Commands.Ensemble(new CommandData(
                 localName, null, null, clientData, (type != null) ?
@@ -7516,11 +8149,41 @@ namespace Eagle._Components.Private
                 localName = AttributeOps.GetObjectName(type);
 
             if (localName == null)
-                localName = ScriptOps.TypeNameToEntityName(type);
+                localName = TypeNameToEntityName(type);
 
             ICommand command = new _Commands.SubDelegate(new CommandData(
                 localName, null, null, clientData, (type != null) ?
                 type.FullName : null, flags, plugin, 0));
+
+            return command;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ICommand NewAutomaticCommand(
+            string name,
+            IClientData clientData,
+            IPlugin plugin,
+            TypedInstance typedInstance,
+            IDelegateMapper mapper,
+            bool? safe
+            )
+        {
+            Type type = typeof(_Commands.Automatic);
+            CommandFlags flags = AttributeOps.GetCommandFlags(type);
+
+            string localName = name;
+
+            if (localName == null)
+                localName = AttributeOps.GetObjectName(type);
+
+            if (localName == null)
+                localName = TypeNameToEntityName(type);
+
+            ICommand command = new _Commands.Automatic(new CommandData(
+                localName, null, null, clientData, (type != null) ?
+                type.FullName : null, flags, plugin, 0), typedInstance,
+                mapper, Defaults.DelegateFlags, safe);
 
             return command;
         }
@@ -7565,6 +8228,37 @@ namespace Eagle._Components.Private
             }
 
             return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static IEnumerable<TypedInstance> GetUnique(
+            IEnumerable<TypedInstance> typedInstances /* in */
+            )
+        {
+            if (typedInstances == null)
+                return null;
+
+            Dictionary<object, TypedInstance> dictionary =
+                new Dictionary<object, TypedInstance>();
+
+            foreach (TypedInstance typedInstance in typedInstances)
+            {
+                if (typedInstance == null)
+                    continue;
+
+                object @object = typedInstance.Object;
+
+                if (@object == null)
+                    @object = typedInstance.Type;
+
+                if (@object == null)
+                    continue;
+
+                dictionary[@object] = typedInstance;
+            }
+
+            return new List<TypedInstance>(dictionary.Values);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -7706,6 +8400,9 @@ namespace Eagle._Components.Private
                 {
                     if (collect && (resultList != null))
                         resultList.Add(localResult);
+
+                    if (interpreter.ExitNoThrow)
+                        goto done;
                 }
                 else
                 {
@@ -9224,6 +9921,576 @@ namespace Eagle._Components.Private
                     FileOps.CleanupDirectory(downloadDirectory,
                         new string[] { resourceName }, true);
                 }
+            }
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Trusted Remote Script Library Initialization Support Methods
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+        private static void SetupTracePrioritiesForTrustedRemote(
+            out TracePriority debugPriority, /* out */
+            out TracePriority errorPriority  /* out */
+            )
+        {
+            //
+            // HACK: Make 100% sure that we *always* see these trace
+            //       messages because they are quite important from
+            //       a centralized enterprise management perspective.
+            //
+            TracePriority basePriority =
+                TracePriority.Always | TracePriority.NoLimits;
+
+            debugPriority = basePriority | TracePriority.ScriptDebug3;
+            errorPriority = basePriority | TracePriority.ScriptError3;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool BuildTrustedRemoteUris(
+            Encoding encoding,    /* in */
+            Uri baseUri,          /* in */
+            out Uri dataUri,      /* out */
+            out Uri signatureUri, /* out */
+            ref Result error      /* out */
+            )
+        {
+            dataUri = null;
+            signatureUri = null;
+
+            if (baseUri == null)
+            {
+                error = "invalid trusted remote base URI";
+                return false;
+            }
+
+            string relativeUri = FileExtension.Signature;
+
+            signatureUri = PathOps.TryCombineUris(
+                baseUri, relativeUri, encoding, UriComponents.AbsoluteUri,
+                UriFormat.Unescaped, UriFlags.NoSeparators, ref error);
+
+            if (signatureUri == null) /* e.g. "https://urn.to/r/auto.harpy" */
+                return false;
+
+            dataUri = baseUri; /* e.g. "https://urn.to/r/auto" */
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode DownloadFromTrustedRemoteUri(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            Encoding encoding,           /* in */
+            Uri dataUri,                 /* in */
+            Uri signatureUri,            /* in */
+            TracePriority debugPriority, /* in */
+            TracePriority errorPriority, /* in */
+            ref byte[] data,             /* out */
+            ref byte[] signature,        /* out */
+            ref Result error             /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            bool locked = false;
+
+            try
+            {
+                interpreter.InternalHardTryLock(ref locked);
+
+                if (locked)
+                {
+                    if (interpreter.Disposed)
+                    {
+                        error = "interpreter is disposed";
+                        return ReturnCode.Error;
+                    }
+
+                    Result localError; /* REUSED */
+
+                    data = null;
+                    localError = null;
+
+                    if (WebOps.DownloadData(
+                            interpreter, clientData, dataUri, null, null,
+                            null, ref data, ref localError) != ReturnCode.Ok)
+                    {
+                        error = localError;
+                        return ReturnCode.Error;
+                    }
+
+                    signature = null;
+                    localError = null;
+
+                    if (WebOps.DownloadData(
+                            interpreter, clientData, signatureUri, null, null,
+                            null, ref signature, ref error) != ReturnCode.Ok)
+                    {
+                        error = localError;
+                        return ReturnCode.Error;
+                    }
+
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    error = "unable to acquire lock";
+
+                    TraceOps.LockTrace(
+                        "DownloadFromTrustedRemoteUri",
+                        typeof(Interpreter).Name, false,
+                        TracePriority.LockError2,
+                        interpreter.MaybeWhoHasLock());
+
+                    return ReturnCode.Error;
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
+            finally
+            {
+                interpreter.InternalExitLock(ref locked);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode MaybeEnableOrDisableSecurity(
+            Interpreter interpreter, /* in */
+            bool asynchronous,       /* in */
+            bool keepSecurity,       /* in */
+            ref bool? wasEnabled,    /* out */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            bool locked = false;
+
+            try
+            {
+                interpreter.InternalHardTryLock(ref locked);
+
+                if (locked)
+                {
+                    if (interpreter.Disposed)
+                    {
+                        error = "interpreter is disposed";
+                        return ReturnCode.Error;
+                    }
+
+                    PluginFlags savedPluginFlags;
+
+                    interpreter.BeginLoadOnAnyThread(
+                        out savedPluginFlags);
+
+                    if (!AreTypicalPluginFlagsInUse(
+                            savedPluginFlags, false))
+                    {
+                        error = String.Format(
+                            "interpreter has atypical plugin flags: {0}",
+                            savedPluginFlags);
+
+                        return ReturnCode.Error;
+                    }
+
+                    wasEnabled = interpreter.SecurityWasEnabled();
+
+                    if ((bool)wasEnabled)
+                        return ReturnCode.Ok;
+
+                    //
+                    // NOTE: If this method is running asynchronously
+                    //       with respect to the primary interpreter
+                    //       thread -AND- we are not allowed to keep
+                    //       security enabled, then we cannot enable
+                    //       security now.  This is because we would
+                    //       need to (eventually) disable it at some
+                    //       "unpredictable" point-in-time from the
+                    //       perspective of the primary interpreter
+                    //       thread and that would be a bad design.
+                    //
+                    if (asynchronous && !keepSecurity)
+                    {
+                        error = "security must be enabled already";
+                        return ReturnCode.Error;
+                    }
+
+                    if (EnableOrDisableSecurity(
+                            interpreter, true, true,
+                            ref error) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    error = "unable to acquire lock";
+
+                    TraceOps.LockTrace(
+                        "MaybeEnableOrDisableSecurity",
+                        typeof(Interpreter).Name, false,
+                        TracePriority.LockError3,
+                        interpreter.MaybeWhoHasLock());
+
+                    return ReturnCode.Error;
+                }
+            }
+            finally
+            {
+                interpreter.InternalExitLock(ref locked);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static byte[] GetPasswordForTrustedRemoteUri()
+        {
+            string value = GlobalConfiguration.GetValue(
+                EnvVars.TrustedBundlePassword, ConfigurationFlags.Interpreter);
+
+            if (value == null)
+                return null;
+
+            try
+            {
+                return Convert.FromBase64String(value);
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(ScriptOps).Name,
+                    TracePriority.ScriptError3);
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void InitializeViaTrustedRemoteUri(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            Encoding encoding,       /* in */
+            ScriptFlags scriptFlags, /* in: NOT USED */
+            byte[] password,         /* in: OPTIONAL */
+            bool asynchronous,       /* in */
+            bool keepSecurity        /* in */
+            )
+        {
+            TracePriority debugPriority;
+            TracePriority errorPriority;
+
+            SetupTracePrioritiesForTrustedRemote(
+                out debugPriority, out errorPriority);
+
+            if (interpreter == null)
+            {
+                TraceOps.DebugTrace(
+                    "InitializeViaTrustedRemoteUri: Invalid interpreter.",
+                    typeof(ScriptOps).Name, errorPriority);
+
+                return;
+            }
+
+            if (encoding == null)
+            {
+                TraceOps.DebugTrace(
+                    "InitializeViaTrustedRemoteUri: Invalid encoding.",
+                    typeof(ScriptOps).Name, errorPriority);
+
+                return;
+            }
+
+            if (interpreter.IsTrustedRemoteOk())
+            {
+                TraceOps.DebugTrace(
+                    "InitializeViaTrustedRemoteUri: Already completed.",
+                    typeof(ScriptOps).Name, debugPriority);
+
+                return;
+            }
+
+            Uri baseUri = SharedAttributeOps.GetAssemblyTrustedRemoteUri(
+                GlobalState.GetAssembly());
+
+            if (baseUri == null)
+            {
+                TraceOps.DebugTrace(
+                    "InitializeViaTrustedRemoteUri: No trusted remote URI.",
+                    typeof(ScriptOps).Name, debugPriority);
+
+                return;
+            }
+
+            Result error = null; /* REUSED */
+
+            if (CanEnableSecurity(
+                    interpreter, true, ref error) != ReturnCode.Ok)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "InitializeViaTrustedRemoteUri: " +
+                        "Security unavailable for " +
+                        "trusted remote URI {0}: {1}",
+                    FormatOps.WrapOrNull(baseUri),
+                    FormatOps.WrapOrNull(error)),
+                    typeof(ScriptOps).Name,
+                    debugPriority);
+            }
+
+            Uri dataUri;
+            Uri signatureUri;
+
+            error = null;
+
+            if (!BuildTrustedRemoteUris(
+                    encoding, baseUri, out dataUri,
+                    out signatureUri, ref error))
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "InitializeViaTrustedRemoteUri: " +
+                        "Could not build trusted " +
+                        "remote with URI {0}: {1}",
+                    FormatOps.WrapOrNull(baseUri),
+                    FormatOps.WrapOrNull(error)),
+                    typeof(ScriptOps).Name,
+                    errorPriority);
+
+                return;
+            }
+
+#if TEST
+            error = null;
+
+            if (WebOps.SetSecurityProtocol(
+                    false, false, ref error) != ReturnCode.Ok)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "InitializeViaTrustedRemoteUri: " +
+                        "Lacking SSL/TLS protocols for " +
+                        "trusted remote URI {0}: {1}",
+                    FormatOps.WrapOrNull(baseUri),
+                    FormatOps.WrapOrNull(error)),
+                    typeof(ScriptOps).Name,
+                    TracePriority.ScriptError);
+
+                return;
+            }
+#endif
+
+            byte[] data = null;
+            byte[] signature = null;
+
+            error = null;
+
+            if (DownloadFromTrustedRemoteUri(
+                    interpreter, clientData, encoding, dataUri,
+                    signatureUri, debugPriority, errorPriority,
+                    ref data, ref signature, ref error) != ReturnCode.Ok)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "InitializeViaTrustedRemoteUri: " +
+                        "Could not download {0} or {1}: {2}",
+                    FormatOps.WrapOrNull(dataUri),
+                    FormatOps.WrapOrNull(signatureUri),
+                    FormatOps.WrapOrNull(error)),
+                    typeof(ScriptOps).Name,
+                    errorPriority);
+
+                return;
+            }
+
+            string bundleFileName = PathOps.GetTempFileName();
+
+            if (String.IsNullOrEmpty(bundleFileName) ||
+                File.Exists(bundleFileName))
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "InitializeViaTrustedRemoteUri: " +
+                        "Bundle data file name error: {0}",
+                    FormatOps.WrapOrNull(bundleFileName)),
+                    typeof(ScriptOps).Name,
+                    errorPriority);
+
+                return;
+            }
+
+            string signatureFileName = String.Format(
+                "{0}{1}", bundleFileName, FileExtension.Signature);
+
+            if (String.IsNullOrEmpty(signatureFileName) ||
+                File.Exists(signatureFileName))
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "InitializeViaTrustedRemoteUri: " +
+                        "Bundle signature file name error: {0}",
+                    FormatOps.WrapOrNull(signatureFileName)),
+                    typeof(ScriptOps).Name,
+                    errorPriority);
+
+                return;
+            }
+
+            bool locked = false;
+
+            try
+            {
+                if (asynchronous)
+                    interpreter.InternalHardTryLock(ref locked);
+
+                if (!asynchronous || locked)
+                {
+                    bool? wasEnabled = null;
+
+                    try
+                    {
+                        if (MaybeEnableOrDisableSecurity(
+                                interpreter, asynchronous, keepSecurity,
+                                ref wasEnabled, ref error) != ReturnCode.Ok)
+                        {
+                            TraceOps.DebugTrace(String.Format(
+                                "InitializeViaTrustedRemoteUri: " +
+                                    "Could not enable security: {0}",
+                                FormatOps.WrapOrNull(error)),
+                                typeof(ScriptOps).Name,
+                                errorPriority);
+
+                            return;
+                        }
+
+                        try
+                        {
+                            File.WriteAllBytes(bundleFileName, data);
+                            File.WriteAllBytes(signatureFileName, signature);
+
+                            Result result = null;
+
+                            if (interpreter.EvaluateBundleFile(
+                                    bundleFileName, password, ref clientData,
+                                    ref result) == ReturnCode.Ok)
+                            {
+                                interpreter.MarkAsTrustedRemoteOk();
+
+                                TraceOps.DebugTrace(String.Format(
+                                    "InitializeViaTrustedRemoteUri: " +
+                                        "Bundle {0} evaluation success: {1}",
+                                    FormatOps.WrapOrNull(bundleFileName),
+                                    FormatOps.WrapOrNull(result)),
+                                    typeof(ScriptOps).Name,
+                                    debugPriority);
+                            }
+                            else
+                            {
+                                TraceOps.DebugTrace(String.Format(
+                                    "InitializeViaTrustedRemoteUri: " +
+                                        "Bundle {0} evaluation error: {1}",
+                                    FormatOps.WrapOrNull(bundleFileName),
+                                    FormatOps.WrapOrNull(result)),
+                                    typeof(ScriptOps).Name,
+                                    errorPriority);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            TraceOps.DebugTrace(
+                                e, typeof(ScriptOps).Name,
+                                errorPriority);
+                        }
+                        finally
+                        {
+                            try
+                            {
+                                if (File.Exists(bundleFileName))
+                                    File.Delete(bundleFileName);
+                            }
+                            catch (Exception e)
+                            {
+                                TraceOps.DebugTrace(
+                                    e, typeof(ScriptOps).Name,
+                                    errorPriority);
+                            }
+
+                            try
+                            {
+                                if (File.Exists(signatureFileName))
+                                    File.Delete(signatureFileName);
+                            }
+                            catch (Exception e)
+                            {
+                                TraceOps.DebugTrace(
+                                    e, typeof(ScriptOps).Name,
+                                    errorPriority);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        //
+                        // TODO: If the caller (e.g. PrivateInitializeLibrary)
+                        //       wanted to evaluate the trusted remote script
+                        //       bundle asynchronously, we have no reliable
+                        //       way to disable security at some well-defined
+                        //       point that we know will not potentially cause
+                        //       any problems for the remaining script library
+                        //       initialization process.
+                        //
+                        // NOTE: Above note still applies; however, we provide
+                        //       an override flag to (forcibly) keep security
+                        //       enabled.
+                        //
+                        if (!keepSecurity &&
+                            (wasEnabled != null) && !(bool)wasEnabled)
+                        {
+                            error = null;
+
+                            if (EnableOrDisableSecurity(
+                                    interpreter, false, false,
+                                    ref error) != ReturnCode.Ok)
+                            {
+                                TraceOps.DebugTrace(String.Format(
+                                    "InitializeViaTrustedRemoteUri: " +
+                                        "Could not disable security: {0}",
+                                    FormatOps.WrapOrNull(error)),
+                                    typeof(ScriptOps).Name,
+                                    errorPriority);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    error = "unable to acquire lock";
+
+                    TraceOps.LockTrace(
+                        "InitializeViaTrustedRemoteUri",
+                        typeof(Interpreter).Name, false,
+                        TracePriority.LockError3,
+                        interpreter.MaybeWhoHasLock());
+
+                    return;
+                }
+            }
+            finally
+            {
+                if (asynchronous)
+                    interpreter.InternalExitLock(ref locked);
             }
         }
 #endif

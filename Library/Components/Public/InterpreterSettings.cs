@@ -44,6 +44,21 @@ namespace Eagle._Components.Public
         #region Private Constants
         private static readonly string LoadFromFileNameFormat =
             "{0}.settings{1}";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private const CreateFlags SafeCreateFlags =
+            (CreateFlags.FastSingleUse & ~(CreateFlags.Initialize |
+            CreateFlags.ThrowOnError)) | CreateFlags.IfNecessary |
+            CreateFlags.IfCannotLock | CreateFlags.MeasureTime |
+            CreateFlags.SafeAndHideUnsafe | CreateFlags.NoDispose |
+            CreateFlags.NoCommands | CreateFlags.NoFunctions |
+            CreateFlags.NoCoreTraces | CreateFlags.NoCorePolicies;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private const HostCreateFlags SafeHostCreateFlags =
+            HostCreateFlags.FastSingleUse;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -208,6 +223,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        internal void DisableInitialize()
+        {
+            createFlags &= ~CreateFlags.Initialize;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         internal void EnableNamespaces() /* DO NOT USE: TESTS ONLY. */
         {
             createFlags |= CreateFlags.UseNamespaces;
@@ -282,13 +304,50 @@ namespace Eagle._Components.Public
 
         public static InterpreterSettings CreateDefault()
         {
+            return CreateDefault(null, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static InterpreterSettings CreateDefault(
+            IRuleSet ruleSet,
+            IEnumerable<string> args
+            )
+        {
             InterpreterSettings interpreterSettings = Create();
 
             if (interpreterSettings != null)
             {
                 interpreterSettings.ResetEverything();
                 interpreterSettings.UseDefaultsForFlags();
+
+                if (ruleSet != null)
+                    interpreterSettings.RuleSet = ruleSet;
+
+                if (args != null)
+                    interpreterSettings.Args = args;
             }
+
+            return interpreterSettings;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static InterpreterSettings CreateSafe(
+            IRuleSet ruleSet,
+            IEnumerable<string> args
+            )
+        {
+            InterpreterSettings interpreterSettings = CreateDefault();
+
+            if (ruleSet != null)
+                interpreterSettings.RuleSet = ruleSet;
+
+            if (args != null)
+                interpreterSettings.Args = args;
+
+            interpreterSettings.CreateFlags = SafeCreateFlags;
+            interpreterSettings.HostCreateFlags = SafeHostCreateFlags;
 
             return interpreterSettings;
         }
@@ -318,7 +377,97 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        internal static InterpreterSettings Create( /* PrivateShellMain */
+        public static InterpreterSettings CreateShell( /* PrivateShellMain */
+            IRuleSet ruleSet,
+            IEnumerable<string> args,
+            OptionOriginFlags originFlags,
+            bool console,
+            bool verbose,
+            ref Result error
+            )
+        {
+            //
+            // NOTE: Initially, all flags are set to "None" here; they may
+            //       be modified via the GetFlagsForShell method.
+            //
+            CreateFlags createFlags = CreateFlags.None;
+            HostCreateFlags hostCreateFlags = HostCreateFlags.None;
+            InitializeFlags initializeFlags = InitializeFlags.None;
+            ScriptFlags scriptFlags = ScriptFlags.None;
+
+            GetFlagsForShell(
+                args, originFlags, console, verbose, ref createFlags,
+                ref hostCreateFlags, ref initializeFlags, ref scriptFlags);
+
+            //
+            // BUGFIX: If the "ShellPreInitialize" environment variable is
+            //         present, pre-scan all the command line arguments for
+            //         the pre-initialize script to evaluate.  Otherwise,
+            //         this should be skipped to prevent the pre-initialize
+            //         script from being evaluated more than once (COMPAT:
+            //         Eagle Beta).
+            //
+            string text = null;
+
+            if (GlobalConfiguration.DoesValueExist(
+                    EnvVars.ShellPreInitialize,
+                    ConfigurationFlags.InterpreterVerbose))
+            {
+                if (Interpreter.GetStartupPreInitializeText(
+                        args, createFlags, originFlags, console, verbose,
+                        ref text, ref error) != ReturnCode.Ok)
+                {
+                    return null;
+                }
+            }
+
+            string libraryPath = null;
+
+            if (Interpreter.GetStartupLibraryPath(
+                    args, createFlags, originFlags, console, verbose,
+                    ref libraryPath, ref error) != ReturnCode.Ok)
+            {
+                return null;
+            }
+
+            return Create(
+                ruleSet, args, createFlags, hostCreateFlags, initializeFlags,
+                scriptFlags, text, libraryPath);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal static InterpreterSettings Create(
+            IRuleSet ruleSet,
+            IEnumerable<string> args,
+            SecurityLevel securityLevel,
+            ref Result error
+            )
+        {
+            if (FlagOps.HasFlags(
+                    securityLevel, SecurityLevel.Sdk, true))
+            {
+                error = String.Format(
+                    "security level {0} is unavailable",
+                    securityLevel);
+
+                return null;
+            }
+
+            if (FlagOps.HasFlags(
+                    securityLevel, SecurityLevel.Safe, true))
+            {
+                return CreateSafe(ruleSet, args);
+            }
+            else
+            {
+                return CreateDefault(ruleSet, args);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static InterpreterSettings Create(
             IRuleSet ruleSet,
             IEnumerable<string> args,
             CreateFlags createFlags,
@@ -347,6 +496,85 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        private static void GetFlagsForShell(
+            IEnumerable<string> args,            /* in */
+            OptionOriginFlags originFlags,       /* in */
+            bool console,                        /* in */
+            bool verbose,                        /* in */
+            ref CreateFlags createFlags,         /* out */
+            ref HostCreateFlags hostCreateFlags, /* out */
+            ref InitializeFlags initializeFlags, /* out */
+            ref ScriptFlags scriptFlags          /* out */
+            )
+        {
+            //
+            // NOTE: Setup the appropriate interpreter creation flags
+            //       for a shell.
+            //
+            createFlags = CreateFlags.CoreShellUse; /* EXEMPT */
+
+            //
+            // NOTE: Get the effective interpreter creation flags for
+            //       the shell from the environment, etc.
+            //
+            createFlags = Interpreter.GetStartupCreateFlags(
+                args, createFlags, originFlags, console, verbose);
+
+            //
+            // NOTE: Setup the appropriate interpreter host creation
+            //       flags for a shell.
+            //
+            hostCreateFlags = HostCreateFlags.CoreShellUse; /* EXEMPT */
+
+            //
+            // NOTE: Get the effective interpreter creation flags for
+            //       the shell from the environment, etc.
+            //
+            hostCreateFlags = Interpreter.GetStartupHostCreateFlags(
+                args, hostCreateFlags, originFlags, console, verbose);
+
+            //
+            // NOTE: Setup the appropriate interpreter initialization
+            //       flags for a shell.
+            //
+            initializeFlags = InitializeFlags.CoreShellUse; /* EXEMPT */
+
+            //
+            // NOTE: Get the effective interpreter initialization flags
+            //       for the shell from the environment, etc.
+            //
+            initializeFlags = Interpreter.GetStartupInitializeFlags(
+                args, initializeFlags, originFlags, console, verbose);
+
+            //
+            // NOTE: Are we creating a safe interpreter?  If so, make
+            //       sure the "full initialize" option is not present,
+            //       then disable evaluating "init.eagle" and evaluate
+            //       "safe.eagle" instead.
+            //
+            if (FlagOps.HasFlags(createFlags, CreateFlags.Safe, true))
+            {
+                initializeFlags &= ~InitializeFlags.Loader;
+                initializeFlags &= ~InitializeFlags.Initialization;
+                initializeFlags |= InitializeFlags.Safe;
+            }
+
+            //
+            // NOTE: Setup the appropriate interpreter script flags
+            //       for a shell.
+            //
+            scriptFlags = Defaults.ScriptFlags;
+
+            //
+            // NOTE: Get the effective interpreter script flags for
+            //       the shell from the environment, etc.
+            //
+            scriptFlags = Interpreter.GetStartupScriptFlags(
+                args, scriptFlags, originFlags, console, verbose);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static bool CouldBeDocument(
             string path
             )

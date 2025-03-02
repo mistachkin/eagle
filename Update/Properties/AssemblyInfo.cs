@@ -69,7 +69,13 @@ using Eagle._Components.Shared;
 #endif
 
 [assembly: AssemblyTag("beta")]
-[assembly: AssemblyLicense(License.Summary, License.Text)]
+
+#if OFFICIAL_BINARY
+[assembly: AssemblyLicense(BinaryLicense.Summary, BinaryLicense.Text)]
+#else
+[assembly: AssemblyLicense(SourceLicense.Summary, SourceLicense.Text)]
+#endif
+
 [assembly: AssemblyUri("update", "https://update.eagle.to/")]
 [assembly: AssemblyUri("download", "https://download.eagle.to/")]
 [assembly: AssemblyUri("script", "https://script.eagle.to/")]

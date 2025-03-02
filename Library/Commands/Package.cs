@@ -724,6 +724,8 @@ namespace Eagle._Commands
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-preferhost", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-host", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nohost", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-bundle", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nobundle", null),
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-plugin", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noplugin", null),
@@ -748,6 +750,8 @@ namespace Eagle._Commands
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-whatif", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-notrusted", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noverified", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-fileerror", null),
                                                     Option.CreateEndOfOptions()
                                                 });
 
@@ -783,6 +787,7 @@ namespace Eagle._Commands
                                                         if (whatIf)
                                                         {
                                                             newFlags &= ~PackageIndexFlags.Host;
+                                                            newFlags &= ~PackageIndexFlags.Bundle;
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
                                                             newFlags &= ~PackageIndexFlags.Plugin;
@@ -805,6 +810,12 @@ namespace Eagle._Commands
 
                                                         if (options.IsPresent("-nohost"))
                                                             newFlags &= ~PackageIndexFlags.Host;
+
+                                                        if (options.IsPresent("-bundle"))
+                                                            newFlags |= PackageIndexFlags.Bundle;
+
+                                                        if (options.IsPresent("-nobundle"))
+                                                            newFlags &= ~PackageIndexFlags.Bundle;
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
                                                         if (options.IsPresent("-plugin"))
@@ -856,6 +867,14 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-noverified"))
                                                             newFlags |= PackageIndexFlags.NoVerified;
 
+                                                        bool noComplain = false;
+
+                                                        if (options.IsPresent("-nocomplain"))
+                                                            noComplain = true;
+
+                                                        if (options.IsPresent("-fileerror"))
+                                                            newFlags &= ~PackageIndexFlags.NoFileError;
+
                                                         StringList paths = null;
 
                                                         if (argumentIndex != Index.Invalid)
@@ -883,7 +902,8 @@ namespace Eagle._Commands
                                                                 //       here because we manually rescan, if necessary,
                                                                 //       below.
                                                                 //
-                                                                code = interpreter.SetAutoPathList(paths, true, ref result);
+                                                                code = interpreter.SetAutoPathList(
+                                                                    paths, true, noComplain, ref result);
                                                             }
                                                         }
                                                         else
@@ -906,6 +926,16 @@ namespace Eagle._Commands
                                                                     errors.Add(String.Format(
                                                                         "cannot use {0} package index flag in \"what-if\" mode",
                                                                         PackageIndexFlags.Host));
+                                                                }
+
+                                                                if (FlagOps.HasFlags(newFlags, PackageIndexFlags.Bundle, true))
+                                                                {
+                                                                    if (errors == null)
+                                                                        errors = new ResultList();
+
+                                                                    errors.Add(String.Format(
+                                                                        "cannot use {0} package index flag in \"what-if\" mode",
+                                                                        PackageIndexFlags.Bundle));
                                                                 }
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS

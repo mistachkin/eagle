@@ -72,7 +72,7 @@ namespace Eagle._Commands
                                 code = interpreter.InternalEvaluateExpressionWithErrorInfo(
                                     arguments[2], errorInfo, ref result);
 
-                                if (code != ReturnCode.Ok)
+                                if ((code != ReturnCode.Ok) || interpreter.ExitNoThrow)
                                     break;
 
                                 bool value = false;

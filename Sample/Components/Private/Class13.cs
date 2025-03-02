@@ -81,7 +81,7 @@ namespace Sample
         //       value as the only replaceable parameter.
         //
         private static readonly string ScanPackagesScript =
-            "package scan -host -normal -primary -refresh -- {0};";
+            "package scan -host -normal -primary -tagged -refresh -- {0};";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

@@ -25,13 +25,10 @@ namespace Eagle._Wrappers
     internal sealed class Plugin : Default, IPlugin
     {
         #region Public Constructors
-        public Plugin(
-            long token,
-            IPlugin plugin
-            )
-            : base(token)
+        public Plugin()
+            : base()
         {
-            this.plugin = plugin;
+            // do nothing.
         }
         #endregion
 
@@ -114,10 +111,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (plugin != null)
-                return plugin.Initialize(interpreter, clientData, ref result);
-            else
+            if (plugin == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return plugin.Initialize(interpreter, clientData, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -128,10 +128,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (plugin != null)
-                return plugin.Terminate(interpreter, clientData, ref result);
-            else
+            if (plugin == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return plugin.Terminate(interpreter, clientData, ref result);
         }
         #endregion
 
@@ -299,10 +302,8 @@ namespace Eagle._Wrappers
             Interpreter interpreter
             )
         {
-            if (plugin != null)
-                return plugin.GetTypes(interpreter);
-            else
-                return NotifyType.None;
+            return (plugin != null) ?
+                plugin.GetTypes(interpreter) : NotifyType.None;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -311,10 +312,8 @@ namespace Eagle._Wrappers
             Interpreter interpreter
             )
         {
-            if (plugin != null)
-                return plugin.GetFlags(interpreter);
-            else
-                return NotifyFlags.None;
+            return (plugin != null) ?
+                plugin.GetFlags(interpreter) : NotifyFlags.None;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -327,16 +326,14 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (plugin != null)
+            if (plugin == null)
             {
-                return plugin.Notify(
-                    interpreter, eventArgs, clientData, arguments,
-                    ref result);
-            }
-            else
-            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
             }
+
+            return plugin.Notify(
+                interpreter, eventArgs, clientData, arguments, ref result);
         }
         #endregion
 #endif
@@ -352,16 +349,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (plugin != null)
+            if (plugin == null)
             {
-                return plugin.Execute(
-                    interpreter, clientData, request, ref response,
-                    ref error);
-            }
-            else
-            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
             }
+
+            return plugin.Execute(
+                interpreter, clientData, request, ref response, ref error);
         }
         #endregion
 
@@ -385,10 +380,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (plugin != null)
-                return plugin.GetFramework(id, flags, ref result);
-            else
+            if (plugin == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return plugin.GetFramework(id, flags, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -400,15 +398,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (plugin != null)
+            if (plugin == null)
             {
-                return plugin.GetStream(
-                    interpreter, name, cultureInfo, ref error);
-            }
-            else
-            {
+                error = "invalid wrapper target";
                 return null;
             }
+
+            return plugin.GetStream(
+                interpreter, name, cultureInfo, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -420,15 +417,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (plugin != null)
+            if (plugin == null)
             {
-                return plugin.GetString(
-                    interpreter, name, cultureInfo, ref error);
-            }
-            else
-            {
+                error = "invalid wrapper target";
                 return null;
             }
+
+            return plugin.GetString(
+                interpreter, name, cultureInfo, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -440,15 +436,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (plugin != null)
+            if (plugin == null)
             {
-                return plugin.GetUri(
-                    interpreter, name, cultureInfo, ref error);
-            }
-            else
-            {
+                error = "invalid wrapper target";
                 return null;
             }
+
+            return plugin.GetUri(
+                interpreter, name, cultureInfo, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -459,15 +454,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (plugin != null)
+            if (plugin == null)
             {
-                return plugin.GetCertificateFileName(
-                    interpreter, name, ref error);
-            }
-            else
-            {
+                error = "invalid wrapper target";
                 return null;
             }
+
+            return plugin.GetCertificateFileName(
+                interpreter, name, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -478,10 +472,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (plugin != null)
-                return plugin.GetCertificate(interpreter, name, ref error);
-            else
+            if (plugin == null)
+            {
+                error = "invalid wrapper target";
                 return null;
+            }
+
+            return plugin.GetCertificate(interpreter, name, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -492,10 +489,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (plugin != null)
-                return plugin.GetKeyPair(interpreter, name, ref error);
-            else
+            if (plugin == null)
+            {
+                error = "invalid wrapper target";
                 return null;
+            }
+
+            return plugin.GetKeyPair(interpreter, name, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -506,10 +506,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (plugin != null)
-                return plugin.GetKeyRing(interpreter, name, ref error);
-            else
+            if (plugin == null)
+            {
+                error = "invalid wrapper target";
                 return null;
+            }
+
+            return plugin.GetKeyRing(interpreter, name, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -519,10 +522,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (plugin != null)
-                return plugin.Banner(interpreter, ref result);
-            else
+            if (plugin == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return plugin.Banner(interpreter, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -532,10 +538,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (plugin != null)
-                return plugin.About(interpreter, ref result);
-            else
+            if (plugin == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return plugin.About(interpreter, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -545,10 +554,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (plugin != null)
-                return plugin.Options(interpreter, ref result);
-            else
+            if (plugin == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return plugin.Options(interpreter, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -558,10 +570,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (plugin != null)
-                return plugin.Status(interpreter, ref result);
-            else
+            if (plugin == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return plugin.Status(interpreter, ref result);
         }
         #endregion
 
@@ -578,6 +593,7 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return plugin; }
+            set { plugin = (IPlugin)value; } /* throw */
         }
         #endregion
     }

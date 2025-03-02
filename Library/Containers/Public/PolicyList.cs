@@ -113,7 +113,7 @@ namespace Eagle._Containers.Public
         {
             return ParserOps<IPolicy>.ListToString(
                 this, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
         #endregion
 

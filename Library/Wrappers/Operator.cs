@@ -22,13 +22,10 @@ namespace Eagle._Wrappers
     internal sealed class Operator : Default, IOperator
     {
         #region Public Constructors
-        public Operator(
-            long token,
-            IOperator @operator
-            )
-            : base(token)
+        public Operator()
+            : base()
         {
-            this.@operator = @operator;
+            // do nothing.
         }
         #endregion
 
@@ -111,10 +108,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (@operator != null)
-                return @operator.Initialize(interpreter, clientData, ref result);
-            else
+            if (@operator == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return @operator.Initialize(interpreter, clientData, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -125,10 +125,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (@operator != null)
-                return @operator.Terminate(interpreter, clientData, ref result);
-            else
+            if (@operator == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return @operator.Terminate(interpreter, clientData, ref result);
         }
         #endregion
 
@@ -213,11 +216,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (@operator != null)
-                return @operator.Execute(
-                    interpreter, clientData, arguments, ref value, ref error);
-            else
+            if (@operator == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return @operator.Execute(
+                interpreter, clientData, arguments, ref value, ref error);
         }
         #endregion
 
@@ -300,6 +306,7 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return @operator; }
+            set { @operator = (IOperator)value; } /* throw */
         }
         #endregion
     }

@@ -79,7 +79,7 @@ namespace Eagle._Containers.Private
         {
             return ParserOps<IAnyPair<Interpreter, IClientData>>.ListToString(
                 this, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
         #endregion
 

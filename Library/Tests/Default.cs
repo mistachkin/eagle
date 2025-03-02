@@ -179,7 +179,8 @@ namespace Eagle._Tests
         // HACK: These are purposely not read-only.
         //
         private static Regex GoodNameOnlyRegEx = RegExOps.Create(
-            "^[A-Z][0-9A-Z_]*$", RegexOptions.IgnoreCase);
+            "^[A-Z][0-9A-Z_]*$", RegexOptions.IgnoreCase |
+            RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -187,7 +188,8 @@ namespace Eagle._Tests
         // HACK: These are purposely not read-only.
         //
         private static Regex GoodNameRegEx = RegExOps.Create(
-            "^[A-Z][0-9A-Z\\._]*$", RegexOptions.IgnoreCase);
+            "^[A-Z][0-9A-Z\\._]*$", RegexOptions.IgnoreCase |
+            RegexOptions.Compiled);
 
         private static Regex BadNameRegEx = RegExOps.Create(
             "\\.\\.|\\.$");
@@ -1702,6 +1704,55 @@ namespace Eagle._Tests
                 interpreter.MatchCallback = TestMatchCallback;
             else
                 interpreter.MatchCallback = null;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for ListOps.GetUniqueElements
+        public static bool? TestHaveAnyScriptFileName(
+            ICollection<string> collection,         /* in: NOT USED */
+            IDictionary<string, string> dictionary, /* in: OPTIONAL */
+            string keyItem                          /* in */
+            ) /* Eagle._Components.Public.Delegates.UniqueStringCallback<T> */
+        {
+            if ((dictionary != null) && (keyItem != null))
+            {
+                if (dictionary.ContainsKey(keyItem))
+                    return true;
+
+                if (!PathOps.IsRemoteUri(keyItem) && File.Exists(keyItem))
+                {
+                    bool encrypted = TestIsEncryptedFileName(keyItem);
+                    string localKeyItem = keyItem;
+
+                    /* NO RESULT */
+                    TestMutateScriptFileName(!encrypted, ref localKeyItem);
+
+                    if ((localKeyItem != null) &&
+                        dictionary.ContainsKey(localKeyItem) &&
+                        !PathOps.IsRemoteUri(localKeyItem) &&
+                        File.Exists(localKeyItem) &&
+                        !PathOps.IsSameFile(null, keyItem, localKeyItem))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static StringList TestGetUniqueScriptFileNames(
+            StringList list /* in */
+            )
+        {
+            StringList result = ListOps.GetUniqueElements(list,
+                new UniqueStringCallback<string>(TestHaveAnyScriptFileName));
+
+            return result;
         }
         #endregion
 
@@ -3365,13 +3416,14 @@ namespace Eagle._Tests
             if (text != null)
             {
                 return ScriptWebClient.Create(
-                    interpreter, text, argument, ref error);
+                    interpreter, text, argument, true,
+                    ref error);
             }
             else
             {
                 return WebOps.CreateClient(
-                    argument, WebOps.GetTimeout(interpreter,
-                    TimeoutType.Network), ref error);
+                    interpreter, argument, null, WebOps.GetTimeout(
+                    interpreter, TimeoutType.Network), ref error);
             }
         }
 
@@ -5595,6 +5647,39 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Methods for TimeOps
+        public static void TestSetFakeNow(
+            DateTime? now, /* in */
+            bool utc       /* in */
+            )
+        {
+            if (utc)
+            {
+                if (now != null)
+                {
+                    now = DateTime.SpecifyKind(
+                        (DateTime)now, DateTimeKind.Utc);
+                }
+
+                /* NO RESULT */
+                TimeOps.SetFakeUtcNow(now);
+            }
+            else
+            {
+                if (now != null)
+                {
+                    now = DateTime.SpecifyKind(
+                        (DateTime)now, DateTimeKind.Local);
+                }
+
+                /* NO RESULT */
+                TimeOps.SetFakeNow(now);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if SHELL
         public static IList<string> TestShellGetProcessedArguments() /* THREAD-SAFE */
         {
@@ -6272,7 +6357,8 @@ namespace Eagle._Tests
 
                 scriptFlags |= ScriptFlags.CoreAssemblyOnly;
 
-                ScriptOps.MaybeExactNameOnly(name, ref scriptFlags);
+                ScriptOps.MaybeExactNameOnly(
+                    interpreter, name, null, ref scriptFlags);
 
                 Result result = null;
 
@@ -9036,8 +9122,8 @@ namespace Eagle._Tests
                         new StringPair("name0", null),
                         new StringPair("name1", String.Empty),
                         new StringPair("name2", "value1"),
-                        new StringPair("name3", TimeOps.GetUtcNow().ToString()),
-                        new StringPair("name4", interpreter.GetRandomNumber().ToString()));
+                        new StringPair("name3", FormatOps.Iso8601FullDateTime(TimeOps.GetUtcNow())),
+                        new StringPair("name4", interpreter.GetRandomNumber().ToString("x16")));
                 }
             }
             else
@@ -15290,9 +15376,9 @@ namespace Eagle._Tests
         #region Methods for TraceFilterCallback
         private static bool TestTraceFilterStubCallback(
             Interpreter interpreter,
-            string message,
-            string category,
-            TracePriority priority
+            ref string message,
+            ref string category,
+            ref TracePriority priority
             )
         {
             int localTraceFilterStubSetting = Interlocked.CompareExchange(
@@ -15319,9 +15405,9 @@ namespace Eagle._Tests
 
         private static bool TestTraceFilterMessageCallback(
             Interpreter interpreter,
-            string message,
-            string category,
-            TracePriority priority
+            ref string message,
+            ref string category,
+            ref TracePriority priority
             )
         {
             MatchMode mode;
@@ -15346,9 +15432,9 @@ namespace Eagle._Tests
 
         private static bool TestTraceFilterCategoryCallback(
             Interpreter interpreter,
-            string message,
-            string category,
-            TracePriority priority
+            ref string message,
+            ref string category,
+            ref TracePriority priority
             )
         {
             MatchMode mode;
@@ -15373,9 +15459,9 @@ namespace Eagle._Tests
 
         private static bool TestTraceFilterCaptureCallback(
             Interpreter interpreter,
-            string message,
-            string category,
-            TracePriority priority
+            ref string message,
+            ref string category,
+            ref TracePriority priority
             )
         {
             lock (staticSyncRoot) /* TRANSACTIONAL */
@@ -15402,9 +15488,9 @@ namespace Eagle._Tests
 
         private static bool TestTraceFilterMessageSpyCallback(
             Interpreter interpreter,
-            string message,
-            string category,
-            TracePriority priority
+            ref string message,
+            ref string category,
+            ref TracePriority priority
             )
         {
             MatchMode mode;
@@ -15420,7 +15506,8 @@ namespace Eagle._Tests
                     interpreter, mode, message, pattern, false))
             {
                 return TestTraceFilterCaptureCallback(
-                    interpreter, message, category, priority);
+                    interpreter, ref message, ref category,
+                    ref priority);
             }
 
             return false;
@@ -15430,9 +15517,9 @@ namespace Eagle._Tests
 
         private static bool TestTraceFilterCategorySpyCallback(
             Interpreter interpreter,
-            string message,
-            string category,
-            TracePriority priority
+            ref string message,
+            ref string category,
+            ref TracePriority priority
             )
         {
             MatchMode mode;
@@ -15448,7 +15535,8 @@ namespace Eagle._Tests
                     interpreter, mode, category, pattern, false))
             {
                 return TestTraceFilterCaptureCallback(
-                    interpreter, message, category, priority);
+                    interpreter, ref message, ref category,
+                    ref priority);
             }
 
             return false;
@@ -15542,6 +15630,63 @@ namespace Eagle._Tests
                     interpreter, mode, text, pattern,
                     noCase, comparer, regExOptions,
                     ref match, ref error);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for ListOps.GetUniqueElements
+        private static bool TestIsEncryptedFileName(
+            string fileName /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(fileName))
+                return false;
+
+            string fileExtension = Path.GetExtension(fileName);
+
+            if (PathOps.IsEqualParts(
+                    fileExtension, FileExtension.EncryptedMarkup))
+            {
+                return true;
+            }
+
+            if (PathOps.IsEqualParts(
+                    fileExtension, FileExtension.EncryptedScript))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void TestMutateScriptFileName(
+            bool? encrypted,    /* in: OPTIONAL */
+            ref string fileName /* in, out */
+            )
+        {
+            if (encrypted == null)
+                return;
+
+            if (String.IsNullOrEmpty(fileName))
+                return;
+
+            if ((bool)encrypted)
+            {
+                fileName = Path.Combine(Path.GetDirectoryName(
+                    fileName), String.Format("{0}{1}",
+                    Path.GetFileNameWithoutExtension(fileName),
+                    FileExtension.EncryptedScript));
+            }
+            else
+            {
+                fileName = Path.Combine(Path.GetDirectoryName(
+                    fileName), String.Format("{0}{1}",
+                    Path.GetFileNameWithoutExtension(fileName),
+                    FileExtension.Script));
             }
         }
         #endregion
@@ -20486,6 +20631,7 @@ namespace Eagle._Tests
                     case IdentifierKind.DelegateData:
                     case IdentifierKind.Delegate:
                     case IdentifierKind.SubDelegate:
+                    case IdentifierKind.Automatic:
                     case IdentifierKind.ResolveData:
                     case IdentifierKind.ClockData:
                     case IdentifierKind.Clock:
@@ -20779,6 +20925,7 @@ namespace Eagle._Tests
                     case IdentifierKind.DelegateData:
                     case IdentifierKind.Delegate:
                     case IdentifierKind.SubDelegate:
+                    case IdentifierKind.Automatic:
                     case IdentifierKind.ResolveData:
                     case IdentifierKind.ClockData:
                     case IdentifierKind.Clock:
@@ -24209,16 +24356,24 @@ namespace Eagle._Tests
         [ObjectId("a772f475-0016-4016-a444-310b1be9ba58")]
         public class ScriptWebClient : WebClient, IHaveInterpreter /* NOT SEALED */
         {
+            #region Private Constants
+            private static bool DefaultThrowOnError = true; // TODO: Good default?
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             #region Private Constructors
             private ScriptWebClient(
                 Interpreter interpreter,
                 string text,
-                string argument
+                string argument,
+                bool? throwOnError
                 )
             {
                 this.interpreter = interpreter;
                 this.text = text;
                 this.argument = argument;
+                this.throwOnError = throwOnError;
             }
             #endregion
 
@@ -24229,10 +24384,12 @@ namespace Eagle._Tests
                 Interpreter interpreter,
                 string text,
                 string argument,
+                bool? throwOnError,
                 ref Result error /* NOT USED */
                 )
             {
-                return new ScriptWebClient(interpreter, text, argument);
+                return new ScriptWebClient(
+                    interpreter, text, argument, throwOnError);
             }
             #endregion
 
@@ -24263,6 +24420,19 @@ namespace Eagle._Tests
                 get { CheckDisposed(); return argument; }
                 set { CheckDisposed(); argument = value; }
             }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: When this field is non-zero, a ScriptException will be thrown
+            //       if any script evaluation returns an error.
+            //
+            private bool? throwOnError;
+            public virtual bool? ThrowOnError
+            {
+                get { CheckDisposed(); return throwOnError; }
+                set { CheckDisposed(); throwOnError = value; }
+            }
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -24289,6 +24459,24 @@ namespace Eagle._Tests
                 Result result
                 )
             {
+                bool localThrowOnError;
+
+                if (throwOnError != null)
+                {
+                    localThrowOnError = (bool)throwOnError;
+                }
+                else if (interpreter != null)
+                {
+                    localThrowOnError = interpreter.ThrowOnErrorForScriptWebClient();
+                }
+                else
+                {
+                    localThrowOnError = DefaultThrowOnError;
+                }
+
+                if (localThrowOnError)
+                    throw new ScriptException(code, result);
+
                 DebugOps.Complain(interpreter, code, result);
             }
             #endregion
@@ -27169,7 +27357,7 @@ namespace Eagle._Tests
                     {
                         IClientData clientData = null;
 
-                        if (interpreter.GetRuntimeOption(
+                        if (interpreter.InternalGetRuntimeOption(
                                 RequestIdRuntimeOption,
                                 ref clientData))
                         {
@@ -27202,9 +27390,9 @@ namespace Eagle._Tests
                 {
                     try
                     {
-                        if (interpreter.SetRuntimeOption(
-                                RequestIdRuntimeOption,
-                                new ClientData(requestId)))
+                        if (interpreter.InternalSetRuntimeOption(
+                                RequestIdRuntimeOption, new ClientData(
+                                requestId), true, true))
                         {
                             return true;
                         }
@@ -28441,6 +28629,668 @@ namespace Eagle._Tests
                     list.Add(methodInvokeCounts[index].ToString());
 
                 return list.ToString();
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Automatic Commands Test Class
+        [ObjectId("d47ad977-fd77-488a-91f7-d28650172c12")]
+        public sealed class Automatic :
+#if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+            ScriptMarshalByRefObject,
+#endif
+            IMaybeDisposed, IDisposable
+        {
+            #region Private Constants
+            private const ValueFlags IntegerValueFlags =
+                ValueFlags.AnyInteger | ValueFlags.WidenToUnsigned;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Static Data
+            [CommandFlags(CommandFlags.Unsafe)]
+            private static long createCount;
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private static long instanceCount;
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private static long staticCount;
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private static long dispose0Count;
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private static long significantDispose1Count;
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private static long significantRelease1Count;
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private static long redundantDispose1Count;
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private static long redundantRelease1Count;
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private static long destroyCount;
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.None)]
+            private static long neutralStaticField = 1;
+
+            [CommandFlags(CommandFlags.Safe)]
+            private static long safeStaticField = 2;
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private static long unsafeStaticField = 3;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Data
+            private bool disposed;
+            private bool disposing;
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.None)]
+            private long neutralInstanceField = 4;
+
+            [CommandFlags(CommandFlags.Safe)]
+            private long safeInstanceField = 5;
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private long unsafeInstanceField = 6;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Constructors
+            [CommandFlags(CommandFlags.Unsafe)]
+            public Automatic()
+            {
+                Interlocked.Increment(ref createCount);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Static Methods
+            [CommandFlags(CommandFlags.Safe)]
+            public static object Create()
+            {
+                Interlocked.Increment(ref staticCount);
+
+                return new Automatic();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.None)]
+            public static long NeutralStaticMethod()
+            {
+                Interlocked.Increment(ref staticCount);
+
+                return Interlocked.Increment(
+                    ref neutralStaticField);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.None)]
+            public static long NeutralStaticMethod(
+                int intValue /* in */
+                )
+            {
+                Interlocked.Increment(ref staticCount);
+
+                return Interlocked.Add(
+                    ref neutralStaticField, intValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.None)]
+            public static long NeutralStaticMethod(
+                string stringValue /* in */
+                )
+            {
+                Interlocked.Increment(ref staticCount);
+
+                int intValue = 0;
+                Result error = null;
+
+                if (Value.GetInteger2(
+                        stringValue, IntegerValueFlags, null,
+                        ref intValue, ref error) != ReturnCode.Ok)
+                {
+                    throw new ScriptException(error);
+                }
+
+                return NeutralStaticMethod(intValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.None)]
+            public static long NeutralStaticMethod(
+                int intValue,      /* in */
+                string stringValue /* in */
+                )
+            {
+                Interlocked.Increment(ref staticCount);
+
+                return NeutralStaticMethod(intValue) +
+                    NeutralStaticMethod(stringValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public static long SafeStaticMethod()
+            {
+                Interlocked.Increment(ref staticCount);
+
+                return Interlocked.Increment(
+                    ref safeStaticField);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public static long SafeStaticMethod(
+                int intValue /* in */
+                )
+            {
+                Interlocked.Increment(ref staticCount);
+
+                return Interlocked.Add(
+                    ref safeStaticField, intValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public static long SafeStaticMethod(
+                string stringValue /* in */
+                )
+            {
+                Interlocked.Increment(ref staticCount);
+
+                int intValue = 0;
+                Result error = null;
+
+                if (Value.GetInteger2(
+                        stringValue, IntegerValueFlags, null,
+                        ref intValue, ref error) != ReturnCode.Ok)
+                {
+                    throw new ScriptException(error);
+                }
+
+                return SafeStaticMethod(intValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public static long SafeStaticMethod(
+                int intValue,      /* in */
+                string stringValue /* in */
+                )
+            {
+                Interlocked.Increment(ref staticCount);
+
+                return SafeStaticMethod(intValue) +
+                    SafeStaticMethod(stringValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            public static long UnsafeStaticMethod()
+            {
+                Interlocked.Increment(ref staticCount);
+
+                return Interlocked.Increment(
+                    ref unsafeStaticField);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Static Properties
+            [CommandFlags(CommandFlags.None)]
+            public static long NeutralStaticProperty
+            {
+                [CommandFlags(CommandFlags.None)]
+                get
+                {
+                    Interlocked.Increment(ref staticCount);
+
+                    return Interlocked.CompareExchange(
+                        ref neutralStaticField, 0, 0);
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public static long SafeStaticProperty
+            {
+                [CommandFlags(CommandFlags.Safe)]
+                get
+                {
+                    Interlocked.Increment(ref staticCount);
+
+                    return Interlocked.CompareExchange(
+                        ref safeStaticField, 0, 0);
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            public static long UnsafeStaticProperty
+            {
+                [CommandFlags(CommandFlags.Unsafe)]
+                get
+                {
+                    Interlocked.Increment(ref staticCount);
+
+                    return Interlocked.CompareExchange(
+                        ref unsafeStaticField, 0, 0);
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Methods
+            [CommandFlags(CommandFlags.None)]
+            public long NeutralInstanceMethod()
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                return Interlocked.Increment(
+                    ref neutralInstanceField);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.None)]
+            public long NeutralInstanceMethod(
+                int intValue /* in */
+                )
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                return Interlocked.Add(
+                    ref neutralInstanceField, intValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.None)]
+            public long NeutralInstanceMethod(
+                string stringValue /* in */
+                )
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                int intValue = 0;
+                Result error = null;
+
+                if (Value.GetInteger2(
+                        stringValue, IntegerValueFlags, null,
+                        ref intValue, ref error) != ReturnCode.Ok)
+                {
+                    throw new ScriptException(error);
+                }
+
+                return NeutralInstanceMethod(intValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.None)]
+            public long NeutralInstanceMethod(
+                int intValue,      /* in */
+                string stringValue /* in */
+                )
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                return NeutralInstanceMethod(intValue) +
+                    NeutralInstanceMethod(stringValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public long SafeInstanceMethod()
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                return Interlocked.Increment(
+                    ref safeInstanceField);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public long SafeInstanceMethod(
+                int intValue /* in */
+                )
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                return Interlocked.Add(
+                    ref safeInstanceField, intValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public long SafeInstanceMethod(
+                string stringValue /* in */
+                )
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                int intValue = 0;
+                Result error = null;
+
+                if (Value.GetInteger2(
+                        stringValue, IntegerValueFlags, null,
+                        ref intValue, ref error) != ReturnCode.Ok)
+                {
+                    throw new ScriptException(error);
+                }
+
+                return SafeInstanceMethod(intValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public long SafeInstanceMethod(
+                int intValue,      /* in */
+                string stringValue /* in */
+                )
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                return SafeInstanceMethod(intValue) +
+                    SafeInstanceMethod(stringValue);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            public long UnsafeInstanceMethod()
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                return Interlocked.Increment(
+                    ref unsafeInstanceField);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Properties
+            [CommandFlags(CommandFlags.None)]
+            public long NeutralInstanceProperty
+            {
+                [CommandFlags(CommandFlags.None)]
+                get
+                {
+                    CheckDisposed();
+
+                    Interlocked.Increment(ref instanceCount);
+
+                    return Interlocked.CompareExchange(
+                        ref neutralInstanceField, 0, 0);
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public long SafeInstanceProperty
+            {
+                [CommandFlags(CommandFlags.Safe)]
+                get
+                {
+                    CheckDisposed();
+
+                    Interlocked.Increment(ref instanceCount);
+
+                    return Interlocked.CompareExchange(
+                        ref safeInstanceField, 0, 0);
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            public long UnsafeInstanceProperty
+            {
+                [CommandFlags(CommandFlags.Unsafe)]
+                get
+                {
+                    CheckDisposed();
+
+                    Interlocked.Increment(ref instanceCount);
+
+                    return Interlocked.CompareExchange(
+                        ref unsafeInstanceField, 0, 0);
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region System.Object Overrides
+            [CommandFlags(CommandFlags.Safe)]
+            public override string ToString()
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                return base.ToString();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            public override bool Equals(
+                object obj /* in */
+                )
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                return base.Equals(obj);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public override int GetHashCode()
+            {
+                CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
+
+                return base.GetHashCode();
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IMaybeDisposed Members
+            [CommandFlags(CommandFlags.Safe)]
+            public bool Disposed
+            {
+                [CommandFlags(CommandFlags.Safe)]
+                get
+                {
+                    // CheckDisposed(); /* EXEMPT */
+
+                    Interlocked.Increment(ref instanceCount);
+
+                    return disposed;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Safe)]
+            public bool Disposing
+            {
+                [CommandFlags(CommandFlags.Safe)]
+                get
+                {
+                    // CheckDisposed(); /* EXEMPT */
+
+                    Interlocked.Increment(ref instanceCount);
+
+                    return disposing;
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IDisposable Members
+            [CommandFlags(CommandFlags.Safe)] /* NOTE: And spicy. */
+            public void Dispose()
+            {
+                Interlocked.Increment(ref instanceCount);
+
+                Dispose(true);
+                GC.SuppressFinalize(this);
+
+                Interlocked.Increment(ref dispose0Count);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IDisposable "Pattern" Members
+            [CommandFlags(CommandFlags.Unsafe)]
+            private void CheckDisposed() /* throw */
+            {
+#if THROW_ON_DISPOSED
+                if (disposed &&
+                    Engine.IsThrowOnDisposed(null, false))
+                {
+                    throw new ObjectDisposedException(
+                        typeof(Automatic).Name);
+                }
+#endif
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Unsafe)]
+            private /* protected virtual */ void Dispose(
+                bool disposing /* in */
+                )
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "Dispose: called, disposing = {0}, disposed = {1}",
+                    disposing, disposed), typeof(Automatic).Name,
+                    TracePriority.CleanupDebug);
+
+                if (disposed)
+                {
+                    if (disposing)
+                    {
+                        //////////////////////////////////
+                        // duplicate, already disposed...?
+                        //////////////////////////////////
+
+                        Interlocked.Increment(
+                            ref redundantDispose1Count);
+                    }
+
+                    //////////////////////////////////
+                    // duplicate, already released...?
+                    //////////////////////////////////
+
+                    Interlocked.Increment(
+                        ref redundantRelease1Count);
+                }
+                else
+                {
+                    try
+                    {
+                        this.disposing = disposing;
+
+                        if (disposing)
+                        {
+                            ////////////////////////////////////
+                            // dispose managed resources here...
+                            ////////////////////////////////////
+
+                            Interlocked.Increment(
+                                ref significantDispose1Count);
+                        }
+
+                        //////////////////////////////////////
+                        // release unmanaged resources here...
+                        //////////////////////////////////////
+
+                        Interlocked.Increment(
+                            ref significantRelease1Count);
+                    }
+                    finally
+                    {
+                        // base.Dispose(disposing);
+
+                        disposed = true;
+                    }
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Destructor
+            [CommandFlags(CommandFlags.Unsafe)]
+            ~Automatic()
+            {
+                Dispose(false);
+
+                Interlocked.Increment(ref destroyCount);
             }
             #endregion
         }
@@ -33276,6 +34126,7 @@ namespace Eagle._Tests
             private DatabaseTraceListener(
                 Interpreter interpreter,
                 DbConnectionType dbConnectionType,
+                byte[] publicKeyToken,
                 string assemblyFileName,
                 string typeName,
                 Type type,
@@ -33290,6 +34141,7 @@ namespace Eagle._Tests
             {
                 this.interpreter = interpreter;
                 this.dbConnectionType = dbConnectionType;
+                this.publicKeyToken = publicKeyToken;
                 this.assemblyFileName = assemblyFileName;
                 this.typeName = typeName;
                 this.type = type;
@@ -33308,6 +34160,7 @@ namespace Eagle._Tests
             public static TraceListener Create(
                 Interpreter interpreter,
                 DbConnectionType dbConnectionType,
+                byte[] publicKeyToken,
                 string assemblyFileName,
                 string typeName,
                 Type type,
@@ -33320,10 +34173,10 @@ namespace Eagle._Tests
                 )
             {
                 return new DatabaseTraceListener(
-                    interpreter, dbConnectionType, assemblyFileName,
-                    typeName, type, connectionString, tableName,
-                    messageColumnName, categoryColumnName, autoFlush,
-                    autoCommit);
+                    interpreter, dbConnectionType, publicKeyToken,
+                    assemblyFileName, typeName, type, connectionString,
+                    tableName, messageColumnName, categoryColumnName,
+                    autoFlush, autoCommit);
             }
             #endregion
 
@@ -33337,8 +34190,9 @@ namespace Eagle._Tests
                 IDbConnection connection = null;
 
                 if (DataOps.CreateDbConnection(
-                        interpreter, dbConnectionType, connectionString,
-                        assemblyFileName, typeName, typeName, type,
+                        interpreter, dbConnectionType, publicKeyToken,
+                        connectionString, assemblyFileName, typeName,
+                        typeName, type,
                         ObjectOps.GetDefaultObjectValueFlags(),
                         ref connection, ref error) == ReturnCode.Ok)
                 {
@@ -33947,6 +34801,22 @@ namespace Eagle._Tests
                     lock (syncRoot)
                     {
                         return dbConnectionType;
+                    }
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private byte[] publicKeyToken;
+            public virtual byte[] PublicKeyToken
+            {
+                get
+                {
+                    CheckDisposed();
+
+                    lock (syncRoot)
+                    {
+                        return publicKeyToken;
                     }
                 }
             }
@@ -34806,12 +35676,31 @@ namespace Eagle._Tests
 
         #region IDisposable Test Class
         [ObjectId("4b0d4629-b42f-4cfa-adb6-5943e098961c")]
-        public sealed class Disposable : IMaybeDisposed, IDisposable
+        public sealed class Disposable :
+#if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+            ScriptMarshalByRefObject,
+#endif
+            IMaybeDisposed, IDisposable
         {
+            #region Private Static Data
+            private static long createCount;
+            private static long instanceCount;
+            private static long dispose0Count;
+            private static long significantDispose1Count;
+            private static long significantRelease1Count;
+            private static long redundantDispose1Count;
+            private static long redundantRelease1Count;
+            private static long destroyCount;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             #region Public Constructors
             public Disposable()
             {
                 id = GlobalState.NextId(); /* EXEMPT */
+
+                Interlocked.Increment(ref createCount);
             }
             #endregion
 
@@ -34821,13 +35710,16 @@ namespace Eagle._Tests
             public bool Disposed
             {
                 //
-                // NOTE: *WARNING* Do not uncomment the CheckDisposed call here
-                //       as that would defeat the purpose of this method and
-                //       may interfere with the associated test cases.
+                // NOTE: *WARNING* Do not uncomment this CheckDisposed
+                //       call as that would defeat the purpose of this
+                //       method and may interfere with the associated
+                //       test cases.
                 //
                 get
                 {
                     // CheckDisposed(); /* EXEMPT */
+
+                    Interlocked.Increment(ref instanceCount);
 
                     return disposed;
                 }
@@ -34838,13 +35730,16 @@ namespace Eagle._Tests
             public bool Disposing
             {
                 //
-                // NOTE: *WARNING* Do not uncomment the CheckDisposed call here
-                //       as that would defeat the purpose of this method and
-                //       may interfere with the associated test cases.
+                // NOTE: *WARNING* Do not uncomment this CheckDisposed
+                //       call as that would defeat the purpose of this
+                //       method and may interfere with the associated
+                //       test cases.
                 //
                 get
                 {
                     // CheckDisposed(); /* EXEMPT */
+
+                    Interlocked.Increment(ref instanceCount);
 
                     return disposing;
                 }
@@ -34857,7 +35752,14 @@ namespace Eagle._Tests
             private long id;
             public long Id
             {
-                get { CheckDisposed(); return id; }
+                get
+                {
+                    CheckDisposed();
+
+                    Interlocked.Increment(ref instanceCount);
+
+                    return id;
+                }
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -34865,8 +35767,22 @@ namespace Eagle._Tests
             private string name;
             public string Name
             {
-                get { CheckDisposed(); return name; }
-                set { CheckDisposed(); name = value; }
+                get
+                {
+                    CheckDisposed();
+
+                    Interlocked.Increment(ref instanceCount);
+
+                    return name;
+                }
+                set
+                {
+                    CheckDisposed();
+
+                    Interlocked.Increment(ref instanceCount);
+
+                    name = value;
+                }
             }
             #endregion
 
@@ -34876,11 +35792,14 @@ namespace Eagle._Tests
             public override string ToString()
             {
                 //
-                // NOTE: *WARNING* Do not uncomment the CheckDisposed call here
-                //       as that would defeat the purpose of this method and
-                //       may interfere with the associated test cases.
+                // NOTE: *WARNING* Do not uncomment this CheckDisposed
+                //       call as that would defeat the purpose of this
+                //       method and may interfere with the associated
+                //       test cases.
                 //
                 // CheckDisposed();
+
+                Interlocked.Increment(ref instanceCount);
 
                 return String.Format(
                     "id = {0}, disposing = {1}, disposed = {2}",
@@ -34895,8 +35814,12 @@ namespace Eagle._Tests
             private void CheckDisposed() /* throw */
             {
 #if THROW_ON_DISPOSED
-                if (disposed && Engine.IsThrowOnDisposed(null, false))
-                    throw new ObjectDisposedException(typeof(Disposable).Name);
+                if (disposed &&
+                    Engine.IsThrowOnDisposed(null, false))
+                {
+                    throw new ObjectDisposedException(
+                        typeof(Disposable).Name);
+                }
 #endif
             }
 
@@ -34907,21 +35830,62 @@ namespace Eagle._Tests
                 bool disposing
                 )
             {
-                if (!disposed)
+                if (disposed)
                 {
                     //
-                    // NOTE: Keep track of whether we were disposed via the
-                    //       destructor (i.e. most likely via the GC) or
-                    //       explicitly via the public Dispose method.
+                    // NOTE: Keep track of the number of times our type is
+                    //       redundantly disposed and/or collected by the
+                    //       GC.
                     //
-                    this.disposing = disposing;
+                    if (disposing)
+                        Interlocked.Increment(ref redundantDispose1Count);
 
-                    //
-                    // NOTE: This object is now disposed.  The test cases may
-                    //       query the property associated with this field to
-                    //       discover this fact.
-                    //
-                    disposed = true;
+                    Interlocked.Increment(ref redundantRelease1Count);
+                }
+                else
+                {
+                    try
+                    {
+                        //
+                        // NOTE: Keep track of whether we are being disposed
+                        //       via the destructor (i.e. likely via the GC)
+                        //       or explicitly via the public Dispose method.
+                        //
+                        this.disposing = disposing;
+
+                        //
+                        // NOTE: Also keep track of the number of times our
+                        //       type is first disposed and/or collected by
+                        //       the GC.
+                        //
+                        if (disposing)
+                        {
+                            ////////////////////////////////////
+                            // dispose managed resources here...
+                            ////////////////////////////////////
+
+                            Interlocked.Increment(
+                                ref significantDispose1Count);
+                        }
+
+                        //////////////////////////////////////
+                        // release unmanaged resources here...
+                        //////////////////////////////////////
+
+                        Interlocked.Increment(
+                            ref significantRelease1Count);
+                    }
+                    finally
+                    {
+                        //
+                        // NOTE: This object is now disposed.  Test cases
+                        //       may query the property associated with
+                        //       this field to discover this fact.
+                        //
+                        // base.Dispose(disposing);
+
+                        disposed = true;
+                    }
                 }
             }
             #endregion
@@ -34931,8 +35895,12 @@ namespace Eagle._Tests
             #region IDisposable Members
             public void Dispose()
             {
+                Interlocked.Increment(ref instanceCount);
+
                 Dispose(true);
                 GC.SuppressFinalize(this);
+
+                Interlocked.Increment(ref dispose0Count);
             }
             #endregion
 
@@ -34942,6 +35910,8 @@ namespace Eagle._Tests
             ~Disposable()
             {
                 Dispose(false);
+
+                Interlocked.Increment(ref destroyCount);
             }
             #endregion
         }
@@ -35265,7 +36235,7 @@ namespace Eagle._Tests
             {
                 return ParserOps<T>.ListToString(
                     this, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), pattern, noCase);
+                    Characters.SpaceString, pattern, noCase);
             }
             #endregion
 
@@ -35389,7 +36359,7 @@ namespace Eagle._Tests
             {
                 return GenericOps<TKey, TValue>.DictionaryToString(
                     this, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), pattern, noCase);
+                    Characters.SpaceString, pattern, noCase);
             }
             #endregion
 
@@ -35451,7 +36421,7 @@ namespace Eagle._Tests
             {
                 return ParserOps<DerivedList>.ListToString(
                     this, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), pattern, noCase);
+                    Characters.SpaceString, pattern, noCase);
             }
             #endregion
 
@@ -36679,7 +37649,7 @@ namespace Eagle._Tests
                         TestGetScriptStreamXmlData();
 
                     strings[String.Format("0x{0}.harpy", key)] =
-                        TestGetScriptStreamXmlSignature();
+                        TestGetScriptStreamXmlDataCertificate();
 
                     strings[String.Format("0x{0}_block1_signature", key)] =
                         TestGetScriptStreamXmlBlock1Signature();
@@ -36932,42 +37902,42 @@ namespace Eagle._Tests
         public static string TestGetScriptStreamXmlBlock1Signature() /* block1.eagle.harpy */
         {
             return String.Format(
-                "HunSSBBQ38IuKr7knDLzdXDYruAjoURdsjF/axLGqjiEnSHk7FIdUSeIwYMx/qFsLAuEZ/lbJfw9{0}" +
-                "gZ5IbqEyN+uZAK1RZf9Kb+25aLVmpJ15cFKtV0D19NZNXo+GEW+I0gXI5TkH6kgRs9oT2XE0Iwl5{0}" +
-                "o97fHmSI6KtpFQqA+GV3XaUVdLw/wu8dmRNY0pFCxrr03/vfmCkqgjBtM5qipVKWc2fID14BxKOg{0}" +
-                "e41YFTwW9/cSxejb4kd8gdFAwHDVma0zD1rzU45xtBlGC0n/hZkkFwWBemvID3V3yNe4tEX3Lrq4{0}" +
-                "lHn+lf3/mLDaC8iqaR99F1YHyv2dH0iGLUYFDGaqR3R26peL1AVzJfT/iWm1lH+ohuzZw/0NvL7Z{0}" +
-                "qaSVrkcnQ1eC6mZCOVVxOJzKJWUiv+K44wvOHeFFBWE5XIX62XNBVWA62sXtCLxdZOL5foJiXCsr{0}" +
-                "0j94KNyjlsHvghqJ1f7UyDU6L8QGj4XBC0GywVU7VI5dfRGSyVjP3xpG01b9Svlwt5fj/9pzLp2Q{0}" +
-                "c7DKBIF6JpbUUHaYpuauzYFDJ7spM5R8SdngvOMZILMQqwPIdgzBAghJtt7EJvKf0ubYOnhopYwJ{0}" +
-                "lR6vWFpbkSsrQB5xDkquRauVjOeDug2bab3ZoQAJ5JcvnziL+e0eGxbxbdcNC7FDHxjWX1oybjnf{0}" +
-                "AnwlJfwxd8YcRVfe2ZpFIMXzvqaIZRhkTdN/45WkxYCtJ8XMid51XPneOfbCWvIQLDI918TqS/QC{0}" +
-                "hvzPhfbknJ2V0UwB6gOr3V9tZBJeeQu/8d2MqXS2JJD+GsuMSfngyIh6t853vDLHjQdkDGqo+uM9{0}" +
-                "wBde/NmxHvvqmpJoA454WViafNrWGMhNuZbaNLYFa6zF23UTEAP0L2agke24XF9uo+6+4kJ+vB8i{0}" +
-                "qfmsuFvw2kaSUHqYlaY7YvtiEOYY0ML+wyrKeLTMh5FXDvSnsHaLdGB9G+Ykmh8rQe8EBBzIxhDV{0}" +
-                "qDLGg6orpMBQDoh0uK0kc/Xfj6fji9d10NQRMY7+9qypr6WKjM1orHjHJCi+rX2YdcCAhrMyqv3T{0}" +
-                "47Hg1iR6zXRGrcWdh8RLK/vXF37Sd14mZb04ntv/ZM+vYyqhbrjG/ipO8t1B+t1ELiOiKdJbuBfw{0}" +
-                "HJM0Kc04MskWD/wkufBdcAQ8gPhkrKzNp4sTQNh/xttMbqqNx1zyW6z+eCWBOOKc1MEzCVIvdKB4{0}" +
-                "kTARKFU/VWuzb28O4Fpk3MVyxjAJYFnMWLYdwDKYuw9ZbvyuHM4iHj8CcndYq9L9GeqjFgHkkkWL{0}" +
-                "iaeu+sWlgOtNWzg9JLJXkV3cbeywJ/3Z/P0qdfU1sNN/kSoxhI6zqaJ9fGIiU1VmdqxsGLRhycIC{0}" +
-                "XunUDt+lE5FzLK/o7bgTrnZ2zP2qPsQ1o2ZikfIpPUGpdscraL3VqQr2LSwTNJfzvYLgmC+BqwI+{0}" +
-                "EaDRyiNv2p+06fKjXN0+lfxZ2hK8FiHzzgaBkOcgXVryIt9MF5H2RQFVDaOHzsgE88CFgwfWU9Bi{0}" +
-                "moepDeVGA+d+gdZtg71NcTyqwLSqRxxWuz+5JiPsU0J0xr8L0EHSWqbRqhcBNNhhPTVb/X4SnkV3{0}" +
-                "61igPu+QxrOqZ5Oatv/DstWP4Qo8rZx73Et7f8XyQO1fCwuDe7krpfWIGN2YU8q4WvYIP3qsX3zb{0}" +
-                "7skQvJTkeA+u0y4sxwDR9f/YOsgRp2p/g7hefvpNCahaLuEmj+dt0rLkXt1N/gLcyEGAH1khkBlO{0}" +
-                "DHB0I4uTRAV3o4lxJocvSNvMTdfdk2XMeWn9R4a+BhsdlJzCPKn+UH+ziwj8HoGB41hsld6EhphW{0}" +
-                "mV84WiFJ5m1G8xtoNe9Hj9rWtfiVKwxDhi48dJENgoYhJImILeGLDTr1ZBjGHJNozfp+pGZCDoRZ{0}" +
-                "mX/CWWtvFiUFeH/bja3mJAyiCNtHNlC9499lXW4laHHQf8LV2RJsMbiWQnwBhaGzzzhVDLLXoIh9{0}" +
-                "o+8thTZazUKxL/I96GDnSdCvU4GkpBxjMH6VodWsbz9Txss1YxNYM+w5Em10fJmC5N69QE1SbvIq{0}" +
-                "GalDgpD3Ywt66gCnnfG0aldoKvxlJF1WiSOT/k2MYg+NWpgAndwO1KDlD0AepNlvgOCYpnlxebmU{0}" +
-                "AUm0LxdKfXEz9XxmCNh7MInuFwU2ewRvFDLyZ7CVaw16bl9y0b2BzlusbICqLVkWAhtot375AmxV{0}" +
-                "aQJ6UjsvSRoBIBJV9y18GAcT653HMZ+8yQSf52qgMIDvf2boeiqe9R91wVl4RClxo7RQm7kYKGru{0}" +
-                "BE4BHxjW1hw247dtFn+YsWnw0Fm/+/i9ekNX3xW2L53zIM93foV+0BtEij2424ZoYaWKVFvphl4u{0}" +
-                "KiaxUIJnQM08f4qhtYH0AUjwTrZ8St9ibEzM9R+/LfHWlCFHduMEEi8q9rtDXW04f1y2BQefrFjO{0}" +
-                "Xe7SB4CWXda5V0L3RtpnE7dTXzwU3+/LU6dDkuAmc3DUTcX/70mlAjlx81qDs1Ay0/yvvBgR3RCQ{0}" +
-                "m/ZqBgF4HrEidDnRCrxqljsv2V1Gu14LdSFvuNSfokXuutdR/ZQFahmU0bjk0p2t9yQZaj1kdcMN{0}" +
-                "ZJk17738aLUtGEg2GsKwegEIAc47VsJRU3av2sraLOZi46wZa+SIFnfAdXH7cjHouAunA8AFuhZ/{0}" +
-                "+VsxxRatNRBiSQvv8Pk1llchzwfgk04Yynxn7dlnnyKUWnOz+af6DVN8eX6dVzqHYD+fRlU={0}",
+                "cM8culUSrhIKMM5mDhjksBh+Grz0vDyyWMGTwuSWxAjBt55XCGiJTkDTwvXWoV2RUJj9sOt96z8z{0}" +
+                "yB3qqZUBUGoy1t+d7K5VIDbfzlv0gJVzV1NMb/VmSj9rJ3S0KAbya2D7mSdzUahjvOGPjX/ceHOD{0}" +
+                "cmL0F8hpNboRswoyZN18rESJE9ioqlNwvz5v4IfN4gIKRF1o3ZBGZhCflNZ0PkYjHLjBEKzPNRJu{0}" +
+                "WEqC2ng46UeHOmu2e1+C/UgRGp3BAj8//HnvJYWxQmlR8PpAZx/ezGMLf6N/EPHdfPOpyn/dpAfL{0}" +
+                "a3L6ataSnbS5SZ3DVzrKv1j2FStvd5/g856vsJAXUfEKA0Avq4qxaUZo4ELQW9HlThBuRmwl17yz{0}" +
+                "dss891RqqBsCEswccJhNZA1UcEU4t/UBmJqKu+WtMgau2KdZWwQyl0yu0nHOnog7mnWM01A7qA+k{0}" +
+                "RU2drr8B/IwpY6Hy7ML815IKF34EpOYXonT2IjSxGrh84weWR33OSa1VmJAsnFAKJqfBn/lx8+0F{0}" +
+                "7qMLPaLBCOmsqZsCgsh+kyaqQ6C9jiTK7Y1Wqwn8RuOL3Q3GmRHbUJfMNIEzehKLJkL4qK42fMLQ{0}" +
+                "dVK+V7jtLgOzbQYqFmunyRntb/ElOA6tkrLybwJkYNTffc27gfaOTLwEMfIslMJFbcYidBwpwt82{0}" +
+                "G5tKGZBvlwJrNy4b3zhHlrf21gjUiY+yLzmouaGCwcRcyal1uIfx+3tDOD8QMUFLg9E2LSoKSiQy{0}" +
+                "AAYC/KVh6G8631GTfuozdSM/Ac3MFbu8jliTiLCZx0IeKhg7YSblVrZphwAzucz1bjMi1GyGSTgN{0}" +
+                "z3oLxNUYFl2iE+8+72AgLck4cbX2N3OsADLWVWwefZJvmXYu/6I24iKZYecyUVl9WryZ1cCzR3+x{0}" +
+                "SYGcimopq5Y3lu+oXKjEoGZcKiBeYiyAMr397t7iPHHXp4AUEWG/orOu3wb46gxMf4ckNtbqst1t{0}" +
+                "w87UTMd1y6kF87yzNXtJkRG11h3QqEFyPOz9ceL23dISuKBmTv9LZBY3u+94SvI4BHWr+tQccm2Y{0}" +
+                "imHh0stVHfyn+NIC8sgB1IVrMGlFxdudJ7CUkMg62tDLZd7jdBpWQ0B8UH6sAi7eRL+no9+QQ6lA{0}" +
+                "KdpPaXafWQkWG5Bxj64I66aP0lItbkKNbqKWeZ+XBBh7UVCIhG6PSIjZxkIMFT4r/dMXz1vzRnMJ{0}" +
+                "5zTLswxgdyKgwYB7ICZsmTCZwW6CC1hkbI0c/YSFK+KP/C47Z53r6zto0azVaTbVXRdlsBXEa2wq{0}" +
+                "PmheKzhA30JSYnXjSmr0aO7WmC3nWH0us20PwJthg9tCf1ZfDBlJNXwvYSnKHWFogFgvSSrCkLXZ{0}" +
+                "ikK/TEEQuBQbGl1J0LhQeNoNkvgneTU7EGh/utl5MHvJ+GWKRIdoCv8/MvZM6zQd8+u7ah8H2E4E{0}" +
+                "47lg8Xos4BnDnFv/9AaeFFotfC/Ij2Z/p0VS3/hKi6BWnbhouNixRKa1L/N+XYrLL4JllClLiyFk{0}" +
+                "hGR1fp3pf2EmV1QR42qD8LHsAi11x10hFWatd2qzEPTY/Tk6MOg0gaXsh20+KDf2RYXHsEuB4PZA{0}" +
+                "cBPNpZDIMeH3dbBT0+txnNurLUjJlYqJgrNFm8iQOpXHqUljR4YfH34y+PzuUF4iKM8i2iA2XWzR{0}" +
+                "JH1Zn1Mk3JD+X62+h435ykrai/g3JXzypKGIgtZ0zWbWSSBhRddnvKVpd2lK8yEBWjGx2sPlqCRh{0}" +
+                "0b5d9wo2X+D7W3KYsACou5ade9KNnvgyHRQuSAnxk35YSLatGFfuACtooXxV40/2JcasGh+G2QU5{0}" +
+                "fESvfp++3XgmSdu/qUxj9RMeq8xXl5AorPwZLLX+ukHCvEU/f+8rfDoLEwZn0sAsV43haEEOYXrI{0}" +
+                "ws3oeOsHianVmJiUxepfzMdnvvBhTy5CvTvG2/VDhdpGq3OubAWaeo6fVMWxgCz4kX9BZBp/pLD2{0}" +
+                "R6xA2LanukIm4+1vbADERsu7agXqGTMa4eiN1NLm4Xwj0HhN52no5eH+zuJXu0hG+WEX82BcHfee{0}" +
+                "C4b8wzm0tJbCz+9EaFHeZAfMk0xmm+QajWLopRExcDOT0617QxZDRqn0vhC1+OHtVGLU6e3H+V1j{0}" +
+                "UYnxEONwcJfoX/t8aHhQsKz/Q/tLfF3/4t2+oQMcbn0vziDfWfFUZCJ0Fp/bfKuqI6kR9cvGT+qK{0}" +
+                "NfLNpGzyeU8nG7wnI53r7hAMM1mceziXL7ZNDgUnmnfxCzqVSTzrCA+QpggXlzfkbJ7DUjLDlMz4{0}" +
+                "F9plXr+C/hL26RDUJpQKtJXMD+U9wPe+K+JLMTBfgAWTIuaF5b/RilXKWMOEnH59y5OHKDKFWC+b{0}" +
+                "nwcy8sqp9zW26nnqqV/2yREA6FWJM+aDdI6JabctvcsxMR+wCr6736+yki7F/ZnD5OCd3MYC0KkK{0}" +
+                "9Cy47KYUMIOAkKlNTsSxO43PsqkfIr1/g5ZeadoBeiM5VbaoZvkdZozRCgbd+0FMofYJV14+Y3dl{0}" +
+                "mGLOKwAIYS2ees0LIjYdaZNmlAH+ifK+Vhnwj6WBCe5Pbh5heVqCcThJboL8zivbGvvVdg/YEQ6Z{0}" +
+                "ECI+Y3BnzAIIqqcP/60kxnW01/pagJYhs4dJyPEK03gHdZFckzTNkYOTHMRGVCM9WW7uHzA6rX6k{0}" +
+                "GfxRrYLUGYps+EgOKhXUaBvX91O9svpVEGzvsw6+eO2K2j25hTU+iDuRHeG+op4jH3eawH8={0}",
                 Characters.DosNewLine
             );
         }
@@ -36977,49 +37947,49 @@ namespace Eagle._Tests
         public static string TestGetScriptStreamXmlBlock2Signature() /* block2.eagle.harpy */
         {
             return String.Format(
-                "ikuyqUlmyy9N6B3eP+mRyzlGoivcSvU4G79o2fkVApwsfg2gSlG/maGwrXPNEbBcznJVIzcZeYSH{0}" +
-                "3hC+jtMKVWbKhfRZ9sN583g0XMVjgcbmAIdizyS2eKosQ9S31fBh6ib+ZdRptnfn6G8IJttmDDlH{0}" +
-                "hqSdQO5tP7qwMj1QExqYCAkxO3ejFs1w6lwojXw7K57TgqmgF1l8G9DYH0A+uHZgIKXvjPqlSi36{0}" +
-                "3LLbU37O8mGMIH6NBMR19BaoaMJTI8zb/Od6yVFii8wsYrtZs8occggXihtkezLRGOFN2KqrBPu4{0}" +
-                "6pzj8PhKScsW/c9HAPObslyuPd1jm2o4g6tSBC+zl4DckEJZQkZiKe3ZgNubixqwCCQ3G6xivQ0y{0}" +
-                "ZbLuhwzmZJGZ7ll3RdnrDuZfUioy96wRp3Cie4+xJtKyXTiYH3R5cL6Xgyz2YnFlZfXY1FkXzyVt{0}" +
-                "BlFmF+9iXq3mGuOcu3WqeuuSbvyHcje7t0wSrYwRcAYpq7RpcrxhT+LD11FNdzG5fYc3DrR9+FZ+{0}" +
-                "y6xoGKAxEk7LDWRc7ZRU+2QOSRKW9GKcw1ZEtfDchX1qCt2NeGD4ZmIVuaQJkfWGCtNNJvTIxpo3{0}" +
-                "gdK3JQvOM4+ZyiyqoSQAMsXCeAXVdhfVTgsNAdOwnBV/dZcxEo5DVqFIa3MkyGaKZ+BnA7SKx4kf{0}" +
-                "yMoxdb9YVf3T4JFKp11Hdp2/mcyOl8wRwtbFWecQ/ROrCTVeWXQ1QfROWynjOWST/Vt66JCRizsN{0}" +
-                "AAR8KEQD0epmvPDy2mqzo+VP49jVpXdw5bxHjKNCV/25owInvdHx+Xfw101sovM2yHB5NVJbMfbf{0}" +
-                "Ro1udHzEX6Vmyi3RnR8rAsL2C1ennSpGJwwESMBGk9xTFyI512fl/5lRG0HCZNpUdn+LJhnj4RZ6{0}" +
-                "mgb9nB3AcenjOSr/nrA+vLZp8oEk8D6ykP9XJzsjMc2Dgj0WNlVuF3DXXby1Y9eG00/KXzF0DZwp{0}" +
-                "3fgEqKMgFMqvOc0NVpSXd2G99SUjnXzVLyYuRsPKaAXtIm/je5fH1MEa2eCHlybKrlLwHsHkl1c+{0}" +
-                "aTCT4TQnd3ElHXtp3ogv2dOrL0KIW8i/O4rUW5E7hD337W9wQI/QCTKe1TszIR+AY0NXSNizDbWT{0}" +
-                "Vudt8nZj5+NI/cJMcISpGHOIfOc2h1mSMVhcr8gcnl0ezdkywsrPG1BcS64x9br747MIKs9dKxZu{0}" +
-                "HGs/KTZu2FQGwOT9shgEfbUAK68X3Z9E7dc3MHgoDieCfEPshA47JMyxEAPlZ7VINagmjire5L72{0}" +
-                "ky1E4lUmm9mwqc9QCWwHN6X3ZEmj0nMDXi5hnMTSWN/W35l0i9E5nLgy+teHyqHJ+UZSGA+UO4K1{0}" +
-                "kD0YHhu1RYrpzZVO7PMF1X3tzrJMyMMAk+MrRKdExPke+TBNSV6uD2VGYAqPjODxTukW2F2EXeGH{0}" +
-                "zyJ65wtH8+9ke7+J2TkLQMNI4dD/xGlZz1/DoKCCUh0AU25Tv7/bjDkiN7AzXYgOla7USQGRx/mq{0}" +
-                "AglU4QWPzJJlYlga0OJ98eVp5diGex2dXlKBd2Z0TxBlchU2ll0PmZf7+0IDdoLKy0AMW4do/IVl{0}" +
-                "GnhxJfKDJkXDDWhfjL+7ehxJq7tXz4oZ5P8FKLmeaCsp77Tuo+RB2BM2a+W167VPXB4WKyiwWMQx{0}" +
-                "Bx4Scb/44CZt3VEcw+wTCAs1gw0dX3fa0ddtJjNZeP1O9125cezxsKEdEwbMmkOMR33XfHbPKfzL{0}" +
-                "U+ULRTnmBWz3usXeMGmw8mTRyx6hHFOp43VzxKl2+bdjL4PraTFhlMqL4PDMTMbcpJ5i5JohWdeq{0}" +
-                "krvPKU6VxqaNn5a6uylV3IlY0l/LYYvn8PuttejtIc63ro6+ajSqeinBS0D8e/eK9bb+kHEQP4nU{0}" +
-                "JDYRTc5p7fHWp7L5PzTzR1aB2j3G73mzBC3WOwUKhG9G6zOBDu4kh9CNhCLZJYMHFwz9mlsYcFjS{0}" +
-                "RbXUY6eXOFyAv362o+H3sJUENNilGXo3YsEleEp5blahTcfhqiUf+G27BmOncJ6V5F8pBOCxC/3b{0}" +
-                "5XH+aivDO0wTk9b8yB6Bulm2vTrvbuu4dU9BSn5t1wW1wQL6WvQl75Dr/QI2yhv8UAOrtUd203Ca{0}" +
-                "5BhBHUsoGhR2Qa0fuB7LO2f12P8zVGGJFZAg0C8iZ2WMmX2aawh6yTHKMZvI2DhucbDmE/H4D6NJ{0}" +
-                "QWeyx2VNUc/F4i3OgPPctd5Qgo7uEMveahr33MOnXIHXaJ2QISKpK2cJmrcI9kM/m76gd+BccxCq{0}" +
-                "Y/Ms43jFKZSBVM+4WvHpkDbmKCA/qhlmrT7+5MLXXfu9ujqfXLbYhnW0vD+SC1OF99BriXIz5yuS{0}" +
-                "rNRoAYjSczKXxh4mfh3OgIjnOABSb3hUPS7wU3uhw1CXF5GvbkP7GMrJJdlPNoTPkJ/tmx8JEvwr{0}" +
-                "tK2zIuP2lS5qU+d8AYiSaPb5ufvR3rFIr7MBFHMeyRQMIGjcVyDyz8RvC9NjLaegkA+gdnj0sOiR{0}" +
-                "Dm6CCwJFZVQYyO1vN3byL50zDBENoFvlRAURKt8QFszq4pvzZ+PQryqvpi3V/4cQTeIiz3DegHSu{0}" +
-                "tYDALnv/FaP5f/0ayZR2k/OGCkURAxv5CXegX+QfWz9f+gQOjLC9i47vHstsLqO6JdccbM7mKXII{0}" +
-                "hBsOrrlyDsV/1OYtNgegolW84pbrKprmk55pkfJWZcsX5d2L0K98wQs9/vqk/YMpdBUbdOk={0}",
+                "VmPSbnrHfbtTeS3QVybDWMg9DdRa1DKGtsRJs8Lodl0jRpKfcV5+8/33O2A4YQdiNkRqDsZKqlK5{0}" +
+                "KNIr6SKE+HYb1UD1EDTTtPUbtF7NG4HnxmJeLoObrex1m5lhIglpEa/FJbA+c8MAoRQASZkC4SGi{0}" +
+                "nL0aZll76M/y1An5SHNVCdBocXN7/3KwSt6A8R9owa0v8JbxCtvgDN4vrLfuYyNYwitpH9hG3fbt{0}" +
+                "mFSNXap+vGt9xfz2KHkBWLscxCNxRX+H+qPgYDkKtVZ27avSsYjjmx2V5QAlUhaetBCkuA/3Utv9{0}" +
+                "ZNelcChpRYYZhIn2L53j1HUCff9Et+ih04CYeQnGJowlSI3yCIf4MKTHEb3uR7/keDsIO3Twoj5F{0}" +
+                "uikJniGX8d3wBKQPQGK40ekEgVBF20bEnxX0geF+5/qB5WMP1z3eQar08sNOmWrNlVGXjgaQuGcb{0}" +
+                "meiAALSsd2Ys/bDUlep0pI4PRr47+sb16yfDzTaOhvulnjOnIuQL8/bKX2saUhPvVp1xVdU424r3{0}" +
+                "fCbRSN119l6fvlcHwWA/4rWjA3WGLSBdz0BshOzwr5bPMvWW+uloH1VgSOaNA2VIZRS1PSCtx5VH{0}" +
+                "CqF+YXyFsRpLRzqYV+Dy8PwQJ7CwZ8iQ0njqV2h2ripcWckBR03FO061t4+Dg8jlJU01BUEnHbvm{0}" +
+                "XpLUERb7fEZl7kQqcJ4kMK/axfO2GfyveAVAdHh3gYnY9GzJQNwRCVkGr9g8fW6mC1+89ivvblmM{0}" +
+                "Vk5nekThL1osDgDp9L873CnQ58IAH833cnGEkvU2xH012wBhqkBSshegBrsMRGRTkpHZ4Iszvzpt{0}" +
+                "jG9+wXM5Ji2Cyg+vXdQ9WMNsNOldCph3pUYws6fCqvlxjla1k39a7udrraQheXcP8PX6wLUgt8IR{0}" +
+                "tZyw5KYf2fwF654sLZ/T4JwPAHGbuG2JzqfISzlpcnu7X+TFl5O3Aj/aTMV5oGzHLSbgbUmgOxhe{0}" +
+                "ksEAmzIVkDouVQw6E+4aflG2wPk9zU1y59lgOZ8gRoZ7KCQOfIRVRjhxg+OR8qRplvzzCwkhcPdh{0}" +
+                "L+J83Sw1veJSBq/Auc+vc1y8kPbcvluQbYfzwwedM9Rz1nwjVcilLa0rounbGOCs8BgQlmzYYxd+{0}" +
+                "dhMlv0CQhXlRpAPLqnM9lesg5c+r8FAkmb+RIKnEA7Wl1ia+G/al3wlRfo1YfcjMurbqyaG7SeEU{0}" +
+                "37QbYsPvUhFDg19hW4KYn5NQZU+PWYSuh40OgknrRN3mjYj+BfiIjJOuN0Z5MqfqBWm0M50MFW9d{0}" +
+                "p/5uFW5UMnH4NzGSdc4mTkKA1FTxS0L5k/YdYLJB4WNsUlVctMSX5+BfO5cC9y+WlS6zCYGUSron{0}" +
+                "gWmjGQPo23nxUPIRU7R1WxkW4PXn5QW7+TjwDVNoofyWT6zeCzG8WpiS9SvzowEKl2j5bAsaGC8W{0}" +
+                "HdVfotiGcsXwoS5N/vUgp2BgbP9rjZdXDReNbEW2FOcAMtsKkVBW/DHX6e7ehW4X0J+kRkt2o9DJ{0}" +
+                "iz0cP9+Wi+fxL5SamUsxJu3Bx34Fmy5ck3wj1NSkapj2E8CV9M0OtIUxGGz0vDymqKZBvZvc2ifA{0}" +
+                "+O/DWpkAevdLQXfgdm9iQXvRcpg70NUxDHQot0rYeNL3fyjJQxPOg9zST9Vf6a6aCj7yypUBbXpX{0}" +
+                "aYlxfa/pb4GH+rgGa5SMJigQcch/kxIDo33Wtf3YbbOnhkLvLRMGLiAjA1H9TwW0kTwPEYs2I+Ug{0}" +
+                "/45Xgld63taOEZGZVmrhb7TRNXbzO3E8/1ghFZuF+oJReRb5NHYj8XPHD9/2ZZq45SJuJMjNMLR1{0}" +
+                "FZskbb9QL9FZdm9AnrqfYL1DWIV6ZdsmDL9A+VOfjVeWA5qTcsrixl9Y/kpOggjhZjYwOP4Ewvjg{0}" +
+                "mellmGU6uYvEZqlQZ/hmxSna1z6krRQxetMF/0NnjgD6LNgVfnq6vwhghcVoHblN+d+IFIHg62uu{0}" +
+                "nGwsYY09QmjNqpDZeM7j5cndm7keDkpGl1aFO/YqKROgWnAU58PD5fqi1e40K3+tt13X2AhLLryZ{0}" +
+                "r52jV4Jxi2WcBdbOYcqAjw+mE1Xp9pmaz/RxbxPbVXafYcMGT2EqRrdAW/FS74K4hDYSOWceU2A3{0}" +
+                "OQdY3VwGJWmyNReYIWltr6NwXad5rerfWexpTn/vYKCRjgDWJaegW5w4qeH97HBkc5ZcuzLlLYXL{0}" +
+                "g4IPjCu/7DF2fwKfJ7aLaz6HjS3dAaA5yNbTqx8gnlUQ5tNAnSszYZ4SzL50byUTAjPzr2pIj+BR{0}" +
+                "62gcEXtn0vYkimTcW8BCM86h7hv91yY4wq33nJXZFeXsSWLzk4e+YxuZYcZ2TjLABRSO7H1OfhrE{0}" +
+                "jc8N9fq/f5fmry70T/5AUmaH9Qx/ZX0IZK+nEOuHnzMxtAYaB5N2WONC69CqyD4WhSiV6oSpqBW9{0}" +
+                "lWFyNjr1zVVf04HrNrmU1knuSsLpEtRd8YsvaX6EqKx6bqoyourIs1KaDAZV5sYGcGB2pNNoB3DY{0}" +
+                "j9ZDa1fclVRMnmT0zEYz/KJg8uzyxZL1EoenaneldKQ6Nj/ipEClVtTDpvde6V0iwFr7tmIVHIJu{0}" +
+                "x2jF6BAQxK9UDgz49tVwgxmFR8YeH55hnNcPKayGvqYRfADCH69+EXUjneUfHpY5nvcI5axg6Ov+{0}" +
+                "huDWaymcGMK4oae8AMZSCtfXKGbp1VOIo6nJPyjueo8wgK3yJNN4auxe06f3e++dYAUplVQ={0}",
                 Characters.DosNewLine
             );
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string TestGetScriptStreamXmlDataHash() /* 546217657d203f9e263ad37618c1509b304a03a8 */
+        public static string TestGetScriptStreamXmlDataHash() /* d72ced868f737980bfbd5671d78590991f9aec6c */
         {
             return ArrayOps.ToHexadecimalString(
                 HashOps.HashString("SHA1", (string)null, TestGetScriptStreamXmlData()));
@@ -37030,24 +38000,27 @@ namespace Eagle._Tests
         public static string TestGetScriptStreamXmlData() /* TestScriptStreamXml.xml */
         {
             //
-            // WARNING: For the signature in TestGetScriptStreamXmlSignature
-            //          (below) to match, this content must have an SHA1 hash
-            //          matching return value of TestGetScriptStreamXmlHash.
+            // WARNING: For the script signature in TestGetScriptStreamXmlDataSignature
+            //          (below) to match, this content must have an SHA1 hash matching
+            //          the return value of TestGetScriptStreamXmlDataHash.
             //
             return String.Format(
                 "<?xml version=\"1.0\" encoding=\"utf-8\" ?>{0}" +
                 "<blocks xmlns=\"{3}\">{0}" +
                 "  <block id=\"11b0bd2a-bc99-4639-9727-dc38efacaca1\" " +
-                "type=\"automatic\" name=\"block1\" publicKeyToken=\"{6}\" " +
+                "type=\"automatic\" name=\"block1\" " +
+                "timeStamp=\"2007-10-01T09:49:10.4995123Z\" publicKeyToken=\"{6}\" " +
                 "signature=\"{4}\">{0}" +
                 "    <![CDATA[{0}" +
                 "      set seconds [clock seconds]{0}" +
                 "      lappend seconds \"clock time = $seconds\"{0}" +
                 "      lappend seconds [expr {1}$seconds > 0 ? $seconds : \"negative\"{2}]{0}" +
+                "      unset seconds{0}" +
                 "    ]]>{0}" +
                 "  </block>{0}" +
                 "  <block id=\"07a3570a-49ab-45d7-9e1a-893b2c61edff\" " +
-                "type=\"automatic\" name=\"block2\" publicKeyToken=\"{6}\" " +
+                "type=\"automatic\" name=\"block2\" " +
+                "timeStamp=\"2024-11-05T09:49:10.4995321Z\" publicKeyToken=\"{6}\" " +
                 "signature=\"{5}\">{0}" +
                 "    return [list {1}this is a test.{2} $seconds [clock seconds]]{0}" +
                 "  </block>{0}" +
@@ -37060,7 +38033,52 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string TestGetScriptStreamXmlSignature() /* TestScriptStreamXml.xml.harpy */
+        public static string TestGetScriptStreamXmlDataSignature() /* TestScriptStreamXml.xml.harpy */
+        {
+            return String.Format(
+                "RL8AsNU1xNHDps6S7esiceffsfZNRLUhacc5tpISdot0DN/7UwI/jfxbOsDUWLUDbISSLK3fg+87{0}" +
+                "taiborX3UO9TojG7CVaU9Ifxwa3uxIfDUOF3Lf+3GWoOhvZWZav0IaD0pcfz/JelGjP0Int4eykb{0}" +
+                "GZhALpFDzSCTpn4+cvTrzirfcgJgne5u3k/OLlQDmW9bkyDZNk4z+UcpLO66wrOaZOO/e6PJE6B6{0}" +
+                "yg4urcrFP7PabrK9vxpYEAdIIcl9Kzhh3Sul70jsynqxqPVvDu+KHfBNFld1e7HT+VfT70diekx6{0}" +
+                "LcIOztFXcFivvRosxWHz15fjaqYJ1vOZ3e1u/qNETRIj4XfqywVsn79/Qg6kZaNYBnG+k69A1JN3{0}" +
+                "vX6s3jrXrbGD9eJLnGqmff/fNlRp6o/1JReBBVHbBXWcypK/+TXM3IAIaSke0rFeAlv/ObiElfrJ{0}" +
+                "QYYjoOi110sU9ZZNEC6CiQopgaY6yCnQbZ+ri/X0E9u7LdqlwU39Pli+9IV7uiqXR6GORb8Egdze{0}" +
+                "d9kfL4OIyJzE4/8KwsQWuG9PJp1R5U0ZFhbx8Bh9mLVf0R/nfHHw9hJWNdBjaDf4UU4HuHHEq8hr{0}" +
+                "uB6ZtU6GCOPUDBZy8v03QURJ6fljIFDSlXgoD4Aa7oledg2gCxvTHFn14fH+AjKczb3o1xRIXxhf{0}" +
+                "5C0JHj/F9xFrkzcjGVgFNjiJXNNAu/5k6uaaqwMo0KxWdxFoEset8WG58RJIhTAdxWFVW9q7oRYt{0}" +
+                "Hs5mwaN3dA+T1NoAjxWquJTIKDVoQbN3X8o1uaXDK2Aw9oxHIwZxqlso0don0wEVPk2htu5NtCxS{0}" +
+                "VsiPGoTfWZNOwXzOqkFQp8bHYQWuwY0BKO+hymMVa5YTin2gmuukiUxlFwMHrJ/22XTcibq9yJ0s{0}" +
+                "xpecUN/LwNcUgG9qH5SztM68zBbBX5EYNYk4NoJvAdqeND5N3Xfkj7BJJprX/uoV/W2CDUg2ankx{0}" +
+                "C6t5LJ+yynKHyIXs88HX6DmZLsDe4cjkqHdN0jeI+xof9FiOvOaqzglhT0m7i9qZOBmfiZA6Whsp{0}" +
+                "ygv6O+qFVq3kL1lyONNLctP9sOuLbyp20B6WLe2unT4jludf38FwDw9p2PYjSwzGP+lRc3B1JCrj{0}" +
+                "/BmHxVFTUrndy86fh2ynEsxZXa3b8neZdU2I+W7s+GbuvJiiTFgYQFK6c2Nl7hnXG9LqBmwqDbqb{0}" +
+                "meYPPR080kXscC3WNdU/qECRtYh+9oQhId99Pt6BcTCvIoCRFw0c7kiRT9p/38JIkXW8ULVNOQLY{0}" +
+                "wX4QQ+UI+d+yHj2/owHzXZ1t95ID2BR/JkGMR8gnLDsK8272QOMrZZ2oW/kiXL0wEy1KrXJdTH7G{0}" +
+                "7eUHcOodT7ABZYBuMeQm1HGfSkx1h+gByAkNxtjGXPl9dRXbJs+jddss005syNviBbiseEliXuGU{0}" +
+                "28aG7BSL2XprN6oSwpSyqbPRCbq7q7KA4TvXMV7l4gptGb8Gi9Z+q+bEEvgf5WJFg3lPtPnKJLhO{0}" +
+                "e2Iz1qBbw6ME0Pn+l/CboNBAzTSEUyqy+FoUZjWDqLTR1oFrXcjFLFUdTZStKlL7Keh2ZYr7pF/6{0}" +
+                "9O9MzVLzN/RF8SY7JLWneif9nNyxNaDkEKHVyF1UeRM/3okTdDntPLSDUBpbh6wnb9FGsd7I4fi6{0}" +
+                "1XTCKOCsr6lt79x1TGy1FajKGlxYM0gjPCEvqTOvzl4r8TiH6nRRu24O5fh7LRM4gB8hPtmMiDHs{0}" +
+                "zeKzqxNqL73GjSi/0PwRS6uI+FMlsKNv5qSc71E0u9dOlmH5RVpmyGctayW6v3UqXCVKcNiEMuqh{0}" +
+                "0aEzFqBVQ7zB08xLiS6VxeDfd4oQdskM8IybwdGvNio0iD4pnlkP+8LZxU/opzZPNYu7u3FYEE3j{0}" +
+                "g5yoPgG0QplOe46/cv+6u1pD2QP9+dSvPxg7us+yMgCbD0V0ONK8O0dY3tBoQaQY4y8jW5brR86Q{0}" +
+                "ZQDopbSafoOC6etz1Trkv0EugNbJKWkvHkjH3j7BNBVhB4IM+qpqIKNOiIcpSAJseDlcPlI3FCak{0}" +
+                "x+nI4EhqYLdm/W9vkgic8PmZBplk8fxjE60QL4/x/j8O9jVXC7f5pH8VSjAXwnimj6DyyrFIV0NY{0}" +
+                "7k+dJ55QXnMMghUzWnE0ettxxKJox0lMsNM8EyNxA/MsIXBlShASVM5VrxRBXvAPdbIoo30qsCFQ{0}" +
+                "b1rsUOD+bO9LcFDgfHOvYyfMtS52gXO50itdMa/XCzXjkpxDtN5m4Z0ykR2nIA3y/ZfBatVV9YCa{0}" +
+                "6TsS91w3ybUaxW9abRSJxDdmU18WFWloQ0IZN8oGhoU4Puygkm2DdiYAEhwcpwBW96cio7PWKESa{0}" +
+                "wsQvTKFjSxmxcGDse0R8stcOqBDcoAkAMfXuqDOz7SMKkEDotlhoV5FXAc9WcjjOkNSKthSheSKC{0}" +
+                "X60SJzqHieX0WiK2ngg3te9DlVnarqRUyXLI55pUu9L93pyqyq3RM2KXfYQrzKZTJRT3X6yb3Q3n{0}" +
+                "MuVUtdpqkoWluEicYEy5ab1AG+M7L4atf6Rmgoi6n/KugOBE9T23Flhev5rbgeMw5wSOt8TSn2Jn{0}" +
+                "+8xbqU5wzTxfnAgwSliHbcX/0QIl73RFWhocZk38U8KUd3N68lWqu1feJM5rsIZY0c6nIn0EE2hm{0}" +
+                "fSxva1nsvBomOGlC967KguMjMaxkWu3Gb30hzhoxTcmeW+LfD8YxtszETEZRDtnKScWIwvw={0}",
+                Characters.DosNewLine
+            );
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string TestGetScriptStreamXmlDataCertificate() /* TestScriptStreamXml.xml.harpy */
         {
             return String.Format(
                 "<?xml version=\"1.0\" encoding=\"utf-8\"?>{0}" +
@@ -37075,46 +38093,9 @@ namespace Eagle._Tests
                 "  <TimeStamp>2020-11-20T02:16:24.9461003Z</TimeStamp>{0}" +
                 "  <Duration>-1.00:00:00</Duration>{0}" +
                 "  <Key>0x{2}</Key>{0}" +
-                "  <Signature>{0}" +
-                "    ng1bWj3KmBPctC93cPGs3LfWB1jSSP8snIsrvCb0PVTe1Dyvr5DPrWbZN285cYEUSwmw7o4qJf1P{0}" +
-                "    kpJPpHTwA5J1Jduyys/lb+AG2IxTpaDIJAwCwFl3FZdmNJkCMERv4ddQiyhIVXhKv3k2BNwgtI1A{0}" +
-                "    XLXfuO6pOwbuP0OmUPIR202JIPJg2gr8GpTEz6Du8l8+4HOtfg3KO4fOpM08U8T/idTyLDBxaNJ/{0}" +
-                "    ipCEn47/kNkZtykyC56Jf/BZIysFs4Hksu/hmxAw1dBY37eC2cjGvepw4YtYuF474qsHkpUVRhk3{0}" +
-                "    HQXwMaJeHOCEHd/L/rMoIQWlpyoKCz0WEO3xh9AqIwM4jZX8cl5v5gvYYAUX8BSVdKPMwrGi+pbd{0}" +
-                "    5O6zHVvJszthM+t/WW5sKtpOBaIrYaxYlpsUQbqaCRWookYpg7GOshJ41+KFvto+bWr3q1+Q0E2v{0}" +
-                "    jjripJOmvj4znVlUZKWsvyPwBaJW8bfw0bObhmKiVcimT2+QsOpNPz1vbYJHwp4UiXOh7tyROEQx{0}" +
-                "    PUmJF8rMtUa6qvYHM9wb3y8dPeV2AN1OgGNTv1RgLzlPTJIcrSD4/r9+MnIhnrmrvlrs9dvzOFXL{0}" +
-                "    ZzBCH6hYoO6lVMBBKd5fP/0Vy/IcMGGx6HBOMEnJ/Tp7NFxLsWobmYwiWTTww6u8haoluoX+7BkR{0}" +
-                "    b9OjjwItYU4FyXgu1bdivC3JfqTj+PwNygbIUdCXDdbFiZJRa+zTRZNInKQ3AyAwQebWprrtSz0I{0}" +
-                "    L9ZbfpgcaT2WXoa8GcSwnE6Q1Q9ljVn23w6VCsVzYfUh0qkMsr/AT/NrV3Pmo+/KOxvHNt6s7YCw{0}" +
-                "    o+YmXdpHtnLXfQ5s02fgULSwDRvNBCIZsy7yWFiBOhajsDnrfAnNremK1sQLBUvhrlbazi67jXlR{0}" +
-                "    BI6NVc25yQa5VJxWZsQ/zn2KZp0ZRtuDG3FHcBtt43WRKDVRiNcsoOrk3n2Wc/+Tn5YJDudJctZj{0}" +
-                "    4d/Wu/LHMircF69ABA2mN8E3Jc3Q0a5OAsKBbgg1Jzk9H5GwMlCK9GARD0uL0jVoQBTrSXwpSdst{0}" +
-                "    gY1h4VAjYsXiwdkrfczoTIBKz1xoVJbCbTHA20hDuqSiD9NjZvMD1x2er5m3OoUtPgssZob9ukKX{0}" +
-                "    4JILQwO3qVzuxRusqUJlMD32Zz5Sr0h0DThbFdWuRZmveuCiOo6gNtwfXCq5v1U/XeAfjzwtP9WF{0}" +
-                "    SbCZMpGj7P+PvJF0LGCMdeh6enl9UVFRGcl/LEoA+3CyJGad+d2Ff+FfrY2xyrY/wkjPLjxNXH0y{0}" +
-                "    3gnkSMyjYSZcHbaSlb73eLmh8HdZ4P5lNENh7Hoi7hmh0KRJWKLvwKCtYaJmRmMwg9xhmg//NlwB{0}" +
-                "    0sZxUNYOVrbmYlSyLf+RfmfijWdB68k+yay54BENMSeYAPIJwvlS4rb5zCZKlh2CU2aFPM1Q0bu5{0}" +
-                "    NyGoevEwtDzUHABhaJNgcztZM68vbfewnneYlpiMq7cm5LKks/7Egu7kPWQLwMWGDQpoI4q0VqdK{0}" +
-                "    CVRh3kq3zgPtmSPTORwpMOAbwfHoA8YWQRV6gXIjyH7LptJ8DmwA3ARp8vlfQqSJQoo9iAjLVwgl{0}" +
-                "    2MFqcW3UiLY7YJHyGDxBrQSMdSLig3YbMP8ixGTQO/cONnXjfHiAE/mSx/G/DM/3nWah3NUOl7Lz{0}" +
-                "    +yd+m1UrdJom1J59l6l8UjLA87/erODmywQsJUbMW56wgYU9auFEJGqT5WZ8N6RGemmUaOwukUE/{0}" +
-                "    hyo3WqvrPLMh/TzBxKfL6ucRMzPMI3agm1dCCI1YffTgzwqxMPs+X6Y/kY9gHE6PdEe4l9qSrUie{0}" +
-                "    3Essr2a+jVC7bBx4lWoLnh8BcI4mpI2b0W+sK2lPi2aw4Qh/rMvC8RWQ5HNfJum882lYTfI4Mqp6{0}" +
-                "    mRAeJiKsWspR3cdAWhxd1VD/MGbMMqGMqFgecu1g9R/+d24ZaRad9JfvyS4VNyv1zBo9swIDi5fh{0}" +
-                "    3Qxit1Yl1NNPjITB5jANZaKKs9Aha42s8Nu9TYNQJoTiDXb78ENe55Yzj8nUcyk6cgHip9bHKE6Y{0}" +
-                "    DSpmVcCJQOjrl8XEQ91IZAT7IQBZ2Nr8MYFzOuVu5sE+VRWtLgGuEI2PZ4VSYtem9rob394rIgAF{0}" +
-                "    7h8LGvdV0aGLpobf+w5c1D2s2aj7hNbMYNgU/UoD6E45dK1u7gcOCK2/fFjh+cn96MYu2hChHxmD{0}" +
-                "    fHZfw3+nfuzCag0xnDIdZ2YhC8FPlTgeF5vXdaQ9DYpXJVGEPhTdXwUOMhcARq6LotIuHr5xC0le{0}" +
-                "    PIxD0dWezGvnLY8TDzpbTAP4v7+STPpBnqm6PsMVe7QaigGq/IJwsBplZf/bMoSWZh0hG3IzPNb4{0}" +
-                "    vxCdg5yG0P8fxM4GP+OmuP5rwnZeKXjH1S8j4aSy562GkKrWr0kRZjbt+d4t10WzQpIYlF6ztsqy{0}" +
-                "    PK/3gsDk7745s7ZpmAiiw8tdubGSxTPZ7WoGqjsNrdDutWBWKQs55yqn5/WaBu2PNBwJbxKBAGM+{0}" +
-                "    pNrt1/ymiaxn+vZlEMX+Fxx+ahO6cRS4yJ7xHB49MUP7on4XED0xFaALtMZtjZktF+r33rjwPKsi{0}" +
-                "    w64D7tUk13oxUKLh707mgE2Yu0lLTVvvMjzYBe+19WtM6IK9FS6mLL3OKfSacZP4O3qfW9iVTrK3{0}" +
-                "    N7N0l/KQbsFA+JmjhxNnrteOMeDY9uPDS1aSyiEjE8yiOALDzb30cdXmliWQaDhfVYxi63w={0}" +
-                "  </Signature>{0}" +
+                "  <Signature>{0}{3}</Signature>{0}" +
                 "</Certificate>{0}", Characters.DosNewLine, Xml.SignatureNamespaceUri,
-                PublicKeyToken.Class0
+                PublicKeyToken.Class0, TestGetScriptStreamXmlDataSignature()
             );
         }
 

@@ -17,6 +17,11 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+using ProcedureWrapper = Eagle._Wrappers.Procedure;
+
+using ProcedurePair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Procedure>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -25,7 +30,7 @@ namespace Eagle._Containers.Private
 {
     [ObjectId("abe58e55-3407-48a0-b09d-7b997f81cb37")]
     internal sealed class ProcedureWrapperDictionary :
-            WrapperDictionary<string, _Wrappers.Procedure>
+            WrapperDictionary<string, ProcedureWrapper>
     {
         public ProcedureWrapperDictionary()
             : base()
@@ -36,7 +41,7 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public ProcedureWrapperDictionary(
-            IDictionary<string, _Wrappers.Procedure> dictionary
+            IDictionary<string, ProcedureWrapper> dictionary
             )
             : base(dictionary)
         {
@@ -70,7 +75,7 @@ namespace Eagle._Containers.Private
                 {
                     inputList = new StringList();
 
-                    foreach (KeyValuePair<string, _Wrappers.Procedure> pair in this)
+                    foreach (ProcedurePair pair in this)
                     {
                         IProcedure procedure = pair.Value;
 
@@ -91,7 +96,7 @@ namespace Eagle._Containers.Private
             {
                 inputList = new StringList();
 
-                foreach (KeyValuePair<string, _Wrappers.Procedure> pair in this)
+                foreach (ProcedurePair pair in this)
                 {
                     IProcedure procedure = pair.Value;
 

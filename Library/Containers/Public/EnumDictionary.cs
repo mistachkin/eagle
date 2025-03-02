@@ -209,7 +209,7 @@ namespace Eagle._Containers.Public
             bool noCase
             )
         {
-            return ToString(Characters.Space.ToString(), pattern, noCase);
+            return ToString(Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -224,7 +224,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -232,7 +232,7 @@ namespace Eagle._Containers.Public
         #region System.Object Overrides
         public override string ToString()
         {
-            return ToString(Characters.Space.ToString(), null, false);
+            return ToString(Characters.SpaceString, null, false);
         }
         #endregion
     }

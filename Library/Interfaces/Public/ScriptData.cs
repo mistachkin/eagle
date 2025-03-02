@@ -44,5 +44,7 @@ namespace Eagle._Interfaces.Public
         byte[] HashValue { get; }
         HashAlgorithm HashAlgorithm { get; }
 #endif
+
+        IBundleData BundleData { get; }
     }
 }

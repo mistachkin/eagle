@@ -57,6 +57,8 @@ namespace Eagle._Procedures
                 clientData = procedureData.ClientData;
                 arguments = procedureData.Arguments;
                 namedArguments = procedureData.NamedArguments;
+                overwriteArguments = procedureData.OverwriteArguments;
+                cleanArguments = procedureData.CleanArguments;
                 body = procedureData.Body;
                 location = procedureData.Location;
                 token = procedureData.Token;
@@ -340,6 +342,24 @@ namespace Eagle._Procedures
         {
             get { return namedArguments; }
             set { namedArguments = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private ArgumentList overwriteArguments;
+        public virtual ArgumentList OverwriteArguments
+        {
+            get { return overwriteArguments; }
+            set { overwriteArguments = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private ArgumentList cleanArguments;
+        public virtual ArgumentList CleanArguments
+        {
+            get { return cleanArguments; }
+            set { cleanArguments = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////

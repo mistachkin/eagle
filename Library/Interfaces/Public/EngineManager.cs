@@ -168,6 +168,30 @@ namespace Eagle._Interfaces.Public
             ref int errorLine
             );
 
+        ReturnCode EvaluateBundleFile(
+            string fileName,
+            byte[] password,
+            ref IClientData clientData,
+            ref Result result
+            );
+
+        ReturnCode EvaluateBundleFile(
+            string fileName,
+            byte[] password,
+            ref IClientData clientData,
+            ref Result result,
+            ref int errorLine
+            );
+
+        ReturnCode EvaluateBundleFile(
+            string fileName,
+            byte[] password,
+            IHaveScriptFlags haveScriptFlags,
+            ref IClientData clientData,
+            ref Result result,
+            ref int errorLine
+            );
+
         ReturnCode EvaluateGlobalFile(
             string fileName,
             ref Result result

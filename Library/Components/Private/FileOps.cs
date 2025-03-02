@@ -2787,8 +2787,7 @@ namespace Eagle._Components.Private
                     "no files matched glob pattern{0} {1}",
                     (join || (patterns.Count > 1)) ? "s" :
                     String.Empty, FormatOps.WrapOrNull(
-                    patterns.ToRawString(
-                    Characters.Space.ToString())));
+                    patterns.ToRawString(Characters.SpaceString)));
 
                 return null;
             }

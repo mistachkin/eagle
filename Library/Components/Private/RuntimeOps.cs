@@ -51,8 +51,15 @@ using Eagle._Interfaces.Public;
 using SharedAttributeOps = Eagle._Components.Shared.AttributeOps;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
+using PluginPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Plugin>;
+
 using DelegatePair = System.Collections.Generic.KeyValuePair<
     System.Delegate, Eagle._Components.Public.MethodFlags>;
+
+#if EMIT && NATIVE && LIBRARY
+using ModuleWrapper = Eagle._Wrappers._Module;
+#endif
 
 using FieldInfoDictionary = System.Collections.Generic.Dictionary<
     string, Eagle._Interfaces.Public.IAnyPair<
@@ -96,6 +103,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Resource Handling
+        //
+        // NOTE: These five strings must be compile time constants because
+        //       they are used before the cultureInfo and resourceManager
+        //       objects are available to resolve runtime string resources.
+        //
+        private const string CultureInfoError =
+            "could not interpret \"{0}\" as a culture name or identifier";
+
+        private const string InvalidCultureInfoError =
+            "invalid culture";
+
+        private const string InvalidBaseResourceName =
+            "invalid base resource name";
+
+        private const string InvalidResourceAssembly =
+            "invalid resource assembly";
+
+        private const string ResourceManagerError =
+            "could not create resource manager \"{0}\"";
+
         private const string InvalidInterpreterResourceManager =
             "invalid interpreter resource manager";
 
@@ -1568,7 +1595,8 @@ namespace Eagle._Components.Private
 
                 int minSize = keySizes.MinSize;
 
-                if ((bestIndex == Index.Invalid) || (minSize < bestMinSize))
+                if ((bestIndex == Index.Invalid) ||
+                    (minSize < bestMinSize))
                 {
                     bestIndex = index;
                     bestMinSize = minSize;
@@ -1600,7 +1628,8 @@ namespace Eagle._Components.Private
 
                 int maxSize = keySizes.MaxSize;
 
-                if ((bestIndex == Index.Invalid) || (maxSize > bestMaxSize))
+                if ((bestIndex == Index.Invalid) ||
+                    (maxSize > bestMaxSize))
                 {
                     bestIndex = index;
                     bestMaxSize = maxSize;
@@ -3370,8 +3399,9 @@ namespace Eagle._Components.Private
             ulong ulongValue = 0;
 
             if (Value.GetUnsignedWideInteger2(
-                    value, ValueFlags.AnyWideInteger | ValueFlags.Unsigned,
-                    cultureInfo, ref ulongValue, ref error) != ReturnCode.Ok)
+                    value, ValueFlags.AnyWideInteger |
+                    ValueFlags.Unsigned, cultureInfo,
+                    ref ulongValue, ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
             }
@@ -3664,7 +3694,7 @@ namespace Eagle._Components.Private
             bool resolve = FlagOps.HasFlags(
                 hostStreamFlags, HostStreamFlags.ResolveFullPath, true);
 
-            foreach (KeyValuePair<string, _Wrappers.Plugin> pair in plugins)
+            foreach (PluginPair pair in plugins)
             {
                 IPlugin plugin = pair.Value;
 
@@ -4020,9 +4050,9 @@ namespace Eagle._Components.Private
         private static bool IsGenuine()
         {
             return ArrayOps.Equals(
-                License.Hash, HashOps.HashString(null, (string)null,
-                StringOps.ForceCarriageReturns(License.Summary +
-                License.Text)));
+                SourceLicense.Hash, HashOps.HashString(null, (string)null,
+                StringOps.ForceCarriageReturns(SourceLicense.Summary +
+                SourceLicense.Text)));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4054,6 +4084,17 @@ namespace Eagle._Components.Private
         public static bool IsOfficial()
         {
 #if OFFICIAL
+            return true;
+#else
+            return false;
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsOfficialBinary()
+        {
+#if OFFICIAL_BINARY
             return true;
 #else
             return false;
@@ -4334,7 +4375,7 @@ namespace Eagle._Components.Private
 
             StringList subList = null;
 
-            foreach (KeyValuePair<string, _Wrappers.Plugin> pair in plugins)
+            foreach (PluginPair pair in plugins)
             {
                 IPlugin plugin = pair.Value;
 
@@ -4423,6 +4464,19 @@ namespace Eagle._Components.Private
         {
             StringList list = null;
 
+            if (FlagOps.HasFlags(versionFlags, VersionFlags.Vendor, true))
+            {
+                string vendor = GetVendor(interpreter, false);
+
+                if (vendor != null)
+                {
+                    if (list == null)
+                        list = new StringList();
+
+                    list.Add(vendor);
+                }
+            }
+
             if (FlagOps.HasFlags(versionFlags, VersionFlags.Core, true))
             {
                 AddCoreVersionInformation(interpreter,
@@ -4491,6 +4545,8 @@ namespace Eagle._Components.Private
             ProcedureFlags flags,
             ArgumentList arguments,
             ArgumentDictionary namedArguments,
+            ArgumentList overwriteArguments,
+            ArgumentList cleanArguments,
             string body,
             IScriptLocation location,
             IClientData clientData,
@@ -4499,7 +4555,8 @@ namespace Eagle._Components.Private
         {
             IProcedureData procedureData = new ProcedureData(
                 name, group, description, flags, arguments,
-                namedArguments, body, location, clientData, 0);
+                namedArguments, overwriteArguments, cleanArguments,
+                body, location, clientData, 0);
 
             NewProcedureCallback callback = null;
 
@@ -4542,6 +4599,148 @@ namespace Eagle._Components.Private
             {
                 return NewCoreProcedure(
                     procedureData, ref error);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Culture Support Methods
+        public static CultureInfo GetCultureInfo(
+            string culture, /* in */
+            bool specific   /* in */
+            )
+        {
+            Result error = null;
+
+            return GetCultureInfo(culture, specific, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static CultureInfo GetCultureInfo(
+            string culture,  /* in */
+            bool specific,   /* in */
+            ref Result error /* out */
+            )
+        {
+            try
+            {
+                //
+                // NOTE: Empty string is valid here, it can be used to
+                //       select the current culture.
+                //
+                if (culture == null)
+                    return Value.GetDefaultCulture();
+
+                //
+                // NOTE: Attempt to set the culture based on using the
+                //       parameter "culture" as a name (either neutral
+                //       or specific).  Empty string is valid here and
+                //       selects the invariant culture.
+                //
+                return specific ?
+                    CultureInfo.CreateSpecificCulture(culture) :
+                    CultureInfo.GetCultureInfo(culture);
+            }
+#if NET_40
+            catch (CultureNotFoundException)
+#else
+            catch
+#endif
+            {
+                //
+                // NOTE: It is not a valid culture name, try to convert
+                //       the "culture" parameter to integer identifier.
+                //
+                int cultureId = 0;
+
+                if (Value.GetInteger2(culture, ValueFlags.AnyInteger,
+                        null /* culture not yet set! */, ref cultureId,
+                        ref error) == ReturnCode.Ok)
+                {
+                    try
+                    {
+                        return CultureInfo.GetCultureInfo(cultureId);
+                    }
+                    catch (Exception e)
+                    {
+                        //
+                        // NOTE: It parsed as a valid integer; however,
+                        //       that caused an exception.  Figure out
+                        //       if the caught exception should be used
+                        //       verbatim -OR- converted to a simpler
+                        //       error message.
+                        //
+                        if ((e is ArgumentOutOfRangeException)
+#if NET_40
+                            || (e is CultureNotFoundException)
+#endif
+                            )
+                        {
+                            error = FormatOps.ErrorWithException(
+                                String.Format(CultureInfoError,
+                                culture), e);
+                        }
+                        else
+                        {
+                            error = e;
+                        }
+                    }
+                }
+
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ResourceManager GetResourceManager(
+            CultureInfo cultureInfo, /* in */
+            ref Result error         /* out */
+            )
+        {
+            if (cultureInfo == null)
+            {
+                error = InvalidCultureInfoError;
+                return null;
+            }
+
+            string resourceBaseName = GlobalState.GetResourceBaseName();
+
+            if (resourceBaseName == null)
+            {
+                error = InvalidBaseResourceName;
+                return null;
+            }
+
+            Assembly assembly = GlobalState.GetAssembly();
+
+            if (resourceBaseName == null)
+            {
+                error = InvalidResourceAssembly;
+                return null;
+            }
+
+            try
+            {
+                //
+                // FIXME: PRI 4: Now that this resource management code
+                //        is in place and working properly, we need to
+                //        migrate all the error messages and other
+                //        static strings to be managed resources.  The
+                //        original intention was to do this right from
+                //        the start; however, time constraints prevented
+                //        that vision from becoming a reality.
+                //
+                return new ResourceManager(resourceBaseName, assembly);
+            }
+            catch (Exception e)
+            {
+                error = FormatOps.ErrorWithException(String.Format(
+                    ResourceManagerError, resourceBaseName), e);
+
+                return null;
             }
         }
         #endregion
@@ -7047,6 +7246,7 @@ namespace Eagle._Components.Private
             if ((type == typeof(_Commands.Default)) ||
                 (type == typeof(_Commands._Delegate)) ||
                 (type == typeof(_Commands.SubDelegate)) ||
+                (type == typeof(_Commands.Automatic)) ||
                 (type == typeof(_Commands.Ensemble)) ||
                 (type == typeof(_Commands.Core)) ||
                 (type == typeof(_Commands.Stub)) ||
@@ -7072,6 +7272,8 @@ namespace Eagle._Components.Private
                     typeName, typeof(_Commands._Delegate).FullName) ||
                 SharedStringOps.SystemEquals(
                     typeName, typeof(_Commands.SubDelegate).FullName) ||
+                SharedStringOps.SystemEquals(
+                    typeName, typeof(_Commands.Automatic).FullName) ||
                 SharedStringOps.SystemEquals(
                     typeName, typeof(_Commands.Ensemble).FullName) ||
                 SharedStringOps.SystemEquals(
@@ -8514,7 +8716,7 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            _Wrappers._Module wrapper = module as _Wrappers._Module;
+            ModuleWrapper wrapper = module as ModuleWrapper;
 
             if (wrapper != null)
                 module = wrapper.Object as IModule;

@@ -31,6 +31,8 @@ namespace Eagle._Components.Private
             ProcedureFlags flags,
             ArgumentList arguments,
             ArgumentDictionary namedArguments,
+            ArgumentList overwriteArguments,
+            ArgumentList cleanArguments,
             string body,
             IScriptLocation location,
             IClientData clientData,
@@ -46,6 +48,8 @@ namespace Eagle._Components.Private
             this.clientData = clientData;
             this.arguments = arguments;
             this.namedArguments = namedArguments;
+            this.overwriteArguments = overwriteArguments;
+            this.cleanArguments = cleanArguments;
             this.body = body;
             this.location = location;
             this.token = token;
@@ -139,6 +143,24 @@ namespace Eagle._Components.Private
         {
             get { return namedArguments; }
             set { namedArguments = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ArgumentList overwriteArguments;
+        public virtual ArgumentList OverwriteArguments
+        {
+            get { return overwriteArguments; }
+            set { overwriteArguments = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ArgumentList cleanArguments;
+        public virtual ArgumentList CleanArguments
+        {
+            get { return cleanArguments; }
+            set { cleanArguments = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

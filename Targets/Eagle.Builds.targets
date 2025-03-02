@@ -66,8 +66,7 @@
             Otherwise, compilation errors will occur due to the AssemblyVersion
             attribute value being null.
   -->
-  <PropertyGroup Condition="'$(EagleBuildType)' == 'Default' Or
-                            '$(EagleBuildType)' == 'NetFx20'">
+  <PropertyGroup Condition="'$(EagleBuildType)' == 'Default'">
     <EagleAppDomains Condition="'$(EagleAppDomains)' == ''">true</EagleAppDomains>
     <EagleAssemblyRelease Condition="'$(EagleAssemblyRelease)' == ''">true</EagleAssemblyRelease>
     <EagleAssemblyStrongNameTag Condition="'$(EagleAssemblyStrongNameTag)' == ''">true</EagleAssemblyStrongNameTag>
@@ -93,7 +92,65 @@
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
     <EagleNotifyExpression Condition="'$(EagleNotifyExpression)' == ''">false</EagleNotifyExpression>
-    <EagleOnlyNetFx20 Condition="'$(EagleOnlyNetFx20)' == ''">true</EagleOnlyNetFx20>
+    <EaglePatchLevel Condition="'$(EaglePatchLevel)' == ''">true</EaglePatchLevel>
+    <EaglePowerShellVersion Condition="'$(EaglePowerShellVersion)' == ''">1.0</EaglePowerShellVersion>
+    <EagleScriptArguments Condition="'$(EagleScriptArguments)' == ''">true</EagleScriptArguments>
+    <EagleSourceId Condition="'$(EagleSourceId)' == ''">true</EagleSourceId>
+    <EagleSourceTimeStamp Condition="'$(EagleSourceTimeStamp)' == ''">true</EagleSourceTimeStamp>
+    <EagleUnix Condition="'$(EagleUnix)' == ''">true</EagleUnix>
+    <EagleUseAppDomainForId Condition="'$(EagleUseAppDomainForId)' == ''">true</EagleUseAppDomainForId>
+    <EagleUseNamespaces Condition="'$(EagleUseNamespaces)' == ''">true</EagleUseNamespaces>
+    <EagleWixVersion Condition="'$(EagleWixVersion)' == ''">3.5</EagleWixVersion>
+    <EmbedCertificates Condition="'$(EmbedCertificates)' == ''">true</EmbedCertificates>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: This is an "official release" build configuration.  This build
+            configuration is primarily designed for use with the .NET Framework
+            2.0 on Windows XP or higher.  Most default values from the settings
+            file (i.e. "Eagle.Settings.targets") are used; however, some of the
+            defaults are overridden.
+
+      NOTE: When building this configuration directly from MSBuild (i.e. not via
+            the "flight.bat" tool), the EaglePatchLevel property must be set to
+            false, by adding this to the build command line:
+
+                /property:EaglePatchLevel=false
+
+            Otherwise, compilation errors will occur due to the AssemblyVersion
+            attribute value being null.
+  -->
+  <PropertyGroup Condition="'$(EagleBuildType)' == 'NetFx20'">
+    <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == '' And '$(EagleCanSetTargetFrameworkVersion)' != '' And '$(EagleCanSetTargetFrameworkVersion)' != 'false'">v2.0</TargetFrameworkVersion>
+    <EagleAppDomains Condition="'$(EagleAppDomains)' == ''">true</EagleAppDomains>
+    <EagleAssemblyRelease Condition="'$(EagleAssemblyRelease)' == ''">true</EagleAssemblyRelease>
+    <EagleAssemblyStrongNameTag Condition="'$(EagleAssemblyStrongNameTag)' == ''">true</EagleAssemblyStrongNameTag>
+    <!--
+    <EagleAssemblyTag Condition="'$(EagleAssemblyTag)' == ''">true</EagleAssemblyTag>
+    -->
+    <EagleAssemblyText Condition="'$(EagleAssemblyText)' == ''">true</EagleAssemblyText>
+    <!--
+    <EagleAssemblyUri Condition="'$(EagleAssemblyUri)' == ''">true</EagleAssemblyUri>
+    -->
+    <EagleAuthenticodeSign Condition="'$(EagleAuthenticodeSign)' == ''">true</EagleAuthenticodeSign>
+    <EagleAuthenticodeSign32BitOnly Condition="'$(EagleAuthenticodeSign32BitOnly)' == ''">true</EagleAuthenticodeSign32BitOnly>
+    <EagleCacheDictionary Condition="'$(EagleCacheDictionary)' == ''">true</EagleCacheDictionary>
+    <EagleCasPolicy Condition="'$(EagleCasPolicy)' == ''">true</EagleCasPolicy>
+    <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == ''">NetFx20</EagleConfigurationSuffix>
+    <EagleDebuggerExpression Condition="'$(EagleDebuggerExpression)' == ''">false</EagleDebuggerExpression>
+    <EagleEmbeddedLibrary Condition="'$(EagleEmbeddedLibrary)' == ''">true</EagleEmbeddedLibrary>
+    <EagleFastErrorCode Condition="'$(EagleFastErrorCode)' == ''">true</EagleFastErrorCode>
+    <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
+    <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
+    <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
+    <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
+    <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
+    <EagleNotifyExpression Condition="'$(EagleNotifyExpression)' == ''">false</EagleNotifyExpression>
     <EaglePatchLevel Condition="'$(EaglePatchLevel)' == ''">true</EaglePatchLevel>
     <EaglePowerShellVersion Condition="'$(EaglePowerShellVersion)' == ''">1.0</EaglePowerShellVersion>
     <EagleScriptArguments Condition="'$(EagleScriptArguments)' == ''">true</EagleScriptArguments>

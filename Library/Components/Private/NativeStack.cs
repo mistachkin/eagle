@@ -704,7 +704,9 @@ namespace Eagle._Components.Private
                                         typeof(NativeStack).Name,
                                         TracePriority.NativeDebug);
 
-                                    Interlocked.CompareExchange(ref CanQueryThread, 1, 0);
+                                    Interlocked.CompareExchange(
+                                        ref CanQueryThread, 1, 0);
+
                                     break;
                                 }
                             case ProcessorArchitecture.ARM:
@@ -734,7 +736,9 @@ namespace Eagle._Components.Private
                                         typeof(NativeStack).Name,
                                         TracePriority.NativeDebug);
 
-                                    Interlocked.CompareExchange(ref CanQueryThread, 1, 0);
+                                    Interlocked.CompareExchange(
+                                        ref CanQueryThread, 1, 0);
+
                                     break;
                                 }
                             case ProcessorArchitecture.IA64:
@@ -764,7 +768,9 @@ namespace Eagle._Components.Private
                                         typeof(NativeStack).Name,
                                         TracePriority.NativeDebug);
 
-                                    Interlocked.CompareExchange(ref CanQueryThread, 1, 0);
+                                    Interlocked.CompareExchange(
+                                        ref CanQueryThread, 1, 0);
+
                                     break;
                                 }
                             case ProcessorArchitecture.AMD64:
@@ -795,7 +801,9 @@ namespace Eagle._Components.Private
                                         typeof(NativeStack).Name,
                                         TracePriority.NativeDebug);
 
-                                    Interlocked.CompareExchange(ref CanQueryThread, 1, 0);
+                                    Interlocked.CompareExchange(
+                                        ref CanQueryThread, 1, 0);
+
                                     break;
                                 }
                             case ProcessorArchitecture.ARM64:
@@ -825,7 +833,9 @@ namespace Eagle._Components.Private
                                         typeof(NativeStack).Name,
                                         TracePriority.NativeDebug);
 
-                                    Interlocked.CompareExchange(ref CanQueryThread, 1, 0);
+                                    Interlocked.CompareExchange(
+                                        ref CanQueryThread, 1, 0);
+
                                     break;
                                 }
                             default:
@@ -900,7 +910,8 @@ namespace Eagle._Components.Private
             //       know what platform we are on and the appropriate constants
             //       have been setup)?
             //
-            if (Interlocked.CompareExchange(ref CanQueryThread, 0, 0) > 0)
+            if (Interlocked.CompareExchange(
+                    ref CanQueryThread, 0, 0) > 0)
             {
                 try
                 {
@@ -982,7 +993,8 @@ namespace Eagle._Components.Private
             //       know what platform we are on and the appropriate constants
             //       have been setup)?
             //
-            if (Interlocked.CompareExchange(ref CanQueryThread, 0, 0) > 0)
+            if (Interlocked.CompareExchange(
+                    ref CanQueryThread, 0, 0) > 0)
             {
                 try
                 {
@@ -1138,9 +1150,11 @@ namespace Eagle._Components.Private
 #if UNIX
         private static UIntPtr UnixGetStackPointer()
         {
-            if (Interlocked.CompareExchange(ref CanQueryStack, 0, 0) <= 0)
+            if (Interlocked.CompareExchange(
+                    ref CanQueryStack, 0, 0) <= 0)
             {
-                if (Interlocked.Increment(ref CannotQueryStack) == 1)
+                if (Interlocked.Increment(
+                        ref CannotQueryStack) == 1)
                 {
                     TraceOps.DebugTrace(
                         "UnixGetStackPointer: cannot query stack",
@@ -1320,9 +1334,11 @@ namespace Eagle._Components.Private
 
         private static UIntPtr UnixGetStackSize()
         {
-            if (Interlocked.CompareExchange(ref CanQueryStack, 0, 0) <= 0)
+            if (Interlocked.CompareExchange(
+                    ref CanQueryStack, 0, 0) <= 0)
             {
-                if (Interlocked.Increment(ref CannotQueryStack) == 1)
+                if (Interlocked.Increment(
+                        ref CannotQueryStack) == 1)
                 {
                     TraceOps.DebugTrace(
                         "UnixGetStackSize: cannot query stack",
@@ -1381,7 +1397,8 @@ namespace Eagle._Components.Private
             }
 
             if (Interlocked.CompareExchange(
-                    ref unixGetNativeStackMaximumCallback, null, null) == null)
+                    ref unixGetNativeStackMaximumCallback,
+                    null, null) == null)
             {
                 size = UnixGetStackSizeViaPthread();
 
@@ -1482,9 +1499,11 @@ namespace Eagle._Components.Private
             //       what platform we are on and the appropriate constants
             //       have been setup)?
             //
-            if (Interlocked.CompareExchange(ref CanQueryThread, 0, 0) <= 0)
+            if (Interlocked.CompareExchange(
+                    ref CanQueryThread, 0, 0) <= 0)
             {
-                if (Interlocked.Increment(ref CannotQueryThread) == 1)
+                if (Interlocked.Increment(
+                        ref CannotQueryThread) == 1)
                 {
                     TraceOps.DebugTrace(
                         "WindowsGetNativeRegister: cannot query thread",
@@ -1843,7 +1862,8 @@ namespace Eagle._Components.Private
         {
 #if WINDOWS || UNIX || UNSAFE
             if (Interlocked.CompareExchange(
-                    ref getNativeStackPointerCallback, null, null) == null)
+                    ref getNativeStackPointerCallback,
+                    null, null) == null)
             {
 #if WINDOWS
                 if (PlatformOps.IsWindowsOperatingSystem())
@@ -1900,7 +1920,8 @@ namespace Eagle._Components.Private
         {
 #if WINDOWS || UNIX || UNSAFE
             if (Interlocked.CompareExchange(
-                    ref getNativeStackAllocatedCallback, null, null) == null)
+                    ref getNativeStackAllocatedCallback,
+                    null, null) == null)
             {
 #if WINDOWS
                 if (PlatformOps.IsWindowsOperatingSystem())
@@ -1930,7 +1951,8 @@ namespace Eagle._Components.Private
         {
 #if WINDOWS || UNIX || UNSAFE
             if (Interlocked.CompareExchange(
-                    ref getNativeStackMaximumCallback, null, null) == null)
+                    ref getNativeStackMaximumCallback,
+                    null, null) == null)
             {
 #if WINDOWS
                 if (PlatformOps.IsWindowsOperatingSystem())
@@ -2162,7 +2184,8 @@ namespace Eagle._Components.Private
                 if (empty || (Interlocked.CompareExchange(
                         ref CanQueryStack, 0, 0) != 0))
                 {
-                    localList.Add("CanQueryStack", CanQueryStack.ToString());
+                    localList.Add("CanQueryStack",
+                        CanQueryStack.ToString());
                 }
 #endif
 

@@ -548,7 +548,7 @@ namespace Eagle._Components.Public
             {
                 Clear();
             }
-            if (value is StringList)
+            else if (value is StringList)
             {
                 SetValueNoThrow(new StringList(
                     (StringList)value)); /* Deep Copy */

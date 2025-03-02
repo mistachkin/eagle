@@ -41,6 +41,7 @@ namespace Eagle._Constants
         public static readonly string Private = "private";
         public static readonly string Fast = "fast";
         public static readonly string Atomic = "atomic";
+        public static readonly string Inline = "inline";
 
 #if ARGUMENT_CACHE || PARSE_CACHE
         public static readonly string NonCaching = "nonCaching";
@@ -49,6 +50,10 @@ namespace Eagle._Constants
         public static readonly string MatchTypes = "matchTypes";
 
         public static readonly string Signature = "signature";
+
+        public static readonly string Overwrite = "overwrite";
+
+        public static readonly string Clean = "clean";
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -242,6 +247,7 @@ namespace Eagle._Constants
     public static class Count
     {
         public static readonly int Invalid = -1;
+        public static readonly int None = -2;
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -485,6 +491,10 @@ namespace Eagle._Constants
             FormatOps.ScriptTypeToFileName(ScriptTypes.Vendor,
                 PackageType.Library, false, false);
 
+        public static readonly string TrustedRemote =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.TrustedRemote,
+                PackageType.Library, false, false);
+
         public static readonly string Startup =
             FormatOps.ScriptTypeToFileName(ScriptTypes.Startup,
                 PackageType.Library, false, false);
@@ -573,6 +583,10 @@ namespace Eagle._Constants
 
         public static readonly string Vendor =
             FormatOps.ScriptTypeToFileName(ScriptTypes.Vendor,
+                PackageType.Library, true, false);
+
+        public static readonly string TrustedRemote =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.TrustedRemote,
                 PackageType.Library, true, false);
 
         public static readonly string Startup =
@@ -1092,6 +1106,9 @@ namespace Eagle._Constants
             "Native stack checking will be disabled.";
 #endif
 
+        public static readonly string DataFlags =
+            "Interpreter script data flags overridden via configuration: {0}.";
+
         public static readonly string AllowAnyThread =
             "Plugins will be allowed to load on any thread.";
 
@@ -1101,6 +1118,9 @@ namespace Eagle._Constants
         public static readonly string ForceTrustedHashes =
             "Trusted hashes will not be ignored.";
 
+        public static readonly string NoWritePrompt =
+            "Configuration prompts will not be written to the console.";
+
         public static readonly string NoTrustedHashes =
             "Trusted hashes disabled.";
 
@@ -1109,6 +1129,17 @@ namespace Eagle._Constants
 
         public static readonly string UseNamedEvents =
             "Internal wrapper class will be used for named events.";
+
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+        public static readonly string NoTrustedRemote =
+            "Trusted remote script library initialization will be skipped.";
+
+        public static readonly string ForceTrustedRemote =
+            "Trusted remote script library initialization will be forcibly enabled.";
+
+        public static readonly string TrustedBundlePassword =
+            "Trusted remote script bundle password is configured.";
+#endif
 
         public static readonly string NoPopulateOsExtra =
             "Extra operating system information will not be populated.";
@@ -1334,6 +1365,12 @@ namespace Eagle._Constants
     public static class PublicKeyToken
     {
         //
+        // NOTE: This string value appears to be used by the CLR when
+        //       it is looking for an unsigned assembly.
+        //
+        public static readonly string Null = "null";
+
+        //
         // NOTE: The .NET Standard reference assemblies appear to use
         //       this public key token.
         //
@@ -1396,6 +1433,12 @@ namespace Eagle._Constants
         //       public key token.
         //
         public static readonly string SQLite = "db937bc2d44ff139";
+
+        //
+        // NOTE: The System.Data.SQLite.Enterprise project uses this
+        //       public key token.
+        //
+        public static readonly string SQLiteEnterprise = "920bc3e7f8841675";
 
         //
         // NOTE: The Microsoft Office managed assemblies use this public

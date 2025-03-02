@@ -416,7 +416,7 @@ namespace Eagle._Commands
                                                                     }
 
                                                                     //
-                                                                    // NOTE: Make sure the frame resolution and/or cloing above was
+                                                                    // NOTE: Make sure the frame resolution and/or cloning above was
                                                                     //       successful.
                                                                     //
                                                                     if (code == ReturnCode.Ok)

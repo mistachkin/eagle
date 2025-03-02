@@ -51,7 +51,7 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
-        private static int MaximumPerCategoryCount = 5;
+        private static int MaximumPerCategoryCount = 10;
         private static TimeSpan MaximumPerCategoryTime = new TimeSpan(0, 1, 0);
 
         ///////////////////////////////////////////////////////////////////////
@@ -827,6 +827,14 @@ namespace Eagle._Components.Private
 
             if (CommonOps.Environment.DoesVariableExist(
                     EnvVars.NoTraceLimits))
+            {
+                return false;
+            }
+
+            Interpreter interpreter = Interpreter.GetActive();
+
+            if ((interpreter != null) &&
+                interpreter.HasNoTraceLimits())
             {
                 return false;
             }

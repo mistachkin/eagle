@@ -47,7 +47,7 @@ namespace Eagle._Components.Private
             OptionDictionary options,
             string address,
             string port,
-            AddressFamily addressFamily,
+            AddressFamily? addressFamily,
             StreamFlags streamFlags,
             int? availableTimeout,
             int? readTimeout,
@@ -189,8 +189,8 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private AddressFamily addressFamily;
-        public AddressFamily AddressFamily
+        private AddressFamily? addressFamily;
+        public AddressFamily? AddressFamily
         {
             get
             {

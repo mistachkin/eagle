@@ -1022,7 +1022,7 @@ namespace Eagle._Components.Private
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1052,7 +1052,7 @@ namespace Eagle._Components.Private
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
         #endregion
 

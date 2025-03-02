@@ -45,6 +45,26 @@ namespace Eagle._Components.Private
 
         #region Public Constructors
         public GetScriptClientData(
+            object data,                  /* in */
+            string scriptFileName,        /* in */
+            string originalText,          /* in */
+            string text,                  /* in */
+            ByteList bytes,               /* in */
+            bool silent,                  /* in */
+            IBundleManager bundleManager, /* in */
+            string resourceMethodName,    /* in */
+            string resourceName,          /* in */
+            bool isolated                 /* in */
+            )
+            : this(data, scriptFileName, originalText, text, bytes,
+                   silent, resourceMethodName, resourceName, isolated)
+        {
+            this.bundleManager = bundleManager;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public GetScriptClientData(
             object data,                    /* in */
             string scriptFileName,          /* in */
             string originalText,            /* in */
@@ -108,6 +128,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        private IBundleManager bundleManager;
+        public IBundleManager BundleManager
+        {
+            get { return bundleManager; }
+            set { bundleManager = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private IPluginData resourcePluginData;
         public IPluginData ResourcePluginData
         {
@@ -176,6 +205,12 @@ namespace Eagle._Components.Private
         public override IStringList ToList()
         {
             IStringList list = base.ToList();
+
+            if (bundleManager != null)
+            {
+                list.Add("BundleManager",
+                    bundleManager.ToString());
+            }
 
             if (resourcePluginData != null)
             {

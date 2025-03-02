@@ -143,8 +143,8 @@ namespace Eagle._Commands
                                                     OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
                                                     Index.Invalid, Index.Invalid, "-interpreterflags", null),
                                                 new Option(null, OptionFlags.MustHaveRuleSetValue |
-                                                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                                                    "-ruleset", null),
+                                                    OptionFlags.CouldBePath | OptionFlags.Unsafe,
+                                                    Index.Invalid, Index.Invalid, "-ruleset", null),
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid,
                                                     Index.Invalid, "-safetyoverride", null),
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid,
@@ -766,7 +766,10 @@ namespace Eagle._Commands
                                             new IOption[] {
                                             new Option(typeof(CreationFlagTypes), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue,
                                                 Index.Invalid, Index.Invalid, "-creationflagtypes", new Variant(Defaults.CreationFlagTypes)),
-                                            new Option(null, OptionFlags.MustHaveRuleSetValue, Index.Invalid, Index.Invalid, "-ruleset", null),
+                                            new Option(null, OptionFlags.MustHaveRuleSetValue | OptionFlags.CouldBePath,
+                                                Index.Invalid, Index.Invalid, "-ruleset", null),
+                                            new Option(typeof(PeerType), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue,
+                                                Index.Invalid, Index.Invalid, "-peer", new Variant(PeerType.Default)),
                                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-namespaces", null),
                                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocommands", null),
                                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nofunctions", null),
@@ -821,15 +824,29 @@ namespace Eagle._Commands
                                         int argumentIndex = Index.Invalid;
 
                                         if (arguments.Count > 2)
-                                            code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
+                                        {
+                                            code = interpreter.GetOptions(
+                                                options, arguments, 0, 2, Index.Invalid,
+                                                true, ref argumentIndex, ref result);
+                                        }
                                         else
+                                        {
                                             code = ReturnCode.Ok;
+                                        }
 
                                         if (code == ReturnCode.Ok)
                                         {
-                                            if ((argumentIndex == Index.Invalid) || ((argumentIndex + 1) == arguments.Count))
+                                            if ((argumentIndex == Index.Invalid) ||
+                                                ((argumentIndex + 1) == arguments.Count))
                                             {
-                                                if (interpreter.HasChildInterpreters(ref result))
+                                                IVariant value = null;
+                                                PeerType peerType = PeerType.Default;
+
+                                                if (options.IsPresent("-peer", ref value))
+                                                    peerType = (PeerType)value.Value;
+
+                                                if (FlagOps.HasFlags(peerType, PeerType.Normal, true) ||
+                                                    interpreter.HasChildInterpreters(ref result))
                                                 {
                                                     string path = null;
                                                     string name = null;
@@ -838,7 +855,8 @@ namespace Eagle._Commands
                                                         path = arguments[argumentIndex];
 
                                                     if ((path != null) &&
-                                                        (interpreter.InternalDoesChildInterpreterExist(path, true, ref name) == ReturnCode.Ok))
+                                                        (interpreter.InternalDoesChildInterpreterExist(
+                                                            path, true, ref name) == ReturnCode.Ok))
                                                     {
                                                         result = String.Format(
                                                             "interpreter named \"{0}\" already exists, cannot create",
@@ -849,7 +867,6 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Ok)
                                                     {
-                                                        IVariant value = null;
                                                         IRuleSet ruleSet = null;
 
                                                         if (options.IsPresent("-ruleset", ref value))
@@ -1164,14 +1181,16 @@ namespace Eagle._Commands
                                                             initializeFlags |= InitializeFlags.NoTraceAutoPath;
                                                         }
 
-                                                        code = interpreter.CreateChildInterpreter(path,
-                                                            clientData, ruleSet, createFlags, hostCreateFlags,
-                                                            initializeFlags, scriptFlags, interpreterFlags,
+                                                        code = interpreter.CreateInterpreter(
+                                                            path, clientData, ruleSet, createFlags,
+                                                            hostCreateFlags, initializeFlags,
+                                                            scriptFlags, interpreterFlags,
                                                             interpreterTestFlags, pluginFlags,
 #if NATIVE && TCL
                                                             findFlags, loadFlags,
 #endif
-                                                            isolated, security, alias, ref result);
+                                                            peerType, isolated, security, alias,
+                                                            ref result);
                                                     }
                                                 }
                                                 else
@@ -2081,7 +2100,7 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"interp makesafe ?path? ?safe? ?all?\"";
+                                            result = "wrong # args: should be \"interp makesafe ?path? ?safe? ?flags?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -2162,7 +2181,7 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"interp makestandard ?path? ?standard? ?all?\"";
+                                            result = "wrong # args: should be \"interp makestandard ?path? ?standard? ?flags?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -2578,6 +2597,8 @@ namespace Eagle._Commands
                                                     Index.Invalid, Index.Invalid, "-encoding", null),
                                                 new Option(null, OptionFlags.MustHaveValue,
                                                     Index.Invalid, Index.Invalid, "-variable", null),
+                                                new Option(null, OptionFlags.MustHaveBooleanValue,
+                                                    Index.Invalid, Index.Invalid, "-package", null),
                                                 scriptFlagsOption,
                                                 engineFlagsOption,
                                                 Option.CreateEndOfOptions()
@@ -2645,6 +2666,11 @@ namespace Eagle._Commands
                                                                     if (options.IsPresent("-variable", ref value))
                                                                         varName = value.ToString();
 
+                                                                    bool? package = null;
+
+                                                                    if (options.IsPresent("-package", ref value))
+                                                                        package = (bool)value.Value;
+
                                                                     string fileName = arguments[getArgumentIndex + 1];
 
                                                                     if (!String.IsNullOrEmpty(fileName))
@@ -2660,10 +2686,26 @@ namespace Eagle._Commands
                                                                         ExpressionFlags expressionFlags = childInterpreter.ExpressionFlags;
                                                                         string text = null;
 
+                                                                        if (package != null)
+                                                                        {
+                                                                            if ((bool)package)
+                                                                            {
+                                                                                newScriptFlags |= ScriptFlags.Package;
+                                                                                engineFlags |= EngineFlags.PackageMask;
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                newScriptFlags &= ~ScriptFlags.Package;
+                                                                                engineFlags &= ~EngineFlags.PackageMask;
+                                                                            }
+                                                                        }
+
                                                                         code = Engine.ReadOrGetScriptFile(
-                                                                            childInterpreter, encoding, ref newScriptFlags, ref fileName,
-                                                                            ref engineFlags, ref substitutionFlags, ref eventFlags,
-                                                                            ref expressionFlags, ref text, ref result);
+                                                                            childInterpreter, encoding,
+                                                                            ref newScriptFlags, ref fileName,
+                                                                            ref engineFlags, ref substitutionFlags,
+                                                                            ref eventFlags, ref expressionFlags,
+                                                                            ref text, ref result);
 
                                                                         if (code == ReturnCode.Ok)
                                                                         {
@@ -2671,7 +2713,8 @@ namespace Eagle._Commands
                                                                             {
                                                                                 if (varName != null)
                                                                                 {
-                                                                                    code = interpreter.SetVariableValue(varName, text, ref result);
+                                                                                    code = interpreter.SetVariableValue(
+                                                                                        varName, text, ref result);
 
                                                                                     if (code == ReturnCode.Ok)
                                                                                         result = true;
@@ -2685,7 +2728,8 @@ namespace Eagle._Commands
                                                                             {
                                                                                 if (varName != null)
                                                                                 {
-                                                                                    code = interpreter.SetVariableValue(varName, text, ref result);
+                                                                                    code = interpreter.SetVariableValue(
+                                                                                        varName, text, ref result);
                                                                                 }
                                                                                 else
                                                                                 {

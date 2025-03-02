@@ -19,7 +19,9 @@ namespace Eagle._Attributes
     public sealed class CommandFlagsAttribute : Attribute
     {
         public const AttributeTargets Targets =
-            AttributeTargets.Class | AttributeTargets.Method;
+            AttributeTargets.Class | AttributeTargets.Method |
+            AttributeTargets.Field | AttributeTargets.Property |
+            AttributeTargets.Constructor;
 
         ///////////////////////////////////////////////////////////////////////
 

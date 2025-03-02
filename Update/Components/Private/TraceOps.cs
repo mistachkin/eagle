@@ -132,6 +132,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Tracing Support Methods
+        public static DateTime GetNow()
+        {
+            return DateTime.UtcNow;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static long NextId()
         {
             return Interlocked.Increment(ref nextId);

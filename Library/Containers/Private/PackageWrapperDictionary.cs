@@ -9,9 +9,10 @@
  * RCS: @(#) $Id: $
  */
 
-using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Containers.Public;
+
+using PackageWrapper = Eagle._Wrappers.Package;
 
 using PackagePair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Package>;
@@ -20,7 +21,7 @@ namespace Eagle._Containers.Private
 {
     [ObjectId("cea47a6d-b9e1-4bdd-b1c7-1dc0be1967af")]
     internal sealed class PackageWrapperDictionary :
-            WrapperDictionary<string, _Wrappers.Package>
+            WrapperDictionary<string, PackageWrapper>
     {
         #region Public Constructors
         public PackageWrapperDictionary()
@@ -47,7 +48,7 @@ namespace Eagle._Containers.Private
 
                 list.Add(pair.Key);
 
-                _Wrappers.Package wrapper = pair.Value;
+                PackageWrapper wrapper = pair.Value;
 
                 if (wrapper != null)
                 {

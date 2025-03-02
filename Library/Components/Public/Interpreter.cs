@@ -21,10 +21,7 @@ using System.Configuration.Assemblies;
 using System.Data;
 #endif
 
-#if SHELL && TEST
 using System.Diagnostics;
-#endif
-
 using System.Globalization;
 using System.IO;
 
@@ -129,32 +126,58 @@ using UriPair = System.Collections.Generic.KeyValuePair<
 using PluginList = System.Collections.Generic.IEnumerable<
     Eagle._Interfaces.Public.IPlugin>;
 
+using ExecuteWrapper = Eagle._Wrappers._Execute;
+
 using ExecutePair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers._Execute>;
+
+using AliasWrapper = Eagle._Wrappers.Alias;
+
+#if DEAD_CODE
+using LambdaWrapper = Eagle._Wrappers.Lambda;
+#endif
+
+using CommandWrapper = Eagle._Wrappers.Command;
 
 using CommandPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Command>;
 
+using FunctionWrapper = Eagle._Wrappers.Function;
+
 using FunctionPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Function>;
+
+using OperatorWrapper = Eagle._Wrappers.Operator;
 
 using OperatorPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Operator>;
 
+using PackageWrapper = Eagle._Wrappers.Package;
+
 using PackagePair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Package>;
+
+using PolicyWrapper = Eagle._Wrappers.Policy;
 
 using PolicyPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Policy>;
 
+using TraceWrapper = Eagle._Wrappers.Trace;
+
 using TracePair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Trace>;
+
+using ProcedureWrapper = Eagle._Wrappers.Procedure;
 
 using ProcedurePair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Procedure>;
 
+using PluginWrapper = Eagle._Wrappers.Plugin;
+
 using PluginPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Plugin>;
+
+using ObjectWrapper = Eagle._Wrappers._Object;
 
 using __ObjectPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers._Object>;
@@ -189,6 +212,9 @@ using InterpreterPair = System.Collections.Generic.KeyValuePair<
 using ArraySearchPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Components.Private.ArraySearch>;
 
+using ActiveInterpreterPair = Eagle._Interfaces.Public.IAnyPair<
+    Eagle._Components.Public.Interpreter, Eagle._Interfaces.Public.IClientData>;
+
 #if THREADING
 using TimeoutPair = Eagle._Components.Public.Pair<int?>;
 
@@ -202,8 +228,12 @@ using LongPair = System.Collections.Generic.KeyValuePair<long, long>;
 #endif
 
 #if EMIT && NATIVE && LIBRARY
+using ModuleWrapper = Eagle._Wrappers._Module;
+
 using ModulePair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers._Module>;
+
+using DelegateWrapper = Eagle._Wrappers.Delegate;
 #endif
 
 #if THREADING
@@ -454,6 +484,23 @@ namespace Eagle._Components.Public
 #endif
         #endregion
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Global Script Bundle Data -- Private
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static string verifyBundleCommandName = "harpy";
+        private static string verifyBundleSubCommandName = "verify";
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static string mergeBundleKeyRingFileName = "keyRing.one.eagle";
+        private static string mergeBundleCommandName = "keyring";
+        private static string mergeBundleSubCommandName = "merge";
+        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -669,27 +716,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Error Messages
-        #region Resource Error Messages (FIXED-STRING)
-        //
-        // NOTE: These six strings must be compile time constants because
-        //       they are used before the cultureInfo and resourceManager
-        //       objects are available to resolve runtime string resources.
-        //
-        private const string CultureInfoError =
-            "could not interpret \"{0}\" as a culture name or identifier";
-
-        private const string InvalidCultureInfoError =
-            "invalid culture";
-
-        private const string InvalidBaseResourceName =
-            "invalid base resource name";
-
-        private const string ResourceManagerError =
-            "could not create resource manager \"{0}\"";
-
         private const string InvalidCallStackError =
             "call stack is invalid";
-        #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -776,6 +804,18 @@ namespace Eagle._Components.Public
         #region Nesting Level Defaults
         private static readonly int DefaultReadyLimit = Limits.Unlimited;
         private static readonly int DefaultRecursionLimit = 1000;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Notification Defaults
+#if NOTIFY || NOTIFY_OBJECT
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static bool WrapExceptionForNotification = true;
+        private static bool UseDeepCopyForNotification = false;
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1071,6 +1111,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data (per-interpreter)
+        #region Diagnostic Data
+        private readonly StackTrace creationStackTrace = null;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Identifier Data
         //
         // NOTE: Always has the value of the Guid for this class
@@ -1320,6 +1366,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Integration Data
+        private IBundleManager bundleManager;
+
 #if ISOLATED_PLUGINS
         private IHost isolatedHost;
 #endif
@@ -1893,6 +1941,8 @@ namespace Eagle._Components.Public
 
         private UpdateFlags updateFlags;
 
+        private OptionBehaviorFlags optionBehaviorFlags;
+
 #if DEBUGGER || SHELL
         private HeaderFlags headerFlags;
         private DetailFlags detailFlags;
@@ -2273,1330 +2323,1961 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
-            ReturnCode code;
-
-            if (options != null)
+            if (options == null)
             {
-                if (arguments != null)
+                error = "invalid options";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                error = "invalid arguments";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (!ListOps.CheckStartAndStopIndex(
+                    0, argumentCount - 1, ref startIndex,
+                    ref stopIndex, ref error))
+            {
+                return ReturnCode.Error;
+            }
+
+            AppDomain appDomain = AppDomainOps.GetCurrent();
+            CultureInfo cultureInfo = Value.GetDefaultCulture();
+            string dateTimeFormat = ObjectOps.GetDefaultDateTimeFormat();
+            DateTimeKind dateTimeKind = ObjectOps.GetDefaultDateTimeKind();
+            bool locked = false;
+
+            try
+            {
+                InternalHardTryLock(ref locked); /* TRANSACTIONAL */
+
+                if (locked)
                 {
-                    int argumentCount = arguments.Count;
+                    behaviorFlags |= OptionBehaviorFlags;
 
-                    if (ListOps.CheckStartAndStopIndex(
-                            0, argumentCount - 1, ref startIndex, ref stopIndex, ref error))
+                    appDomain = this.appDomain;
+                    cultureInfo = InternalCultureInfo;
+                    dateTimeFormat = this.dateTimeFormat;
+                    dateTimeKind = this.dateTimeKind;
+                }
+                else if (FlagOps.HasFlags(behaviorFlags,
+                        OptionBehaviorFlags.FailOnLocked, true))
+                {
+                    error = "could not lock interpreter";
+                    return ReturnCode.Error;
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "GetOptions",
+                        typeof(Interpreter).Name, false,
+                        TracePriority.LockWarning,
+                        MaybeWhoHasLock());
+                }
+            }
+            finally
+            {
+                InternalExitLock(ref locked); /* TRANSACTIONAL */
+            }
+
+            LookupFlags lookupFlags = LookupFlags.OptionDefault;
+
+            if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ValidateLookups, true))
+                lookupFlags |= LookupFlags.Validate;
+            else
+                lookupFlags &= ~LookupFlags.Validate;
+
+            if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StrictLookups, true))
+                lookupFlags |= LookupFlags.Strict;
+            else
+                lookupFlags &= ~LookupFlags.Strict;
+
+            for (int argumentIndex = startIndex; argumentIndex <= stopIndex; argumentIndex++)
+            {
+                bool safe = InternalIsSafe(); /* REFRESH */
+
+                Argument currentArgument = arguments[argumentIndex];
+
+                Argument nextArgument = ((argumentIndex + 1) <= stopIndex) ?
+                    arguments[argumentIndex + 1] : null;
+
+                string currentString = currentArgument;
+                string nextString = nextArgument;
+                object nextValue = null;
+
+                if (!FlagOps.HasFlags(behaviorFlags,
+                        OptionBehaviorFlags.NoObject, true))
+                {
+                    IObject nextObject = null;
+
+                    if ((GetObject(
+                            nextString, LookupFlags.NoVerbose,
+                            ref nextObject) == ReturnCode.Ok) &&
+                        (nextObject != null))
                     {
-                        AppDomain appDomain = AppDomainOps.GetCurrent();
-                        CultureInfo cultureInfo = Value.GetDefaultCulture();
-                        string dateTimeFormat = ObjectOps.GetDefaultDateTimeFormat();
-                        DateTimeKind dateTimeKind = ObjectOps.GetDefaultDateTimeKind();
-                        LookupFlags lookupFlags = LookupFlags.OptionDefault;
-                        bool safe = InternalIsSafe();
+                        nextValue = nextObject.Value;
+                    }
+                }
 
-                        bool locked = false;
+                //
+                // NOTE: If this is the last argument, make sure it can be
+                //       treated as a "possible option".  If not, stop now.
+                //
+                if ((argumentIndex == stopIndex) &&
+                    FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.LastIsNonOption, true))
+                {
+                    nextIndex = argumentIndex;
+                    break;
+                }
 
-                        try
+                IOption option = null;
+
+                if (Option.IsEndOfOptions(currentString))
+                {
+                    if (options.Has(Option.EndOfOptions, ref option))
+                    {
+                        if (option == null)
                         {
-                            InternalHardTryLock(ref locked); /* TRANSACTIONAL */
+                            error = String.Format(
+                                "{0} option is invalid",
+                                FormatOps.WrapOrNull(currentString));
 
-                            if (locked)
+                            return ReturnCode.Error;
+                        }
+                        else if (option.IsIgnored(options))
+                        {
+                            if (option.MustHaveValue(options))
                             {
-                                appDomain = this.appDomain;
-                                cultureInfo = this.cultureInfo;
-                                dateTimeFormat = this.dateTimeFormat;
-                                dateTimeKind = this.dateTimeKind;
+                                if (nextString != null)
+                                {
+                                    argumentIndex++; // skip option value...
+                                }
+                                else
+                                {
+                                    error = String.Format(
+                                        "{0} option must be followed by {1}",
+                                        FormatOps.WrapOrNull(currentString),
+                                        option.FlagsToString());
+
+                                    return ReturnCode.Error;
+                                }
                             }
+                        }
+                        else if (option.CanBePresent(options, ref error))
+                        {
+                            //
+                            // BUGFIX: Unless forbidden, actually mark as present.
+                            //         Why not?
+                            //
+                            if (!noSet)
+                                option.SetPresent(options, true, argumentIndex, null);
+
+                            if ((argumentIndex + 1) < argumentCount)
+                                nextIndex = argumentIndex + 1;
                             else
-                            {
-                                TraceOps.LockTrace(
-                                    "GetOptions",
-                                    typeof(Interpreter).Name, false,
-                                    TracePriority.LockWarning,
-                                    MaybeWhoHasLock());
-                            }
+                                nextIndex = Index.Invalid;
+
+                            endIndex = argumentIndex;
+                            return ReturnCode.Ok;
                         }
-                        finally
+                        else
                         {
-                            InternalExitLock(ref locked); /* TRANSACTIONAL */
+                            return ReturnCode.Error;
                         }
-
-                        if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ValidateLookups, true))
-                            lookupFlags |= LookupFlags.Validate;
-                        else
-                            lookupFlags &= ~LookupFlags.Validate;
-
-                        if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StrictLookups, true))
-                            lookupFlags |= LookupFlags.Strict;
-                        else
-                            lookupFlags &= ~LookupFlags.Strict;
-
-                        code = ReturnCode.Ok;
-
-                        for (int argumentIndex = startIndex; argumentIndex <= stopIndex; argumentIndex++)
+                    }
+                    else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ErrorOnEndOfOptions, true))
+                    {
+                        //
+                        // NOTE: This is rarely used because if they do not
+                        //       explicitly allow the end-of-options marker
+                        //       they normally also want it to be considered
+                        //       the first "non-option" argument.
+                        //
+                        error = "unexpected end-of-options marker";
+                        return ReturnCode.Error;
+                    }
+                    else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StopOnEndOfOptions, true))
+                    {
+                        //
+                        // NOTE: This end-of-options marker is not a valid
+                        //       option and we want to stop now because we
+                        //       want to assume it is the first non-option
+                        //       argument.  This is the default behavior.
+                        //
+                        nextIndex = argumentIndex;
+                        return ReturnCode.Ok;
+                    }
+                    else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.IgnoreOnEndOfOptions, true))
+                    {
+                        //
+                        // NOTE: This end-of-options marker is not a valid
+                        //       option and we want to simply ignore it.
+                        //       We may also want to skip the next argument.
+                        //       This behavior should almost never be used
+                        //       unless the caller is 100% sure what it does.
+                        //
+                        if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.SkipOnEndOfOptions, true))
+                            argumentIndex++;
+                    }
+                }
+                else if (Option.IsListOfOptions(currentString))
+                {
+                    if (options.Has(Option.ListOfOptions, ref option))
+                    {
+                        if (option == null)
                         {
-                            Argument currentArgument = arguments[argumentIndex];
-                            string current = currentArgument;
+                            error = String.Format(
+                                "{0} option is invalid",
+                                FormatOps.WrapOrNull(currentString));
 
-                            Argument nextArgument = ((argumentIndex + 1) <= stopIndex) ?
-                                arguments[argumentIndex + 1] : null;
-
-                            string next = nextArgument;
-
-                            //
-                            // NOTE: If this is the last argument, make sure it can be
-                            //       treated as a "possible option".  If not, stop now.
-                            //
-                            if ((argumentIndex == stopIndex) &&
-                                FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.LastIsNonOption, true))
+                            return ReturnCode.Error;
+                        }
+                        else if (option.IsIgnored(options))
+                        {
+                            if (option.MustHaveValue(options))
                             {
-                                nextIndex = argumentIndex;
-                                break;
-                            }
-
-                            IOption option = null;
-
-                            if (Option.IsEndOfOptions(current))
-                            {
-                                if (options.Has(Option.EndOfOptions, ref option))
+                                if (nextString != null)
                                 {
-                                    if (option == null)
+                                    argumentIndex++; // skip option value...
+                                }
+                                else
+                                {
+                                    error = String.Format(
+                                        "{0} option must be followed by {1}",
+                                        FormatOps.WrapOrNull(currentString),
+                                        option.FlagsToString());
+
+                                    return ReturnCode.Error;
+                                }
+                            }
+                        }
+                        else if (option.CanBePresent(options, ref error))
+                        {
+                            //
+                            // BUGFIX: Unless forbidden, actually mark as present.
+                            //         Why not?
+                            //
+                            if (!noSet)
+                                option.SetPresent(options, true, argumentIndex, null);
+
+                            //
+                            // NOTE: The error message is the list of all
+                            //       available options.
+                            //
+                            error = OptionDictionary.ListOptions(options, !safe);
+                            return ReturnCode.Return; /* SPECIAL */
+                        }
+                        else
+                        {
+                            return ReturnCode.Error;
+                        }
+                    }
+                    else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ErrorOnListOfOptions, true))
+                    {
+                        //
+                        // NOTE: This is rarely used because if they do not
+                        //       explicitly allow the list-of-options marker
+                        //       they normally also want it to be considered
+                        //       the first "non-option" argument.
+                        //
+                        error = "unexpected list-of-options marker";
+                        return ReturnCode.Error;
+                    }
+                    else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StopOnListOfOptions, true))
+                    {
+                        //
+                        // NOTE: This list-of-options marker is not a valid
+                        //       option and we want to stop now because we
+                        //       want to assume it is the first non-option
+                        //       argument.  This is the default behavior.
+                        //
+                        nextIndex = argumentIndex;
+                        return ReturnCode.Ok;
+                    }
+                    else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.IgnoreOnListOfOptions, true))
+                    {
+                        //
+                        // NOTE: This list-of-options marker is not a valid
+                        //       option and we want to simply ignore it.
+                        //       We may also want to skip the next argument.
+                        //       This behavior should almost never be used
+                        //       unless the caller is 100% sure what it does.
+                        //
+                        if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.SkipOnListOfOptions, true))
+                            argumentIndex++;
+                    }
+                }
+                else if (Option.LooksLikeOption(currentString))
+                {
+                    bool ambiguous = false;
+                    Result localError = null;
+
+                    if (options.TryResolve(
+                            currentString, true, noCase, !safe, ref ambiguous,
+                            ref option, ref localError) == ReturnCode.Ok)
+                    {
+                        if (option != null)
+                        {
+                            string name = option.Name;
+                            OptionFlags flags = option.Flags;
+
+                            if (option.IsIgnored(options))
+                            {
+                                if (option.MustHaveValue(options))
+                                {
+                                    if (nextString != null)
                                     {
-                                        error = String.Format(
-                                            "{0} option is invalid",
-                                            FormatOps.WrapOrNull(current));
-
-                                        code = ReturnCode.Error;
-                                        break;
-                                    }
-                                    else if (option.IsIgnored(options))
-                                    {
-                                        if (option.MustHaveValue(options))
-                                        {
-                                            if (next != null)
-                                            {
-                                                argumentIndex++; // skip option value...
-                                            }
-                                            else
-                                            {
-                                                error = String.Format(
-                                                    "{0} option must be followed by {1}",
-                                                    FormatOps.WrapOrNull(current),
-                                                    option.FlagsToString());
-
-                                                code = ReturnCode.Error;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    else if (option.CanBePresent(options, ref error))
-                                    {
-                                        //
-                                        // BUGFIX: Unless forbidden, actually mark as present.
-                                        //         Why not?
-                                        //
-                                        if (!noSet)
-                                            option.SetPresent(options, true, argumentIndex, null);
-
-                                        if ((argumentIndex + 1) < argumentCount)
-                                            nextIndex = argumentIndex + 1;
-                                        else
-                                            nextIndex = Index.Invalid;
-
-                                        endIndex = argumentIndex;
+                                        argumentIndex++; // skip option value...
                                     }
                                     else
                                     {
-                                        code = ReturnCode.Error;
-                                    }
-                                    break;
-                                }
-                                else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ErrorOnEndOfOptions, true))
-                                {
-                                    //
-                                    // NOTE: This is rarely used because if they do not
-                                    //       explicitly allow the end-of-options marker
-                                    //       they normally also want it to be considered
-                                    //       the first "non-option" argument.
-                                    //
-                                    error = "unexpected end-of-options marker";
-                                    code = ReturnCode.Error;
-                                    break;
-                                }
-                                else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StopOnEndOfOptions, true))
-                                {
-                                    //
-                                    // NOTE: This end-of-options marker is not a valid
-                                    //       option and we want to stop now because we
-                                    //       want to assume it is the first non-option
-                                    //       argument.  This is the default behavior.
-                                    //
-                                    nextIndex = argumentIndex;
-                                    break;
-                                }
-                                else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.IgnoreOnEndOfOptions, true))
-                                {
-                                    //
-                                    // NOTE: This end-of-options marker is not a valid
-                                    //       option and we want to simply ignore it.
-                                    //       We may also want to skip the next argument.
-                                    //       This behavior should almost never be used
-                                    //       unless the caller is 100% sure what it does.
-                                    //
-                                    if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.SkipOnEndOfOptions, true))
-                                        argumentIndex++;
-                                }
-                            }
-                            else if (Option.IsListOfOptions(current))
-                            {
-                                if (options.Has(Option.ListOfOptions, ref option))
-                                {
-                                    if (option == null)
-                                    {
                                         error = String.Format(
-                                            "{0} option is invalid",
-                                            FormatOps.WrapOrNull(current));
+                                            "{0} option must be followed by {1}",
+                                            FormatOps.WrapOrNull(currentString),
+                                            option.FlagsToString());
 
-                                        code = ReturnCode.Error;
-                                        break;
+                                        return ReturnCode.Error;
                                     }
-                                    else if (option.IsIgnored(options))
-                                    {
-                                        if (option.MustHaveValue(options))
-                                        {
-                                            if (next != null)
-                                            {
-                                                argumentIndex++; // skip option value...
-                                            }
-                                            else
-                                            {
-                                                error = String.Format(
-                                                    "{0} option must be followed by {1}",
-                                                    FormatOps.WrapOrNull(current),
-                                                    option.FlagsToString());
-
-                                                code = ReturnCode.Error;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    else if (option.CanBePresent(options, ref error))
-                                    {
-                                        //
-                                        // BUGFIX: Unless forbidden, actually mark as present.
-                                        //         Why not?
-                                        //
-                                        if (!noSet)
-                                            option.SetPresent(options, true, argumentIndex, null);
-
-                                        //
-                                        // NOTE: The error message is the list of all
-                                        //       available options.
-                                        //
-                                        error = OptionDictionary.ListOptions(options, !safe);
-                                        code = ReturnCode.Return; /* SPECIAL */
-                                    }
-                                    else
-                                    {
-                                        code = ReturnCode.Error;
-                                    }
-                                    break;
-                                }
-                                else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ErrorOnListOfOptions, true))
-                                {
-                                    //
-                                    // NOTE: This is rarely used because if they do not
-                                    //       explicitly allow the list-of-options marker
-                                    //       they normally also want it to be considered
-                                    //       the first "non-option" argument.
-                                    //
-                                    error = "unexpected list-of-options marker";
-                                    code = ReturnCode.Error;
-                                    break;
-                                }
-                                else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StopOnListOfOptions, true))
-                                {
-                                    //
-                                    // NOTE: This list-of-options marker is not a valid
-                                    //       option and we want to stop now because we
-                                    //       want to assume it is the first non-option
-                                    //       argument.  This is the default behavior.
-                                    //
-                                    nextIndex = argumentIndex;
-                                    break;
-                                }
-                                else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.IgnoreOnListOfOptions, true))
-                                {
-                                    //
-                                    // NOTE: This list-of-options marker is not a valid
-                                    //       option and we want to simply ignore it.
-                                    //       We may also want to skip the next argument.
-                                    //       This behavior should almost never be used
-                                    //       unless the caller is 100% sure what it does.
-                                    //
-                                    if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.SkipOnListOfOptions, true))
-                                        argumentIndex++;
                                 }
                             }
-                            else if (Option.LooksLikeOption(current))
+                            else if (!option.CanBePresent(options, ref error))
                             {
-                                bool ambiguous = false;
-                                Result localError = null;
+                                return ReturnCode.Error;
+                            }
+                            else if (FlagOps.HasFlags(flags, OptionFlags.EndOfOptions, true))
+                            {
+                                //
+                                // BUGFIX: Unless forbidden, actually mark as present.
+                                //         Why not?
+                                //
+                                if (!noSet)
+                                    option.SetPresent(options, true, argumentIndex, null);
 
-                                if (options.TryResolve(
-                                        current, true, noCase, !safe, ref ambiguous,
-                                        ref option, ref localError) == ReturnCode.Ok)
+                                if ((argumentIndex + 1) < argumentCount)
+                                    nextIndex = argumentIndex + 1;
+                                else
+                                    nextIndex = Index.Invalid;
+
+                                endIndex = argumentIndex;
+                                return ReturnCode.Ok;
+                            }
+                            else if (FlagOps.HasFlags(flags, OptionFlags.ListOfOptions, true))
+                            {
+                                //
+                                // BUGFIX: Unless forbidden, actually mark as present.
+                                //         Why not?
+                                //
+                                if (!noSet)
+                                    option.SetPresent(options, true, argumentIndex, null);
+
+                                error = OptionDictionary.ListOptions(options, !safe);
+                                return ReturnCode.Return; /* SPECIAL */
+                            }
+                            else if (safe && !HasAllowUnsafeOptions() && option.IsUnsafe(options))
+                            {
+                                error = String.Format(
+                                    "permission denied: safe interpreter cannot use option {0}",
+                                    FormatOps.WrapOrNull(name));
+
+                                return ReturnCode.Error;
+                            }
+                            else if (!HasAllowRestricted() && option.IsRestricted(options))
+                            {
+                                error = String.Format(
+                                    "permission denied: {0}interpreter cannot use option {1}",
+                                    safe ? "safe " : String.Empty, FormatOps.WrapOrNull(name));
+
+                                return ReturnCode.Error;
+                            }
+                            else if (option.MustHaveValue(options))
+                            {
+#if !MONO && NATIVE && WINDOWS
+                                bool canZero = HasZeroString();
+#endif
+
+                                bool zero = false;
+
+                                try
                                 {
-                                    if (option != null)
+                                    if (nextString != null)
                                     {
-                                        string name = option.Name;
-                                        OptionFlags flags = option.Flags;
+                                        //
+                                        // NOTE: Initially, this value of this option is null.  The block
+                                        //       below has the implicit guarantee that either the option
+                                        //       value will be set to something non-null OR the return
+                                        //       code will be set to something non-Ok.
+                                        //
+                                        IVariant variant = null;
 
-                                        if (option.IsIgnored(options))
+                                        //
+                                        // NOTE: Prevent any pre-existing (opaque object handle) value
+                                        //       from being used if necessary, based on the flags for
+                                        //       this option.
+                                        //
+                                        if (FlagOps.HasFlags(flags, OptionFlags.NoObject, true))
+                                            nextValue = null;
+
+                                        //
+                                        // NOTE: Are we allowed to interpret the string as the type of
+                                        //       value required for this option?  Otherwise, we will not
+                                        //       attempt any conversion and if we are in non-scan mode
+                                        //       the final option value will be set as a string.  We
+                                        //       assume that the caller knows this.
+                                        //
+                                        if (!noValue)
                                         {
-                                            if (option.MustHaveValue(options))
+                                            //
+                                            // NOTE: Does this option require strict value recognition
+                                            //       semantics?
+                                            //
+                                            bool strictOption = option.IsStrict(options);
+
+                                            //
+                                            // NOTE: Does this option not care about case?
+                                            //
+                                            bool noCaseOption = option.IsNoCase(options);
+
+                                            //
+                                            // NOTE: Does this option allow integer values?  This
+                                            //       only applies if the type is Enum.
+                                            //
+                                            bool allowIntegerOption = option.IsAllowInteger(options);
+
+                                            //
+                                            // NOTE: Ok, now figure out what kind of value this option
+                                            //       requires and try to parse it from the option value
+                                            //       string.
+                                            //
+                                            if (FlagOps.HasFlags(flags, OptionFlags.MustBeTypeList, true))
                                             {
-                                                if (next != null)
+                                                if (nextValue is TypeList)
                                                 {
-                                                    argumentIndex++; // skip option value...
+                                                    variant = new Variant((TypeList)nextValue);
                                                 }
                                                 else
                                                 {
-                                                    error = String.Format(
-                                                        "{0} option must be followed by {1}",
-                                                        FormatOps.WrapOrNull(current),
-                                                        option.FlagsToString());
+                                                    TypeList typeList = null;
+                                                    ResultList errors = null;
 
-                                                    code = ReturnCode.Error;
-                                                    break;
+                                                    if (Value.GetTypeList(
+                                                            this, nextString, appDomain,
+                                                            Value.GetTypeValueFlags(strictOption,
+                                                            false, noCase || noCaseOption), cultureInfo,
+                                                            ref typeList, ref errors) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(typeList);
+                                                    }
+                                                    else
+                                                    {
+                                                        error = errors;
+                                                        return ReturnCode.Error;
+                                                    }
                                                 }
                                             }
-                                        }
-                                        else if (!option.CanBePresent(options, ref error))
-                                        {
-                                            code = ReturnCode.Error;
-                                            break;
-                                        }
-                                        else if (FlagOps.HasFlags(flags, OptionFlags.EndOfOptions, true))
-                                        {
-                                            //
-                                            // BUGFIX: Unless forbidden, actually mark as present.
-                                            //         Why not?
-                                            //
-                                            if (!noSet)
-                                                option.SetPresent(options, true, argumentIndex, null);
-
-                                            if ((argumentIndex + 1) < argumentCount)
-                                                nextIndex = argumentIndex + 1;
-                                            else
-                                                nextIndex = Index.Invalid;
-
-                                            endIndex = argumentIndex;
-                                            break;
-                                        }
-                                        else if (FlagOps.HasFlags(flags, OptionFlags.ListOfOptions, true))
-                                        {
-                                            //
-                                            // BUGFIX: Unless forbidden, actually mark as present.
-                                            //         Why not?
-                                            //
-                                            if (!noSet)
-                                                option.SetPresent(options, true, argumentIndex, null);
-
-                                            error = OptionDictionary.ListOptions(options, !safe);
-                                            code = ReturnCode.Return; /* SPECIAL */
-                                            break;
-                                        }
-                                        else if (safe && !HasAllowUnsafeOptions() && option.IsUnsafe(options))
-                                        {
-                                            error = String.Format(
-                                                "permission denied: safe interpreter cannot use option {0}",
-                                                FormatOps.WrapOrNull(name));
-
-                                            code = ReturnCode.Error;
-                                        }
-                                        else if (!HasAllowRestricted() && option.IsRestricted(options))
-                                        {
-                                            error = String.Format(
-                                                "permission denied: {0}interpreter cannot use option {1}",
-                                                safe ? "safe " : String.Empty, FormatOps.WrapOrNull(name));
-
-                                            code = ReturnCode.Error;
-                                        }
-                                        else if (option.MustHaveValue(options))
-                                        {
-#if !MONO && NATIVE && WINDOWS
-                                            bool canZero = HasZeroString();
-#endif
-
-                                            bool zero = false;
-
-                                            try
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeEnumList, true))
                                             {
-                                                if (next != null)
+                                                if (nextValue is EnumList)
                                                 {
-                                                    //
-                                                    // NOTE: Initially, this value of this option is null.  The block
-                                                    //       below has the implicit guarantee that either the option
-                                                    //       value will be set to something non-null OR the return
-                                                    //       code will be set to something non-Ok.
-                                                    //
-                                                    IVariant variant = null;
+                                                    variant = new Variant((EnumList)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    Type valueType = option.Type;
 
-                                                    //
-                                                    // NOTE: Are we allowed to interpret the string as the type of
-                                                    //       value required for this option?  Otherwise, we will not
-                                                    //       attempt any conversion and if we are in non-scan mode
-                                                    //       the final option value will be set as a string.  We
-                                                    //       assume that the caller knows this.
-                                                    //
-                                                    if (!noValue)
+                                                    if (valueType != null)
                                                     {
-                                                        //
-                                                        // NOTE: Does this option require strict value recognition
-                                                        //       semantics?
-                                                        //
-                                                        bool strictOption = option.IsStrict(options);
-
-                                                        //
-                                                        // NOTE: Does this option not care about case?
-                                                        //
-                                                        bool noCaseOption = option.IsNoCase(options);
-
-                                                        //
-                                                        // NOTE: Does this option allow integer values?  This
-                                                        //       only applies if the type is Enum.
-                                                        //
-                                                        bool allowIntegerOption = option.IsAllowInteger(options);
-
-                                                        //
-                                                        // NOTE: Ok, now figure out what kind of value this option
-                                                        //       requires and try to parse it from the option value
-                                                        //       string.
-                                                        //
-                                                        if (FlagOps.HasFlags(flags, OptionFlags.MustBeTypeList, true))
+                                                        if (valueType.IsEnum)
                                                         {
-                                                            TypeList typeList = null;
+                                                            object oldValue = null;
+
+                                                            if (EnumOps.IsFlags(valueType))
+                                                                oldValue = option.InnerValue;
+
+                                                            EnumList enumList = null;
                                                             ResultList errors = null;
 
-                                                            code = Value.GetTypeList(
-                                                                this, next, appDomain, Value.GetTypeValueFlags(
-                                                                    strictOption, false, noCase || noCaseOption),
-                                                                cultureInfo, ref typeList, ref errors);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(typeList);
+                                                            if (Value.GetEnumList(
+                                                                    this, nextString, valueType,
+                                                                    (oldValue != null) ?
+                                                                        oldValue.ToString() : null,
+                                                                    Value.GetTypeValueFlags(
+                                                                        allowIntegerOption, strictOption,
+                                                                        false, noCase || noCaseOption),
+                                                                    cultureInfo, ref enumList,
+                                                                    ref errors) == ReturnCode.Ok)
+                                                            {
+                                                                variant = new Variant(enumList);
+                                                            }
                                                             else
+                                                            {
                                                                 error = errors;
+                                                                return ReturnCode.Error;
+                                                            }
                                                         }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeEnumList, true))
+                                                        else
                                                         {
-                                                            Type valueType = option.Type;
+                                                            error = String.Format(
+                                                                "option {0} value type is not an enum",
+                                                                FormatOps.WrapOrNull(name));
 
-                                                            if (valueType != null)
+                                                            return ReturnCode.Error;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        error = String.Format(
+                                                            "option {0} has an invalid value type",
+                                                            FormatOps.WrapOrNull(name));
+
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeReturnCodeList, true))
+                                            {
+                                                if (nextValue is ReturnCodeList)
+                                                {
+                                                    variant = new Variant((ReturnCodeList)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    ReturnCodeList returnCodeList = null;
+
+                                                    if (Value.GetReturnCodeList(
+                                                            nextString, cultureInfo, ref returnCodeList,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(returnCodeList);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeAbsoluteUri, true))
+                                            {
+                                                Uri uri = null;
+
+                                                if (nextValue is Uri)
+                                                {
+                                                    uri = (Uri)nextValue;
+
+                                                    if (uri.IsAbsoluteUri)
+                                                    {
+                                                        variant = new Variant((Uri)nextValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        error = String.Format(
+                                                            "object {0} is not absolute uri {1}",
+                                                            FormatOps.WrapOrNull(nextString),
+                                                            FormatOps.WrapOrNull(nextValue));
+
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if (Value.GetUri(
+                                                            nextString, UriKind.Absolute, cultureInfo,
+                                                            ref uri, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(uri);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeVersion, true))
+                                            {
+                                                if (nextValue is Version)
+                                                {
+                                                    variant = new Variant((Version)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    Version version = null;
+
+                                                    if (Value.GetVersion(
+                                                            nextString, cultureInfo, ref version,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(version);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeIdentifier, true))
+                                            {
+                                                if (nextValue is IIdentifier)
+                                                {
+                                                    variant = new Variant((IIdentifier)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    StringList list = null;
+
+                                                    //
+                                                    // TODO: *PERF* We cannot have this call to SplitList perform any
+                                                    //       caching because we do not know exactly what the resulting
+                                                    //       list will be used for.
+                                                    //
+                                                    if (ListOps.GetOrCopyOrSplitList(
+                                                            this, nextArgument, false, ref list, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        if (list.Count == 2)
+                                                        {
+                                                            object enumValue = EnumOps.TryParse(
+                                                                typeof(IdentifierKind), list[0], allowIntegerOption,
+                                                                noCase || noCaseOption, ref error);
+
+                                                            if (enumValue is IdentifierKind)
                                                             {
-                                                                if (valueType.IsEnum)
+                                                                IIdentifier identifier = null;
+
+                                                                if (GetIdentifier(
+                                                                        (IdentifierKind)enumValue, list[1],
+                                                                        arguments, lookupFlags, ref identifier,
+                                                                        ref error) == ReturnCode.Ok)
                                                                 {
-                                                                    object oldValue = null;
-
-                                                                    if (EnumOps.IsFlags(valueType))
-                                                                        oldValue = option.InnerValue;
-
-                                                                    EnumList enumList = null;
-                                                                    ResultList errors = null;
-
-                                                                    code = Value.GetEnumList(
-                                                                        this, next, valueType, (oldValue != null) ?
-                                                                            oldValue.ToString() : null,
-                                                                        Value.GetTypeValueFlags(
-                                                                            allowIntegerOption, strictOption, false,
-                                                                            noCase || noCaseOption), cultureInfo,
-                                                                        ref enumList, ref errors);
-
-                                                                    if (code == ReturnCode.Ok)
-                                                                        variant = new Variant(enumList);
-                                                                    else
-                                                                        error = errors;
-                                                                }
-                                                                else
-                                                                {
-                                                                    error = String.Format(
-                                                                        "option {0} value type is not an enum",
-                                                                        FormatOps.WrapOrNull(name));
-
-                                                                    code = ReturnCode.Error;
+                                                                    variant = new Variant(identifier);
                                                                 }
                                                             }
                                                             else
                                                             {
-                                                                error = String.Format(
-                                                                    "option {0} has an invalid value type",
-                                                                    FormatOps.WrapOrNull(name));
-
-                                                                code = ReturnCode.Error;
+                                                                return ReturnCode.Error;
                                                             }
                                                         }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeReturnCodeList, true))
+                                                        else
                                                         {
-                                                            ReturnCodeList returnCodeList = null;
-
-                                                            code = Value.GetReturnCodeList(next, cultureInfo,
-                                                                ref returnCodeList, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(returnCodeList);
+                                                            error = "identifier must be list with two elements: <kind> <name>";
+                                                            return ReturnCode.Error;
                                                         }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeAbsoluteUri, true))
-                                                        {
-                                                            Uri uri = null;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeAlias, true))
+                                            {
+                                                if (nextValue is IAlias)
+                                                {
+                                                    variant = new Variant((IAlias)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    IAlias alias = null;
 
-                                                            code = Value.GetUri(
-                                                                next, UriKind.Absolute, cultureInfo,
-                                                                ref uri, ref error);
+                                                    if (GetAlias(
+                                                            nextString, lookupFlags, ref alias,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(alias);
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeOption, true))
+                                            {
+                                                if (nextValue is IOption)
+                                                {
+                                                    variant = new Variant((IOption)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    IOption optionValue = Option.FromString(
+                                                        this, nextString, appDomain, allowIntegerOption,
+                                                        strictOption, false, noCase || noCaseOption,
+                                                        cultureInfo, ref error);
 
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(uri);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeVersion, true))
-                                                        {
-                                                            Version version = null;
+                                                    if (optionValue != null)
+                                                        variant = new Variant(optionValue);
+                                                    else
+                                                        return ReturnCode.Error;
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeAbsoluteNamespace, true))
+                                            {
+                                                if (nextValue is INamespace)
+                                                {
+                                                    variant = new Variant((INamespace)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    if (AreNamespacesEnabled())
+                                                    {
+                                                        INamespace @namespace = NamespaceOps.Lookup(
+                                                            this, nextString, true, false, ref error);
 
-                                                            code = Value.GetVersion(next, cultureInfo,
-                                                                ref version, ref error);
+                                                        if (@namespace != null)
+                                                            variant = new Variant(@namespace);
+                                                        else
+                                                            return ReturnCode.Error;
+                                                    }
+                                                    else
+                                                    {
+                                                        error = "namespaces not available";
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeRelativeNamespace, true))
+                                            {
+                                                if (nextValue is INamespace)
+                                                {
+                                                    variant = new Variant((INamespace)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    if (AreNamespacesEnabled())
+                                                    {
+                                                        INamespace @namespace = NamespaceOps.Lookup(
+                                                            this, nextString, false, false, ref error);
 
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(version);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeIdentifier, true))
-                                                        {
-                                                            StringList list = null;
-
-                                                            //
-                                                            // TODO: *PERF* We cannot have this call to SplitList perform any
-                                                            //       caching because we do not know exactly what the resulting
-                                                            //       list will be used for.
-                                                            //
-                                                            code = ListOps.GetOrCopyOrSplitList(
-                                                                this, nextArgument, false, ref list, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                            {
-                                                                if (list.Count == 2)
-                                                                {
-                                                                    object enumValue = EnumOps.TryParse(
-                                                                        typeof(IdentifierKind), list[0], allowIntegerOption,
-                                                                        noCase || noCaseOption, ref error);
-
-                                                                    if (enumValue is IdentifierKind)
-                                                                    {
-                                                                        IIdentifier identifier = null;
-
-                                                                        code = GetIdentifier(
-                                                                            (IdentifierKind)enumValue, list[1], arguments,
-                                                                            lookupFlags, ref identifier, ref error);
-
-                                                                        if (code == ReturnCode.Ok)
-                                                                            variant = new Variant(identifier);
-                                                                    }
-                                                                }
-                                                                else
-                                                                {
-                                                                    error = "identifier must be list with two elements: <kind> <name>";
-                                                                    code = ReturnCode.Error;
-                                                                }
-                                                            }
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeAlias, true))
-                                                        {
-                                                            IAlias alias = null;
-
-                                                            code = GetAlias(next, lookupFlags, ref alias, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(alias);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeOption, true))
-                                                        {
-                                                            IOption optionValue = Option.FromString(
-                                                                this, next, appDomain, allowIntegerOption,
-                                                                strictOption, false, noCase || noCaseOption,
-                                                                cultureInfo, ref error);
-
-                                                            if (optionValue != null)
-                                                                variant = new Variant(optionValue);
-                                                            else
-                                                                code = ReturnCode.Error;
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeAbsoluteNamespace, true))
-                                                        {
-                                                            if (AreNamespacesEnabled())
-                                                            {
-                                                                INamespace @namespace = NamespaceOps.Lookup(
-                                                                    this, next, true, false, ref error);
-
-                                                                if (@namespace != null)
-                                                                    variant = new Variant(@namespace);
-                                                                else
-                                                                    code = ReturnCode.Error;
-                                                            }
-                                                            else
-                                                            {
-                                                                error = "namespaces not available";
-                                                                code = ReturnCode.Error;
-                                                            }
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeRelativeNamespace, true))
-                                                        {
-                                                            if (AreNamespacesEnabled())
-                                                            {
-                                                                INamespace @namespace = NamespaceOps.Lookup(
-                                                                    this, next, false, false, ref error);
-
-                                                                if (@namespace != null)
-                                                                    variant = new Variant(@namespace);
-                                                                else
-                                                                    code = ReturnCode.Error;
-                                                            }
-                                                            else
-                                                            {
-                                                                error = "namespaces not available";
-                                                                code = ReturnCode.Error;
-                                                            }
-                                                        }
+                                                        if (@namespace != null)
+                                                            variant = new Variant(@namespace);
+                                                        else
+                                                            return ReturnCode.Error;
+                                                    }
+                                                    else
+                                                    {
+                                                        error = "namespaces not available";
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
 #if NATIVE && TCL
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeTclInterpreter, true))
-                                                        {
-                                                            IntPtr interp = IntPtr.Zero;
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeTclInterpreter, true))
+                                            {
+                                                if (nextValue is string)
+                                                {
+                                                    variant = new Variant((string)nextValue); /* interpName (?) */
+                                                }
+                                                else
+                                                {
+                                                    IntPtr interp = IntPtr.Zero;
 
 #if TCL_THREADS
-                                                            code = GetTclInterpreterOrThread(
-                                                                next, lookupFlags, ref interp, ref error);
+                                                    if (GetTclInterpreterOrThread(
+                                                            nextString, lookupFlags, ref interp,
+                                                            ref error) == ReturnCode.Ok)
 #else
-                                                            code = GetTclInterpreter(
-                                                                next, lookupFlags, ref interp, ref error);
+                                                    if (GetTclInterpreter(
+                                                            nextString, lookupFlags, ref interp,
+                                                            ref error) == ReturnCode.Ok)
 #endif
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(next); /* interpName */
-                                                        }
+                                                    {
+                                                        variant = new Variant(nextString); /* interpName */
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
 #endif
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeType, true))
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeType, true))
+                                            {
+                                                if (nextValue is Type)
+                                                {
+                                                    variant = new Variant((Type)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    Type type = null;
+                                                    ResultList errors = null;
+
+                                                    if (Value.GetAnyType(
+                                                            this, nextString, null, appDomain,
+                                                            Value.GetTypeValueFlags(
+                                                                strictOption, false, noCase ||
+                                                                noCaseOption), cultureInfo,
+                                                            ref type, ref errors) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(type);
+                                                    }
+                                                    else
+                                                    {
+                                                        error = errors;
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeInterpreter, true))
+                                            {
+                                                if (nextValue is Interpreter)
+                                                {
+                                                    variant = new Variant((Interpreter)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    Interpreter interpreter = null;
+
+                                                    if (Value.GetInterpreter(
+                                                            this, nextString, InterpreterType.Default,
+                                                            ref interpreter, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(interpreter);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeObject, true))
+                                            {
+                                                if (nextValue is IObject)
+                                                {
+                                                    variant = new Variant((IObject)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    IObject @object = null;
+
+                                                    if (GetObject(
+                                                            nextString, lookupFlags, ref @object,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(@object);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeValue, true))
+                                            {
+                                                if (nextValue != null)
+                                                {
+                                                    try
+                                                    {
+                                                        variant = new Variant(nextValue); /* throw */
+                                                    }
+                                                    catch (Exception e)
+                                                    {
+                                                        error = e;
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    object value = null;
+
+                                                    if (Value.GetValue(
+                                                            nextString, dateTimeFormat, ValueFlags.AnyStrict,
+                                                            dateTimeKind, dateTimeStyles, cultureInfo, ref value,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(value);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeList, true))
+                                            {
+                                                if (nextValue is StringList)
+                                                {
+                                                    variant = new Variant((StringList)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    //
+                                                    // TODO: *PERF* We cannot have this call to SplitList perform any
+                                                    //       caching because we do not know exactly what the resulting
+                                                    //       list will be used for.
+                                                    //
+                                                    StringList list = null;
+
+                                                    if (ListOps.GetOrCopyOrSplitList(
+                                                            this, nextArgument, false, ref list,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(list);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeDictionary, true))
+                                            {
+                                                if (nextValue is StringDictionary)
+                                                {
+                                                    variant = new Variant((StringDictionary)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    //
+                                                    // TODO: *PERF* We cannot have this call to SplitList perform any
+                                                    //       caching because we do not know exactly what the resulting
+                                                    //       list will be used for.
+                                                    //
+                                                    StringList list = null;
+
+                                                    if (ListOps.GetOrCopyOrSplitList(
+                                                            this, nextArgument, false, ref list,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        if ((list.Count % 2) == 0)
                                                         {
-                                                            Type type = null;
-                                                            ResultList errors = null;
-
-                                                            code = Value.GetAnyType(
-                                                                this, next, null, appDomain, Value.GetTypeValueFlags(
-                                                                    strictOption, false, noCase || noCaseOption),
-                                                                cultureInfo, ref type, ref errors);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(type);
-                                                            else
-                                                                error = errors;
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeInterpreter, true))
-                                                        {
-                                                            Interpreter interpreter = null;
-
-                                                            code = Value.GetInterpreter(
-                                                                this, next, InterpreterType.Default, ref interpreter,
-                                                                ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(interpreter);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeObject, true))
-                                                        {
-                                                            IObject @object = null;
-
-                                                            code = GetObject(next, lookupFlags, ref @object, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(@object);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeValue, true))
-                                                        {
-                                                            object value = null;
-
-                                                            code = Value.GetValue(
-                                                                next, dateTimeFormat, ValueFlags.AnyStrict,
-                                                                dateTimeKind, dateTimeStyles, cultureInfo,
-                                                                ref value, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(value);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeList, true))
-                                                        {
-                                                            StringList list = null;
-
-                                                            //
-                                                            // TODO: *PERF* We cannot have this call to SplitList perform any
-                                                            //       caching because we do not know exactly what the resulting
-                                                            //       list will be used for.
-                                                            //
-                                                            code = ListOps.GetOrCopyOrSplitList(
-                                                                this, nextArgument, false, ref list, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(list);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeDictionary, true))
-                                                        {
-                                                            StringList list = null;
-
-                                                            //
-                                                            // TODO: *PERF* We cannot have this call to SplitList perform any
-                                                            //       caching because we do not know exactly what the resulting
-                                                            //       list will be used for.
-                                                            //
-                                                            code = ListOps.GetOrCopyOrSplitList(
-                                                                this, nextArgument, false, ref list, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                            {
-                                                                if ((list.Count % 2) == 0)
-                                                                {
-                                                                    try
-                                                                    {
-                                                                        variant = new Variant(
-                                                                            new StringDictionary(list, true, true));
-                                                                    }
-                                                                    catch (Exception e)
-                                                                    {
-                                                                        error = e;
-                                                                        code = ReturnCode.Error;
-                                                                    }
-                                                                }
-                                                                else
-                                                                {
-                                                                    error = "dictionary list must have an even number of elements";
-                                                                    code = ReturnCode.Error;
-                                                                }
-                                                            }
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeDateTime, true))
-                                                        {
-                                                            DateTime dateTime = DateTime.MinValue;
-
-                                                            code = Value.GetDateTime2(next, dateTimeFormat, strictOption ?
-                                                                ValueFlags.AnyStrictDateTime : ValueFlags.AnyDateTime,
-                                                                dateTimeKind, dateTimeStyles, cultureInfo, ref dateTime,
-                                                                ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(dateTime);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeTimeSpan, true))
-                                                        {
-                                                            TimeSpan timeSpan = TimeSpan.Zero;
-
-                                                            code = Value.GetTimeSpan2(next, strictOption ?
-                                                                ValueFlags.AnyStrictTimeSpan : ValueFlags.AnyTimeSpan,
-                                                                cultureInfo, ref timeSpan, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(timeSpan);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeGuid, true))
-                                                        {
-                                                            Guid guid = Guid.Empty;
-
-                                                            code = Value.GetGuid(next, cultureInfo, ref guid, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(guid);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeEnum, true))
-                                                        {
-                                                            Type valueType = option.Type;
-
-                                                            if (valueType != null)
-                                                            {
-                                                                if (valueType.IsEnum)
-                                                                {
-                                                                    object enumValue;
-
-                                                                    //
-                                                                    // NOTE: Reset the local error result here because
-                                                                    //       we check it below (i.e. it will not be
-                                                                    //       set by TryParseEnum).
-                                                                    //
-                                                                    localError = null;
-
-                                                                    if (EnumOps.IsFlags(valueType))
-                                                                    {
-                                                                        object oldValue = option.InnerValue;
-
-                                                                        enumValue = EnumOps.TryParseFlags(
-                                                                            this, valueType, (oldValue != null) ?
-                                                                            oldValue.ToString() : null, next,
-                                                                            cultureInfo, allowIntegerOption,
-                                                                            strictOption, noCase || noCaseOption,
-                                                                            ref localError);
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        enumValue = EnumOps.TryParse(
-                                                                            valueType, next, allowIntegerOption,
-                                                                            noCase || noCaseOption);
-                                                                    }
-
-                                                                    //
-                                                                    // NOTE: Did we end up with a valid enum value for this type?
-                                                                    //
-                                                                    if (enumValue != null)
-                                                                    {
-                                                                        //
-                                                                        // NOTE: It is now guaranteed to be the correct Enum type because
-                                                                        //       TryParseEnum uses our System.Type object directly and
-                                                                        //       cannot return non-null unless Enum.Parse succeeds.
-                                                                        //
-                                                                        variant = new Variant((Enum)enumValue);
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        //
-                                                                        // NOTE: Retain any locally generated error information (from
-                                                                        //       TryParseFlagsEnum) because it provides more specific
-                                                                        //       feedback than we can at this point.
-                                                                        //
-                                                                        if (!String.IsNullOrEmpty(localError))
-                                                                            error = localError;
-                                                                        else
-                                                                            error = ScriptOps.BadValue(
-                                                                                null, String.Format("{0} value",
-                                                                                MarshalOps.GetErrorTypeName(valueType)),
-                                                                                next, Enum.GetNames(valueType), null, null);
-
-                                                                        code = ReturnCode.Error;
-                                                                    }
-                                                                }
-                                                                else
-                                                                {
-                                                                    error = String.Format(
-                                                                        "option {0} value type is not an enum",
-                                                                        FormatOps.WrapOrNull(name));
-
-                                                                    code = ReturnCode.Error;
-                                                                }
-                                                            }
-                                                            else
-                                                            {
-                                                                error = String.Format(
-                                                                    "option {0} has an invalid value type",
-                                                                    FormatOps.WrapOrNull(name));
-
-                                                                code = ReturnCode.Error;
-                                                            }
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeReturnCode, true))
-                                                        {
-                                                            ReturnCode returnCode = ReturnCode.Ok;
-
-                                                            code = Value.GetReturnCode2(next, ValueFlags.AnyReturnCode,
-                                                                cultureInfo, ref returnCode, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(returnCode);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeMatchMode, true))
-                                                        {
-                                                            MatchMode matchMode = MatchMode.None;
-                                                            object oldValue = option.InnerValue;
-
-                                                            code = Value.GetMatchMode2(this,
-                                                                (oldValue != null) ? oldValue.ToString() : null,
-                                                                next, strictOption ? ValueFlags.AnyStrictMatchMode :
-                                                                ValueFlags.AnyMatchMode, cultureInfo, ref matchMode,
-                                                                ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(matchMode);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeLevel, true))
-                                                        {
-                                                            ICallFrame otherFrame = null;
-
-                                                            if (GetCallFrame(
-                                                                    next, ref otherFrame,
-                                                                    ref error) != FrameResult.Invalid)
-                                                            {
-                                                                variant = new Variant(otherFrame);
-                                                            }
-                                                            else
-                                                            {
-                                                                code = ReturnCode.Error;
-                                                            }
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeIndex, true))
-                                                        {
-                                                            int index = Index.Invalid;
-
-                                                            code = Value.GetIndex(
-                                                                next, listCount, ValueFlags.AnyIndex,
-                                                                cultureInfo, ref index, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(index);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeDouble, true))
-                                                        {
-                                                            double doubleValue = 0.0;
-
-                                                            code = Value.GetDouble(
-                                                                next, ValueFlags.AnyDouble, cultureInfo,
-                                                                ref doubleValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(doubleValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeDecimal, true))
-                                                        {
-                                                            decimal decimalValue = decimal.Zero;
-
-                                                            code = Value.GetDecimal(
-                                                                next, ValueFlags.AnyDecimal, cultureInfo,
-                                                                ref decimalValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(decimalValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeUnsignedWideInteger, true))
-                                                        {
-                                                            ulong ulongValue = 0;
-
-                                                            code = Value.GetUnsignedWideInteger2(
-                                                                next, ValueFlags.AnyWideInteger | ValueFlags.Unsigned,
-                                                                cultureInfo, ref ulongValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(ulongValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeWideInteger, true))
-                                                        {
-                                                            long longValue = 0;
-
-                                                            code = Value.GetWideInteger2(next, ValueFlags.AnyWideInteger,
-                                                                cultureInfo, ref longValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(longValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeUnsignedInteger, true))
-                                                        {
-                                                            uint uintValue = 0;
-
-                                                            code = Value.GetUnsignedInteger2(
-                                                                next, ValueFlags.AnyInteger | ValueFlags.Unsigned,
-                                                                cultureInfo, ref uintValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(uintValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeInteger, true))
-                                                        {
-                                                            int intValue = 0;
-
-                                                            code = Value.GetInteger2(next, ValueFlags.AnyInteger,
-                                                                cultureInfo, ref intValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(intValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeUnsignedNarrowInteger, true))
-                                                        {
-                                                            ushort ushortValue = 0;
-
-                                                            code = Value.GetUnsignedNarrowInteger2(
-                                                                next, ValueFlags.AnyNarrowInteger | ValueFlags.Unsigned,
-                                                                cultureInfo, ref ushortValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(ushortValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeNarrowInteger, true))
-                                                        {
-                                                            short shortValue = 0;
-
-                                                            code = Value.GetNarrowInteger2(next, ValueFlags.AnyNarrowInteger,
-                                                                cultureInfo, ref shortValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(shortValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeByte, true))
-                                                        {
-                                                            byte byteValue = 0;
-
-                                                            code = Value.GetByte2(next, ValueFlags.AnyByte, cultureInfo,
-                                                                ref byteValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(byteValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeSignedByte, true))
-                                                        {
-                                                            sbyte sbyteValue = 0;
-
-                                                            code = Value.GetSignedByte2(
-                                                                next, ValueFlags.AnyByte | ValueFlags.Signed,
-                                                                cultureInfo, ref sbyteValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(sbyteValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeBoolean, true))
-                                                        {
-                                                            bool boolValue = false;
-
-                                                            code = Value.GetBoolean2(next, strictOption ?
-                                                                ValueFlags.AnyStrictBoolean : ValueFlags.AnyBoolean,
-                                                                cultureInfo, ref boolValue, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(boolValue);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeSecureString, true))
-                                                        {
-                                                            zero = true;
-
-                                                            SecureString secureString = null;
-                                                            IObject @object = null;
-
-                                                            if (GetObject(
-                                                                    next, lookupFlags, ref @object,
-                                                                    ref error) == ReturnCode.Ok)
-                                                            {
-                                                                if (@object.Value is SecureString)
-                                                                {
-                                                                    secureString = (SecureString)@object.Value;
-                                                                }
-                                                                else
-                                                                {
-                                                                    error = "invalid secure string";
-                                                                    code = ReturnCode.Error;
-                                                                }
-                                                            }
-                                                            else
-                                                            {
-                                                                secureString = new SecureString();
-
-                                                                foreach (char character in next)
-                                                                    secureString.AppendChar(character);
-
-                                                                secureString.MakeReadOnly();
-                                                            }
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(secureString);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeEncoding, true))
-                                                        {
-                                                            Encoding encoding = null;
-
-                                                            code = GetEncoding(
-                                                                next, lookupFlags | LookupFlags.EncodingOptionMask,
-                                                                ref encoding, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(encoding);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeCultureInfo, true))
-                                                        {
-                                                            CultureInfo localCultureInfo = null;
-
                                                             try
                                                             {
-                                                                localCultureInfo = CultureInfo.GetCultureInfo(
-                                                                    next); /* throw */
-
-                                                                if (localCultureInfo != null)
-                                                                {
-                                                                    variant = new Variant(localCultureInfo);
-                                                                }
-                                                                else
-                                                                {
-                                                                    error = "invalid culture";
-                                                                    code = ReturnCode.Error;
-                                                                }
+                                                                variant = new Variant(
+                                                                    new StringDictionary(list, true, true));
                                                             }
                                                             catch (Exception e)
                                                             {
                                                                 error = e;
-                                                                code = ReturnCode.Error;
+                                                                return ReturnCode.Error;
                                                             }
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeByteArray, true))
-                                                        {
-                                                            byte[] bytes = null;
-
-                                                            code = StringOps.GetBytesFromString(
-                                                                next, cultureInfo, ref bytes, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(bytes);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBePlugin, true))
-                                                        {
-                                                            IPlugin plugin = null;
-
-                                                            code = GetPlugin(
-                                                                next, lookupFlags, ref plugin, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(plugin);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeExecute, true))
-                                                        {
-                                                            IExecute execute = null;
-
-                                                            code = MatchAnyIExecute(null,
-                                                                safe ? EngineFlags.None : EngineFlags.MatchHidden,
-                                                                next, lookupFlags, ref execute, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(execute);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeCallback, true))
-                                                        {
-                                                            ICallback callback = null;
-
-                                                            code = Value.GetCallback(this, null,
-                                                                next, appDomain, options, Value.GetTypeValueFlags(
-                                                                    strictOption, false, noCase || noCaseOption),
-                                                                cultureInfo, null, ref callback, ref error);
-
-                                                            if (code == ReturnCode.Ok)
-                                                                variant = new Variant(callback);
-                                                        }
-                                                        else if (FlagOps.HasFlags(flags, OptionFlags.MustBeRuleSet, true))
-                                                        {
-                                                            IRuleSet ruleSet = RuleSet.Create(
-                                                                next, cultureInfo, ref error);
-
-                                                            if (ruleSet != null)
-                                                                variant = new Variant(ruleSet);
-                                                            else
-                                                                code = ReturnCode.Error;
                                                         }
                                                         else
                                                         {
-                                                            //
-                                                            // NOTE: No strongly-typed value flags were set for this
-                                                            //       option, just use the string verbatim.
-                                                            //
-                                                            variant = new Variant(next); // String
+                                                            error = "dictionary list must have an even number of elements";
+                                                            return ReturnCode.Error;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        //
-                                                        // NOTE: We are forbidden from interpreting the string as a
-                                                        //       strongly-typed value, just use the string verbatim.
-                                                        //
-                                                        variant = new Variant(next); // String
+                                                        return ReturnCode.Error;
                                                     }
-
-                                                    //
-                                                    // NOTE: If we succeeded, set the option value; otherwise, bail.
-                                                    //
-                                                    if (code == ReturnCode.Ok)
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeDateTime, true))
+                                            {
+                                                if (nextValue is DateTime)
+                                                {
+                                                    variant = new Variant((DateTime)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    if (FlagOps.HasFlags(flags, OptionFlags.Nullable, true))
                                                     {
-                                                        if (!noSet)
-                                                            option.SetPresent(options, true, argumentIndex, variant);
+                                                        DateTime? dateTime = null;
 
-                                                        argumentIndex++; // skip option value...
+                                                        if (Value.GetNullableDateTime2(
+                                                                nextString, dateTimeFormat, strictOption ?
+                                                                    ValueFlags.AnyStrictDateTime :
+                                                                    ValueFlags.AnyDateTime, dateTimeKind,
+                                                                dateTimeStyles, cultureInfo, ref dateTime,
+                                                                ref error) == ReturnCode.Ok)
+                                                        {
+                                                            variant = new Variant(dateTime);
+                                                        }
+                                                        else
+                                                        {
+                                                            return ReturnCode.Error;
+                                                        }
                                                     }
                                                     else
                                                     {
-                                                        break;
+                                                        DateTime dateTime = DateTime.MinValue;
+
+                                                        if (Value.GetDateTime2(
+                                                                nextString, dateTimeFormat, strictOption ?
+                                                                    ValueFlags.AnyStrictDateTime :
+                                                                    ValueFlags.AnyDateTime, dateTimeKind,
+                                                                dateTimeStyles, cultureInfo, ref dateTime,
+                                                                ref error) == ReturnCode.Ok)
+                                                        {
+                                                            variant = new Variant(dateTime);
+                                                        }
+                                                        else
+                                                        {
+                                                            return ReturnCode.Error;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeTimeSpan, true))
+                                            {
+                                                if (nextValue is TimeSpan)
+                                                {
+                                                    variant = new Variant((TimeSpan)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    if (FlagOps.HasFlags(flags, OptionFlags.Nullable, true))
+                                                    {
+                                                        TimeSpan? timeSpan = null;
+
+                                                        if (Value.GetNullableTimeSpan2(
+                                                                nextString, strictOption ?
+                                                                    ValueFlags.AnyStrictTimeSpan :
+                                                                    ValueFlags.AnyTimeSpan, cultureInfo,
+                                                                ref timeSpan, ref error) == ReturnCode.Ok)
+                                                        {
+                                                            variant = new Variant(timeSpan);
+                                                        }
+                                                        else
+                                                        {
+                                                            return ReturnCode.Error;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        TimeSpan timeSpan = TimeSpan.Zero;
+
+                                                        if (Value.GetTimeSpan2(
+                                                                nextString, strictOption ?
+                                                                    ValueFlags.AnyStrictTimeSpan :
+                                                                    ValueFlags.AnyTimeSpan, cultureInfo,
+                                                                ref timeSpan, ref error) == ReturnCode.Ok)
+                                                        {
+                                                            variant = new Variant(timeSpan);
+                                                        }
+                                                        else
+                                                        {
+                                                            return ReturnCode.Error;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeGuid, true))
+                                            {
+                                                if (nextValue is Guid)
+                                                {
+                                                    variant = new Variant((Guid)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    if (FlagOps.HasFlags(flags, OptionFlags.Nullable, true))
+                                                    {
+                                                        Guid? guid = null;
+
+                                                        if (Value.GetNullableGuid(
+                                                                nextString, cultureInfo, ref guid,
+                                                                ref error) == ReturnCode.Ok)
+                                                        {
+                                                            variant = new Variant(guid);
+                                                        }
+                                                        else
+                                                        {
+                                                            return ReturnCode.Error;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        Guid guid = Guid.Empty;
+
+                                                        if (Value.GetGuid(
+                                                                nextString, cultureInfo, ref guid,
+                                                                ref error) == ReturnCode.Ok)
+                                                        {
+                                                            variant = new Variant(guid);
+                                                        }
+                                                        else
+                                                        {
+                                                            return ReturnCode.Error;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeEnum, true))
+                                            {
+                                                Type valueType = option.Type;
+
+                                                if (valueType != null)
+                                                {
+                                                    if (valueType.IsEnum)
+                                                    {
+                                                        if ((nextValue is Enum) && Object.ReferenceEquals(
+                                                                nextValue.GetType(), valueType))
+                                                        {
+                                                            variant = new Variant((Enum)nextValue);
+                                                        }
+                                                        else
+                                                        {
+                                                            object enumValue;
+
+                                                            //
+                                                            // NOTE: Reset the local error result here because
+                                                            //       we check it below (i.e. it will not be
+                                                            //       set by TryParseEnum).
+                                                            //
+                                                            localError = null;
+
+                                                            if (EnumOps.IsFlags(valueType))
+                                                            {
+                                                                object oldValue = option.InnerValue;
+
+                                                                enumValue = EnumOps.TryParseFlags(
+                                                                    this, valueType, (oldValue != null) ?
+                                                                    oldValue.ToString() : null, nextString,
+                                                                    cultureInfo, allowIntegerOption,
+                                                                    strictOption, noCase || noCaseOption,
+                                                                    ref localError);
+                                                            }
+                                                            else
+                                                            {
+                                                                enumValue = EnumOps.TryParse(
+                                                                    valueType, nextString, allowIntegerOption,
+                                                                    noCase || noCaseOption);
+                                                            }
+
+                                                            //
+                                                            // NOTE: Did we end up with a valid enum value for this type?
+                                                            //
+                                                            if (enumValue != null)
+                                                            {
+                                                                //
+                                                                // NOTE: It is now guaranteed to be the correct Enum type because
+                                                                //       TryParseEnum uses our System.Type object directly and
+                                                                //       cannot return non-null unless Enum.Parse succeeds.
+                                                                //
+                                                                variant = new Variant((Enum)enumValue);
+                                                            }
+                                                            else
+                                                            {
+                                                                //
+                                                                // NOTE: Retain any locally generated error information (from
+                                                                //       TryParseFlagsEnum) because it provides more specific
+                                                                //       feedback than we can at this point.
+                                                                //
+                                                                if (!String.IsNullOrEmpty(localError))
+                                                                {
+                                                                    error = localError;
+                                                                }
+                                                                else
+                                                                {
+                                                                    error = ScriptOps.BadValue(
+                                                                        null, String.Format("{0} value",
+                                                                        MarshalOps.GetErrorTypeName(valueType)),
+                                                                        nextString, Enum.GetNames(valueType), null, null);
+                                                                }
+
+                                                                return ReturnCode.Error;
+                                                            }
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        error = String.Format(
+                                                            "option {0} value type is not an enum",
+                                                            FormatOps.WrapOrNull(name));
+
+                                                        return ReturnCode.Error;
                                                     }
                                                 }
                                                 else
                                                 {
                                                     error = String.Format(
-                                                        "{0} option must be followed by {1}",
-                                                        FormatOps.WrapOrNull(current),
-                                                        option.FlagsToString());
+                                                        "option {0} has an invalid value type",
+                                                        FormatOps.WrapOrNull(name));
 
-                                                    code = ReturnCode.Error;
-                                                    break;
+                                                    return ReturnCode.Error;
                                                 }
                                             }
-                                            finally
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeReturnCode, true))
                                             {
-                                                if (zero)
+                                                if (nextValue is ReturnCode)
                                                 {
-                                                    //
-                                                    // HACK: Attempt to forcibly "scrub"
-                                                    //       the plain-text option value
-                                                    //       from memory via whatever
-                                                    //       means are available.
-                                                    //
-                                                    if (nextArgument != null)
-                                                        nextArgument.ResetValue(this, true);
+                                                    variant = new Variant((ReturnCode)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    ReturnCode returnCode = ReturnCode.Ok;
 
-                                                    if (localError != null)
-                                                        localError.ResetValue(this, true);
-
-                                                    if (error != null)
-                                                        error.ResetValue(this, true);
-
-#if !MONO && NATIVE && WINDOWS
-                                                    if (canZero)
+                                                    if (Value.GetReturnCode2(
+                                                            nextString, ValueFlags.AnyReturnCode, cultureInfo,
+                                                            ref returnCode, ref error) == ReturnCode.Ok)
                                                     {
-                                                        /* IGNORED */
-                                                        StringOps.ZeroStringOrTrace(next);
+                                                        variant = new Variant(returnCode);
                                                     }
-#endif
-
-                                                    ObjectOps.CollectGarbage(); /* throw */
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
                                                 }
                                             }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeMatchMode, true))
+                                            {
+                                                if (nextValue is MatchMode)
+                                                {
+                                                    variant = new Variant((MatchMode)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    MatchMode matchMode = MatchMode.None;
+                                                    object oldValue = option.InnerValue;
+
+                                                    if (Value.GetMatchMode2(
+                                                            this, (oldValue != null) ? oldValue.ToString() : null,
+                                                            nextString, strictOption ? ValueFlags.AnyStrictMatchMode :
+                                                            ValueFlags.AnyMatchMode, cultureInfo, ref matchMode,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(matchMode);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeLevel, true))
+                                            {
+                                                if (nextValue is ICallFrame)
+                                                {
+                                                    variant = new Variant((ICallFrame)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    ICallFrame otherFrame = null;
+
+                                                    if (GetCallFrame(
+                                                            nextString, ref otherFrame,
+                                                            ref error) != FrameResult.Invalid)
+                                                    {
+                                                        variant = new Variant(otherFrame);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeIndex, true))
+                                            {
+                                                int index;
+
+                                                if (nextValue is int)
+                                                {
+                                                    index = (int)nextValue;
+
+                                                    if ((index >= 0) && (index < listCount))
+                                                    {
+                                                        variant = new Variant(index);
+                                                    }
+                                                    else
+                                                    {
+                                                        error = String.Format(
+                                                            "object {0} index {1} is out-of-bounds {2}",
+                                                            FormatOps.WrapOrNull(nextString), index,
+                                                            listCount);
+
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    index = Index.Invalid;
+
+                                                    if (Value.GetIndex(
+                                                            nextString, listCount, ValueFlags.AnyIndex,
+                                                            cultureInfo, ref index, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(index);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeDouble, true))
+                                            {
+                                                if (nextValue is double)
+                                                {
+                                                    variant = new Variant((double)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    double doubleValue = 0.0;
+
+                                                    if (Value.GetDouble(
+                                                            nextString, ValueFlags.AnyDouble, cultureInfo,
+                                                            ref doubleValue, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(doubleValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeDecimal, true))
+                                            {
+                                                if (nextValue is decimal)
+                                                {
+                                                    variant = new Variant((decimal)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    decimal decimalValue = decimal.Zero;
+
+                                                    if (Value.GetDecimal(
+                                                            nextString, ValueFlags.AnyDecimal, cultureInfo,
+                                                            ref decimalValue, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(decimalValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeUnsignedWideInteger, true))
+                                            {
+                                                if (nextValue is ulong)
+                                                {
+                                                    variant = new Variant((ulong)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    ulong ulongValue = 0;
+
+                                                    if (Value.GetUnsignedWideInteger2(
+                                                            nextString, ValueFlags.AnyWideInteger | ValueFlags.Unsigned,
+                                                            cultureInfo, ref ulongValue, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(ulongValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeWideInteger, true))
+                                            {
+                                                if (nextValue is long)
+                                                {
+                                                    variant = new Variant((long)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    long longValue = 0;
+
+                                                    if (Value.GetWideInteger2(
+                                                            nextString, ValueFlags.AnyWideInteger,
+                                                            cultureInfo, ref longValue,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(longValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeUnsignedInteger, true))
+                                            {
+                                                if (nextValue is uint)
+                                                {
+                                                    variant = new Variant((uint)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    uint uintValue = 0;
+
+                                                    if (Value.GetUnsignedInteger2(
+                                                            nextString, ValueFlags.AnyInteger | ValueFlags.Unsigned,
+                                                            cultureInfo, ref uintValue, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(uintValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeInteger, true))
+                                            {
+                                                if (nextValue is int)
+                                                {
+                                                    variant = new Variant((int)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    int intValue = 0;
+
+                                                    if (Value.GetInteger2(
+                                                            nextString, ValueFlags.AnyInteger, cultureInfo,
+                                                            ref intValue, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(intValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeUnsignedNarrowInteger, true))
+                                            {
+                                                if (nextValue is ushort)
+                                                {
+                                                    variant = new Variant((ushort)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    ushort ushortValue = 0;
+
+                                                    if (Value.GetUnsignedNarrowInteger2(
+                                                            nextString, ValueFlags.AnyNarrowInteger |
+                                                            ValueFlags.Unsigned, cultureInfo, ref ushortValue,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(ushortValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeNarrowInteger, true))
+                                            {
+                                                if (nextValue is short)
+                                                {
+                                                    variant = new Variant((short)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    short shortValue = 0;
+
+                                                    if (Value.GetNarrowInteger2(
+                                                            nextString, ValueFlags.AnyNarrowInteger,
+                                                            cultureInfo, ref shortValue,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(shortValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeByte, true))
+                                            {
+                                                if (nextValue is byte)
+                                                {
+                                                    variant = new Variant((byte)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    byte byteValue = 0;
+
+                                                    if (Value.GetByte2(
+                                                            nextString, ValueFlags.AnyByte, cultureInfo,
+                                                            ref byteValue, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(byteValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeSignedByte, true))
+                                            {
+                                                if (nextValue is sbyte)
+                                                {
+                                                    variant = new Variant((sbyte)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    sbyte sbyteValue = 0;
+
+                                                    if (Value.GetSignedByte2(
+                                                            nextString, ValueFlags.AnyByte | ValueFlags.Signed,
+                                                            cultureInfo, ref sbyteValue, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(sbyteValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeBoolean, true))
+                                            {
+                                                if (nextValue is bool)
+                                                {
+                                                    variant = new Variant((bool)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    if (FlagOps.HasFlags(flags, OptionFlags.Nullable, true))
+                                                    {
+                                                        bool? boolValue = null;
+
+                                                        if (Value.GetNullableBoolean2(
+                                                                nextString, strictOption ?
+                                                                    ValueFlags.AnyStrictBoolean :
+                                                                    ValueFlags.AnyBoolean, cultureInfo,
+                                                                ref boolValue, ref error) == ReturnCode.Ok)
+                                                        {
+                                                            variant = new Variant(boolValue);
+                                                        }
+                                                        else
+                                                        {
+                                                            return ReturnCode.Error;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        bool boolValue = false;
+
+                                                        if (Value.GetBoolean2(
+                                                                nextString, strictOption ?
+                                                                    ValueFlags.AnyStrictBoolean :
+                                                                    ValueFlags.AnyBoolean,
+                                                                cultureInfo, ref boolValue,
+                                                                ref error) == ReturnCode.Ok)
+                                                        {
+                                                            variant = new Variant(boolValue);
+                                                        }
+                                                        else
+                                                        {
+                                                            return ReturnCode.Error;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeSecureString, true))
+                                            {
+                                                if (nextValue is SecureString)
+                                                {
+                                                    variant = new Variant((SecureString)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    zero = true;
+
+                                                    SecureString secureString = null;
+                                                    IObject @object = null;
+
+                                                    if (GetObject(
+                                                            nextString, lookupFlags, ref @object,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        if (@object.Value is SecureString)
+                                                        {
+                                                            secureString = (SecureString)@object.Value;
+                                                        }
+                                                        else
+                                                        {
+                                                            error = "invalid secure string";
+                                                            return ReturnCode.Error;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        secureString = new SecureString();
+
+                                                        foreach (char character in nextString)
+                                                            secureString.AppendChar(character);
+
+                                                        secureString.MakeReadOnly();
+                                                    }
+
+                                                    variant = new Variant(secureString);
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeEncoding, true))
+                                            {
+                                                if (nextValue is Encoding)
+                                                {
+                                                    variant = new Variant((Encoding)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    Encoding encoding = null;
+
+                                                    if (GetEncoding(
+                                                            nextString, lookupFlags | LookupFlags.EncodingOptionMask,
+                                                            ref encoding, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(encoding);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeCultureInfo, true))
+                                            {
+                                                if (nextValue is CultureInfo)
+                                                {
+                                                    variant = new Variant((CultureInfo)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    CultureInfo localCultureInfo = null;
+
+                                                    try
+                                                    {
+                                                        localCultureInfo = CultureInfo.GetCultureInfo(
+                                                            nextString); /* throw */
+
+                                                        if (localCultureInfo != null)
+                                                        {
+                                                            variant = new Variant(localCultureInfo);
+                                                        }
+                                                        else
+                                                        {
+                                                            error = "invalid culture";
+                                                            return ReturnCode.Error;
+                                                        }
+                                                    }
+                                                    catch (Exception e)
+                                                    {
+                                                        error = e;
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeByteArray, true))
+                                            {
+                                                if (nextValue is byte[])
+                                                {
+                                                    variant = new Variant((byte[])nextValue);
+                                                }
+                                                else
+                                                {
+                                                    byte[] bytes = null;
+
+                                                    if (StringOps.GetBytesFromString(
+                                                            nextString, cultureInfo, ref bytes,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(bytes);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBePlugin, true))
+                                            {
+                                                if (nextValue is IPlugin)
+                                                {
+                                                    variant = new Variant((IPlugin)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    IPlugin plugin = null;
+
+                                                    if (GetPlugin(
+                                                            nextString, lookupFlags, ref plugin,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(plugin);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeExecute, true))
+                                            {
+                                                if (nextValue is IExecute)
+                                                {
+                                                    variant = new Variant((IExecute)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    IExecute execute = null;
+
+                                                    if (MatchAnyIExecute(
+                                                            null, safe ?
+                                                                EngineFlags.None :
+                                                                EngineFlags.MatchHidden,
+                                                            nextString, lookupFlags, ref execute,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(execute);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeCallback, true))
+                                            {
+                                                if (nextValue is ICallback)
+                                                {
+                                                    variant = new Variant((ICallback)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    ICallback callback = null;
+
+                                                    if (Value.GetCallback(
+                                                            this, null, nextString, appDomain, options,
+                                                            Value.GetTypeValueFlags(
+                                                                strictOption, false, noCase || noCaseOption),
+                                                            cultureInfo, null, ref callback,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(callback);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeRuleSet, true))
+                                            {
+                                                if (nextValue is IRuleSet)
+                                                {
+                                                    variant = new Variant((IRuleSet)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    IRuleSet ruleSet;
+
+                                                    if (FlagOps.HasFlags(flags, OptionFlags.CouldBePath, true) &&
+                                                        PathOps.IsRemoteUriOrFile(nextString))
+                                                    {
+#if TEST
+                                                        ruleSet = null;
+
+                                                        if (_Tests.Default.TestLoadRuleSet(
+                                                                nextString, ref ruleSet, ref error) == ReturnCode.Ok)
+                                                        {
+                                                            variant = new Variant(ruleSet);
+                                                        }
+                                                        else
+                                                        {
+                                                            return ReturnCode.Error;
+                                                        }
+#else
+                                                        error = "not implemented";
+                                                        return ReturnCode.Error;
+#endif
+                                                    }
+                                                    else
+                                                    {
+                                                        ruleSet = RuleSet.Create(
+                                                            nextString, cultureInfo, ref error);
+
+                                                        if (ruleSet != null)
+                                                            variant = new Variant(ruleSet);
+                                                        else
+                                                            return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+                                            else
+                                            {
+                                                //
+                                                // NOTE: No strongly-typed value flags were set for this
+                                                //       option, just use the string verbatim.
+                                                //
+                                                if (nextValue is string)
+                                                    variant = new Variant((string)nextValue); // String
+                                                else
+                                                    variant = new Variant(nextString); // String
+                                            }
                                         }
-                                        else if (!noSet)
+                                        else
                                         {
-                                            option.SetPresent(options, true, argumentIndex, null);
+                                            //
+                                            // NOTE: We are forbidden from interpreting the string as a
+                                            //       strongly-typed value, just use the string verbatim.
+                                            //
+                                            if (nextValue is string)
+                                                variant = new Variant((string)nextValue); // String
+                                            else
+                                                variant = new Variant(nextString); // String
                                         }
+
+                                        if (!noSet)
+                                            option.SetPresent(options, true, argumentIndex, variant);
+
+                                        argumentIndex++; // skip option value...
                                     }
                                     else
                                     {
                                         error = String.Format(
-                                            "{0} option is invalid",
-                                            FormatOps.WrapOrNull(current));
+                                            "{0} option must be followed by {1}",
+                                            FormatOps.WrapOrNull(currentString),
+                                            option.FlagsToString());
 
-                                        code = ReturnCode.Error;
-                                        break;
+                                        return ReturnCode.Error;
                                     }
                                 }
-                                else
+                                finally
                                 {
-                                    if (ambiguous)
+                                    if (zero)
                                     {
-                                        if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ErrorOnAmbiguousOption, true))
+                                        //
+                                        // HACK: Attempt to forcibly "scrub"
+                                        //       the plain-text option value
+                                        //       from memory via whatever
+                                        //       means are available.
+                                        //
+                                        if (nextArgument != null)
+                                            nextArgument.ResetValue(this, true);
+
+                                        if (localError != null)
+                                            localError.ResetValue(this, true);
+
+                                        if (error != null)
+                                            error.ResetValue(this, true);
+
+#if !MONO && NATIVE && WINDOWS
+                                        if (canZero)
                                         {
-                                            //
-                                            // NOTE: This is not a valid option and we want to
-                                            //       treat this as an error.
-                                            //
-                                            error = localError;
-                                            code = ReturnCode.Error;
-                                            break;
+                                            /* IGNORED */
+                                            StringOps.ZeroStringOrTrace(nextString);
                                         }
-                                        else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StopOnAmbiguousOption, true))
-                                        {
-                                            //
-                                            // NOTE: This is not a valid option and we want to
-                                            //       stop now because we want to assume it is
-                                            //       the first non-option argument.  This is
-                                            //       the default behavior.
-                                            //
-                                            nextIndex = argumentIndex;
-                                            break;
-                                        }
-                                        else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.IgnoreOnAmbiguousOption, true))
-                                        {
-                                            //
-                                            // NOTE: This is not a valid option and we want to
-                                            //       simply ignore it.  We may also want to skip
-                                            //       the next argument.
-                                            //
-                                            if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.SkipOnAmbiguousOption, true))
-                                                argumentIndex++;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ErrorOnUnknownOption, true))
-                                        {
-                                            //
-                                            // NOTE: This is not a valid option and we want to
-                                            //       treat this as an error.
-                                            //
-                                            error = localError;
-                                            code = ReturnCode.Error;
-                                            break;
-                                        }
-                                        else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StopOnUnknownOption, true))
-                                        {
-                                            //
-                                            // NOTE: This is not a valid option and we want to
-                                            //       stop now because we want to assume it is
-                                            //       the first non-option argument.  This is
-                                            //       the default behavior.
-                                            //
-                                            nextIndex = argumentIndex;
-                                            break;
-                                        }
-                                        else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.IgnoreOnUnknownOption, true))
-                                        {
-                                            //
-                                            // NOTE: This is not a valid option and we want to
-                                            //       simply ignore it.  We may also want to skip
-                                            //       the next argument.
-                                            //
-                                            if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.SkipOnUnknownOption, true))
-                                                argumentIndex++;
-                                        }
+#endif
+
+                                        ObjectOps.CollectGarbage(); /* throw */
                                     }
                                 }
                             }
-                            else
+                            else if (!noSet)
                             {
-                                if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ErrorOnNonOption, true))
-                                {
-                                    //
-                                    // NOTE: This is a non-option and we want to treat
-                                    //       this as an error.
-                                    //
-                                    error = String.Format(
-                                        "unexpected non-option argument {0}",
-                                        FormatOps.WrapOrNull(current));
-
-                                    code = ReturnCode.Error;
-                                    break;
-                                }
-                                else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StopOnNonOption, true))
-                                {
-                                    //
-                                    // NOTE: This is a non-option and we want to stop
-                                    //       now because we want to treat it as the
-                                    //       first non-option argument.  This is the
-                                    //       default behavior.
-                                    //
-                                    nextIndex = argumentIndex;
-                                    break;
-                                }
-                                else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.IgnoreOnNonOption, true))
-                                {
-                                    //
-                                    // NOTE: This is a non-option and we want to simply
-                                    //       ignore it.  We may also want to skip the
-                                    //       next argument.
-                                    //
-                                    if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.SkipOnNonOption, true))
-                                        argumentIndex++;
-                                }
+                                option.SetPresent(options, true, argumentIndex, null);
                             }
+                        }
+                        else
+                        {
+                            error = String.Format(
+                                "{0} option is invalid",
+                                FormatOps.WrapOrNull(currentString));
+
+                            return ReturnCode.Error;
                         }
                     }
                     else
                     {
-                        code = ReturnCode.Error;
+                        if (ambiguous)
+                        {
+                            if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ErrorOnAmbiguousOption, true))
+                            {
+                                //
+                                // NOTE: This is not a valid option and we want to
+                                //       treat this as an error.
+                                //
+                                error = localError;
+                                return ReturnCode.Error;
+                            }
+                            else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StopOnAmbiguousOption, true))
+                            {
+                                //
+                                // NOTE: This is not a valid option and we want to
+                                //       stop now because we want to assume it is
+                                //       the first non-option argument.  This is
+                                //       the default behavior.
+                                //
+                                nextIndex = argumentIndex;
+                                return ReturnCode.Ok;
+                            }
+                            else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.IgnoreOnAmbiguousOption, true))
+                            {
+                                //
+                                // NOTE: This is not a valid option and we want to
+                                //       simply ignore it.  We may also want to skip
+                                //       the next argument.
+                                //
+                                if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.SkipOnAmbiguousOption, true))
+                                    argumentIndex++;
+                            }
+                        }
+                        else
+                        {
+                            if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ErrorOnUnknownOption, true))
+                            {
+                                //
+                                // NOTE: This is not a valid option and we want to
+                                //       treat this as an error.
+                                //
+                                error = localError;
+                                return ReturnCode.Error;
+                            }
+                            else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StopOnUnknownOption, true))
+                            {
+                                //
+                                // NOTE: This is not a valid option and we want to
+                                //       stop now because we want to assume it is
+                                //       the first non-option argument.  This is
+                                //       the default behavior.
+                                //
+                                nextIndex = argumentIndex;
+                                return ReturnCode.Ok;
+                            }
+                            else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.IgnoreOnUnknownOption, true))
+                            {
+                                //
+                                // NOTE: This is not a valid option and we want to
+                                //       simply ignore it.  We may also want to skip
+                                //       the next argument.
+                                //
+                                if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.SkipOnUnknownOption, true))
+                                    argumentIndex++;
+                            }
+                        }
                     }
                 }
                 else
                 {
-                    error = "invalid arguments";
-                    code = ReturnCode.Error;
+                    if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.ErrorOnNonOption, true))
+                    {
+                        //
+                        // NOTE: This is a non-option and we want to treat
+                        //       this as an error.
+                        //
+                        error = String.Format(
+                            "unexpected non-option argument {0}",
+                            FormatOps.WrapOrNull(currentString));
+
+                        return ReturnCode.Error;
+                    }
+                    else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.StopOnNonOption, true))
+                    {
+                        //
+                        // NOTE: This is a non-option and we want to stop
+                        //       now because we want to treat it as the
+                        //       first non-option argument.  This is the
+                        //       default behavior.
+                        //
+                        nextIndex = argumentIndex;
+                        return ReturnCode.Ok;
+                    }
+                    else if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.IgnoreOnNonOption, true))
+                    {
+                        //
+                        // NOTE: This is a non-option and we want to simply
+                        //       ignore it.  We may also want to skip the
+                        //       next argument.
+                        //
+                        if (FlagOps.HasFlags(behaviorFlags, OptionBehaviorFlags.SkipOnNonOption, true))
+                            argumentIndex++;
+                    }
                 }
             }
-            else
-            {
-                error = "invalid options";
-                code = ReturnCode.Error;
-            }
 
-            return code;
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -7926,6 +8607,211 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public ReturnCode EvaluateBundleFile(
+            string fileName,
+            byte[] password,
+            ref IClientData clientData,
+            ref Result result
+            )
+        {
+            CheckDisposed();
+
+            int errorLine = 0;
+
+            ReturnCode code = EvaluateBundleFile(
+                fileName, password, ref clientData,
+                ref result, ref errorLine);
+
+            if (errorLine != 0)
+                SetErrorLine(this, errorLine);
+
+            return code;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode EvaluateBundleFile(
+            string fileName,
+            byte[] password,
+            ref IClientData clientData,
+            ref Result result,
+            ref int errorLine
+            )
+        {
+            CheckDisposed();
+
+            IHaveScriptFlags haveScriptFlags = new HaveScriptFlags(false);
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                haveScriptFlags.ScriptFlags = ScriptFlagsNoLock;
+                haveScriptFlags.EngineFlags = EngineFlagsNoLock;
+                haveScriptFlags.SubstitutionFlags = SubstitutionFlagsNoLock;
+                haveScriptFlags.EventFlags = EngineEventFlagsNoLock;
+                haveScriptFlags.ExpressionFlags = ExpressionFlagsNoLock;
+            }
+
+            return EvaluateBundleFile(
+                fileName, password, haveScriptFlags, ref clientData,
+                ref result, ref errorLine);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode EvaluateBundleFile(
+            string fileName,                  /* in */
+            byte[] password,                  /* in: OPTIONAL */
+            IHaveScriptFlags haveScriptFlags, /* in: OPTIONAL */
+            ref IClientData clientData,       /* in, out: OPTIONAL */
+            ref Result result,                /* out */
+            ref int errorLine                 /* out */
+            )
+        {
+            CheckDisposed();
+
+            Encoding encoding = StringOps.GetEncoding(
+                EncodingType.Script);
+
+            if (encoding == null)
+            {
+                result = "invalid script encoding";
+                return ReturnCode.Error;
+            }
+
+            if (ScriptOps.EnableOrDisableSecurity(
+                    this, true, true, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            string keyRingFileName = ScriptOps.FindSecurityPackageFile(
+                this, mergeBundleKeyRingFileName);
+
+            if (!String.IsNullOrEmpty(keyRingFileName))
+            {
+                StringList mergeCommand = new StringList();
+
+                mergeCommand.Add(NamespaceOps.MakeAbsoluteName(
+                    mergeBundleCommandName));
+
+                mergeCommand.Add(mergeBundleSubCommandName);
+                mergeCommand.Add(keyRingFileName);
+
+                if (EvaluateTrustedScript(
+                        mergeCommand.ToString(),
+                        TrustFlags.MaybeMarkTrusted,
+                        ref result) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+            }
+
+            StringList verifyCommand = new StringList();
+
+            verifyCommand.Add(NamespaceOps.MakeAbsoluteName(
+                verifyBundleCommandName));
+
+            verifyCommand.Add(verifyBundleSubCommandName);
+            verifyCommand.Add(fileName);
+
+            if (EvaluateTrustedScript(
+                    verifyCommand.ToString(),
+                    TrustFlags.MaybeMarkTrusted,
+                    ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            CultureInfo cultureInfo = InternalCultureInfo;
+            List<Script> scripts = null;
+
+            if (DataOps.GatherBundleScripts(
+                    this, cultureInfo, haveScriptFlags, clientData,
+                    encoding, fileName, password, null, false,
+                    false, ref scripts, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (scripts == null)
+            {
+                result = "invalid bundle scripts";
+                return ReturnCode.Error;
+            }
+
+            if (scripts.Count == 0)
+            {
+                result = "bundle file has no scripts";
+                return ReturnCode.Error;
+            }
+
+            IBundleManager bundleManager;
+
+            lock (syncRoot)
+            {
+                bundleManager = this.bundleManager;
+            }
+
+            if (bundleManager == null)
+            {
+                result = "invalid bundle manager";
+                return ReturnCode.Error;
+            }
+
+            if (bundleManager.Mount(
+                    this, fileName, password, false,
+                    ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            string savedFileName;
+
+            bundleManager.BeginEvaluation(
+                this, fileName, out savedFileName);
+
+            try
+            {
+                bool pushed = false;
+
+                PushScriptLocation(fileName, true, ref pushed);
+
+                try
+                {
+                    foreach (Script script in scripts)
+                    {
+                        if (script == null)
+                            continue;
+
+                        IBundleData bundleData = script.BundleData;
+
+                        if (bundleData == null)
+                            continue;
+
+                        if (Engine.EvaluateScript(this,
+                                script, bundleData, ref result,
+                                ref errorLine) != ReturnCode.Ok)
+                        {
+                            return ReturnCode.Error;
+                        }
+                    }
+
+                    return ReturnCode.Ok;
+                }
+                finally
+                {
+                    PopScriptLocation(true, ref pushed);
+                }
+            }
+            finally
+            {
+                bundleManager.EndEvaluation(
+                    this, ref savedFileName);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public ReturnCode EvaluateGlobalFile(
             string fileName,
             ref Result result
@@ -10342,7 +11228,7 @@ namespace Eagle._Components.Public
                     foreach (ProcedurePair pair in localProcedures)
                     {
                         string key = pair.Key;
-                        _Wrappers.Procedure procedure = pair.Value;
+                        ProcedureWrapper procedure = pair.Value;
 
                         if ((procedure != null) && EntityOps.IsHidden(procedure))
                         {
@@ -10390,7 +11276,7 @@ namespace Eagle._Components.Public
                     foreach (ProcedurePair pair in localProcedures)
                     {
                         string key = pair.Key;
-                        _Wrappers.Procedure procedure = pair.Value;
+                        ProcedureWrapper procedure = pair.Value;
 
                         if ((procedure != null) && !EntityOps.IsHidden(procedure))
                         {
@@ -10455,11 +11341,11 @@ namespace Eagle._Components.Public
                     foreach (CommandPair pair in localCommands)
                     {
                         string key = pair.Key;
-                        _Wrappers.Command newCommand = pair.Value;
+                        CommandWrapper newCommand = pair.Value;
 
                         if ((newCommand != null) && EntityOps.IsHidden(newCommand))
                         {
-                            _Wrappers.Command oldCommand;
+                            CommandWrapper oldCommand;
                             bool exists = hiddenCommands.TryGetValue(key, out oldCommand);
 
                             if (exists && !replaceExisting)
@@ -10540,11 +11426,11 @@ namespace Eagle._Components.Public
                     foreach (CommandPair pair in localCommands)
                     {
                         string key = pair.Key;
-                        _Wrappers.Command newCommand = pair.Value;
+                        CommandWrapper newCommand = pair.Value;
 
                         if ((newCommand != null) && !EntityOps.IsHidden(newCommand))
                         {
-                            _Wrappers.Command oldCommand;
+                            CommandWrapper oldCommand;
                             bool exists = commands.TryGetValue(key, out oldCommand);
 
                             if (exists && !replaceExisting)
@@ -10641,13 +11527,13 @@ namespace Eagle._Components.Public
 
                 if (InternalGetIExecuteViaResolvers(
                         GetResolveEngineFlagsNoLock(true) | EngineFlags.UseHidden, name,
-                        null, LookupFlags.NoVerbose, ref execute) == ReturnCode.Ok)
+                        null, LookupFlags.NoVerboseNoCache, ref execute) == ReturnCode.Ok)
                 {
-                    if (execute is _Wrappers._Execute)
+                    if (execute is ExecuteWrapper)
                     {
                         if (PrivateHasIExecutes(ref error) && PrivateHasHiddenIExecutes(ref error))
                         {
-                            _Wrappers._Execute executeWrapper = (_Wrappers._Execute)execute;
+                            ExecuteWrapper executeWrapper = (ExecuteWrapper)execute;
 
                             string newName = ScriptOps.MakeCommandName(name);
 
@@ -10667,11 +11553,11 @@ namespace Eagle._Components.Public
                             return ReturnCode.Ok;
                         }
                     }
-                    else if (execute is _Wrappers.Procedure)
+                    else if (execute is ProcedureWrapper)
                     {
                         if (PrivateHasProcedures(ref error) && PrivateHasHiddenProcedures(ref error))
                         {
-                            _Wrappers.Procedure procedureWrapper = (_Wrappers.Procedure)execute;
+                            ProcedureWrapper procedureWrapper = (ProcedureWrapper)execute;
 
                             procedures.Add(procedureWrapper.Name, procedureWrapper);
                             hiddenProcedures.Remove(procedureWrapper.Name);
@@ -10691,11 +11577,11 @@ namespace Eagle._Components.Public
                             return ReturnCode.Ok;
                         }
                     }
-                    else if (execute is _Wrappers.Command)
+                    else if (execute is CommandWrapper)
                     {
                         if (PrivateHasCommands(ref error) && PrivateHasHiddenCommands(ref error))
                         {
-                            _Wrappers.Command commandWrapper = (_Wrappers.Command)execute;
+                            CommandWrapper commandWrapper = (CommandWrapper)execute;
 
                             commands.Add(commandWrapper.Name, commandWrapper);
                             hiddenCommands.Remove(commandWrapper.Name);
@@ -10751,13 +11637,13 @@ namespace Eagle._Components.Public
 
                 if (InternalGetIExecuteViaResolvers(
                         GetResolveEngineFlagsNoLock(true), name, null,
-                        LookupFlags.NoVerbose, ref execute) == ReturnCode.Ok)
+                        LookupFlags.NoVerboseNoCache, ref execute) == ReturnCode.Ok)
                 {
-                    if (execute is _Wrappers._Execute)
+                    if (execute is ExecuteWrapper)
                     {
                         if (PrivateHasIExecutes(ref error) && PrivateHasHiddenIExecutes(ref error))
                         {
-                            _Wrappers._Execute executeWrapper = (_Wrappers._Execute)execute;
+                            ExecuteWrapper executeWrapper = (ExecuteWrapper)execute;
 
                             string newName = ScriptOps.MakeCommandName(name);
 
@@ -10777,11 +11663,11 @@ namespace Eagle._Components.Public
                             return ReturnCode.Ok;
                         }
                     }
-                    else if (execute is _Wrappers.Procedure)
+                    else if (execute is ProcedureWrapper)
                     {
                         if (PrivateHasProcedures(ref error) && PrivateHasHiddenProcedures(ref error))
                         {
-                            _Wrappers.Procedure procedureWrapper = (_Wrappers.Procedure)execute;
+                            ProcedureWrapper procedureWrapper = (ProcedureWrapper)execute;
 
                             hiddenProcedures.Add(procedureWrapper.Name, procedureWrapper);
                             procedures.Remove(procedureWrapper.Name);
@@ -10801,11 +11687,11 @@ namespace Eagle._Components.Public
                             return ReturnCode.Ok;
                         }
                     }
-                    else if (execute is _Wrappers.Command)
+                    else if (execute is CommandWrapper)
                     {
                         if (PrivateHasCommands(ref error) && PrivateHasHiddenCommands(ref error))
                         {
-                            _Wrappers.Command commandWrapper = (_Wrappers.Command)execute;
+                            CommandWrapper commandWrapper = (CommandWrapper)execute;
 
                             hiddenCommands.Add(commandWrapper.Name, commandWrapper);
                             commands.Remove(commandWrapper.Name);
@@ -14369,6 +15255,7 @@ namespace Eagle._Components.Public
                 case IdentifierKind.DelegateData:
                 case IdentifierKind.Delegate:
                 case IdentifierKind.SubDelegate:
+                case IdentifierKind.Automatic:
                 case IdentifierKind.ResolveData:
                 case IdentifierKind.ClockData:
                 case IdentifierKind.Clock:
@@ -14635,7 +15522,8 @@ namespace Eagle._Components.Public
                     name, lookupFlags, ref localCommand,
                     ref localError) == ReturnCode.Ok)
             {
-                if ((localCommand is _Commands.Ensemble) ||
+                if ((localCommand is _Commands.Automatic) ||
+                    (localCommand is _Commands.Ensemble) ||
                     (localCommand is _Commands.Stub))
                 {
                     command = localCommand;
@@ -14663,7 +15551,8 @@ namespace Eagle._Components.Public
                         name, lookupFlags, ref localCommand,
                         ref localError) == ReturnCode.Ok)
                 {
-                    if ((localCommand is _Commands.Ensemble) ||
+                    if ((localCommand is _Commands.Automatic) ||
+                        (localCommand is _Commands.Ensemble) ||
                         (localCommand is _Commands.Stub))
                     {
                         command = localCommand;
@@ -15837,20 +16726,32 @@ namespace Eagle._Components.Public
                 try
                 {
                     bool success = false;
-                    _Wrappers._Execute wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
-                        long id = EntityOps.NextTokenIdNoThrow(execute as IWrapperData);
-                        wrapper = new _Wrappers._Execute(id, execute);
+                        long id = EntityOps.NextTokenIdNoThrow(
+                            execute as IWrapperData);
 
-                        executes.Add(name, wrapper);
+                        wrapper = EntityOps.MaybeNewWrapperWith<ExecuteWrapper>(
+                            id, execute as IWrapperData);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
+
+                        executes.Add(name, wrapper as ExecuteWrapper);
                         success = true;
 
                         long newToken = EntityOps.GetToken(wrapper);
 
 #if EXECUTE_CACHE
-                        AddOrUpdateIExecuteToCache(name, wrapper, false, false);
+                        AddOrUpdateIExecuteToCache(name, execute, false, false);
 #endif
 
 #if ARGUMENT_CACHE
@@ -16016,7 +16917,7 @@ namespace Eagle._Components.Public
                     {
                         if (localExecutes.Count > 0)
                         {
-                            _Wrappers._Execute localExecute;
+                            ExecuteWrapper localExecute;
                             string exactName = null;
                             StringList list = new StringList();
 
@@ -16173,7 +17074,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasIExecutes(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers._Execute wrapper;
+            ExecuteWrapper wrapper;
 
             if (!executes.TryGetValue(token, out wrapper))
             {
@@ -16240,7 +17141,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers._Execute wrapper;
+            ExecuteWrapper wrapper;
 
             if (!executes.TryGetValue(name, out wrapper))
             {
@@ -16444,7 +17345,7 @@ namespace Eagle._Components.Public
 
                         if (GetIExecute(oldName, LookupFlags.Default, ref oldExecute, ref result) == ReturnCode.Ok)
                         {
-                            _Wrappers._Execute oldWrapper = oldExecute as _Wrappers._Execute;
+                            ExecuteWrapper oldWrapper = oldExecute as ExecuteWrapper;
 
                             if (oldWrapper != null)
                             {
@@ -16790,8 +17691,8 @@ namespace Eagle._Components.Public
             CheckDisposed();
 
             return AddObject(new _Objects.Default(new ObjectData(
-                name, null, null, clientData, type, null, objectFlags,
-                referenceCount, 0,
+                name, null, null, clientData, false, false, type,
+                null, objectFlags, referenceCount, 0,
 #if NATIVE && TCL
                 interpName,
 #endif
@@ -16848,14 +17749,25 @@ namespace Eagle._Components.Public
                 try
                 {
                     bool success = false;
-                    _Wrappers._Object wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(@object);
-                        wrapper = new _Wrappers._Object(id, @object);
 
-                        objects.Add(name, wrapper);
+                        wrapper = EntityOps.MaybeNewWrapperWith<ObjectWrapper>(
+                            id, @object);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
+
+                        objects.Add(name, wrapper as ObjectWrapper);
                         success = true;
 
                         long newToken = EntityOps.GetToken(wrapper);
@@ -16941,7 +17853,7 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
                 }
 
-                _Wrappers._Object @object;
+                ObjectWrapper @object;
 
                 if (!objects.TryGetValue(oldName, out @object))
                 {
@@ -17175,7 +18087,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasObjects(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers._Object wrapper;
+            ObjectWrapper wrapper;
 
             if (!objects.TryGetValue(token, out wrapper))
             {
@@ -17194,10 +18106,27 @@ namespace Eagle._Components.Public
                     error = "invalid object";
                     return ReturnCode.Error;
                 }
-                else
+
+                if ((@object != null) &&
+                    FlagOps.HasFlags(lookupFlags, LookupFlags.NoDisposed, true))
                 {
-                    return ReturnCode.Ok;
+                    if (@object.Disposed)
+                    {
+                        error = "disposed object";
+                        return ReturnCode.Error;
+                    }
+
+                    bool? disposed = ObjectOps.IsDisposed(
+                        this, @object.Value, true, false, false);
+
+                    if ((disposed != null) && (bool)disposed)
+                    {
+                        error = "disposed object value";
+                        return ReturnCode.Error;
+                    }
                 }
+
+                return ReturnCode.Ok;
             }
             else
             {
@@ -17216,10 +18145,27 @@ namespace Eagle._Components.Public
                     error = "invalid object";
                     return ReturnCode.Error;
                 }
-                else
+
+                if ((@object != null) &&
+                    FlagOps.HasFlags(lookupFlags, LookupFlags.NoDisposed, true))
                 {
-                    return ReturnCode.Ok;
+                    if (@object.Disposed)
+                    {
+                        error = "disposed object";
+                        return ReturnCode.Error;
+                    }
+
+                    bool? disposed = ObjectOps.IsDisposed(
+                        this, @object.Value, true, false, false);
+
+                    if ((disposed != null) && (bool)disposed)
+                    {
+                        error = "disposed object value";
+                        return ReturnCode.Error;
+                    }
                 }
+
+                return ReturnCode.Ok;
             }
         }
 
@@ -17257,7 +18203,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers._Object wrapper;
+            ObjectWrapper wrapper;
 
             if (!objects.TryGetValue(name, out wrapper))
             {
@@ -17276,10 +18222,27 @@ namespace Eagle._Components.Public
                     error = "invalid object";
                     return ReturnCode.Error;
                 }
-                else
+
+                if ((@object != null) &&
+                    FlagOps.HasFlags(lookupFlags, LookupFlags.NoDisposed, true))
                 {
-                    return ReturnCode.Ok;
+                    if (@object.Disposed)
+                    {
+                        error = "disposed object";
+                        return ReturnCode.Error;
+                    }
+
+                    bool? disposed = ObjectOps.IsDisposed(
+                        this, @object.Value, true, false, false);
+
+                    if ((disposed != null) && (bool)disposed)
+                    {
+                        error = "disposed object value";
+                        return ReturnCode.Error;
+                    }
                 }
+
+                return ReturnCode.Ok;
             }
             else
             {
@@ -17298,10 +18261,27 @@ namespace Eagle._Components.Public
                     error = "invalid object";
                     return ReturnCode.Error;
                 }
-                else
+
+                if ((@object != null) &&
+                    FlagOps.HasFlags(lookupFlags, LookupFlags.NoDisposed, true))
                 {
-                    return ReturnCode.Ok;
+                    if (@object.Disposed)
+                    {
+                        error = "disposed object";
+                        return ReturnCode.Error;
+                    }
+
+                    bool? disposed = ObjectOps.IsDisposed(
+                        this, @object.Value, true, false, false);
+
+                    if ((disposed != null) && (bool)disposed)
+                    {
+                        error = "disposed object value";
+                        return ReturnCode.Error;
+                    }
                 }
+
+                return ReturnCode.Ok;
             }
         }
 
@@ -17522,11 +18502,13 @@ namespace Eagle._Components.Public
             {
                 if (PrivateHasObjects(ref error))
                 {
+                    Result localError = null;
+
                     if (objects.Count > 0)
                     {
                         foreach (__ObjectPair pair in objects)
                         {
-                            _Wrappers._Object wrapper = pair.Value;
+                            ObjectWrapper wrapper = pair.Value;
 
                             if (wrapper == null)
                                 continue;
@@ -17547,11 +18529,39 @@ namespace Eagle._Components.Public
 
                                     token = EntityOps.GetToken(wrapper);
 
-                                    if ((@object != null) ||
-                                        !FlagOps.HasFlags(lookupFlags, LookupFlags.Validate, true))
+                                    if ((@object == null) &&
+                                        FlagOps.HasFlags(lookupFlags, LookupFlags.Validate, true))
                                     {
-                                        code = ReturnCode.Ok;
+                                        localError = "invalid object";
+                                        code = ReturnCode.Error;
+
+                                        break;
                                     }
+
+                                    if ((@object != null) &&
+                                        FlagOps.HasFlags(lookupFlags, LookupFlags.NoDisposed, true))
+                                    {
+                                        if (@object.Disposed)
+                                        {
+                                            localError = "disposed object";
+                                            code = ReturnCode.Error;
+
+                                            break;
+                                        }
+
+                                        bool? disposed = ObjectOps.IsDisposed(
+                                            this, @object.Value, true, false, false);
+
+                                        if ((disposed != null) && (bool)disposed)
+                                        {
+                                            localError = "disposed object value";
+                                            code = ReturnCode.Error;
+
+                                            break;
+                                        }
+                                    }
+
+                                    code = ReturnCode.Ok;
                                     break;
                                 }
                             }
@@ -17564,31 +18574,38 @@ namespace Eagle._Components.Public
                         // HACK: Prevent ToString method from throwing any
                         //       exceptions here (e.g. proxy).
                         //
+                        ResultList errors = new ResultList();
+
+                        if (localError != null)
+                            errors.Add(localError);
+
                         try
                         {
                             if (!AppDomainOps.IsTransparentProxy(value))
                             {
-                                error = FlagOps.HasFlags(
+                                errors.Add(FlagOps.HasFlags(
                                     lookupFlags, LookupFlags.Verbose, true) ?
                                     String.Format(
                                         "invalid object value {0}",
                                         FormatOps.WrapOrNull(value)) :
-                                    "invalid object value";
+                                    "invalid object value");
                             }
                             else
                             {
-                                error = "invalid object value";
+                                errors.Add("invalid object value");
                             }
                         }
                         catch (Exception e)
                         {
-                            error = FlagOps.HasFlags(
+                            errors.Add(FlagOps.HasFlags(
                                 lookupFlags, LookupFlags.Verbose, true) ?
                                 String.Format(
                                     "invalid object value: {0}",
                                     e) :
-                                "invalid object value";
+                                "invalid object value");
                         }
+
+                        error = errors;
                     }
                 }
             }
@@ -17602,8 +18619,8 @@ namespace Eagle._Components.Public
         // WARNING: For use by the ObjectTraceCallback method only.
         //
         private void GetObjectsForTrace(
-            StringList names,                    /* in */
-            ref IList<_Wrappers._Object> objects /* in, out */
+            StringList names,                /* in */
+            ref IList<ObjectWrapper> objects /* in, out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -17621,12 +18638,12 @@ namespace Eagle._Components.Public
                     if (name == null)
                         continue;
 
-                    _Wrappers._Object wrapper;
+                    ObjectWrapper wrapper;
 
                     if (localObjects.TryGetValue(name, out wrapper))
                     {
                         if (objects == null)
-                            objects = new List<_Wrappers._Object>(names.Count);
+                            objects = new List<ObjectWrapper>(names.Count);
 
                         objects.Add(wrapper); /* throw */
                     }
@@ -18383,14 +19400,25 @@ namespace Eagle._Components.Public
                         return code;
 
                     bool success = false;
-                    _Wrappers.Package wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(package);
-                        wrapper = new _Wrappers.Package(id, package);
 
-                        packages.Add(name, wrapper);
+                        wrapper = EntityOps.MaybeNewWrapperWith<PackageWrapper>(
+                            id, package);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
+
+                        packages.Add(name, wrapper as PackageWrapper);
                         success = true;
 
                         long newToken = EntityOps.GetToken(wrapper);
@@ -18469,7 +19497,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasPackages(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Package wrapper;
+            PackageWrapper wrapper;
 
             if (!packages.TryGetValue(token, out wrapper))
             {
@@ -18536,7 +19564,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Package wrapper;
+            PackageWrapper wrapper;
 
             if (!packages.TryGetValue(name, out wrapper))
             {
@@ -18964,7 +19992,7 @@ namespace Eagle._Components.Public
 
                 foreach (PluginPair pair in plugins)
                 {
-                    _Wrappers.Plugin wrapper = pair.Value;
+                    PluginWrapper wrapper = pair.Value;
 
                     if (wrapper == null)
                         continue;
@@ -19047,7 +20075,7 @@ namespace Eagle._Components.Public
 
                 foreach (PluginPair pair in plugins)
                 {
-                    _Wrappers.Plugin wrapper = pair.Value;
+                    PluginWrapper wrapper = pair.Value;
 
                     if (wrapper == null)
                         continue;
@@ -19128,7 +20156,7 @@ namespace Eagle._Components.Public
 
                 foreach (PluginPair pair in plugins)
                 {
-                    _Wrappers.Plugin wrapper = pair.Value;
+                    PluginWrapper wrapper = pair.Value;
 
                     if (wrapper == null)
                         continue;
@@ -19430,7 +20458,7 @@ namespace Eagle._Components.Public
                     if (key == null)
                         continue;
 
-                    _Wrappers.Plugin pluginWrapper;
+                    PluginWrapper pluginWrapper;
 
                     if (!notifyPlugins.TryGetValue(key, out pluginWrapper))
                         continue;
@@ -19497,7 +20525,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasPlugins(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Plugin wrapper;
+            PluginWrapper wrapper;
 
             if (!plugins.TryGetValue(token, out wrapper))
             {
@@ -19564,7 +20592,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Plugin wrapper;
+            PluginWrapper wrapper;
 
             if (!plugins.TryGetValue(name, out wrapper))
             {
@@ -19627,7 +20655,7 @@ namespace Eagle._Components.Public
                 {
                     if (plugins != null)
                     {
-                        _Wrappers.Plugin wrapper;
+                        PluginWrapper wrapper;
 
                         if (plugins.TryGetValue(name, out wrapper))
                             return wrapper;
@@ -19982,14 +21010,25 @@ namespace Eagle._Components.Public
                         return code;
 
                     bool success = false;
-                    _Wrappers.Plugin wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(plugin);
-                        wrapper = new _Wrappers.Plugin(id, plugin);
 
-                        plugins.Add(name, wrapper);
+                        wrapper = EntityOps.MaybeNewWrapperWith<PluginWrapper>(
+                            id, plugin);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
+
+                        plugins.Add(name, wrapper as PluginWrapper);
                         success = true;
 
                         long newToken = EntityOps.GetToken(wrapper);
@@ -20434,6 +21473,26 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
+            return AddExecuteCallback(
+                name, callback, clientData, plugin, null,
+                commandFlags, ref token, ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode AddExecuteCallback(
+            string name,
+            ExecuteCallback callback,
+            IClientData clientData,
+            IPlugin plugin,
+            EnsembleDictionary subCommands,
+            CommandFlags commandFlags,
+            ref long token,
+            ref Result result
+            )
+        {
+            CheckDisposed();
+
             //
             // NOTE: Synthesize a command out of the clear blue sky and
             //       populate it with the callback supplied by the user.
@@ -20449,6 +21508,14 @@ namespace Eagle._Components.Public
                 0));
 
             command.Callback = callback;
+
+            if (subCommands != null)
+            {
+                IEnsemble ensemble = command as IEnsemble;
+
+                if (ensemble != null)
+                    ensemble.SubCommands = subCommands;
+            }
 
             return AddCommand(command, clientData, ref token, ref result);
         }
@@ -20555,6 +21622,107 @@ namespace Eagle._Components.Public
                 result = results;
 
             return code;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode AddAutomaticCommands(
+            IPlugin plugin,                            /* in */
+            IClientData clientData,                    /* in */
+            IEnumerable<TypedInstance> typedInstances, /* in */
+            IDelegateMapper mapper,                    /* in */
+            BindingFlags? bindingFlags,                /* in */
+            MarshalFlags? marshalFlags,                /* in */
+            DelegateFlags? delegateFlags,              /* in */
+            bool? safe,                                /* in */
+            ref long count,                            /* in, out */
+            ref LongList tokens,                       /* in, out */
+            ref Result result                          /* out */
+            )
+        {
+            CheckDisposed();
+
+            if (typedInstances == null)
+            {
+                result = "invalid typed instances";
+                return ReturnCode.Error;
+            }
+
+            typedInstances = ScriptOps.GetUnique(typedInstances);
+
+            if (typedInstances == null)
+            {
+                result = "invalid unique typed instances";
+                return ReturnCode.Error;
+            }
+
+            bool success = false;
+            bool created = false;
+            IDelegateMapper localMapper = null;
+
+            try
+            {
+                if (mapper != null)
+                {
+                    localMapper = mapper;
+                }
+                else
+                {
+                    created = true;
+                    localMapper = new DelegateMapper();
+                }
+
+                int localCount = 0;
+
+                foreach (TypedInstance typedInstance in typedInstances)
+                {
+                    string name = typedInstance.ObjectName;
+
+                    if (name == null)
+                        name = typedInstance.FullObjectName;
+
+                    if (name == null)
+                        continue;
+
+                    if (localMapper.Load(
+                            MarshalOps.GetType(typedInstance), bindingFlags,
+                            marshalFlags, delegateFlags, false, ref localCount,
+                            ref result) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+
+                    ICommand command = ScriptOps.NewAutomaticCommand(
+                        name, clientData, plugin, typedInstance, localMapper,
+                        safe);
+
+                    long token = 0;
+
+                    if (AddCommand(command,
+                            clientData, ref token, ref result) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+
+                    if (tokens == null)
+                        tokens = new LongList();
+
+                    tokens.Add(token);
+                }
+
+                count += localCount;
+                success = (localCount > 0);
+
+                return ReturnCode.Ok;
+            }
+            finally
+            {
+                if (!success && created && (localMapper != null))
+                {
+                    localMapper.Dispose();
+                    localMapper = null;
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -20746,12 +21914,23 @@ namespace Eagle._Components.Public
                         return code;
 
                     bool success = false;
-                    _Wrappers.Command wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(command);
-                        wrapper = new _Wrappers.Command(id, command);
+
+                        wrapper = EntityOps.MaybeNewWrapperWith<CommandWrapper>(
+                            id, command);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
 
                         //
                         // NOTE: Are we allowed to assist in managing the command
@@ -20790,11 +21969,11 @@ namespace Eagle._Components.Public
 
                         EntityOps.SetToken(command, newToken);
 
-                        commands.Add(name, wrapper);
+                        commands.Add(name, wrapper as CommandWrapper);
                         success = true;
 
 #if EXECUTE_CACHE
-                        AddOrUpdateIExecuteToCache(name, wrapper, false, false);
+                        AddOrUpdateIExecuteToCache(name, command, false, false);
 #endif
 
 #if ARGUMENT_CACHE
@@ -21187,7 +22366,7 @@ namespace Eagle._Components.Public
                     {
                         if (localCommands.Count > 0)
                         {
-                            _Wrappers.Command localCommand;
+                            CommandWrapper localCommand;
                             string exactName = null;
                             StringList list = new StringList();
 
@@ -21464,7 +22643,7 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
                 }
 
-                _Wrappers.Command command;
+                CommandWrapper command;
 
                 if (!savedCommands.TryGetValue(token, out command))
                 {
@@ -21696,7 +22875,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasCommands(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Command wrapper;
+            CommandWrapper wrapper;
 
             if (!commands.TryGetValue(token, out wrapper))
             {
@@ -21763,7 +22942,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Command wrapper;
+            CommandWrapper wrapper;
 
             if (!commands.TryGetValue(name, out wrapper))
             {
@@ -21959,7 +23138,7 @@ namespace Eagle._Components.Public
                     {
                         foreach (CommandPair pair in commands)
                         {
-                            _Wrappers.Command wrapper = pair.Value;
+                            CommandWrapper wrapper = pair.Value;
 
                             if (wrapper == null)
                                 continue;
@@ -21994,7 +23173,7 @@ namespace Eagle._Components.Public
                     {
                         foreach (CommandPair pair in hiddenCommands)
                         {
-                            _Wrappers.Command wrapper = pair.Value;
+                            CommandWrapper wrapper = pair.Value;
 
                             if (wrapper == null)
                                 continue;
@@ -22098,7 +23277,7 @@ namespace Eagle._Components.Public
                                 if (EntityOps.IsNoRename(oldCommand))
                                     return ReturnCode.Ok;
 
-                                _Wrappers.Command oldWrapper = oldCommand as _Wrappers.Command;
+                                CommandWrapper oldWrapper = oldCommand as CommandWrapper;
 
                                 if (oldWrapper != null)
                                 {
@@ -22551,11 +23730,6 @@ namespace Eagle._Components.Public
 
             command.SubCommands = subCommands;
 
-#if ARGUMENT_CACHE
-            /* IGNORED */
-            ClearArgumentCache();
-#endif
-
             return AddCommand(command, clientData, ref token, ref result);
         }
         #endregion
@@ -22702,12 +23876,23 @@ namespace Eagle._Components.Public
                 try
                 {
                     bool success = false;
-                    _Wrappers.Policy wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(policy);
-                        wrapper = new _Wrappers.Policy(id, policy);
+
+                        wrapper = EntityOps.MaybeNewWrapperWith<PolicyWrapper>(
+                            id, policy);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
 
                         //
                         // NOTE: Are we allowed to assist in managing the policy
@@ -22746,7 +23931,7 @@ namespace Eagle._Components.Public
 
                         EntityOps.SetToken(policy, newToken);
 
-                        policies.Add(name, wrapper);
+                        policies.Add(name, wrapper as PolicyWrapper);
                         success = true;
 
 #if NOTIFY
@@ -22871,7 +24056,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasPolicies(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Policy wrapper;
+            PolicyWrapper wrapper;
 
             if (!policies.TryGetValue(token, out wrapper))
             {
@@ -22938,7 +24123,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Policy wrapper;
+            PolicyWrapper wrapper;
 
             if (!policies.TryGetValue(name, out wrapper))
             {
@@ -23327,12 +24512,23 @@ namespace Eagle._Components.Public
                 try
                 {
                     bool success = false;
-                    _Wrappers.Trace wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(trace);
-                        wrapper = new _Wrappers.Trace(id, trace);
+
+                        wrapper = EntityOps.MaybeNewWrapperWith<TraceWrapper>(
+                            id, trace);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
 
                         //
                         // NOTE: Are we allowed to assist in managing the trace
@@ -23371,7 +24567,7 @@ namespace Eagle._Components.Public
 
                         EntityOps.SetToken(trace, newToken);
 
-                        traces.Add(name, wrapper);
+                        traces.Add(name, wrapper as TraceWrapper);
                         success = true;
 
 #if NOTIFY
@@ -23447,7 +24643,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasTraces(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Trace wrapper;
+            TraceWrapper wrapper;
 
             if (!traces.TryGetValue(token, out wrapper))
             {
@@ -23514,7 +24710,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Trace wrapper;
+            TraceWrapper wrapper;
 
             if (!traces.TryGetValue(name, out wrapper))
             {
@@ -23870,14 +25066,25 @@ namespace Eagle._Components.Public
                 try
                 {
                     bool success = false;
-                    _Wrappers.Alias wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(alias);
-                        wrapper = new _Wrappers.Alias(id, alias);
 
-                        aliases.Add(name, wrapper);
+                        wrapper = EntityOps.MaybeNewWrapperWith<AliasWrapper>(
+                            id, alias);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
+
+                        aliases.Add(name, wrapper as AliasWrapper);
                         success = true;
 
                         long newToken = EntityOps.GetToken(wrapper);
@@ -23952,7 +25159,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasAliases(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Alias wrapper;
+            AliasWrapper wrapper;
 
             if (!aliases.TryGetValue(token, out wrapper))
             {
@@ -24019,7 +25226,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Alias wrapper;
+            AliasWrapper wrapper;
 
             if (!aliases.TryGetValue(name, out wrapper))
             {
@@ -24274,7 +25481,7 @@ namespace Eagle._Components.Public
                 }
 
                 string oldNameToken = oldName;
-                _Wrappers.Alias wrapper;
+                AliasWrapper wrapper;
 
                 if (!aliases.TryGetValue(oldNameToken, out wrapper))
                 {
@@ -24857,12 +26064,23 @@ namespace Eagle._Components.Public
                         return code;
 
                     bool success = false;
-                    _Wrappers.Function wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(function);
-                        wrapper = new _Wrappers.Function(id, function);
+
+                        wrapper = EntityOps.MaybeNewWrapperWith<FunctionWrapper>(
+                            id, function);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
 
                         //
                         // NOTE: Are we allowed to assist in managing the function
@@ -24901,7 +26119,7 @@ namespace Eagle._Components.Public
 
                         EntityOps.SetToken(function, newToken);
 
-                        functions.Add(name, wrapper);
+                        functions.Add(name, wrapper as FunctionWrapper);
                         success = true;
 
 #if NOTIFY
@@ -24977,7 +26195,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasFunctions(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Function wrapper;
+            FunctionWrapper wrapper;
 
             if (!functions.TryGetValue(token, out wrapper))
             {
@@ -25043,7 +26261,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Function wrapper;
+            FunctionWrapper wrapper;
 
             if (!functions.TryGetValue(name, out wrapper))
             {
@@ -25127,7 +26345,7 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
                 }
 
-                _Wrappers.Function wrapper;
+                FunctionWrapper wrapper;
 
                 if (!functions.TryGetValue(name, out wrapper))
                 {
@@ -25635,6 +26853,8 @@ namespace Eagle._Components.Public
             ProcedureFlags procedureFlags,
             ArgumentList arguments,
             ArgumentDictionary namedArguments,
+            ArgumentList overwriteArguments,
+            ArgumentList cleanArguments,
             string body,
             IScriptLocation location,
             IClientData clientData,
@@ -25648,9 +26868,9 @@ namespace Eagle._Components.Public
             Result error = null;
 
             procedure = RuntimeOps.NewProcedure(
-                this, ScriptOps.MakeCommandName(name), null, null,
-                procedureFlags, arguments, namedArguments, body,
-                location, clientData, ref error);
+                this, ScriptOps.MakeCommandName(name), null, null, procedureFlags,
+                arguments, namedArguments, overwriteArguments, cleanArguments,
+                body, location, clientData, ref error);
 
             if (procedure == null)
             {
@@ -25791,7 +27011,7 @@ namespace Eagle._Components.Public
                     {
                         if (localProcedures.Count > 0)
                         {
-                            _Wrappers.Procedure localProcedure;
+                            ProcedureWrapper localProcedure;
                             string exactName = null;
                             StringList list = new StringList();
 
@@ -26012,6 +27232,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public ReturnCode MakeProcedureInline(
+            string name,
+            bool inline,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            ReturnCode code;
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                IProcedure procedure = null;
+
+                code = GetProcedure(
+                    name, LookupFlags.Default, ref procedure, ref error);
+
+                if (code == ReturnCode.Ok)
+                {
+                    if (inline)
+                        procedure.Flags |= ProcedureFlags.NoPushFrame;
+                    else
+                        procedure.Flags &= ~ProcedureFlags.NoPushFrame;
+                }
+            }
+
+            return code;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if ARGUMENT_CACHE || PARSE_CACHE
         public ReturnCode MakeProcedureNonCaching(
             string name,
@@ -26162,7 +27413,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasProcedures(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Procedure wrapper;
+            ProcedureWrapper wrapper;
 
             if (!procedures.TryGetValue(token, out wrapper))
             {
@@ -26229,7 +27480,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Procedure wrapper;
+            ProcedureWrapper wrapper;
 
             if (!procedures.TryGetValue(name, out wrapper))
             {
@@ -26562,7 +27813,7 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
                 }
 
-                _Wrappers.Procedure oldProcedureWrapper = null;
+                ProcedureWrapper oldProcedureWrapper = null;
                 bool exists = procedures.TryGetValue(name, out oldProcedureWrapper);
 
                 if (exists)
@@ -26588,23 +27839,34 @@ namespace Eagle._Components.Public
                 try
                 {
                     bool success = false;
-                    _Wrappers.Procedure wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(procedure);
-                        wrapper = new _Wrappers.Procedure(id, procedure);
+
+                        wrapper = EntityOps.MaybeNewWrapperWith<ProcedureWrapper>(
+                            id, procedure);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
 
                         long newToken = EntityOps.GetToken(wrapper);
                         EntityOps.SetToken(procedure, newToken);
 
                         if (exists)
                         {
-                            procedures[name] = wrapper;
+                            procedures[name] = wrapper as ProcedureWrapper;
                             success = true;
 
 #if EXECUTE_CACHE
-                            AddOrUpdateIExecuteToCache(name, wrapper, false, false);
+                            AddOrUpdateIExecuteToCache(name, procedure, false, false);
 #endif
 
 #if ARGUMENT_CACHE
@@ -26622,11 +27884,11 @@ namespace Eagle._Components.Public
                         }
                         else if ((procedureLimit == Limits.Unlimited) || (procedures.Count < procedureLimit))
                         {
-                            procedures.Add(name, wrapper);
+                            procedures.Add(name, wrapper as ProcedureWrapper);
                             success = true;
 
 #if EXECUTE_CACHE
-                            AddOrUpdateIExecuteToCache(name, wrapper, false, false);
+                            AddOrUpdateIExecuteToCache(name, procedure, false, false);
 #endif
 
 #if ARGUMENT_CACHE
@@ -26700,7 +27962,7 @@ namespace Eagle._Components.Public
                                 if (EntityOps.IsNoRename(oldProcedure))
                                     return ReturnCode.Ok;
 
-                                _Wrappers.Procedure oldWrapper = oldProcedure as _Wrappers.Procedure;
+                                ProcedureWrapper oldWrapper = oldProcedure as ProcedureWrapper;
 
                                 if (oldWrapper != null)
                                 {
@@ -28630,7 +29892,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasHiddenCommands(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Command wrapper;
+            CommandWrapper wrapper;
 
             if (!hiddenCommands.TryGetValue(token, out wrapper))
             {
@@ -28697,7 +29959,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Command wrapper;
+            CommandWrapper wrapper;
 
             if (!hiddenCommands.TryGetValue(name, out wrapper))
             {
@@ -28992,7 +30254,7 @@ namespace Eagle._Components.Public
                                 if (EntityOps.IsNoRename(oldCommand))
                                     return ReturnCode.Ok;
 
-                                _Wrappers.Command oldWrapper = oldCommand as _Wrappers.Command;
+                                CommandWrapper oldWrapper = oldCommand as CommandWrapper;
 
                                 if (oldWrapper != null)
                                 {
@@ -29222,7 +30484,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasHiddenProcedures(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Procedure wrapper;
+            ProcedureWrapper wrapper;
 
             if (!hiddenProcedures.TryGetValue(token, out wrapper))
             {
@@ -29289,7 +30551,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Procedure wrapper;
+            ProcedureWrapper wrapper;
 
             if (!hiddenProcedures.TryGetValue(name, out wrapper))
             {
@@ -29456,7 +30718,7 @@ namespace Eagle._Components.Public
                                 if (EntityOps.IsNoRename(oldProcedure))
                                     return ReturnCode.Ok;
 
-                                _Wrappers.Procedure oldWrapper = oldProcedure as _Wrappers.Procedure;
+                                ProcedureWrapper oldWrapper = oldProcedure as ProcedureWrapper;
 
                                 if (oldWrapper != null)
                                 {
@@ -29650,7 +30912,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasHiddenIExecutes(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers._Execute wrapper;
+            ExecuteWrapper wrapper;
 
             if (!hiddenExecutes.TryGetValue(token, out wrapper))
             {
@@ -29717,7 +30979,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers._Execute wrapper;
+            ExecuteWrapper wrapper;
 
             if (!hiddenExecutes.TryGetValue(name, out wrapper))
             {
@@ -29887,7 +31149,7 @@ namespace Eagle._Components.Public
 
                         if (GetHiddenIExecute(oldName, LookupFlags.Default, ref oldExecute, ref result) == ReturnCode.Ok)
                         {
-                            _Wrappers._Execute oldWrapper = oldExecute as _Wrappers._Execute;
+                            ExecuteWrapper oldWrapper = oldExecute as ExecuteWrapper;
 
                             if (oldWrapper != null)
                             {
@@ -30103,7 +31365,7 @@ namespace Eagle._Components.Public
             if (!HasLambdas(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Lambda wrapper;
+            LambdaWrapper wrapper;
 
             if (!lambdas.TryGetValue(token, out wrapper))
             {
@@ -30170,7 +31432,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Lambda wrapper;
+            LambdaWrapper wrapper;
 
             if (!lambdas.TryGetValue(name, out wrapper))
             {
@@ -30332,7 +31594,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Operator wrapper;
+            OperatorWrapper wrapper;
 
             if (!operators.TryGetValue(name, out wrapper))
             {
@@ -30393,7 +31655,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasOperators(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Operator wrapper;
+            OperatorWrapper wrapper;
 
             if (!operators.TryGetValue(token, out wrapper))
             {
@@ -30552,7 +31814,7 @@ namespace Eagle._Components.Public
                 if (name == null)
                     return ReturnCode.Error;
 
-                _Wrappers.Operator wrapper;
+                OperatorWrapper wrapper;
 
                 if (!operators.TryGetValue(name, out wrapper))
                     return ReturnCode.Error;
@@ -30905,14 +32167,25 @@ namespace Eagle._Components.Public
                         return code;
 
                     bool success = false;
-                    _Wrappers.Operator wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(@operator);
-                        wrapper = new _Wrappers.Operator(id, @operator);
 
-                        operators.Add(name, wrapper);
+                        wrapper = EntityOps.MaybeNewWrapperWith<OperatorWrapper>(
+                            id, @operator);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
+
+                        operators.Add(name, wrapper as OperatorWrapper);
                         success = true;
 
                         long newToken = EntityOps.GetToken(wrapper);
@@ -31027,7 +32300,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasModules(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers._Module wrapper;
+            ModuleWrapper wrapper;
 
             if (!modules.TryGetValue(token, out wrapper))
             {
@@ -31094,7 +32367,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers._Module wrapper;
+            ModuleWrapper wrapper;
 
             if (!modules.TryGetValue(name, out wrapper))
             {
@@ -31272,7 +32545,7 @@ namespace Eagle._Components.Public
                     {
                         foreach (ModulePair pair in modules)
                         {
-                            _Wrappers._Module wrapper = pair.Value;
+                            ModuleWrapper wrapper = pair.Value;
 
                             if (wrapper == null)
                                 continue;
@@ -31371,14 +32644,25 @@ namespace Eagle._Components.Public
                 try
                 {
                     bool success = false;
-                    _Wrappers._Module wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(module);
-                        wrapper = new _Wrappers._Module(id, module);
 
-                        modules.Add(name, wrapper);
+                        wrapper = EntityOps.MaybeNewWrapperWith<ModuleWrapper>(
+                            id, module);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
+
+                        modules.Add(name, wrapper as ModuleWrapper);
                         success = true;
 
                         long newToken = EntityOps.GetToken(wrapper);
@@ -31663,7 +32947,7 @@ namespace Eagle._Components.Public
             if (!PrivateHasDelegates(ref error))
                 return ReturnCode.Error;
 
-            _Wrappers.Delegate wrapper;
+            DelegateWrapper wrapper;
 
             if (!delegates.TryGetValue(token, out wrapper))
             {
@@ -31730,7 +33014,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            _Wrappers.Delegate wrapper;
+            DelegateWrapper wrapper;
 
             if (!delegates.TryGetValue(name, out wrapper))
             {
@@ -31882,14 +33166,25 @@ namespace Eagle._Components.Public
                 try
                 {
                     bool success = false;
-                    _Wrappers.Delegate wrapper = null;
+                    IWrapper wrapper = null;
 
                     try
                     {
                         long id = EntityOps.NextTokenIdNoThrow(@delegate);
-                        wrapper = new _Wrappers.Delegate(id, @delegate);
 
-                        delegates.Add(name, wrapper);
+                        wrapper = EntityOps.MaybeNewWrapperWith<DelegateWrapper>(
+                            id, @delegate);
+
+                        if (wrapper == null)
+                        {
+                            result = String.Format(
+                                "can't add {0}: no wrapper",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
+
+                        delegates.Add(name, wrapper as DelegateWrapper);
                         success = true;
 
                         long newToken = EntityOps.GetToken(wrapper);
@@ -37128,6 +38423,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region NoTraceLimits Interpreter Flag
+        internal bool HasNoTraceLimits()
+        {
+            /* EXEMPT */
+            return FlagOps.HasFlags( /* NO-LOCK */
+                interpreterFlags, InterpreterFlags.NoTraceLimits,
+                true);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region NoNullArgument Interpreter Flag
         internal bool HasNoNullArgument(
             EngineFlags engineFlags
@@ -37266,6 +38573,25 @@ namespace Eagle._Components.Public
         {
             EndArgumentLocation(
                 ref savedInterpreterStateFlags);
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region TrustedRemoteOk Interpreter State Flag
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+        internal bool IsTrustedRemoteOk()
+        {
+            return SetStateFlags(InterpreterStateFlags.TrustedRemoteOk, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal void MarkAsTrustedRemoteOk()
+        {
+            /* IGNORED */
+            SetStateFlags(InterpreterStateFlags.TrustedRemoteOk, true);
         }
 #endif
         #endregion
@@ -40155,6 +41481,87 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+        private bool ShouldInitializeViaTrustedRemoteUri(
+            InitializeFlags initializeFlags /* in */
+            )
+        {
+            if (FlagOps.HasFlags(initializeFlags,
+                    InitializeFlags.NoTrustedRemote, true))
+            {
+                return false;
+            }
+
+            if (GlobalConfiguration.DoesValueExist(
+                    EnvVars.NoTrustedRemote,
+                    ConfigurationFlags.Interpreter))
+            {
+                return false;
+            }
+
+            if (PrivateIsRestricted()) /* Harpy SDK? */
+                return false;
+
+            if (HasToken()) /* Harpy Configuration? */
+                return false;
+
+            if (GlobalConfiguration.DoesValueExist(
+                    EnvVars.ForceTrustedRemote,
+                    ConfigurationFlags.Interpreter))
+            {
+                return true;
+            }
+
+            if (FlagOps.HasFlags(initializeFlags,
+                    InitializeFlags.TrustedRemote, true))
+            {
+                return true;
+            }
+
+            return false;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if THREADING
+        private static bool ShouldInitializeViaWorker1(
+            InitializeFlags initializeFlags /* in */
+            )
+        {
+            if (GlobalConfiguration.DoesValueExist(
+                    EnvVars.NoWorkers,
+                    ConfigurationFlags.Interpreter))
+            {
+                return false;
+            }
+
+            return FlagOps.HasFlags(initializeFlags,
+                InitializeFlags.Worker1, true);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if SHELL
+        private static bool ShouldInitializeViaShellWorker(
+            InitializeFlags initializeFlags /* in */
+            )
+        {
+            if (GlobalConfiguration.DoesValueExist(
+                    EnvVars.NoWorkers,
+                    ConfigurationFlags.Interpreter))
+            {
+                return false;
+            }
+
+            return FlagOps.HasFlags(initializeFlags,
+                InitializeFlags.ShellWorker, true);
+        }
+#endif
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private CreateStateFlags PrivateCreateStateFlags
         {
             get { /* NO-LOCK */ return createStateFlags; }
@@ -40403,7 +41810,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private bool IsPrimaryNativeThread(long threadId)
+        private bool IsPrimaryNativeThread(
+            long threadId
+            )
         {
             return (threadId == Interlocked.CompareExchange(
                 ref this.nativeThreadId, 0, 0));
@@ -41305,10 +42714,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public DataFlags DataFlags
+        {
+            get { CheckDisposed(); lock (syncRoot) { return DataFlagsNoLock; } }
+            set { CheckDisposed(); lock (syncRoot) { DataFlagsNoLock = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public ScriptFlags ScriptFlags
         {
-            get { CheckDisposed(); lock (syncRoot) { return PrivateScriptFlags; } }
-            set { CheckDisposed(); lock (syncRoot) { PrivateScriptFlags = value; } }
+            get { CheckDisposed(); lock (syncRoot) { return ScriptFlagsNoLock; } }
+            set { CheckDisposed(); lock (syncRoot) { ScriptFlagsNoLock = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public IBundleManager BundleManager
+        {
+            get
+            {
+                CheckDisposed();
+
+                lock (syncRoot)
+                {
+                    return bundleManager;
+                }
+            }
+            set
+            {
+                CheckDisposed();
+
+                lock (syncRoot)
+                {
+                    bundleManager = value;
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -41920,7 +43361,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal DataFlags DataFlags
+        internal DataFlags DataFlagsNoLock
         {
             get { return dataFlags; }
             set { dataFlags = value; }
@@ -41928,7 +43369,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private ScriptFlags PrivateScriptFlags
+        internal ScriptFlags ScriptFlagsNoLock
         {
             get { return scriptFlags; }
             set { scriptFlags = value; }
@@ -45536,8 +46977,36 @@ namespace Eagle._Components.Public
         #region Private
         private bool CanFireNotifications()
         {
-            return (NotifyLevels == 0) &&
-                !FlagOps.HasFlags(PrivateNotifyFlags, NotifyFlags.NoNotify, true);
+            if (NotifyLevels != 0)
+                return false;
+
+            if (FlagOps.HasFlags(PrivateNotifyFlags,
+                    NotifyFlags.NoNotify, true))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void BeginNoNotifications(
+            out NotifyFlags savedNotifyFlags /* out */
+            )
+        {
+            savedNotifyFlags = PrivateNotifyFlags;
+            PrivateNotifyFlags |= NotifyFlags.NoNotify;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void EndNoNotifications(
+            ref NotifyFlags savedNotifyFlags /* in, out */
+            )
+        {
+            PrivateNotifyFlags = savedNotifyFlags;
+            savedNotifyFlags = NotifyFlags.None;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -45548,13 +47017,16 @@ namespace Eagle._Components.Public
             )
         {
             //
-            // NOTE: Using the properties instead of the fields here takes
-            //       into account the per-thread types and flags as well
-            //       because the properties return a bitwise OR of the
-            //       global types and flags with the per-thread values.
+            // NOTE: Using the properties instead of the fields here
+            //       takes into account the per-thread types / flags
+            //       as well because the properties return a bitwise
+            //       -OR- of global types and flags along with their
+            //       associated per-thread values.
             //
-            if (FlagOps.HasFlags(PrivateNotifyTypes, type & NotifyType.CheckMask, true) &&
-                FlagOps.HasFlags(PrivateNotifyFlags, flags & NotifyFlags.CheckMask, true))
+            if (FlagOps.HasFlags(PrivateNotifyTypes,
+                    type & NotifyType.CheckMask, true) &&
+                FlagOps.HasFlags(PrivateNotifyFlags,
+                    flags & NotifyFlags.CheckMask, true))
             {
                 return true;
             }
@@ -45609,20 +47081,22 @@ namespace Eagle._Components.Public
             // NOTE: Query the event arguments to figure out which
             //       notification types are currently being sent.
             //
-            NotifyType hasTypes = (eventArgs != null) ?
+            NotifyType hasNotifyTypes = (eventArgs != null) ?
                 eventArgs.NotifyTypes : NotifyType.None;
 
             //
             // NOTE: Query the event arguments to figure out which
             //       notification sub-types are currently being sent.
             //
-            NotifyFlags hasFlags = (eventArgs != null) ?
+            NotifyFlags hasNotifyFlags = (eventArgs != null) ?
                 eventArgs.NotifyFlags : NotifyFlags.None;
 
             //
             // NOTE: Prevent endless event notification recursion.
             //
-            interpreter.NotifyFlags |= NotifyFlags.NoNotify;
+            NotifyFlags savedNotifyFlags;
+
+            interpreter.BeginNoNotifications(out savedNotifyFlags);
 
             try
             {
@@ -45634,7 +47108,7 @@ namespace Eagle._Components.Public
 
                 foreach (PluginPair pair in plugins)
                 {
-                    _Wrappers.Plugin pluginWrapper = pair.Value;
+                    PluginWrapper pluginWrapper = pair.Value;
 
                     if (pluginWrapper == null)
                         continue;
@@ -45658,16 +47132,15 @@ namespace Eagle._Components.Public
                         //       notification types it has elected to
                         //       receive.
                         //
-                        NotifyType types = pluginWrapper.GetTypes(
+                        NotifyType notifyTypes = pluginWrapper.GetTypes(
                             interpreter);
 
                         //
                         // NOTE: Does this plugin want to receive the
                         //       notifications being sent?
                         //
-                        if (!FlagOps.HasFlags(
-                                types, hasTypes & NotifyType.CheckMask,
-                                true))
+                        if (!FlagOps.HasFlags(notifyTypes,
+                                hasNotifyTypes & NotifyType.CheckMask, true))
                         {
                             continue;
                         }
@@ -45677,16 +47150,15 @@ namespace Eagle._Components.Public
                         //       notification sub-types it has elected
                         //       to receive.
                         //
-                        NotifyFlags flags = pluginWrapper.GetFlags(
+                        NotifyFlags notifyFlags = pluginWrapper.GetFlags(
                             interpreter);
 
                         //
                         // NOTE: Does this plugin want to receive the
                         //       notifications being sent?
                         //
-                        if (!FlagOps.HasFlags(
-                                flags, hasFlags & NotifyFlags.CheckMask,
-                                true))
+                        if (!FlagOps.HasFlags(notifyFlags,
+                                hasNotifyFlags & NotifyFlags.CheckMask, true))
                         {
                             continue;
                         }
@@ -45713,8 +47185,8 @@ namespace Eagle._Components.Public
                             //       been processed.
                             //
                             code = pluginWrapper.Notify(
-                                interpreter, eventArgs, clientData,
-                                arguments, ref result);
+                                interpreter, eventArgs, clientData, arguments,
+                                ref result);
                         }
                         finally
                         {
@@ -45761,10 +47233,7 @@ namespace Eagle._Components.Public
             }
             finally
             {
-                //
-                // NOTE: Remove event notification prevention flag.
-                //
-                interpreter.NotifyFlags &= ~NotifyFlags.NoNotify;
+                interpreter.EndNoNotifications(ref savedNotifyFlags);
             }
         }
 
@@ -45806,6 +47275,9 @@ namespace Eagle._Components.Public
             {
                 if (CheckNotifyTypesAndFlags(type, flags))
                 {
+                    bool wrapException = WrapExceptionForNotification;
+                    bool useDeepCopy = UseDeepCopyForNotification;
+
 #if MONO_BUILD && (!DEBUG || !VERBOSE)
 #pragma warning disable 219
 #endif
@@ -45822,7 +47294,7 @@ namespace Eagle._Components.Public
 
                         if (exception is ScriptException)
                             scriptException = (ScriptException)exception;
-                        else if (exception != null)
+                        else if (wrapException && (exception != null))
                             scriptException = new ScriptException(null, exception);
                         else
                             scriptException = null;
@@ -45832,12 +47304,21 @@ namespace Eagle._Components.Public
                             arguments, result, scriptException, InterruptType.None);
 
                         IClientData eventClientData = clientData; /* REF */
+                        ArgumentList eventArguments;
 
-                        ArgumentList eventArguments = (arguments != null) ?
-                            new ArgumentList(arguments) : null; /* COPY */
+                        if (useDeepCopy)
+                        {
+                            eventArguments = (arguments != null) ?
+                                new ArgumentList(arguments) : null; /* COPY */
 
-                        eventResult = Result.Copy(
-                            result, ResultFlags.CopyObject); /* COPY */
+                            eventResult = Result.Copy(
+                                result, ResultFlags.CopyObject); /* COPY */
+                        }
+                        else
+                        {
+                            eventArguments = arguments; /* REF */
+                            eventResult = result; /* REF */
+                        }
 
                         eventCode = FireNotification(
                             eventArgs, eventClientData, eventArguments,
@@ -45851,10 +47332,12 @@ namespace Eagle._Components.Public
 
                         eventCode = ReturnCode.Error;
                     }
-
 #if DEBUG && VERBOSE
-                    if (eventCode != ReturnCode.Ok)
-                        DebugOps.Complain(interpreter, eventCode, eventResult);
+                    finally
+                    {
+                        if (eventCode != ReturnCode.Ok)
+                            DebugOps.Complain(interpreter, eventCode, eventResult);
+                    }
 #endif
                 }
             }
@@ -46139,6 +47622,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal long GetSignedRandomNumber()
+        {
+            return ConversionOps.ToLong(GetRandomNumber());
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal ulong GetRandomNumber()
         {
             IProvideEntropy provideEntropy;
@@ -46418,26 +47908,13 @@ namespace Eagle._Components.Public
             {
                 CheckDisposed();
 
-                lock (syncRoot) /* TRANSACTIONAL */
-                {
-                    return PrivateNotifyTypes;
-                }
+                return PrivateNotifyTypes;
             }
             set
             {
                 CheckDisposed();
 
-#if THREADING
-                IEngineContext context = GetEngineContext();
-
-                if (context != null)
-                    context.NotifyTypes = value;
-#else
-                lock (syncRoot)
-                {
-                    notifyTypes = value;
-                }
-#endif
+                PrivateNotifyTypes = value;
             }
         }
 
@@ -46449,26 +47926,13 @@ namespace Eagle._Components.Public
             {
                 CheckDisposed();
 
-                lock (syncRoot) /* TRANSACTIONAL */
-                {
-                    return PrivateNotifyFlags;
-                }
+                return PrivateNotifyFlags;
             }
             set
             {
                 CheckDisposed();
 
-#if THREADING
-                IEngineContext context = GetEngineContext();
-
-                if (context != null)
-                    context.NotifyFlags = value;
-#else
-                lock (syncRoot)
-                {
-                    notifyFlags = value;
-                }
-#endif
+                PrivateNotifyFlags = value;
             }
         }
 
@@ -46519,6 +47983,20 @@ namespace Eagle._Components.Public
 #endif
                 }
             }
+            set
+            {
+#if THREADING
+                IEngineContext context = GetEngineContext();
+
+                if (context != null)
+                    context.NotifyTypes = value;
+#else
+                // lock (syncRoot) /* NO-LOCK */
+                {
+                    notifyTypes = value;
+                }
+#endif
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -46540,6 +48018,20 @@ namespace Eagle._Components.Public
                     return notifyFlags;
 #endif
                 }
+            }
+            set
+            {
+#if THREADING
+                IEngineContext context = GetEngineContext();
+
+                if (context != null)
+                    context.NotifyFlags = value;
+#else
+                // lock (syncRoot)
+                {
+                    notifyFlags = value;
+                }
+#endif
             }
         }
         #endregion
@@ -53133,45 +54625,7 @@ namespace Eagle._Components.Public
             {
                 CheckDisposed();
 
-                lock (syncRoot) /* TRANSACTIONAL */
-                {
-                    //
-                    // NOTE: *SPECIAL* The current runtime options cannot be reset
-                    //       when the interpreter is flagged as immutable.
-                    //
-                    if (!IsModifiable(false))
-                        return;
-
-                    VariableFlags flags = VariableFlags.ViaProperty;
-
-                    //
-                    // NOTE: Do not create the variable if we have been prohibited
-                    //       from doing so.
-                    //
-                    if (InternalIsSafe() || PrivateIsNoVariables())
-                        flags |= VariableFlags.NoCreate;
-
-                    ClientDataDictionary oldRuntimeOptions;
-
-                    SaveRuntimeOptions(out oldRuntimeOptions);
-                    runtimeOptions = value;
-
-                    //
-                    // NOTE: Update script-level informational variable.  This
-                    //       variable is NOT allowed in "safe" interpreters.
-                    //
-                    SetLibraryVariableValue2(
-                        flags, Vars.Platform.Name, Vars.Platform.RuntimeOptions,
-                        runtimeOptions.ToString());
-
-#if NOTIFY
-                    /* IGNORED */
-                    CheckNotification(
-                        NotifyType.RuntimeOption, NotifyFlags.Replaced,
-                        new ObjectPair(oldRuntimeOptions, runtimeOptions),
-                        this, null, null, null);
-#endif
-                }
+                PrivateReplaceRuntimeOptions(value, true, true);
             }
         }
 
@@ -53183,14 +54637,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                if (String.IsNullOrEmpty(name))
-                    return false;
-
-                return (runtimeOptions != null) &&
-                    runtimeOptions.ContainsKey(name); /* EXEMPT */
-            }
+            return PrivateHasRuntimeOption(name);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -53199,49 +54646,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                if (!IsModifiable(false))
-                    return false;
-
-                if (runtimeOptions != null)
-                {
-                    VariableFlags flags = VariableFlags.ViaProperty;
-
-                    //
-                    // NOTE: Do not create the variable if we have been prohibited
-                    //       from doing so.
-                    //
-                    if (InternalIsSafe() || PrivateIsNoVariables())
-                        flags |= VariableFlags.NoCreate;
-
-                    //
-                    // NOTE: Update script-level informational variable.  This
-                    //       variable is NOT allowed in "safe" interpreters.
-                    //
-                    ClientDataDictionary oldRuntimeOptions;
-
-                    SaveRuntimeOptions(out oldRuntimeOptions);
-                    runtimeOptions.Clear();
-
-                    /* IGNORED */
-                    SetLibraryVariableValue2(flags, Vars.Platform.Name,
-                        Vars.Platform.RuntimeOptions,
-                        runtimeOptions.ToString());
-
-#if NOTIFY
-                    /* IGNORED */
-                    CheckNotification(
-                        NotifyType.RuntimeOption, NotifyFlags.Cleared,
-                        new ObjectPair(oldRuntimeOptions, runtimeOptions),
-                        this, null, null, null);
-#endif
-
-                    return true;
-                }
-            }
-
-            return false;
+            return PrivateClearRuntimeOptions(true, true);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -53252,52 +54657,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                if (!IsModifiable(true))
-                    return false;
-
-                if (String.IsNullOrEmpty(name))
-                    return false;
-
-                if ((runtimeOptions != null) &&
-                    !runtimeOptions.ContainsKey(name)) /* EXEMPT */
-                {
-                    VariableFlags flags = VariableFlags.ViaProperty;
-
-                    //
-                    // NOTE: Do not create the variable if we have been prohibited
-                    //       from doing so.
-                    //
-                    if (InternalIsSafe() || PrivateIsNoVariables())
-                        flags |= VariableFlags.NoCreate;
-
-                    //
-                    // NOTE: Update script-level informational variable.  This
-                    //       variable is NOT allowed in "safe" interpreters.
-                    //
-                    runtimeOptions.Add(name, null);
-
-                    /* IGNORED */
-                    SetLibraryVariableValue2(flags, Vars.Platform.Name,
-                        Vars.Platform.RuntimeOptions,
-                        runtimeOptions.ToString());
-
-#if NOTIFY
-                    /* IGNORED */
-                    CheckNotification(
-                        NotifyType.RuntimeOption, NotifyFlags.Added,
-                        new ObjectPair(runtimeOptions, name), this,
-                        null, null, null);
-#endif
-
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
+            return PrivateAddRuntimeOption(name, true, true);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -53308,52 +54668,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                if (!IsModifiable(false))
-                    return false;
-
-                if (String.IsNullOrEmpty(name))
-                    return false;
-
-                if ((runtimeOptions != null) &&
-                    runtimeOptions.ContainsKey(name)) /* EXEMPT */
-                {
-                    VariableFlags flags = VariableFlags.ViaProperty;
-
-                    //
-                    // NOTE: Do not create the variable if we have been prohibited
-                    //       from doing so.
-                    //
-                    if (InternalIsSafe() || PrivateIsNoVariables())
-                        flags |= VariableFlags.NoCreate;
-
-                    //
-                    // NOTE: Update script-level informational variable.  This
-                    //       variable is NOT allowed in "safe" interpreters.
-                    //
-                    bool result = runtimeOptions.Remove(name);
-
-                    /* IGNORED */
-                    SetLibraryVariableValue2(flags, Vars.Platform.Name,
-                        Vars.Platform.RuntimeOptions,
-                        runtimeOptions.ToString());
-
-#if NOTIFY
-                    /* IGNORED */
-                    CheckNotification(
-                        NotifyType.RuntimeOption, NotifyFlags.Removed,
-                        new ObjectPair(runtimeOptions, name), this,
-                        null, null, null);
-#endif
-
-                    return result; /* NOTE: Must be true. */
-                }
-                else
-                {
-                    return false;
-                }
-            }
+            return PrivateRemoveRuntimeOption(name, true, true);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -53364,47 +54679,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            if (String.IsNullOrEmpty(name))
-                return false;
-
-            char @operator = name[0];
-
-            switch (@operator)
-            {
-                case Characters.PlusSign:
-                    {
-                        if (name.Length > 1)
-                            return AddRuntimeOption(name.Substring(1));
-
-                        break;
-                    }
-                case Characters.MinusSign:
-                    {
-                        if (name.Length > 1)
-                            return RemoveRuntimeOption(name.Substring(1));
-
-                        break;
-                    }
-                case Characters.EqualSign:
-                    {
-                        if (name.Length > 1)
-                        {
-                            return ClearRuntimeOptions() &&
-                                AddRuntimeOption(name.Substring(1));
-                        }
-
-                        break;
-                    }
-                default:
-                    {
-                        if (Parser.IsIdentifier(@operator))
-                            return AddRuntimeOption(name);
-
-                        break;
-                    }
-            }
-
-            return false;
+            return PrivateChangeRuntimeOption(name, true, true);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -53430,13 +54705,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal bool GetRuntimeOption(
+        internal bool InternalGetRuntimeOption(
             string name,
             ref IClientData value
             )
         {
-            // CheckDisposed();
-
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 if (String.IsNullOrEmpty(name))
@@ -53449,13 +54722,370 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal bool SetRuntimeOption(
-            string name,
-            IClientData value
+        private bool PrivateHasRuntimeOption(
+            string name /* in */
             )
         {
-            // CheckDisposed();
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (String.IsNullOrEmpty(name))
+                    return false;
 
+                return (runtimeOptions != null) &&
+                    runtimeOptions.ContainsKey(name); /* EXEMPT */
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool PrivateClearRuntimeOptions(
+            bool setVariable, /* in */
+            bool notify       /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!IsModifiable(false))
+                    return false;
+
+                if (runtimeOptions != null)
+                {
+                    VariableFlags flags;
+
+                    if (setVariable)
+                    {
+                        //
+                        // NOTE: Do not create the variable if we have
+                        //       been prohibited from doing so.
+                        //
+                        flags = VariableFlags.ViaProperty;
+
+                        if (InternalIsSafe() || PrivateIsNoVariables())
+                            flags |= VariableFlags.NoCreate;
+                    }
+                    else
+                    {
+                        flags = VariableFlags.None;
+                    }
+
+                    //
+                    // NOTE: Update script-level informational variable.
+                    //       This variable is NOT allowed in "safe"
+                    //       interpreters.
+                    //
+                    ClientDataDictionary oldRuntimeOptions;
+
+                    SaveRuntimeOptions(out oldRuntimeOptions);
+                    runtimeOptions.Clear();
+
+                    if (setVariable)
+                    {
+                        /* IGNORED */
+                        SetLibraryVariableValue2(
+                            flags, Vars.Platform.Name,
+                            Vars.Platform.RuntimeOptions,
+                            runtimeOptions.ToString());
+                    }
+
+#if NOTIFY
+                    if (notify)
+                    {
+                        /* IGNORED */
+                        CheckNotification(
+                            NotifyType.RuntimeOption, NotifyFlags.Cleared,
+                            new ObjectPair(oldRuntimeOptions, runtimeOptions),
+                            this, null, null, null);
+                    }
+#endif
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool PrivateAddRuntimeOption(
+            string name,      /* in */
+            bool setVariable, /* in */
+            bool notify       /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!IsModifiable(true))
+                    return false;
+
+                if (String.IsNullOrEmpty(name))
+                    return false;
+
+                if ((runtimeOptions != null) &&
+                    !runtimeOptions.ContainsKey(name)) /* EXEMPT */
+                {
+                    VariableFlags flags;
+
+                    if (setVariable)
+                    {
+                        //
+                        // NOTE: Do not create the variable if we have
+                        //       been prohibited from doing so.
+                        //
+                        flags = VariableFlags.ViaProperty;
+
+                        if (InternalIsSafe() || PrivateIsNoVariables())
+                            flags |= VariableFlags.NoCreate;
+                    }
+                    else
+                    {
+                        flags = VariableFlags.None;
+                    }
+
+                    //
+                    // NOTE: Update script-level informational variable.
+                    //       This variable is NOT allowed in "safe"
+                    //       interpreters.
+                    //
+                    runtimeOptions.Add(name, null);
+
+                    if (setVariable)
+                    {
+                        /* IGNORED */
+                        SetLibraryVariableValue2(
+                            flags, Vars.Platform.Name,
+                            Vars.Platform.RuntimeOptions,
+                            runtimeOptions.ToString());
+                    }
+
+#if NOTIFY
+                    if (notify)
+                    {
+                        /* IGNORED */
+                        CheckNotification(
+                            NotifyType.RuntimeOption, NotifyFlags.Added,
+                            new ObjectPair(runtimeOptions, name), this,
+                            null, null, null);
+                    }
+#endif
+
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool PrivateRemoveRuntimeOption(
+            string name,      /* in */
+            bool setVariable, /* in */
+            bool notify       /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!IsModifiable(false))
+                    return false;
+
+                if (String.IsNullOrEmpty(name))
+                    return false;
+
+                if ((runtimeOptions != null) &&
+                    runtimeOptions.ContainsKey(name)) /* EXEMPT */
+                {
+                    VariableFlags flags;
+
+                    if (setVariable)
+                    {
+                        //
+                        // NOTE: Do not create the variable if we have
+                        //       been prohibited from doing so.
+                        //
+                        flags = VariableFlags.ViaProperty;
+
+                        if (InternalIsSafe() || PrivateIsNoVariables())
+                            flags |= VariableFlags.NoCreate;
+                    }
+                    else
+                    {
+                        flags = VariableFlags.None;
+                    }
+
+                    //
+                    // NOTE: Update script-level informational variable.
+                    //       This variable is NOT allowed in "safe"
+                    //       interpreters.
+                    //
+                    bool result = runtimeOptions.Remove(name);
+
+                    if (setVariable)
+                    {
+                        /* IGNORED */
+                        SetLibraryVariableValue2(
+                            flags, Vars.Platform.Name,
+                            Vars.Platform.RuntimeOptions,
+                            runtimeOptions.ToString());
+                    }
+
+#if NOTIFY
+                    if (notify)
+                    {
+                        /* IGNORED */
+                        CheckNotification(
+                            NotifyType.RuntimeOption, NotifyFlags.Removed,
+                            new ObjectPair(runtimeOptions, name), this,
+                            null, null, null);
+                    }
+#endif
+
+                    return result; /* NOTE: Must be true. */
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool PrivateChangeRuntimeOption(
+            string name,      /* in */
+            bool setVariable, /* in */
+            bool notify       /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(name))
+                return false;
+
+            char @operator = name[0];
+
+            switch (@operator)
+            {
+                case Characters.PlusSign:
+                    {
+                        if (name.Length > 1)
+                        {
+                            return PrivateAddRuntimeOption(
+                                name.Substring(1), setVariable, notify);
+                        }
+
+                        break;
+                    }
+                case Characters.MinusSign:
+                    {
+                        if (name.Length > 1)
+                        {
+                            return PrivateRemoveRuntimeOption(
+                                name.Substring(1), setVariable, notify);
+                        }
+
+                        break;
+                    }
+                case Characters.EqualSign:
+                    {
+                        if (name.Length > 1)
+                        {
+                            return PrivateClearRuntimeOptions(
+                                setVariable, notify) &&
+                            PrivateAddRuntimeOption(
+                                name.Substring(1), setVariable, notify);
+                        }
+
+                        break;
+                    }
+                default:
+                    {
+                        if (Parser.IsIdentifier(@operator))
+                        {
+                            return PrivateAddRuntimeOption(
+                                name, setVariable, notify);
+                        }
+
+                        break;
+                    }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool PrivateReplaceRuntimeOptions(
+            ClientDataDictionary value, /* in */
+            bool setVariable,           /* in */
+            bool notify                 /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!IsModifiable(false))
+                    return false;
+
+                VariableFlags flags;
+
+                if (setVariable)
+                {
+                    //
+                    // NOTE: Do not create the variable if we have
+                    //       been prohibited from doing so.
+                    //
+                    flags = VariableFlags.ViaProperty;
+
+                    if (InternalIsSafe() || PrivateIsNoVariables())
+                        flags |= VariableFlags.NoCreate;
+                }
+                else
+                {
+                    flags = VariableFlags.None;
+                }
+
+                //
+                // NOTE: Update script-level informational variable.
+                //       This variable is NOT allowed in "safe"
+                //       interpreters.
+                //
+                ClientDataDictionary oldRuntimeOptions;
+
+                SaveRuntimeOptions(out oldRuntimeOptions);
+                runtimeOptions = value;
+
+                if (setVariable)
+                {
+                    SetLibraryVariableValue2(
+                        flags, Vars.Platform.Name,
+                        Vars.Platform.RuntimeOptions,
+                        runtimeOptions.ToString());
+                }
+
+#if NOTIFY
+                if (notify)
+                {
+                    /* IGNORED */
+                    CheckNotification(
+                        NotifyType.RuntimeOption, NotifyFlags.Replaced,
+                        new ObjectPair(oldRuntimeOptions, runtimeOptions),
+                        this, null, null, null);
+                }
+#endif
+
+                return true;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal bool InternalSetRuntimeOption(
+            string name,       /* in */
+            IClientData value, /* in */
+            bool setVariable,  /* in */
+            bool notify        /* in */
+            )
+        {
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 if (!IsModifiable(false))
@@ -53466,32 +55096,49 @@ namespace Eagle._Components.Public
 
                 if (runtimeOptions != null)
                 {
-                    VariableFlags flags = VariableFlags.ViaProperty;
+                    VariableFlags flags;
+
+                    if (setVariable)
+                    {
+                        //
+                        // NOTE: Do not create the variable if we have
+                        //       been prohibited from doing so.
+                        //
+                        flags = VariableFlags.ViaProperty;
+
+                        if (InternalIsSafe() || PrivateIsNoVariables())
+                            flags |= VariableFlags.NoCreate;
+                    }
+                    else
+                    {
+                        flags = VariableFlags.None;
+                    }
 
                     //
-                    // NOTE: Do not create the variable if we have been prohibited
-                    //       from doing so.
-                    //
-                    if (InternalIsSafe() || PrivateIsNoVariables())
-                        flags |= VariableFlags.NoCreate;
-
-                    //
-                    // NOTE: Update script-level informational variable.  This
-                    //       variable is NOT allowed in "safe" interpreters.
+                    // NOTE: Update script-level informational variable.
+                    //       This variable is NOT allowed in "safe"
+                    //       interpreters.
                     //
                     runtimeOptions[name] = value;
 
-                    /* IGNORED */
-                    SetLibraryVariableValue2(flags, Vars.Platform.Name,
-                        Vars.Platform.RuntimeOptions,
-                        runtimeOptions.ToString());
+                    if (setVariable)
+                    {
+                        /* IGNORED */
+                        SetLibraryVariableValue2(
+                            flags, Vars.Platform.Name,
+                            Vars.Platform.RuntimeOptions,
+                            runtimeOptions.ToString());
+                    }
 
 #if NOTIFY
-                    /* IGNORED */
-                    CheckNotification(
-                        NotifyType.RuntimeOption, NotifyFlags.Updated,
-                        new ObjectTriplet(runtimeOptions, name, value),
-                        this, null, null, null);
+                    if (notify)
+                    {
+                        /* IGNORED */
+                        CheckNotification(
+                            NotifyType.RuntimeOption, NotifyFlags.Updated,
+                            new ObjectTriplet(runtimeOptions, name, value),
+                            this, null, null, null);
+                    }
 #endif
 
                     return true;
@@ -53506,7 +55153,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private void SaveRuntimeOptions(
-            out ClientDataDictionary savedRuntimeOptions
+            out ClientDataDictionary savedRuntimeOptions /* out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -54124,7 +55771,8 @@ namespace Eagle._Components.Public
             Result error = null;
 
             return MaybeUnwrapIExecute(
-                lookupFlags, executeWrapper, ref execute, ref error);
+                lookupFlags | LookupFlags.NoVerbose, executeWrapper,
+                ref execute, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -54163,7 +55811,9 @@ namespace Eagle._Components.Public
             if ((execute == null) &&
                 FlagOps.HasFlags(lookupFlags, LookupFlags.Validate, true))
             {
-                error = "invalid execute";
+                if (!FlagOps.HasFlags(lookupFlags, LookupFlags.NoVerbose, true))
+                    error = "invalid execute";
+
                 return false;
             }
 
@@ -54253,6 +55903,29 @@ namespace Eagle._Components.Public
             }
 
             return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool MaybeUnwrapIExecuteAndAddOrUpdateToCache(
+            LookupFlags lookupFlags,
+            string name,
+            IExecute execute,
+            bool useHidden,
+            bool invalidate
+            )
+        {
+            IExecute localExecute = null;
+
+            if (!MaybeUnwrapIExecute(
+                    lookupFlags & ~LookupFlags.Wrapper,
+                    execute, ref localExecute))
+            {
+                localExecute = execute;
+            }
+
+            return AddOrUpdateIExecuteToCache(
+                name, localExecute, useHidden, invalidate);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -54367,7 +56040,8 @@ namespace Eagle._Components.Public
             string newName = ScriptOps.MakeCommandName(name);
 
 #if EXECUTE_CACHE
-            bool noCache = EngineFlagOps.HasNoCache(engineFlags);
+            bool noCache = FlagOps.HasFlags(lookupFlags, LookupFlags.NoCache, true) ||
+                EngineFlagOps.HasNoCache(engineFlags);
 #endif
 
             bool useHidden = EngineFlagOps.HasUseHidden(engineFlags);
@@ -54394,7 +56068,10 @@ namespace Eagle._Components.Public
             {
 #if EXECUTE_CACHE
                 if (!noCache)
-                    AddOrUpdateIExecuteToCache(newName, localExecute, useHidden, false);
+                {
+                    MaybeUnwrapIExecuteAndAddOrUpdateToCache(
+                        lookupFlags, newName, localExecute, useHidden, false);
+                }
 #endif
 
                 execute = localExecute;
@@ -54412,7 +56089,10 @@ namespace Eagle._Components.Public
                 {
 #if EXECUTE_CACHE
                     if (!noCache)
-                        AddOrUpdateIExecuteToCache(newName, localProcedure, useHidden, false);
+                    {
+                        MaybeUnwrapIExecuteAndAddOrUpdateToCache(
+                            lookupFlags, newName, localProcedure, useHidden, false);
+                    }
 #endif
 
                     execute = localProcedure;
@@ -54430,7 +56110,10 @@ namespace Eagle._Components.Public
                     {
 #if EXECUTE_CACHE
                         if (!noCache)
-                            AddOrUpdateIExecuteToCache(newName, localCommand, useHidden, false);
+                        {
+                            MaybeUnwrapIExecuteAndAddOrUpdateToCache(
+                                lookupFlags, newName, localCommand, useHidden, false);
+                        }
 #endif
 
                         execute = localCommand;
@@ -54476,7 +56159,8 @@ namespace Eagle._Components.Public
                     string newName = ScriptOps.MakeCommandPattern(name);
 
 #if EXECUTE_CACHE
-                    bool noCache = EngineFlagOps.HasNoCache(engineFlags);
+                    bool noCache = FlagOps.HasFlags(lookupFlags, LookupFlags.NoCache, true) ||
+                        EngineFlagOps.HasNoCache(engineFlags);
 #endif
 
                     bool useHidden = EngineFlagOps.HasUseHidden(engineFlags);
@@ -54501,7 +56185,7 @@ namespace Eagle._Components.Public
 
                             if ((localExecutes != null) && (localExecutes.Count > 0))
                             {
-                                _Wrappers._Execute localExecute;
+                                ExecuteWrapper localExecute;
 
                                 if (localExecutes.TryGetValue(newName, out localExecute))
                                 {
@@ -54565,7 +56249,7 @@ namespace Eagle._Components.Public
 
                             if ((localProcedures != null) && (localProcedures.Count > 0))
                             {
-                                _Wrappers.Procedure localProcedure;
+                                ProcedureWrapper localProcedure;
 
                                 if (localProcedures.TryGetValue(newName, out localProcedure) &&
                                     (matchHidden || !EntityOps.IsHidden(localProcedure)))
@@ -54635,7 +56319,7 @@ namespace Eagle._Components.Public
 
                             if ((localCommands != null) && (localCommands.Count > 0))
                             {
-                                _Wrappers.Command localCommand;
+                                CommandWrapper localCommand;
 
                                 if (localCommands.TryGetValue(newName, out localCommand) &&
                                     (matchHidden || !EntityOps.IsHidden(localCommand)))
@@ -54715,7 +56399,7 @@ namespace Eagle._Components.Public
                         //
                         IExecute match = matches[exactName];
 
-                        if (match is _Wrappers._Execute)
+                        if (match is ExecuteWrapper)
                         {
                             long localToken = 0;
                             IExecute localExecute = null;
@@ -54729,7 +56413,10 @@ namespace Eagle._Components.Public
                             {
 #if EXECUTE_CACHE
                                 if (!noCache)
-                                    AddOrUpdateIExecuteToCache(exactName, localExecute, useHidden, false);
+                                {
+                                    MaybeUnwrapIExecuteAndAddOrUpdateToCache(
+                                        lookupFlags, exactName, localExecute, useHidden, false);
+                                }
 #endif
 
                                 if (MaybeUnwrapIExecute(
@@ -54751,7 +56438,7 @@ namespace Eagle._Components.Public
                                 }
                             }
                         }
-                        else if (match is _Wrappers.Procedure)
+                        else if (match is ProcedureWrapper)
                         {
                             long localToken = 0;
                             IProcedure localProcedure = null;
@@ -54766,7 +56453,10 @@ namespace Eagle._Components.Public
                             {
 #if EXECUTE_CACHE
                                 if (!noCache)
-                                    AddOrUpdateIExecuteToCache(exactName, localProcedure, useHidden, false);
+                                {
+                                    MaybeUnwrapIExecuteAndAddOrUpdateToCache(
+                                        lookupFlags, exactName, localProcedure, useHidden, false);
+                                }
 #endif
 
                                 if (MaybeUnwrapIExecute(
@@ -54788,7 +56478,7 @@ namespace Eagle._Components.Public
                                 }
                             }
                         }
-                        else if (match is _Wrappers.Command)
+                        else if (match is CommandWrapper)
                         {
                             long localToken = 0;
                             ICommand localCommand = null;
@@ -54803,7 +56493,10 @@ namespace Eagle._Components.Public
                             {
 #if EXECUTE_CACHE
                                 if (!noCache)
-                                    AddOrUpdateIExecuteToCache(exactName, localCommand, useHidden, false);
+                                {
+                                    MaybeUnwrapIExecuteAndAddOrUpdateToCache(
+                                        lookupFlags, exactName, localCommand, useHidden, false);
+                                }
 #endif
 
                                 if (MaybeUnwrapIExecute(
@@ -54842,7 +56535,7 @@ namespace Eagle._Components.Public
                         //
                         // NOTE: Normal case, exactly one command matched.
                         //
-                        if (matches[key] is _Wrappers._Execute)
+                        if (matches[key] is ExecuteWrapper)
                         {
                             long localToken = 0;
                             IExecute localExecute = null;
@@ -54856,7 +56549,10 @@ namespace Eagle._Components.Public
                             {
 #if EXECUTE_CACHE
                                 if (!noCache)
-                                    AddOrUpdateIExecuteToCache(key, localExecute, useHidden, false);
+                                {
+                                    MaybeUnwrapIExecuteAndAddOrUpdateToCache(
+                                        lookupFlags, key, localExecute, useHidden, false);
+                                }
 #endif
 
                                 if (MaybeUnwrapIExecute(
@@ -54878,7 +56574,7 @@ namespace Eagle._Components.Public
                                 }
                             }
                         }
-                        else if (matches[key] is _Wrappers.Procedure)
+                        else if (matches[key] is ProcedureWrapper)
                         {
                             long localToken = 0;
                             IProcedure localProcedure = null;
@@ -54893,7 +56589,10 @@ namespace Eagle._Components.Public
                             {
 #if EXECUTE_CACHE
                                 if (!noCache)
-                                    AddOrUpdateIExecuteToCache(key, localProcedure, useHidden, false);
+                                {
+                                    MaybeUnwrapIExecuteAndAddOrUpdateToCache(
+                                        lookupFlags, key, localProcedure, useHidden, false);
+                                }
 #endif
 
                                 if (MaybeUnwrapIExecute(
@@ -54915,7 +56614,7 @@ namespace Eagle._Components.Public
                                 }
                             }
                         }
-                        else if (matches[key] is _Wrappers.Command)
+                        else if (matches[key] is CommandWrapper)
                         {
                             long localToken = 0;
                             ICommand localCommand = null;
@@ -54930,7 +56629,10 @@ namespace Eagle._Components.Public
                             {
 #if EXECUTE_CACHE
                                 if (!noCache)
-                                    AddOrUpdateIExecuteToCache(key, localCommand, useHidden, false);
+                                {
+                                    MaybeUnwrapIExecuteAndAddOrUpdateToCache(
+                                        lookupFlags, key, localCommand, useHidden, false);
+                                }
 #endif
 
                                 if (MaybeUnwrapIExecute(
@@ -56064,7 +57766,7 @@ namespace Eagle._Components.Public
             //
             // NOTE: Use the culture configured for this interpreter.
             //
-            return GetString(plugin, name, cultureInfo);
+            return GetString(plugin, name, InternalCultureInfo);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -56080,7 +57782,7 @@ namespace Eagle._Components.Public
             //
             // NOTE: Use the culture configured for this interpreter.
             //
-            return GetString(plugin, name, cultureInfo, ref error);
+            return GetString(plugin, name, InternalCultureInfo, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -56129,6 +57831,33 @@ namespace Eagle._Components.Public
         {
             get { CheckDisposed(); lock (syncRoot) { return autoPathList; } }
             set { CheckDisposed(); lock (syncRoot) { autoPathList = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public IScriptLocation ScriptLocation
+        {
+            get
+            {
+                CheckDisposed();
+
+#if !THREADING
+                lock (syncRoot) /* TRANSACTIONAL */
+#endif
+                {
+                    IScriptLocation scriptLocation = ManualScriptLocation;
+
+                    if (scriptLocation != null)
+                        return scriptLocation;
+
+                    ScriptLocationList scriptLocations = ScriptLocations;
+
+                    if ((scriptLocations == null) || (scriptLocations.Count == 0))
+                        return null;
+
+                    return scriptLocations.Peek();
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -56333,7 +58062,7 @@ namespace Eagle._Components.Public
             else
             {
                 ScriptOps.MaybeExactNameOnly(
-                    name, ref scriptFlags);
+                    this, name, true, ref scriptFlags);
 
                 return HostOps.GetScript(
                     this, fileSystemHost, name, direct,
@@ -56673,7 +58402,7 @@ namespace Eagle._Components.Public
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                return InternalIsSafe() || PrivateIsHideUnsafe() || InternalIsAnySdk();
+                return PrivateIsRestricted();
             }
         }
 
@@ -56725,6 +58454,18 @@ namespace Eagle._Components.Public
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 return InternalIsSdk(sdkType, all);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public bool IsHideUnsafe()
+        {
+            CheckDisposed();
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return PrivateIsHideUnsafe();
             }
         }
 
@@ -56867,8 +58608,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            return SetStateFlags(
-                InterpreterStateFlags.SecurityWasEnabled, enabled);
+            return InternalSetSecurityWasEnabled(enabled);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -56927,6 +58667,23 @@ namespace Eagle._Components.Public
         internal string InternalInitializedPath
         {
             get { return initializedPath; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal bool SecurityWasEnabled()
+        {
+            return InternalSetSecurityWasEnabled(null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal bool InternalSetSecurityWasEnabled(
+            bool? enabled
+            )
+        {
+            return SetStateFlags(
+                InterpreterStateFlags.SecurityWasEnabled, enabled);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -57208,6 +58965,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private bool PrivateIsRestricted()
+        {
+            //
+            // NOTE: Assumes lock is already held.
+            //
+            return InternalIsSafe() || PrivateIsHideUnsafe() || InternalIsAnySdk();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private bool PrivateIsSecuritySdk()
         {
             //
@@ -57271,6 +59038,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal static bool InternalIsRestricted(
+            CreateFlags createFlags /* in */
+            )
+        {
+            return PrivateIsSafe(createFlags) ||
+                PrivateIsHideUnsafe(createFlags) ||
+                PrivateIsAnySdk(createFlags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal bool InternalIsSafeWithFlags(
             InterpreterFlags hasFlags,
             bool all
@@ -57282,6 +59060,27 @@ namespace Eagle._Components.Public
                     /* EXEMPT */
                     FlagOps.HasFlags(interpreterFlags, hasFlags, all);
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal bool MatchSecurityLevel(
+            SecurityLevel securityLevel
+            )
+        {
+            if (FlagOps.HasFlags(securityLevel, SecurityLevel.Safe, true) &&
+                !InternalIsSafe())
+            {
+                return false;
+            }
+
+            if (FlagOps.HasFlags(securityLevel, SecurityLevel.Sdk, true) &&
+                !InternalIsAnySdk())
+            {
+                return false;
+            }
+
+            return true;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -57595,6 +59394,8 @@ namespace Eagle._Components.Public
 
                     if (localCommands != null)
                     {
+                        bool criticalOnly = FlagOps.HasFlags(makeFlags, MakeFlags.CriticalOnly, true);
+
                         foreach (CommandPair pair in localCommands)
                         {
                             ICommand command = pair.Value;
@@ -57603,6 +59404,12 @@ namespace Eagle._Components.Public
                                 continue;
 
                             CommandFlags flags = command.Flags;
+
+                            if (criticalOnly &&
+                                !FlagOps.HasFlags(flags, CommandFlags.Critical, true))
+                            {
+                                continue;
+                            }
 
                             if (!FlagOps.HasFlags(flags, CommandFlags.Safe, true) ||
                                 FlagOps.HasFlags(flags, CommandFlags.Unsafe, true))
@@ -59534,7 +61341,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal void InternalHardTryLock(
+        private void InternalHardTryLock(
             int level,
             ref bool locked
             )
@@ -59637,7 +61444,7 @@ namespace Eagle._Components.Public
             {
                 //
                 // HACK: Assume lock callback does not want to be
-                //       called too frequestly.  Also assume that
+                //       called too frequently.  Also assume that
                 //       we do not want to wait too long between
                 //       iterations to the lock callback.
                 //
@@ -59688,7 +61495,7 @@ namespace Eagle._Components.Public
             //
             // NOTE: Calculate the per-retry timeout value to pass
             //       to the InternalTryLock method.  The resulting
-            //       value cannot be infinite and should be a
+            //       value CANNOT be infinite and __should__ be a
             //       relatively low number, e.g. 1000 milliseconds.
             //
             int maximumRetries = PrivateLockRetries;
@@ -59714,6 +61521,25 @@ namespace Eagle._Components.Public
                     break;
                 }
 
+                //
+                // NOTE: One thing to keep in mind about the
+                //       locking callback is that it may not
+                //       be called very often, if ever.  If
+                //       there are no other threads needing
+                //       the interpreter lock -OR- if there
+                //       are no retries necessary to acquire
+                //       it, the locking callback may simply
+                //       never be called.
+                //
+                // WARNING: Nothing too expensive should be
+                //          done in the locking callback as
+                //          that could seriously slow down
+                //          the library.  It is recommended
+                //          to use it for only for things
+                //          like tracing and user interface
+                //          updates, e.g. via servicing an
+                //          external event loop.
+                //
                 callback = PrivateLockCallback; /* NO-LOCK */
                 retry++;
 
@@ -59759,7 +61585,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
-        private bool DefaultLockCallback(
+        private bool ShellLockCallback(
             ISynchronizeAll synchronizeAll, /* in */
             int retry,                      /* in */
             int timeout,                    /* in */
@@ -64853,7 +66679,8 @@ namespace Eagle._Components.Public
                                             }
                                             else if ((IsSystemArrayVariable(localVariable) &&
                                                     MarshalOps.DoesArrayElementExist(
-                                                        binder, cultureInfo, localVariable, varIndex)) ||
+                                                        binder, InternalCultureInfo, localVariable,
+                                                        varIndex)) ||
                                                 ((arrayValue != null) && arrayValue.ContainsKey(varIndex)))
                                             {
                                                 variable = localVariable;
@@ -65356,7 +67183,7 @@ namespace Eagle._Components.Public
 
             code = Value.GetWideInteger2(
                 (IGetValue)result, ValueFlags.AnyWideInteger,
-                cultureInfo, ref value, ref error);
+                InternalCultureInfo, ref value, ref error);
 
             return code;
         }
@@ -72010,7 +73837,75 @@ namespace Eagle._Components.Public
                         ///////////////////////////////////////////////////////////////////////////////
 
                         #region Notification-Only [Global] Environment Variables
+                        if (GlobalConfiguration.DoesValueExist(
+                                EnvVars.NoWritePrompt, GlobalConfiguration.GetFlags(
+                                ConfigurationFlags.ConsoleOps, verbose)))
+                        {
+                            //
+                            // HACK: Here, we avoid using the (Maybe?)WritePrompt method
+                            //       because that is what the environment variable being
+                            //       checked is designed to avoid; therefore, if we must
+                            //       output something, use the tracing subsystem, at the
+                            //       highest possible priority.
+                            //
+                            TraceOps.DebugTrace(String.Format(
+                                "ProcessStartupOptions: {0}",
+                                _Constants.Prompt.NoWritePrompt),
+                                typeof(Interpreter).Name,
+                                TracePriority.StartupDebug4);
+                        }
+
+                        ///////////////////////////////////////////////////////////////////////////////
+
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+                        if (GlobalConfiguration.DoesValueExist(
+                                EnvVars.ForceTrustedRemote, GlobalConfiguration.GetFlags(
+                                ConfigurationFlags.Interpreter, verbose)))
+                        {
+                            ConsoleOps.MaybeWritePrompt(
+                                _Constants.Prompt.ForceTrustedRemote,
+                                console, verbose);
+                        }
+
+                        ///////////////////////////////////////////////////////////////////////////////
+
+                        if (GlobalConfiguration.DoesValueExist(
+                                EnvVars.NoTrustedRemote, GlobalConfiguration.GetFlags(
+                                ConfigurationFlags.Interpreter, verbose)))
+                        {
+                            ConsoleOps.MaybeWritePrompt(
+                                _Constants.Prompt.NoTrustedRemote,
+                                console, verbose);
+                        }
+
+                        ///////////////////////////////////////////////////////////////////////////////
+
+                        if (GlobalConfiguration.DoesValueExist(
+                                EnvVars.TrustedBundlePassword, GlobalConfiguration.GetFlags(
+                                ConfigurationFlags.Interpreter, verbose)))
+                        {
+                            ConsoleOps.MaybeWritePrompt(
+                                _Constants.Prompt.TrustedBundlePassword,
+                                console, verbose);
+                        }
+#endif
+
+                        ///////////////////////////////////////////////////////////////////////////////
+
 #if CONSOLE
+                        value = GlobalConfiguration.GetValue(
+                            EnvVars.DataFlags, GlobalConfiguration.GetFlags(
+                            ConfigurationFlags.Interpreter, verbose));
+
+                        if (value != null)
+                        {
+                            ConsoleOps.MaybeWritePrompt(String.Format(
+                                _Constants.Prompt.DataFlags, value),
+                                console, verbose);
+                        }
+
+                        ///////////////////////////////////////////////////////////////////////////////
+
                         if (GlobalConfiguration.DoesValueExist(
                                 EnvVars.AllowAnyThread, GlobalConfiguration.GetFlags(
                                 ConfigurationFlags.Interpreter, verbose)))
@@ -73191,6 +75086,17 @@ namespace Eagle._Components.Public
             if (token != null)
                 createFlags |= CreateFlags.IfNecessary;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void MaybeMutateInitializeFlags(
+            ulong? token,                       /* in */
+            ref InitializeFlags initializeFlags /* in, out */
+            )
+        {
+            if (token != null)
+                initializeFlags &= ~InitializeFlags.TrustedRemote;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -73262,6 +75168,10 @@ namespace Eagle._Components.Public
             InterpreterFlags interpreterFlags,
             InterpreterTestFlags interpreterTestFlags,
             PluginFlags pluginFlags,
+#if NATIVE && TCL
+            FindFlags findFlags,
+            LoadFlags loadFlags,
+#endif
             ref Result result
             )
         {
@@ -73271,7 +75181,7 @@ namespace Eagle._Components.Public
                 interpreterFlags, interpreterTestFlags,
                 pluginFlags,
 #if NATIVE && TCL
-                Defaults.FindFlags, Defaults.LoadFlags,
+                findFlags, loadFlags,
 #endif
                 null, null, null, null, null, null, null, null,
                 null, null, null, null, null, ref result);
@@ -73457,6 +75367,17 @@ namespace Eagle._Components.Public
                 ReturnCode code;
                 StringList argv = (args != null) ? new StringList(args) : null;
 
+                ///////////////////////////////////////////////////////////
+                //
+                // HACK: Grab either the default data flags or those from
+                //       the environment, which can be used to figure out
+                //       "missing script file" issues, etc.
+                //
+                DataFlags dataFlags = HostOps.GetDataFlags(
+                    culture, false, createFlags, verbose);
+
+                ///////////////////////////////////////////////////////////
+
                 TraceOps.DebugTrace(String.Format(
                     "Create ({0})", AppDomainOps.GetCurrentId()),
                     null, typeof(Interpreter).Name, TracePriority.StartupDebug,
@@ -73468,6 +75389,7 @@ namespace Eagle._Components.Public
                     "createFlags", FormatOps.WrapOrNull(createFlags),
                     "hostCreateFlags", FormatOps.WrapOrNull(hostCreateFlags),
                     "initializeFlags", FormatOps.WrapOrNull(initializeFlags),
+                    "dataFlags", FormatOps.WrapOrNull(dataFlags),
                     "scriptFlags", FormatOps.WrapOrNull(scriptFlags),
                     "interpreterFlags", FormatOps.WrapOrNull(interpreterFlags),
                     "interpreterTestFlags", FormatOps.WrapOrNull(interpreterTestFlags),
@@ -73812,8 +75734,9 @@ namespace Eagle._Components.Public
 
                                 code = interpreter.PreSetup(
                                     ruleSet, culture, createFlags, hostCreateFlags,
-                                    initializeFlags, scriptFlags, interpreterFlags,
-                                    interpreterTestFlags, pluginFlags,
+                                    initializeFlags, dataFlags, scriptFlags,
+                                    interpreterFlags, interpreterTestFlags,
+                                    pluginFlags,
 #if NATIVE && TCL
                                     findFlags, loadFlags,
 #endif
@@ -74475,7 +76398,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static Interpreter Create(
+        public static Interpreter Create( /* Harpy */
             ulong? token,
             ref Result result
             )
@@ -74484,9 +76407,13 @@ namespace Eagle._Components.Public
 
             MaybeMutateCreateFlags(token, ref createFlags);
 
+            InitializeFlags initializeFlags = Defaults.InitializeFlags;
+
+            MaybeMutateInitializeFlags(token, ref initializeFlags);
+
             return Create(token, null,
                 _ClientData.Empty, null, null, createFlags,
-                Defaults.HostCreateFlags, Defaults.InitializeFlags,
+                Defaults.HostCreateFlags, initializeFlags,
                 Defaults.ScriptFlags, Defaults.InterpreterFlags,
                 Defaults.InterpreterTestFlags, Defaults.PluginFlags,
 #if NATIVE && TCL
@@ -74527,9 +76454,13 @@ namespace Eagle._Components.Public
 
             MaybeMutateCreateFlags(token, ref createFlags);
 
+            InitializeFlags initializeFlags = Defaults.InitializeFlags;
+
+            MaybeMutateInitializeFlags(token, ref initializeFlags);
+
             return Create(token, null,
                 _ClientData.Empty, args, null, createFlags,
-                Defaults.HostCreateFlags, Defaults.InitializeFlags,
+                Defaults.HostCreateFlags, initializeFlags,
                 Defaults.ScriptFlags, Defaults.InterpreterFlags,
                 Defaults.InterpreterTestFlags, Defaults.PluginFlags,
 #if NATIVE && TCL
@@ -74597,7 +76528,8 @@ namespace Eagle._Components.Public
         {
             if (interpreterSettings != null)
             {
-                return Create(null, null, _ClientData.Empty,
+                return Create(null,
+                    interpreterSettings.RuleSet, _ClientData.Empty,
                     interpreterSettings.Args, interpreterSettings.Culture,
                     interpreterSettings.CreateFlags, interpreterSettings.HostCreateFlags,
                     interpreterSettings.InitializeFlags, interpreterSettings.ScriptFlags,
@@ -74636,7 +76568,8 @@ namespace Eagle._Components.Public
         {
             if (interpreterSettings != null)
             {
-                return Create(token, null, _ClientData.Empty,
+                return Create(token,
+                    interpreterSettings.RuleSet, _ClientData.Empty,
                     interpreterSettings.Args, interpreterSettings.Culture,
                     interpreterSettings.CreateFlags, interpreterSettings.HostCreateFlags,
                     interpreterSettings.InitializeFlags, interpreterSettings.ScriptFlags,
@@ -74797,82 +76730,20 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Pre-Setup
-        private ReturnCode PreSetupCulture(
-            string culture,
-            bool specific,
-            ref Result error
+        private ReturnCode PreSetupCulture( /* COMPAT: Eagle beta. */
+            string culture,  /* in */
+            bool specific,   /* in */
+            ref Result error /* out */
             )
         {
-            //
-            // NOTE: Empty string is valid here, we use it to select the current
-            //       culture.
-            //
-            if (culture != null)
-            {
-                try
-                {
-                    //
-                    // NOTE: Attempt to set the culture based on using the parameter
-                    //       "culture" as a name (either neutral or specific).  Empty
-                    //       string is valid here and selects the invariant culture.
-                    //
-                    if (specific)
-                        cultureInfo = CultureInfo.CreateSpecificCulture(culture);
-                    else
-                        cultureInfo = CultureInfo.GetCultureInfo(culture);
+            CultureInfo localCultureInfo = RuntimeOps.GetCultureInfo(
+                culture, specific, ref error);
 
-                    return ReturnCode.Ok;
-                }
-                catch
-                {
-                    //
-                    // NOTE: Ok, it was not a valid culture name, try to interpret the
-                    //       parameter "culture" as an Id integer.
-                    //
-                    int cultureId = 0;
+            if (localCultureInfo == null)
+                return ReturnCode.Error;
 
-                    if (Value.GetInteger2(
-                            culture, ValueFlags.AnyInteger, null /* no culture yet! */,
-                            ref cultureId, ref error) == ReturnCode.Ok)
-                    {
-                        try
-                        {
-                            cultureInfo = CultureInfo.GetCultureInfo(cultureId);
-
-                            return ReturnCode.Ok;
-                        }
-                        catch (Exception e)
-                        {
-                            //
-                            // NOTE: It parsed as a valid integer; however, the culture
-                            //       specified by the Id was not found.
-                            //
-                            error = FormatOps.ErrorWithException(String.Format(
-                                CultureInfoError, culture), e);
-
-                            return ReturnCode.Error;
-                        }
-                    }
-                    else
-                    {
-                        //
-                        // NOTE: It did not parse as a valid integer, fail.
-                        //
-                        error = String.Format(CultureInfoError, culture);
-
-                        return ReturnCode.Error;
-                    }
-                }
-            }
-            else
-            {
-                //
-                // NOTE: Getting this property value is documented to never fail.
-                //
-                cultureInfo = Value.GetDefaultCulture();
-
-                return ReturnCode.Ok;
-            }
+            cultureInfo = localCultureInfo;
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -74887,47 +76758,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private ReturnCode PreSetupResourceManager(ref Result error)
+        private ReturnCode PreSetupResourceManager( /* COMPAT: Eagle beta. */
+            ref Result error /* out */
+            )
         {
-            if (cultureInfo != null)
-            {
-                string resourceBaseName = GlobalState.GetResourceBaseName();
+            ResourceManager localResourceManager =
+                RuntimeOps.GetResourceManager(
+                    InternalCultureInfo, ref error);
 
-                if (resourceBaseName != null)
-                {
-                    try
-                    {
-                        //
-                        // FIXME: PRI 4: Now that this resource management code
-                        //        is in place and working properly, we need to
-                        //        migrate all the error messages and other
-                        //        static strings to be managed resources.  The
-                        //        original intention was to do this right from
-                        //        the start; however, time constraints prevented
-                        //        that vision from becoming a reality.
-                        //
-                        resourceManager = new ResourceManager(
-                            resourceBaseName, GlobalState.GetAssembly());
+            if (localResourceManager == null)
+                return ReturnCode.Error;
 
-                        return ReturnCode.Ok;
-                    }
-                    catch (Exception e)
-                    {
-                        error = FormatOps.ErrorWithException(String.Format(
-                            ResourceManagerError, resourceBaseName), e);
-                    }
-                }
-                else
-                {
-                    error = InvalidBaseResourceName;
-                }
-            }
-            else
-            {
-                error = InvalidCultureInfoError;
-            }
-
-            return ReturnCode.Error;
+            resourceManager = localResourceManager;
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -75260,6 +77103,7 @@ namespace Eagle._Components.Public
                     }
 #endif
 
+                    /* INTENTIONAL: see "if" */
                     newFlags |= CacheFlags.IExecute; /* NOTE: Not a typo. */
                 }
 
@@ -75278,6 +77122,7 @@ namespace Eagle._Components.Public
                     }
 #endif
 
+                    /* INTENTIONAL: see "if" */
                     newFlags |= CacheFlags.IExecute; /* NOTE: Not a typo. */
                 }
             }
@@ -75686,6 +77531,7 @@ namespace Eagle._Components.Public
             CreateFlags createFlags,
             HostCreateFlags hostCreateFlags,
             InitializeFlags initializeFlags,
+            DataFlags dataFlags,
             ScriptFlags scriptFlags,
             InterpreterFlags interpreterFlags,
             InterpreterTestFlags interpreterTestFlags,
@@ -75889,6 +77735,12 @@ namespace Eagle._Components.Public
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
+                #region Script Bundles
+                bundleManager = new BundleManager();
+                #endregion
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
                 #region Script Library Pre-Initialization
                 preInitializeText = text;
                 #endregion
@@ -75930,7 +77782,7 @@ namespace Eagle._Components.Public
                 this.defaultHostCreateFlags = HostCreateFlags.NestedUse; /* [interp create] */
                 this.initializeFlags = initializeFlags;
                 this.defaultInitializeFlags = Defaults.InitializeFlags;
-                this.dataFlags = Defaults.DataFlags;
+                this.dataFlags = dataFlags;
                 this.scriptFlags = scriptFlags;
                 this.defaultScriptFlags = Defaults.ScriptFlags;
                 this.interpreterFlags = interpreterFlags;
@@ -75938,6 +77790,7 @@ namespace Eagle._Components.Public
                 this.interpreterTestFlags = interpreterTestFlags;
                 this.defaultInterpreterTestFlags = Defaults.InterpreterTestFlags;
                 this.interpreterStateFlags = Defaults.InterpreterStateFlags;
+                this.optionBehaviorFlags = Defaults.OptionBehaviorFlags;
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -75988,8 +77841,8 @@ namespace Eagle._Components.Public
                     enumValue = EnumOps.TryParseFlags(
                         this, typeof(CacheFlags),
                         cacheFlags.ToString(), value,
-                        cultureInfo, true, true, true,
-                        ref localError);
+                        InternalCultureInfo, true, true,
+                        true, ref localError);
 
                     if (enumValue is CacheFlags)
                     {
@@ -76683,7 +78536,7 @@ namespace Eagle._Components.Public
                 ErrorFrames = 0;
                 Exception = null;
 
-                ScriptLocation = null;
+                ManualScriptLocation = null;
                 ScriptLocations = new ScriptLocationList();
 
                 PreviousProcessId = 0;
@@ -77256,7 +79109,9 @@ namespace Eagle._Components.Public
 
                     code = SetAutoPathList( /* PACKAGE: $::auto_path */
                         autoPathList, FlagOps.HasFlags(localInitializeFlags,
-                        InitializeFlags.NoTraceAutoPath, true), ref result);
+                        InitializeFlags.NoTraceAutoPath, true), FlagOps.HasFlags(
+                        localInitializeFlags, InitializeFlags.IgnoreError, true),
+                        ref result);
                 }
             }
 
@@ -77936,13 +79791,21 @@ namespace Eagle._Components.Public
 
             if (GlobalState.CountInterpreters(true) == 0)
             {
+                string osNameAndVersion =
+                    PlatformOps.GetOperatingSystemNameAndVersion();
+
+                if (osNameAndVersion != null)
+                    osNameAndVersion = osNameAndVersion.Trim();
+
                 TraceOps.DebugTrace(String.Format(
-                    "SetupPlatform (P:{0} A:{1} T:{2})", ProcessOps.GetId(), /* NOTE: Not typo. */
-                    AppDomainOps.GetCurrentId(), GlobalState.GetCurrentSystemThreadId()),
-                    null, typeof(Interpreter).Name, TracePriority.StartupInform, false,
-                    "platform", PlatformOps.GetOperatingSystemNameAndVersion().Trim(),
-                    "runtime", CommonOps.Runtime.GetRuntimeNameAndVersion(), "library",
-                    RuntimeOps.GetVersion(VersionFlags.Setup));
+                        "SetupPlatform (P:{0} A:{1} T:{2})",
+                        ProcessOps.GetId(), /* NOTE: Not typo. */
+                        AppDomainOps.GetCurrentId(),
+                        GlobalState.GetCurrentSystemThreadId()), null,
+                    typeof(Interpreter).Name, TracePriority.StartupInform,
+                    false, "platform", osNameAndVersion, "runtime",
+                    CommonOps.Runtime.GetRuntimeNameAndVersion(),
+                    "library", RuntimeOps.GetVersion(VersionFlags.Setup));
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -78402,6 +80265,11 @@ namespace Eagle._Components.Public
                     code = SetLibraryVariableValue2(VariableFlags.None,
                         TclVars.Platform.Name, TclVars.Platform.DirectorySeparator,
                         PathOps.NativeDirectorySeparatorChar.ToString(), ref result);
+
+                if (code == ReturnCode.Ok)
+                    code = SetLibraryVariableValue2(VariableFlags.None,
+                        TclVars.Platform.Name, TclVars.Platform.AlternateDirectorySeparator,
+                        PathOps.NonNativeDirectorySeparatorChar.ToString(), ref result);
 
                 if (code == ReturnCode.Ok)
                     code = SetLibraryVariableValue2(VariableFlags.None,
@@ -79128,7 +80996,9 @@ namespace Eagle._Components.Public
                         }
                         else
                         {
-                            ScriptOps.MaybeExactNameOnly(name, ref scriptFlags);
+                            ScriptOps.MaybeExactNameOnly(
+                                interpreter, name, null, ref scriptFlags);
+
                             callback = new ScriptLibraryCallback(HostOps.GetScript);
                         }
 
@@ -79934,6 +81804,107 @@ namespace Eagle._Components.Public
                 }
 
                 ///////////////////////////////////////////////////////////////
+
+#if (NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN) || THREADING
+                bool asynchronous = FlagOps.HasFlags(
+                    localInitializeFlags, InitializeFlags.Asynchronous, true);
+
+                bool waitForStart = FlagOps.HasFlags(
+                    localInitializeFlags, InitializeFlags.WaitForStart, true);
+#endif
+
+                ///////////////////////////////////////////////////////////////
+
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+                //
+                // NOTE: Currently, the trusted remote script bundle is only
+                //       evaluated if the interpreter has a "token" that was
+                //       assigned at creation -OR- this is a DEBUG build and
+                //       we are not been forbidden from doing so.  This may
+                //       be changed in the future.
+                //
+                if (ShouldInitializeViaTrustedRemoteUri(localInitializeFlags))
+                {
+                    bool keepSecurity = FlagOps.HasFlags(
+                        localInitializeFlags, InitializeFlags.KeepSecurity,
+                        true);
+
+                    WaitCallback trustedRemoteCallback = new WaitCallback(
+                            delegate (object state)
+                    {
+                        //
+                        // NOTE: First, check if the Harpy plugin can be
+                        //       loaded into the interpreter.  If not, do
+                        //       nothing.  If so, attempt to download the
+                        //       trusted remote script.  Then, verify its
+                        //       signature with the appropriate key pair,
+                        //       which will be from "keyRing.one.eagle".
+                        //       If that fails, skip it, complain loudly,
+                        //       leaving the interpreter unchanged, with
+                        //       the exception of the Harpy plugin being
+                        //       loaded into its AppDomain.  It could be
+                        //       unloaded from the interpreter itself in
+                        //       this case.  If the trusted remote script
+                        //       is properly signed, it will be evaluated
+                        //       as a "script bundle", and possibly with
+                        //       interpreter / AppDomain isolation, and
+                        //       possibly in a "safe" interpreter with a
+                        //       custom IRuleSet to configure its command
+                        //       set, which is fundamentally a "sandbox",
+                        //       e.g. for partially trusted or marginally
+                        //       trusted scripts.  This is intended to be
+                        //       used in certain application integration
+                        //       scenarios when deploying and/or managing
+                        //       client applications (or servers) that do
+                        //       require the ability to perform dynamic,
+                        //       centralized configuration.  For this use
+                        //       case, the customers must have some kind
+                        //       of valid license for Harpy and/or Eagle
+                        //       Enterprise Edition (EEE) -AND- will need
+                        //       to coordinate the exact scripts with the
+                        //       company response for the official Eagle
+                        //       binary releases ("Mistachkin Systems")
+                        //       for two reasons: 1) Defining the exact
+                        //       IP address blocks to include for each
+                        //       of the desired script variants. 2) In
+                        //       order to subject each trusted remote
+                        //       script variant for vetting, rule set
+                        //       configuration, script bundle creation,
+                        //       testing, and final signing.  While the
+                        //       open source community may customize any
+                        //       of this functionality in their binaries
+                        //       and their own copies of the source code,
+                        //       the official binaries may not be changed
+                        //       (i.e. they are digitally signed) and the
+                        //       official servers may not be used without
+                        //       explicit permission (i.e. you can simply
+                        //       point it at your own servers).
+                        //
+                        IClientData clientData = _ClientData.Empty;
+
+                        ScriptOps.InitializeViaTrustedRemoteUri(
+                            this, clientData, StringOps.GetEncoding(
+                                EncodingType.RemoteUri),
+                            ScriptFlags.VendorLibraryOptionalFile,
+                            ScriptOps.GetPasswordForTrustedRemoteUri(),
+                            asynchronous, keepSecurity);
+                    });
+
+                    ///////////////////////////////////////////////////////////
+
+                    if (asynchronous)
+                    {
+                        ThreadOps.QueueUserWorkItem(
+                            trustedRemoteCallback, waitForStart);
+                    }
+                    else
+                    {
+                        trustedRemoteCallback(null);
+                    }
+                }
+#endif
+
+                ///////////////////////////////////////////////////////////////
                 //        OPTIONAL USER SCRIPT LIBRARY (SYNCHRONOUS)         //
                 ///////////////////////////////////////////////////////////////
 
@@ -79973,15 +81944,13 @@ namespace Eagle._Components.Public
                 //         of thread pool race condition that can cause this
                 //         script to not be evaluated at all.
                 //
-                if (!CommonOps.Environment.DoesVariableExist(EnvVars.NoWorkers) &&
-                    FlagOps.HasFlags(
-                        localInitializeFlags, InitializeFlags.Worker1, true))
+                if (ShouldInitializeViaWorker1(localInitializeFlags))
                 {
-                    ThreadOps.QueueUserWorkItem(
-                            new WaitCallback(delegate(object state)
+                    WaitCallback worker1Callback = new WaitCallback(
+                            delegate(object state)
                     {
-                        ScriptFlags scriptFlags = ScriptOps.GetFlags(
-                            this, ScriptFlags.ApplicationLibraryOptionalFile |
+                        ScriptFlags scriptFlags = ScriptOps.GetFlags(this,
+                            ScriptFlags.ApplicationLibraryOptionalFile |
                             ScriptFlags.UserLibraryOptionalFile |
                             ScriptFlags.Asynchronous, false, false);
 
@@ -80007,7 +81976,19 @@ namespace Eagle._Components.Public
                                 typeof(Interpreter).Name,
                                 TracePriority.ScriptError2);
                         }
-                    }), true);
+                    });
+
+                    ///////////////////////////////////////////////////////////
+
+                    if (asynchronous)
+                    {
+                        ThreadOps.QueueUserWorkItem(
+                            worker1Callback, waitForStart);
+                    }
+                    else
+                    {
+                        worker1Callback(null);
+                    }
                 }
 #endif
             }
@@ -80086,6 +82067,7 @@ namespace Eagle._Components.Public
         internal ReturnCode SetAutoPathList(
             StringList autoPathList,
             bool skipTrace,
+            bool ignoreError,
             ref Result error
             )
         {
@@ -80117,6 +82099,9 @@ namespace Eagle._Components.Public
                 "error = {2}", FormatOps.WrapOrNull(autoPathList),
                 FormatOps.WrapOrNull(code), FormatOps.WrapOrNull(error)),
                 typeof(Interpreter).Name, TracePriority.ScriptDebug);
+
+            if ((code != ReturnCode.Ok) && ignoreError)
+                code = ReturnCode.Ok;
 
             return code;
         }
@@ -80180,6 +82165,8 @@ namespace Eagle._Components.Public
                 return SetAutoPathList(localAutoPathList,
                     FlagOps.HasFlags(localInitializeFlags,
                     InitializeFlags.NoTraceAutoPath, true),
+                    FlagOps.HasFlags(localInitializeFlags,
+                    InitializeFlags.IgnoreError, true),
                     ref error);
             }
             else
@@ -80509,7 +82496,7 @@ namespace Eagle._Components.Public
                                 Result result = null;
 
                                 code = PackageOps.CreateAndEvaluateIfNeededScripts(
-                                    this, mappings, null, null, null, cultureInfo,
+                                    this, mappings, null, null, null, InternalCultureInfo,
                                     localPackageIfNeededFlags, ref result);
 
                                 if ((code != ReturnCode.Ok) && (result != null))
@@ -80754,6 +82741,16 @@ namespace Eagle._Components.Public
                 }
 
                 ///////////////////////////////////////////////////////////////
+
+#if THREADING
+                bool asynchronous = FlagOps.HasFlags(
+                    localInitializeFlags, InitializeFlags.Asynchronous, true);
+
+                bool waitForStart = FlagOps.HasFlags(
+                    localInitializeFlags, InitializeFlags.WaitForStart, true);
+#endif
+
+                ///////////////////////////////////////////////////////////////
                 //       OPTIONAL SHELL SCRIPT LIBRARY (ASYNCHRONOUS)        //
                 ///////////////////////////////////////////////////////////////
 
@@ -80766,15 +82763,13 @@ namespace Eagle._Components.Public
                 //         of thread pool race condition that can cause this
                 //         script to not be evaluated at all.
                 //
-                if (!CommonOps.Environment.DoesVariableExist(EnvVars.NoWorkers) &&
-                    FlagOps.HasFlags(
-                        localInitializeFlags, InitializeFlags.ShellWorker, true))
+                if (ShouldInitializeViaShellWorker(localInitializeFlags))
                 {
-                    ThreadOps.QueueUserWorkItem(
-                            new WaitCallback(delegate(object state)
+                    WaitCallback shellWorkerCallback = new WaitCallback(
+                            delegate (object state)
                     {
-                        ScriptFlags scriptFlags = ScriptOps.GetFlags(
-                            this, ScriptFlags.Interactive |
+                        ScriptFlags scriptFlags = ScriptOps.GetFlags(this,
+                            ScriptFlags.Interactive |
                             ScriptFlags.ApplicationOptionalFile |
                             ScriptFlags.UserOptionalFile |
                             ScriptFlags.Asynchronous, false, false);
@@ -80801,7 +82796,19 @@ namespace Eagle._Components.Public
                                 typeof(Interpreter).Name,
                                 TracePriority.ScriptError2);
                         }
-                    }), true);
+                    });
+
+                    ///////////////////////////////////////////////////////////
+
+                    if (asynchronous)
+                    {
+                        ThreadOps.QueueUserWorkItem(
+                            shellWorkerCallback, waitForStart);
+                    }
+                    else
+                    {
+                        shellWorkerCallback(null);
+                    }
                 }
 #endif
 
@@ -81093,7 +83100,7 @@ namespace Eagle._Components.Public
 
                 foreach (PolicyPair pair in policies)
                 {
-                    _Wrappers.Policy wrapper = pair.Value;
+                    PolicyWrapper wrapper = pair.Value;
 
                     if (wrapper == null)
                         continue;
@@ -81187,7 +83194,7 @@ namespace Eagle._Components.Public
 
                 foreach (TracePair pair in traces)
                 {
-                    _Wrappers.Trace wrapper = pair.Value;
+                    TraceWrapper wrapper = pair.Value;
 
                     if (wrapper == null)
                         continue;
@@ -81271,6 +83278,8 @@ namespace Eagle._Components.Public
                     interpreterSettings = InterpreterSettings.Create();
 
                 interpreterSettings.Args = list;
+
+                CultureInfo cultureInfo = InternalCultureInfo;
 
                 interpreterSettings.Culture = (cultureInfo != null) ?
                     cultureInfo.Name : null;
@@ -85128,56 +87137,58 @@ namespace Eagle._Components.Public
                 {
                     if (arg1 != null)
                     {
+                        bool setVariable;
+                        bool notify;
+
                         if (whatIf || activeInterpreter.PrivateInitialized)
                         {
-                            if (whatIf ||
-                                activeInterpreter.ChangeRuntimeOption(arg1))
-                            {
-                                if (!whatIf && !quiet)
-                                {
-                                    ShellOps.WritePrompt(
-                                        interactiveHost, String.Format(
-                                        _Constants.Prompt.RuntimeOption,
-                                        arg1));
-                                }
-
-                                if (popArgv)
-                                {
-                                    GenericOps<string>.PopFirstArgument(ref argv);
-                                    GenericOps<string>.PopFirstArgument(ref argv);
-                                    popArgv = false;
-                                }
-
-                                removeArgv += 2;
-
-                                goto retryArgv;
-                            }
-                            else
-                            {
-                                //
-                                // BUGFIX: We may have evaluated some code and
-                                //         the host may have been changed; grab
-                                //         it again.
-                                //
-                                ShellOps.ShellMainCoreError(
-                                    activeInterpreter, savedArg0, arg0,
-                                    "failed to change runtime option", whatIf,
-                                    ref argv, ref interactiveHost, ref quiet,
-                                    ref result);
-                            }
-
-                            exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                            setVariable = true;
+                            notify = true;
                         }
                         else
                         {
+                            setVariable = false;
+                            notify = false;
+                        }
+
+                        if (whatIf ||
+                            activeInterpreter.PrivateChangeRuntimeOption(
+                                arg1, setVariable, notify))
+                        {
+                            if (!whatIf && !quiet)
+                            {
+                                ShellOps.WritePrompt(
+                                    interactiveHost, String.Format(
+                                    _Constants.Prompt.RuntimeOption,
+                                    arg1));
+                            }
+
+                            if (popArgv)
+                            {
+                                GenericOps<string>.PopFirstArgument(ref argv);
+                                GenericOps<string>.PopFirstArgument(ref argv);
+                                popArgv = false;
+                            }
+
+                            removeArgv += 2;
+
+                            goto retryArgv;
+                        }
+                        else
+                        {
+                            //
+                            // BUGFIX: We may have evaluated some code and
+                            //         the host may have been changed; grab
+                            //         it again.
+                            //
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0,
-                                "script library is not initialized", whatIf,
+                                "failed to change runtime option", whatIf,
                                 ref argv, ref interactiveHost, ref quiet,
                                 ref result);
-
-                            exitCode = ShellOps.FailureExitCode(activeInterpreter);
                         }
+
+                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                     else
                     {
@@ -86339,7 +88350,7 @@ namespace Eagle._Components.Public
                         //          and run it again.
                         //
                         //       None of the above actions will be performed when
-                        //       operatring in "what-if" mode.  The net effect of
+                        //       operating in "what-if" mode.  The net effect of
                         //       these actions is that "typical" ways of exiting
                         //       the interactive loop, e.g. [exit], et al, will
                         //       not work.
@@ -86606,6 +88617,7 @@ namespace Eagle._Components.Public
 #if TEST
         private static ReturnCode MaybeSetupTraceLogFile(
             IEnumerable<string> args,
+            OptionOriginFlags originFlags,
             bool console,
             bool verbose,
             ref Result error
@@ -86615,8 +88627,8 @@ namespace Eagle._Components.Public
             string fileName = null;
 
             code = GetStartupLogFileName(
-                args, OptionOriginFlags.Shell, console, verbose,
-                ref fileName, ref error);
+                args, originFlags, console, verbose, ref fileName,
+                ref error);
 
             if ((code == ReturnCode.Ok) && (fileName != null))
             {
@@ -86636,7 +88648,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ExitCode PrivateShellMain(
-            IEnumerable<string> args
+            InterpreterSettings interpreterSettings,
+            IEnumerable<string> args,
+            OptionOriginFlags originFlags
             )
         {
             MaybeStaticInitialize();
@@ -86645,6 +88659,11 @@ namespace Eagle._Components.Public
 
             try
             {
+                //
+                // NOTE: Grab the effective console and verbose settings now, as
+                //       they are used to determine if any subsequent diagnostic
+                //       messages should be emitted.
+                //
                 bool console;
                 bool verbose;
 
@@ -86664,125 +88683,9 @@ namespace Eagle._Components.Public
                 if (code == ReturnCode.Ok) /* REDUNDANT */
                 {
                     code = MaybeSetupTraceLogFile(
-                        args, console, verbose, ref result);
+                        args, originFlags, console, verbose, ref result);
                 }
 #endif
-
-                //
-                // NOTE: Start with no flags.
-                //
-                CreateFlags createFlags = CreateFlags.None;
-                HostCreateFlags hostCreateFlags = HostCreateFlags.None;
-                InitializeFlags initializeFlags = InitializeFlags.None;
-                ScriptFlags scriptFlags = ScriptFlags.None;
-
-                if (code == ReturnCode.Ok) /* REDUNDANT? */
-                {
-                    //
-                    // NOTE: Setup the appropriate interpreter creation flags
-                    //       for a shell.
-                    //
-                    createFlags = CreateFlags.CoreShellUse; /* EXEMPT */
-
-                    //
-                    // NOTE: Get the effective interpreter creation flags for
-                    //       the shell from the environment, etc.
-                    //
-                    createFlags = GetStartupCreateFlags(
-                        args, createFlags, OptionOriginFlags.Shell, console,
-                        verbose);
-
-                    //
-                    // NOTE: Setup the appropriate interpreter host creation
-                    //       flags for a shell.
-                    //
-                    hostCreateFlags = HostCreateFlags.CoreShellUse; /* EXEMPT */
-
-                    //
-                    // NOTE: Get the effective interpreter creation flags for
-                    //       the shell from the environment, etc.
-                    //
-                    hostCreateFlags = GetStartupHostCreateFlags(
-                        args, hostCreateFlags, OptionOriginFlags.Shell, console,
-                        verbose);
-
-                    //
-                    // NOTE: Setup the appropriate interpreter initialization
-                    //       flags for a shell.
-                    //
-                    initializeFlags = InitializeFlags.CoreShellUse; /* EXEMPT */
-
-                    //
-                    // NOTE: Get the effective interpreter initialization flags
-                    //       for the shell from the environment, etc.
-                    //
-                    initializeFlags = GetStartupInitializeFlags(
-                        args, initializeFlags, OptionOriginFlags.Shell, console,
-                        verbose);
-
-                    //
-                    // NOTE: Are we creating a safe interpreter?  If so, make
-                    //       sure the "full initialize" option is not present,
-                    //       then disable evaluating "init.eagle" and evaluate
-                    //       "safe.eagle" instead.
-                    //
-                    if (FlagOps.HasFlags(createFlags, CreateFlags.Safe, true))
-                    {
-                        initializeFlags &= ~InitializeFlags.Loader;
-                        initializeFlags &= ~InitializeFlags.Initialization;
-                        initializeFlags |= InitializeFlags.Safe;
-                    }
-
-                    //
-                    // NOTE: Setup the appropriate interpreter script flags
-                    //       for a shell.
-                    //
-                    scriptFlags = Defaults.ScriptFlags;
-
-                    //
-                    // NOTE: Get the effective interpreter script flags for
-                    //       the shell from the environment, etc.
-                    //
-                    scriptFlags = GetStartupScriptFlags(
-                        args, scriptFlags, OptionOriginFlags.Shell, console,
-                        verbose);
-                }
-
-                //
-                // NOTE: Start with the default pre-initialize text (i.e.
-                //       none).
-                //
-                string text = null;
-
-                //
-                // BUGFIX: If the "ShellPreInitialize" environment variable is
-                //         present, pre-scan all the command line arguments for
-                //         the pre-initialize script to evaluate.  Otherwise,
-                //         this should be skipped to prevent the pre-initialize
-                //         script from being evaluated more than once (COMPAT:
-                //         Eagle Beta).
-                //
-                if ((code == ReturnCode.Ok) &&
-                    GlobalConfiguration.DoesValueExist(
-                        EnvVars.ShellPreInitialize,
-                        ConfigurationFlags.InterpreterVerbose))
-                {
-                    code = GetStartupPreInitializeText(
-                        args, createFlags, OptionOriginFlags.Shell, console,
-                        verbose, ref text, ref result);
-                }
-
-                //
-                // NOTE: Start with the default library path (i.e. automatic).
-                //
-                string libraryPath = null;
-
-                if (code == ReturnCode.Ok)
-                {
-                    code = GetStartupLibraryPath(
-                        args, createFlags, OptionOriginFlags.Shell, console,
-                        verbose, ref libraryPath, ref result);
-                }
 
                 //
                 // NOTE: Create an interpreter settings object based on the
@@ -86790,23 +88693,42 @@ namespace Eagle._Components.Public
                 //       file and allow the settings to be overridden from
                 //       it.
                 //
-                InterpreterSettings interpreterSettings =
-                    InterpreterSettings.Create(
-                        null, args, createFlags, hostCreateFlags,
-                        initializeFlags, scriptFlags, text, libraryPath);
+                InterpreterSettings localInterpreterSettings;
+                CreateFlags createFlags = CreateFlags.None;
+
+                if (interpreterSettings != null)
+                {
+                    createFlags = interpreterSettings.CreateFlags;
+                    localInterpreterSettings = interpreterSettings;
+                }
+                else
+                {
+                    localInterpreterSettings = InterpreterSettings.CreateShell(
+                        null, args, originFlags, console, verbose, ref result);
+
+                    if (localInterpreterSettings != null)
+                        createFlags = localInterpreterSettings.CreateFlags;
+                    else
+                        code = ReturnCode.Error;
+                }
 
                 if (code == ReturnCode.Ok)
                 {
                     code = InterpreterSettings.UseShellDefaults(
-                        interpreterSettings, createFlags, ref result);
+                        localInterpreterSettings, createFlags, ref result);
                 }
 
 #if XML && SERIALIZATION
                 if (code == ReturnCode.Ok)
                 {
                     code = InterpreterSettings.LoadFrom(
-                        (CultureInfo)null, true, true, true,
-                        ref interpreterSettings, ref result);
+                        (CultureInfo)null, FlagOps.HasFlags(
+                            originFlags, OptionOriginFlags.Optional, true),
+                        FlagOps.HasFlags(
+                            originFlags, OptionOriginFlags.Merge, true),
+                        FlagOps.HasFlags(
+                            originFlags, OptionOriginFlags.Expand, true),
+                        ref localInterpreterSettings, ref result);
                 }
 #endif
 
@@ -86818,7 +88740,7 @@ namespace Eagle._Components.Public
                     //       finalized on this thread.
                     //
                     using (Interpreter interpreter = Create(
-                            interpreterSettings, true, ref result))
+                            localInterpreterSettings, true, ref result))
                     {
                         //
                         // NOTE: Make sure the interpreter was created.  This
@@ -86834,7 +88756,7 @@ namespace Eagle._Components.Public
                             //       the shell when used interactively.
                             //
                             interpreter.LockCallback = new LockCallback(
-                                interpreter.DefaultLockCallback);
+                                interpreter.ShellLockCallback);
 
                             //
                             // NOTE: By default, set a more aggressive locking
@@ -86856,9 +88778,8 @@ namespace Eagle._Components.Public
                             //       now.
                             //
                             code = ProcessStartupOptions(
-                                interpreter, args, createFlags,
-                                OptionOriginFlags.Shell, console,
-                                verbose, ref initialize, ref loop,
+                                interpreter, args, createFlags, originFlags,
+                                console, verbose, ref initialize, ref loop,
                                 ref result);
 
                             if (code == ReturnCode.Ok)
@@ -86978,8 +88899,6 @@ namespace Eagle._Components.Public
                     TracePriority.StartupError);
             }
 
-
-
             return exitCode;
         }
 
@@ -86989,11 +88908,22 @@ namespace Eagle._Components.Public
             IEnumerable<string> args
             ) /* ENTRY-POINT, THREAD-SAFE, RE-ENTRANT */
         {
+            return ShellMain(null, args);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ExitCode ShellMain(
+            InterpreterSettings interpreterSettings,
+            IEnumerable<string> args
+            ) /* ENTRY-POINT, THREAD-SAFE, RE-ENTRANT */
+        {
             Interlocked.Increment(ref globalShellMainCount);
 
             try
             {
-                return PrivateShellMain(args);
+                return PrivateShellMain(
+                    interpreterSettings, args, OptionOriginFlags.Shell);
             }
             finally
             {
@@ -87145,7 +89075,7 @@ namespace Eagle._Components.Public
             //
             if (interactiveHost != null)
             {
-                ReturnCode code;
+                ReturnCode code; /* IGNORED (?) */
                 Result error = null;
 
                 //
@@ -88156,8 +90086,7 @@ namespace Eagle._Components.Public
                     //       cancellation flag, etc.
                     //
                     if (!noCommand && InteractiveOps.CheckCommand(
-                            interpreter, text, null, clientData, true, false,
-                            false))
+                            interpreter, text, null, clientData, true, false))
                     {
                         if (trace)
                         {
@@ -94543,6 +96472,40 @@ namespace Eagle._Components.Public
             ref Result result
             )
         {
+            return CreateInterpreter(
+                path, clientData, ruleSet, createFlags, hostCreateFlags,
+                initializeFlags, scriptFlags, interpreterFlags,
+                interpreterTestFlags, pluginFlags,
+#if NATIVE && TCL
+                findFlags, loadFlags,
+#endif
+                PeerType.Default, isolated, security, alias, ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal ReturnCode CreateInterpreter(
+            string path,
+            IClientData clientData,
+            IRuleSet ruleSet,
+            CreateFlags createFlags,
+            HostCreateFlags hostCreateFlags,
+            InitializeFlags initializeFlags,
+            ScriptFlags scriptFlags,
+            InterpreterFlags interpreterFlags,
+            InterpreterTestFlags interpreterTestFlags,
+            PluginFlags pluginFlags,
+#if NATIVE && TCL
+            FindFlags findFlags,
+            LoadFlags loadFlags,
+#endif
+            PeerType peerType,
+            bool isolated,
+            bool security,
+            bool alias,
+            ref Result result
+            )
+        {
             ReturnCode code = ReturnCode.Ok;
             Interpreter interpreter = null;
             string name = null;
@@ -94553,8 +96516,9 @@ namespace Eagle._Components.Public
                 localResult = null;
 
                 code = GetNestedChildInterpreter(
-                    path, LookupFlags.Interpreter, true, ref interpreter,
-                    ref name, ref localResult);
+                    path, LookupFlags.Interpreter,
+                    true, ref interpreter, ref name,
+                    ref localResult);
 
                 if (code != ReturnCode.Ok)
                     result = localResult;
@@ -94566,6 +96530,8 @@ namespace Eagle._Components.Public
 
             if (code == ReturnCode.Ok)
             {
+                bool peer = FlagOps.HasFlags(peerType, PeerType.Normal, true);
+
 #if APPDOMAINS && ISOLATED_INTERPRETERS
                 string otherAppDomainName = null;
                 AppDomain otherAppDomain = null;
@@ -94583,102 +96549,151 @@ namespace Eagle._Components.Public
 
                         if (locked)
                         {
-                            if (interpreter.CanAddChild(ref result))
+                            if (peer || interpreter.CanAddChild(ref result))
                             {
-                                if (isolated)
+                                IList<string> arguments = null;
+
+                                if (!peer || FlagOps.HasFlags(peerType, PeerType.NoArguments, true) ||
+                                    (interpreter.PrivateGetArguments(
+                                        ref arguments, false, false, ref result) == ReturnCode.Ok))
                                 {
-#if APPDOMAINS && ISOLATED_INTERPRETERS
-                                    otherAppDomainName = FormatOps.Id("childInterpreter", null, NextId());
-                                    localResult = null;
+                                    CreateFlags noUseCreateFlags = peer ?
+                                        CreateFlags.NoPeerUseMask : CreateFlags.NoChildUseMask;
 
-                                    code = interpreter.AddAppDomain(otherAppDomainName, null, null,
-#if CAS_POLICY
-                                        null,
-#endif
-                                        clientData, true,
-                                        FlagOps.HasFlags(createFlags, CreateFlags.VerifyCoreAssembly, true),
-                                        !FlagOps.HasFlags(createFlags, CreateFlags.NoUseEntryAssembly, true),
-                                        FlagOps.HasFlags(createFlags, CreateFlags.OptionalEntryAssembly, true),
-                                        !FlagOps.HasFlags(createFlags, CreateFlags.NoConfiguration, true),
-                                        ref otherAppDomain, ref localResult);
-
-                                    if (code == ReturnCode.Ok)
+                                    if (isolated)
                                     {
+#if APPDOMAINS && ISOLATED_INTERPRETERS
+                                        otherAppDomainName = FormatOps.Id(
+                                            peer ? "peerInterpreter" : "childInterpreter",
+                                            null, NextId());
+
                                         localResult = null;
 
-                                        otherInterpreterHelper = InterpreterHelper.Create(otherAppDomain,
-                                            ruleSet, null, createFlags & ~CreateFlags.NoChildUseMask,
-                                            hostCreateFlags, initializeFlags, scriptFlags, interpreterFlags,
-                                            interpreterTestFlags, pluginFlags,
-#if NATIVE && TCL
-                                            findFlags, loadFlags,
-#endif
-                                            null, null, null, ref localResult);
-
-                                        if (otherInterpreterHelper != null)
+                                        if (peer)
                                         {
-                                            otherInterpreter = otherInterpreterHelper.Interpreter;
+                                            code = AppDomainOps.Create(
+                                                interpreter, otherAppDomainName, null, null,
+#if CAS_POLICY
+                                                null,
+#endif
+                                                clientData, true,
+                                                FlagOps.HasFlags(createFlags,
+                                                    CreateFlags.VerifyCoreAssembly, true),
+                                                !FlagOps.HasFlags(createFlags,
+                                                    CreateFlags.NoUseEntryAssembly, true),
+                                                FlagOps.HasFlags(createFlags,
+                                                    CreateFlags.OptionalEntryAssembly, true),
+                                                !FlagOps.HasFlags(createFlags,
+                                                    CreateFlags.NoConfiguration, true),
+                                                ref otherAppDomain, ref localResult);
+                                        }
+                                        else
+                                        {
+                                            code = interpreter.AddAppDomain(
+                                                otherAppDomainName, null, null,
+#if CAS_POLICY
+                                                null,
+#endif
+                                                clientData, true,
+                                                FlagOps.HasFlags(createFlags,
+                                                    CreateFlags.VerifyCoreAssembly, true),
+                                                !FlagOps.HasFlags(createFlags,
+                                                    CreateFlags.NoUseEntryAssembly, true),
+                                                FlagOps.HasFlags(createFlags,
+                                                    CreateFlags.OptionalEntryAssembly, true),
+                                                !FlagOps.HasFlags(createFlags,
+                                                    CreateFlags.NoConfiguration, true),
+                                                ref otherAppDomain, ref localResult);
+                                        }
 
-                                            if (otherInterpreter == null)
+                                        if (code == ReturnCode.Ok)
+                                        {
+                                            localResult = null;
+
+                                            otherInterpreterHelper = InterpreterHelper.Create(
+                                                otherAppDomain, ruleSet, arguments, createFlags & ~noUseCreateFlags,
+                                                hostCreateFlags, initializeFlags, scriptFlags, interpreterFlags,
+                                                interpreterTestFlags, pluginFlags,
+#if NATIVE && TCL
+                                                findFlags, loadFlags,
+#endif
+                                                null, null, null, ref localResult);
+
+                                            if (otherInterpreterHelper != null)
                                             {
-                                                if (localResult != null)
-                                                    result = localResult;
-                                                else
-                                                    result = "interpreter helper has no interpreter";
+                                                otherInterpreter = otherInterpreterHelper.Interpreter;
 
-                                                code = ReturnCode.Error;
+                                                if (otherInterpreter == null)
+                                                {
+                                                    if (localResult != null)
+                                                        result = localResult;
+                                                    else
+                                                        result = "interpreter helper has no interpreter";
+
+                                                    code = ReturnCode.Error;
+                                                }
+                                                else if (!peer &&
+                                                    interpreter.HasChildLimit() &&
+                                                    !otherInterpreter.HasChildLimit())
+                                                {
+                                                    otherInterpreter.InternalChildLimit = Limits.Forbidden;
+                                                }
                                             }
-                                            else if (interpreter.HasChildLimit() &&
-                                                !otherInterpreter.HasChildLimit())
+                                            else
                                             {
-                                                otherInterpreter.InternalChildLimit = Limits.Forbidden;
+                                                result = localResult;
+                                                code = ReturnCode.Error;
                                             }
                                         }
                                         else
                                         {
+                                            //
+                                            // NOTE: If the AddAppDomain method does not return
+                                            //       success, then an AppDomain was not added to
+                                            //       the target interpreter and the AppDomain was
+                                            //       already cleaned up; therefore, do not try to
+                                            //       remove it below (i.e. reset the name of the
+                                            //       new AppDomain to null here).
+                                            //
+                                            otherAppDomainName = null;
                                             result = localResult;
-                                            code = ReturnCode.Error;
                                         }
+#else
+                                        result = "not implemented";
+                                        code = ReturnCode.Error;
+#endif
                                     }
                                     else
                                     {
-                                        //
-                                        // NOTE: If the AddAppDomain method does not return
-                                        //       success, then an AppDomain was not added to
-                                        //       the target interpreter and the AppDomain was
-                                        //       already cleaned up; therefore, do not try to
-                                        //       remove it below (i.e. reset the name of the
-                                        //       new AppDomain to null here).
-                                        //
-                                        otherAppDomainName = null;
-                                        result = localResult;
-                                    }
-#else
-                                    result = "not implemented";
-                                    code = ReturnCode.Error;
+                                        localResult = null;
+
+                                        otherInterpreter = Create(
+                                            ruleSet, arguments,
+                                            createFlags & ~noUseCreateFlags,
+                                            hostCreateFlags, initializeFlags,
+                                            scriptFlags, interpreterFlags,
+                                            interpreterTestFlags, pluginFlags,
+#if NATIVE && TCL
+                                            findFlags, loadFlags,
 #endif
+                                            ref localResult);
+
+                                        if (otherInterpreter == null)
+                                        {
+                                            result = localResult;
+                                            code = ReturnCode.Error;
+                                        }
+                                        else if (!peer &&
+                                            interpreter.HasChildLimit() &&
+                                            !otherInterpreter.HasChildLimit())
+                                        {
+                                            otherInterpreter.InternalChildLimit = Limits.Forbidden;
+                                        }
+                                    }
                                 }
                                 else
                                 {
-                                    localResult = null;
-
-                                    otherInterpreter = Create(ruleSet, null,
-                                        createFlags & ~CreateFlags.NoChildUseMask,
-                                        hostCreateFlags, initializeFlags,
-                                        scriptFlags, interpreterFlags,
-                                        interpreterTestFlags, pluginFlags,
-                                        ref localResult);
-
-                                    if (otherInterpreter == null)
-                                    {
-                                        result = localResult;
-                                        code = ReturnCode.Error;
-                                    }
-                                    else if (interpreter.HasChildLimit() &&
-                                        !otherInterpreter.HasChildLimit())
-                                    {
-                                        otherInterpreter.InternalChildLimit = Limits.Forbidden;
-                                    }
+                                    code = ReturnCode.Error;
                                 }
                             }
                             else
@@ -94726,62 +96741,96 @@ namespace Eagle._Components.Public
                         if (name == null)
                             name = otherId;
 
-                        if ((code == ReturnCode.Ok) && alias)
+                        if (!peer)
                         {
-                            localResult = null;
+                            if ((code == ReturnCode.Ok) && alias)
+                            {
+                                localResult = null;
 
-                            code = AddInterpreterAlias(
-                                name, null, ObjectOptionType.None,
-                                ref localResult);
+                                code = AddInterpreterAlias(
+                                    name, null, ObjectOptionType.None,
+                                    ref localResult);
 
-                            if (code != ReturnCode.Ok)
-                                result = localResult;
+                                if (code != ReturnCode.Ok)
+                                    result = localResult;
+                            }
+
+                            if (code == ReturnCode.Ok)
+                            {
+                                localResult = null;
+
+                                code = interpreter.AddChildInterpreter(
+                                    name, otherInterpreter, clientData,
+                                    ref localResult);
+
+                                if (code != ReturnCode.Ok)
+                                    result = localResult;
+                            }
                         }
 
                         if (code == ReturnCode.Ok)
                         {
-                            localResult = null;
+                            if (peer)
+                            {
+                                if (FlagOps.HasFlags(peerType, PeerType.Object, true))
+                                {
+                                    //
+                                    // NOTE: Return the created interpreter as an opaque
+                                    //       object handle in the current interpreter.
+                                    //
+                                    ObjectOptionType objectOptionType =
+                                        ObjectOptionType.Default;
 
-                            code = interpreter.AddChildInterpreter(
-                                name, otherInterpreter, clientData,
-                                ref localResult);
+                                    code = MarshalOps.FixupReturnValue(
+                                        interpreter, null, ObjectFlags.Default,
+                                        ObjectOps.GetInvokeOptions(objectOptionType), null,
+                                        objectOptionType, null, otherInterpreter, true,
+                                        FlagOps.HasFlags(peerType, PeerType.Alias, true),
+                                        false, ref result);
+                                }
+                                else
+                                {
+                                    //
+                                    // NOTE: Return the interpreter path if it is valid;
+                                    //       otherwise, return the generated interpreter
+                                    //       name.
+                                    //
+                                    result = (path != null) ? path : name;
+                                }
+                            }
+                            else
+                            {
+                                //
+                                // NOTE: Set the parent interpreter for the newly
+                                //       created interpreter.
+                                //
+                                otherInterpreter.ParentInterpreter = interpreter;
 
-                            if (code != ReturnCode.Ok)
-                                result = localResult;
-                        }
-
-                        if (code == ReturnCode.Ok)
-                        {
-                            //
-                            // NOTE: Set the parent interpreter for the newly
-                            //       created interpreter.
-                            //
-                            otherInterpreter.ParentInterpreter = interpreter;
-
-                            //
-                            // NOTE: We need a way to find this new interpreter
-                            //       by the arbitrary name assigned to it by the
-                            //       caller, not just the automatic Id; therefore,
-                            //       store that now.
-                            //
-                            if (!SharedStringOps.SystemEquals(name, otherId))
-                                otherInterpreter.ChildName = name;
+                                //
+                                // NOTE: We need a way to find this new interpreter
+                                //       by the arbitrary name assigned to it by the
+                                //       caller, not just the automatic Id; therefore,
+                                //       store that now.
+                                //
+                                if (!SharedStringOps.SystemEquals(name, otherId))
+                                    otherInterpreter.ChildName = name;
 
 #if APPDOMAINS && ISOLATED_INTERPRETERS
-                            //
-                            // NOTE: Set the application domain name for the newly
-                            //       created interpreter (in isolated mode only).
-                            //
-                            if (otherAppDomainName != null)
-                                otherInterpreter.ChildAppDomainName = otherAppDomainName;
+                                //
+                                // NOTE: Set the application domain name for the newly
+                                //       created interpreter (in isolated mode only).
+                                //
+                                if (otherAppDomainName != null)
+                                    otherInterpreter.ChildAppDomainName = otherAppDomainName;
 #endif
 
-                            //
-                            // NOTE: Return the interpreter path if it is valid;
-                            //       otherwise, return the generated interpreter
-                            //       name.
-                            //
-                            result = (path != null) ? path : name;
+                                //
+                                // NOTE: Return the interpreter path if it is valid;
+                                //       otherwise, return the generated interpreter
+                                //       name.
+                                //
+                                result = (path != null) ? path : name;
+                            }
                         }
                     }
 
@@ -94808,21 +96857,32 @@ namespace Eagle._Components.Public
                             otherInterpreterHelper = null;
                         }
 
-                        if (otherAppDomainName != null)
+                        ReturnCode removeCode = ReturnCode.Ok;
+                        Result removeError = null;
+
+                        if (peer)
                         {
-                            ReturnCode removeCode;
-                            Result removeError = null;
-
-                            removeCode = interpreter.RemoveAppDomain(
-                                otherAppDomainName, clientData,
-                                ref removeError);
-
-                            if (removeCode != ReturnCode.Ok)
+                            if (otherAppDomain != null)
                             {
-                                DebugOps.Complain(
-                                    interpreter, removeCode,
-                                    removeError);
+                                removeCode = AppDomainOps.Unload(
+                                    otherAppDomainName, otherAppDomain,
+                                    clientData, ref removeError);
                             }
+                        }
+                        else
+                        {
+                            if (otherAppDomainName != null)
+                            {
+                                removeCode = interpreter.RemoveAppDomain(
+                                    otherAppDomainName, clientData,
+                                    ref removeError);
+                            }
+                        }
+
+                        if (removeCode != ReturnCode.Ok)
+                        {
+                            DebugOps.Complain(
+                                interpreter, removeCode, removeError);
                         }
 #endif
                     }
@@ -96992,7 +99052,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal IScriptLocation ScriptLocation
+        internal IScriptLocation ManualScriptLocation
         {
             get
             {
@@ -98772,7 +100832,7 @@ namespace Eagle._Components.Public
                 }
 
                 //
-                // NOTE: We absoutely cannot continue if the interpreter has
+                // NOTE: We absolutely cannot continue if the interpreter has
                 //       been disposed because that means there will be no
                 //       engine context, which is required for checking the
                 //       native stack space, among other things.  This is
@@ -99299,7 +101359,7 @@ namespace Eagle._Components.Public
                 //
                 // NOTE: Undo any previous manual override.
                 //
-                ScriptLocation = null;
+                ManualScriptLocation = null;
 
                 ScriptLocationList scriptLocations = ScriptLocations;
 
@@ -104098,6 +106158,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal void BeginLoadOnAnyThread(
+            out PluginFlags savedPluginFlags
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                savedPluginFlags = pluginFlags;
+                pluginFlags |= PluginFlags.LoadOnAnyThread;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal void EndLoadOnAnyThread(
+            ref PluginFlags savedPluginFlags
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                pluginFlags = savedPluginFlags;
+                savedPluginFlags = PluginFlags.None;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal PluginFlags DefaultPluginFlags
         {
             get { lock (syncRoot) { return defaultPluginFlags; } }
@@ -104353,6 +106439,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private OptionBehaviorFlags OptionBehaviorFlags
+        {
+            get { /* NO-LOCK */ return optionBehaviorFlags; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if TEST && NETWORK
+        internal bool UseScriptWebClient()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return FlagOps.HasFlags(interpreterTestFlags,
+                    InterpreterTestFlags.UseScriptWebClient, true);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal bool ThrowOnErrorForScriptWebClient()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return FlagOps.HasFlags(interpreterTestFlags,
+                    InterpreterTestFlags.ThrowOnScriptWebClientError, true);
+            }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if SHELL
         private int MaybeChangeFlagsForInteractiveUse()
         {
@@ -104373,7 +106490,7 @@ namespace Eagle._Components.Public
                 //       been (somehow?) modified via script library
                 //       initialization.
                 //
-                if (pluginFlags == Defaults.PluginFlags)
+                if (ScriptOps.AreTypicalPluginFlagsInUse(pluginFlags, true))
                 {
                     pluginFlags &= ~PluginFlags.NonInteractiveMask;
                     count++;
@@ -104437,7 +106554,7 @@ namespace Eagle._Components.Public
                     return @default;
 
                 //
-                // NOTE: We absoutely cannot continue if the interpreter has
+                // NOTE: We absolutely cannot continue if the interpreter has
                 //       been disposed because that means there will be no
                 //       engine context, which is required for checking the
                 //       native stack space, among other things.  This is
@@ -104983,6 +107100,10 @@ namespace Eagle._Components.Public
                     return;
 
                 bool empty = HostOps.HasEmptyContent(detailFlags);
+
+                if (empty || (bundleManager != null))
+                    list.Add("BundleManager", (bundleManager != null) ?
+                        bundleManager.ToString() : FormatOps.DisplayNull);
 
                 if (empty || (host != null))
                     list.Add("Host", (host != null) ?
@@ -105894,6 +108015,9 @@ namespace Eagle._Components.Public
                 if (empty || (defaultInitializeFlags != InitializeFlags.None))
                     list.Add("iDefaultInitializeFlags", defaultInitializeFlags.ToString());
 
+                if (empty || (dataFlags != DataFlags.None))
+                    list.Add("iDataFlags", dataFlags.ToString());
+
                 if (empty || (scriptFlags != ScriptFlags.None))
                     list.Add("iScriptFlags", scriptFlags.ToString());
 
@@ -106071,7 +108195,7 @@ namespace Eagle._Components.Public
                 if (empty || (notifyTypes != NotifyType.None))
                     list.Add("iNotifyTypes", notifyTypes.ToString());
 
-                NotifyType threadNotifyTypes = NotifyTypes; /* NOTE: Context only. */
+                NotifyType threadNotifyTypes = PrivateNotifyTypes; /* NOTE: Context only. */
 
                 if (empty || (threadNotifyTypes != NotifyType.None))
                     list.Add("iThreadNotifyTypes", threadNotifyTypes.ToString());
@@ -106079,7 +108203,7 @@ namespace Eagle._Components.Public
                 if (empty || (notifyFlags != NotifyFlags.None))
                     list.Add("iNotifyFlags", notifyFlags.ToString());
 
-                NotifyFlags threadNotifyFlags = NotifyFlags; /* NOTE: Context only. */
+                NotifyFlags threadNotifyFlags = PrivateNotifyFlags; /* NOTE: Context only. */
 
                 if (empty || (threadNotifyFlags != NotifyFlags.None))
                     list.Add("iThreadNotifyFlags", threadNotifyFlags.ToString());
@@ -106659,7 +108783,7 @@ namespace Eagle._Components.Public
                 if (empty || !String.IsNullOrEmpty(interactiveMode))
                     list.Add("InteractiveMode", FormatOps.DisplayString(interactiveMode));
 
-                IScriptLocation scriptLocation = ScriptLocation; /* NOTE: Context only. */
+                IScriptLocation scriptLocation = ManualScriptLocation; /* NOTE: Context only. */
 
                 if (empty || (scriptLocation != null))
                     list.Add("ScriptLocation (Override)", (scriptLocation != null) ?
@@ -106754,7 +108878,7 @@ namespace Eagle._Components.Public
                     SBC.CountsToList(localList, !verbose, empty);
 
                     list.MaybeAddRawString("StringBuilderCache",
-                        localList, Characters.Space.ToString());
+                        localList, Characters.SpaceString);
 #else
                     list.Add("StringBuilderCache", FormatOps.DisplayUnavailable);
 #endif
@@ -106770,7 +108894,7 @@ namespace Eagle._Components.Public
                     SBF.CountsToList(localList, empty);
 
                     list.MaybeAddRawString("StringBuilderFactory",
-                        localList, Characters.Space.ToString());
+                        localList, Characters.SpaceString);
 #else
                     list.Add("StringBuilderFactory", FormatOps.DisplayUnavailable);
 #endif
@@ -106822,7 +108946,7 @@ namespace Eagle._Components.Public
                         localList.RemoveAt(0);
 
                         list.MaybeAddRawString("CacheConfiguration",
-                            localList, Characters.Space.ToString());
+                            localList, Characters.SpaceString);
                     }
                 }
 
@@ -106848,7 +108972,7 @@ namespace Eagle._Components.Public
                         localList.RemoveAt(0);
 
                         list.MaybeAddRawString("CacheConfigurationMemoryLoad",
-                            localList, Characters.Space.ToString());
+                            localList, Characters.SpaceString);
                     }
                 }
 #endif
@@ -109060,7 +111184,7 @@ namespace Eagle._Components.Public
                 // NOTE: Attempt to cast the object to the proper wrapper
                 //       type and then invalidate the object.
                 //
-                _Wrappers._Object newWrapper = localObject as _Wrappers._Object;
+                ObjectWrapper newWrapper = localObject as ObjectWrapper;
                 localObject = null;
 
                 //
@@ -109181,7 +111305,7 @@ namespace Eagle._Components.Public
                 // NOTE: Attempt to cast the object to the proper wrapper type
                 //       and then invalidate the object.
                 //
-                _Wrappers._Object oldWrapper = localObject as _Wrappers._Object;
+                ObjectWrapper oldWrapper = localObject as ObjectWrapper;
                 localObject = null;
 
                 //
@@ -109282,7 +111406,7 @@ namespace Eagle._Components.Public
 
                 foreach (__ObjectPair pair in localObjects)
                 {
-                    _Wrappers._Object wrapper = pair.Value;
+                    ObjectWrapper wrapper = pair.Value;
 
                     if (wrapper == null)
                         continue;
@@ -109480,7 +111604,7 @@ namespace Eagle._Components.Public
                 // NOTE: Grab all the new objects, based on their opaque
                 //       object handles now, ignoring any failures.
                 //
-                IList<_Wrappers._Object> newObjects = null;
+                IList<ObjectWrapper> newObjects = null;
 
                 interpreter.GetObjectsForTrace(newValues, ref newObjects);
 
@@ -109511,7 +111635,7 @@ namespace Eagle._Components.Public
             // NOTE: Grab all the old objects, based on their opaque
             //       object handles now, ignoring any failures.
             //
-            IList<_Wrappers._Object> oldObjects = null;
+            IList<ObjectWrapper> oldObjects = null;
 
             interpreter.GetObjectsForTrace(oldValues, ref oldObjects);
 
@@ -110714,7 +112838,8 @@ namespace Eagle._Components.Public
 
                 try
                 {
-                    value = binder.ChangeType(text, type, cultureInfo);
+                    value = binder.ChangeType(
+                        text, type, InternalCultureInfo);
 
                     return ReturnCode.Ok;
                 }
@@ -111624,15 +113749,29 @@ namespace Eagle._Components.Public
 
         public static Interpreter GetActive() /* THREAD-SAFE */
         {
-            IAnyPair<Interpreter, IClientData> anyPair = GetActivePair();
+            ActiveInterpreterPair anyPair = GetActivePair();
             return (anyPair != null) ? anyPair.X : null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static IAnyPair<Interpreter, IClientData> GetActivePair()
+        public static ActiveInterpreterPair GetActivePair()
         {
-            return GetActivePair(null);
+            ActiveInterpreterPair anyPair = GetActivePair(null);
+
+            if (anyPair == null)
+                return null;
+
+            //
+            // BUGFIX: The public GetActive*() methods cannot be
+            //         allowed to return a "token" interpreter.
+            //
+            Interpreter interpreter = anyPair.X;
+
+            if ((interpreter == null) || interpreter.HasToken())
+                return null;
+
+            return anyPair;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -111653,11 +113792,15 @@ namespace Eagle._Components.Public
                     continue;
 
                 if (!ThreadOps.IsCurrent(
-                        interpreter.PrivateThread) &&
-                    !ThreadOps.IsCurrent(
-                        interpreter.PrivateInteractiveThread))
+                        interpreter.PrivateThread))
                 {
-                    continue;
+#if SHELL
+                    if (!ThreadOps.IsCurrent(
+                            interpreter.PrivateInteractiveThread))
+#endif
+                    {
+                        continue;
+                    }
                 }
 
                 if (result == null)
@@ -111671,7 +113814,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal static IAnyPair<Interpreter, IClientData> GetActivePair(
+        internal static ActiveInterpreterPair GetActivePair(
             Type type
             )
         {
@@ -111740,7 +113883,7 @@ namespace Eagle._Components.Public
             int? timeout,
             string address,
             string port,
-            AddressFamily addressFamily,
+            AddressFamily? addressFamily,
             StreamFlags streamFlags,
             int? availableTimeout,
             int? readTimeout,
@@ -112380,10 +114523,10 @@ namespace Eagle._Components.Public
         {
             if (IsTransferFromTclAllowed())
             {
-                ResultList tclTransferResults = null;
+                ResultList results = null;
 
-                MaybeTransferFromTclPurgatory(ref tclTransferResults);
-                MaybeEmitTclPurgatoryResults(tclTransferResults);
+                MaybeTransferFromTclPurgatory(ref results);
+                MaybeEmitTclPurgatoryResults(results);
             }
         }
 
@@ -112587,10 +114730,10 @@ namespace Eagle._Components.Public
 
         private void MaybeTransferToTclPurgatory()
         {
-            ResultList tclTransferResults = null;
+            ResultList results = null;
 
-            MaybeTransferToTclPurgatory(ref tclTransferResults);
-            MaybeEmitTclPurgatoryResults(tclTransferResults);
+            MaybeTransferToTclPurgatory(ref results);
+            MaybeEmitTclPurgatoryResults(results);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -116014,6 +118157,35 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Child Interpreter Disposal
+        private void DisposeBundleManager()
+        {
+            if (bundleManager == null)
+                return;
+
+            ReturnCode code;
+            Result result = null;
+
+            try
+            {
+                code = ObjectOps.TryDispose<IBundleManager>(
+                    ref bundleManager, ref result);
+
+                bundleManager = null;
+            }
+            catch (Exception e)
+            {
+                result = String.Format(
+                    "caught exception while disposing bundle manager: {0}", e);
+
+                code = ReturnCode.Error;
+            }
+
+            if (code != ReturnCode.Ok)
+                DebugOps.Complain(this, code, result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private void DisposeChildInterpreters()
         {
             if (childInterpreters == null)
@@ -116247,7 +118419,10 @@ namespace Eagle._Components.Public
             // NOTE: Dispose any nested interpreters first.
             //
             if (FlagOps.HasFlags(phase, DisposalPhase.Interpreter, true))
+            {
+                DisposeBundleManager();
                 DisposeChildInterpreters();
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -118724,6 +120899,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        [CommandFlags(CommandFlags.Safe)]
         public override bool Equals(object obj)
         {
             CheckDisposed();
@@ -118733,6 +120909,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        [CommandFlags(CommandFlags.Safe)]
         public override int GetHashCode()
         {
             CheckDisposed();
@@ -118742,6 +120919,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        [CommandFlags(CommandFlags.Safe)]
         public override string ToString()
         {
             CheckDisposed();
@@ -119018,6 +121196,12 @@ namespace Eagle._Components.Public
         //
         private Interpreter()
         {
+            //
+            // NOTE: Capture the complete stack trace from the point of
+            //       interpreter object creation.
+            //
+            creationStackTrace = new StackTrace(true); /* throw? */
+
             //
             // NOTE: Assign the "unique identifier" for this object type.
             //       This is actually something of a misnomer because the

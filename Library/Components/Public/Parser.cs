@@ -3683,6 +3683,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Command Parser
+        internal static bool IsComplete(
+            Interpreter interpreter, /* in */
+            string text,             /* in */
+            ref Result error         /* out */
+            ) /* ENTRY-POINT, THREAD-SAFE */
+        {
+            bool notReady = false; /* NOT USED */
+
+            return IsComplete(
+                interpreter, null, 0, text, Parser.StartLine,
+                Length.Invalid, ref notReady, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         public static bool IsComplete(
             Interpreter interpreter, /* in */
             string fileName,         /* in */

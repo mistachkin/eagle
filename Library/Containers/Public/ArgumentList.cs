@@ -46,8 +46,7 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constants
-        private static readonly string DefaultSeparator =
-            Characters.Space.ToString();
+        private static readonly string DefaultSeparator = Characters.SpaceString;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

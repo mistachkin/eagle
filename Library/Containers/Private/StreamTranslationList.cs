@@ -55,7 +55,7 @@ namespace Eagle._Containers.Private
         public string ToString(string pattern, bool noCase)
         {
             return ParserOps<StreamTranslation>.ListToString(this, Index.Invalid, Index.Invalid,
-                ToStringFlags.None, Characters.Space.ToString(), pattern, noCase);
+                ToStringFlags.None, Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

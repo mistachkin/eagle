@@ -334,7 +334,8 @@ namespace Eagle._Forms
             {
                 TraceOps.Trace(null, String.Format(
                         TraceFormat, TraceOps.NextId(),
-                        TraceOps.TimeStamp(DateTime.UtcNow), message),
+                        TraceOps.TimeStamp(TraceOps.GetNow()),
+                        message),
                     TraceCategory);
             }
         }
@@ -373,14 +374,16 @@ namespace Eagle._Forms
         #region Status Percent Methods
         private void ResetElapsedTime()
         {
-            started = DateTime.UtcNow;
+            started = TraceOps.GetNow();
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private TimeSpan GetElapsedTime()
         {
-            return DateTime.UtcNow.Subtract(started);
+            DateTime now = TraceOps.GetNow();
+
+            return now.Subtract(started);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -562,10 +565,18 @@ namespace Eagle._Forms
             {
                 e.SuppressKeyPress = true;
 
+                string licenseText;
+
+#if OFFICIAL_BINARY
+                licenseText = _Shared.BinaryLicense.Text;
+#else
+                licenseText = _Shared.SourceLicense.Text;
+#endif
+
                 TraceOps.ShowMessage(
                     configuration, assembly, String.Format(
                     "{0}{0}{1}{0}", Environment.NewLine,
-                    _Shared.License.Text), TraceCategory,
+                    licenseText), TraceCategory,
                     MessageBoxButtons.OK, MessageBoxIcon.None);
             }
 

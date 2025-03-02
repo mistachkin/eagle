@@ -51,8 +51,8 @@ namespace Eagle._Commands
         private readonly EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "buildnumber", "clicks", "days", "duration", "filetime",
-            "format", "isvalid", "microseconds", "milliseconds", "now",
-            "scan", "seconds", "start", "stop"
+            "format", "isvalid", "microseconds", "milliseconds",
+            "monthdays", "now", "scan", "seconds", "start", "stop"
         });
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -295,34 +295,97 @@ namespace Eagle._Commands
                                     }
                                 case "duration":
                                     {
-                                        if (arguments.Count == 4)
+                                        if (arguments.Count >= 4)
                                         {
-                                            DateTime start = DateTime.MinValue;
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] {
+                                                new Option(typeof(DurationFlags),
+                                                    OptionFlags.MustHaveEnumValue,
+                                                    Index.Invalid, Index.Invalid, "-flags",
+                                                    new Variant(DurationFlags.Default)),
+                                                Option.CreateEndOfOptions()
+                                            });
 
-                                            //
-                                            // NOTE: Since we are calculating the duration only, use UTC.
-                                            //
-                                            code = Value.GetDateTime2(
-                                                arguments[2], interpreter.DateTimeFormat, ValueFlags.AnyDateTime,
-                                                interpreter.DateTimeKind, interpreter.DateTimeStyles,
-                                                interpreter.InternalCultureInfo, ref start, ref result);
+                                            int argumentIndex = Index.Invalid;
+
+                                            code = interpreter.GetOptions(
+                                                options, arguments, 0, 2, Index.Invalid, true,
+                                                ref argumentIndex, ref result);
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                DateTime end = DateTime.MinValue;
+                                                if ((argumentIndex != Index.Invalid) &&
+                                                    ((argumentIndex + 2) == arguments.Count))
+                                                {
+                                                    IVariant value = null;
+                                                    DurationFlags flags = DurationFlags.Default;
 
-                                                code = Value.GetDateTime2(
-                                                    arguments[3], interpreter.DateTimeFormat, ValueFlags.AnyDateTime,
-                                                    interpreter.DateTimeKind, interpreter.DateTimeStyles,
-                                                    interpreter.InternalCultureInfo, ref end, ref result);
+                                                    if (options.IsPresent("-flags", ref value))
+                                                        flags = (DurationFlags)value.Value;
 
-                                                if (code == ReturnCode.Ok)
-                                                    result = end.Subtract(start);
+                                                    DateTime? start = null;
+
+                                                    code = Value.GetNullableDateTime2(arguments[argumentIndex],
+                                                        interpreter.DateTimeFormat, ValueFlags.AnyDateTime,
+                                                        interpreter.DateTimeKind, interpreter.DateTimeStyles,
+                                                        interpreter.InternalCultureInfo, ref start, ref result);
+
+                                                    if (code == ReturnCode.Ok)
+                                                    {
+                                                        DateTime? end = null;
+
+                                                        code = Value.GetNullableDateTime2(arguments[argumentIndex + 1],
+                                                            interpreter.DateTimeFormat, ValueFlags.AnyDateTime,
+                                                            interpreter.DateTimeKind, interpreter.DateTimeStyles,
+                                                            interpreter.InternalCultureInfo, ref end, ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            DateTime now = TimeOps.GetUtcNow();
+
+                                                            if (start == null)
+                                                                start = now;
+
+                                                            if (end == null)
+                                                                end = now;
+
+                                                            if (FlagOps.HasFlags(flags, DurationFlags.Human, true))
+                                                            {
+                                                                StringList list = TimeOps.GetHumanDuration(
+                                                                    (DateTime)start, (DateTime)end, flags);
+
+                                                                if ((list != null) && (list.Count == 1))
+                                                                    result = list[0];
+                                                                else
+                                                                    result = list;
+                                                            }
+                                                            else
+                                                            {
+                                                                result = ((DateTime)end).Subtract((DateTime)start);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        Option.LooksLikeOption(arguments[argumentIndex]))
+                                                    {
+                                                        result = OptionDictionary.BadOption(
+                                                            options, arguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "wrong # args: should be \"clock duration ?options? startDateString endDateString\"";
+                                                    }
+
+                                                    code = ReturnCode.Error;
+                                                }
                                             }
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"clock duration startDateString endDateString\"";
+                                            result = "wrong # args: should be \"clock duration ?options? startDateString endDateString\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -679,6 +742,34 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"clock milliseconds ?epoch?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "monthdays":
+                                    {
+                                        if ((arguments.Count >= 2) && (arguments.Count <= 3))
+                                        {
+                                            DateTime now = TimeOps.GetUtcNow();
+                                            long month = 0;
+
+                                            if (arguments.Count >= 3)
+                                            {
+                                                code = Value.GetWideInteger2(
+                                                    (IGetValue)arguments[2], ValueFlags.AnyInteger,
+                                                    interpreter.CultureInfo, ref month, ref result);
+                                            }
+                                            else
+                                            {
+                                                month = now.Month;
+                                            }
+
+                                            if (code == ReturnCode.Ok)
+                                                result = TimeOps.GetDaysInMonth(month, now.Year);
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"clock monthdays ?month?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

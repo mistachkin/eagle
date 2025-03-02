@@ -229,12 +229,14 @@ namespace eval ::Eagle {
     set baseCommand source
 
     #
-    # NOTE: When using Eagle, use the -withinfo option to preserve the
-    #       location information for procedures defined in the specified
-    #       script file.
+    # NOTE: When using Eagle, use the -withinfo and -library options to
+    #       preserve the location information for procedures defined in
+    #       the specified script file -AND- to make sure [source] knows
+    #       that this file is being evaluated as part of initializing a
+    #       core script library (sub-)package.
     #
     if {[isEagle]} then {
-      lappend baseCommand -withinfo true --
+      lappend baseCommand -withinfo true -library true --
     }
 
     #
@@ -362,11 +364,22 @@ namespace eval ::Eagle {
             object invoke -flags +NonPublic Interpreter.GetActive
 
         interp alias {} iga {} object invoke Interpreter.GetActive
+
         interp alias {} mrogsf {} interp maybereadorgetscriptfile
         interp alias {} rogsf {} interp readorgetscriptfile
+
+        interp alias {} oc {} object create -alias
+        interp alias {} ocp {} object create -alias -flags +NonPublic
+
+        interp alias {} oi {} object invoke
         interp alias {} oip {} object invoke -flags +NonPublic
-        interp alias {} scalar {} sql execute -execute scalar -format list
-        interp alias {} reader {} sql execute -execute reader -format list
+
+        interp alias {} oic {} object invoke -create
+        interp alias {} oicp {} object invoke -create -flags +NonPublic
+
+        interp alias {} nq {} sql execute -execute NonQuery -format list
+        interp alias {} scalar {} sql execute -execute Scalar -format list
+        interp alias {} reader {} sql execute -execute Reader -format list
 
         if {![info exists ::no(setupSystemAliases,engine)] && \
             ![info exists ::no(setupSystemAliases,eagle)] && \
@@ -387,9 +400,20 @@ namespace eval ::Eagle {
             eagle object invoke -flags +NonPublic Interpreter.GetActive
 
         interp alias {} iga {} eagle object invoke Interpreter.GetActive
+
         interp alias {} mrogsf {} eagle interp maybereadorgetscriptfile
         interp alias {} rogsf {} eagle interp readorgetscriptfile
+
+        interp alias {} oc {} eagle object create -alias
+        interp alias {} ocp {} eagle object create -alias -flags +NonPublic
+
+        interp alias {} oi {} eagle object invoke
         interp alias {} oip {} eagle object invoke -flags +NonPublic
+
+        interp alias {} oic {} eagle object invoke -create
+        interp alias {} oicp {} eagle object invoke -create -flags +NonPublic
+
+        interp alias {} nq {} eagle sql execute -execute NonQuery -format list
         interp alias {} scalar {} eagle sql execute -execute scalar -format list
         interp alias {} reader {} eagle sql execute -execute reader -format list
 
@@ -431,7 +455,6 @@ namespace eval ::Eagle {
 
         try {
           set command [list source]; eval lappend command $args
-
           return [uplevel 1 $command]
         } finally {
           catch {
@@ -548,7 +571,7 @@ namespace eval ::Eagle {
       #       the global scope so that the special global variable 'dir'
       #       set by the package index loading subsystem can be accessed.
       #
-      uplevel #0 [list package scan -host -normal -primary -refresh]
+      uplevel #0 [list package scan -host -normal -primary -tagged -refresh]
     }
 
     #

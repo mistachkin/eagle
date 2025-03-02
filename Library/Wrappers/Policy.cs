@@ -14,22 +14,18 @@ using System.Reflection;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Components.Public.Delegates;
-using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
 namespace Eagle._Wrappers
 {
     [ObjectId("f23e646a-0766-4bd5-b770-4a307df76792")]
-    internal sealed class Policy : Default, IPolicy
+    internal sealed class Policy : Core, IPolicy
     {
         #region Public Constructors
-        public Policy(
-            long token,
-            IPolicy policy
-            )
-            : base(token)
+        public Policy()
+            : base()
         {
-            this.policy = policy;
+            // do nothing.
         }
         #endregion
 
@@ -107,24 +103,6 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IExecute Members
-        public ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
-            )
-        {
-            if (policy != null)
-                return policy.Execute(
-                    interpreter, clientData, arguments, ref result);
-            else
-                return ReturnCode.Error;
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
         #region IHavePlugin Members
         public IPlugin Plugin
         {
@@ -192,10 +170,13 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (policy != null)
-                return policy.Setup(ref error);
-            else
+            if (policy == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return policy.Setup(ref error);
         }
         #endregion
 
@@ -212,6 +193,11 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return policy; }
+            set
+            {
+                policy = (IPolicy)value; /* throw */
+                execute = (IExecute)value; /* throw */
+            }
         }
         #endregion
     }

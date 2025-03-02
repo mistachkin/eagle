@@ -21,6 +21,11 @@ using Eagle._Components.Public.Delegates;
 using Eagle._Constants;
 using Eagle._Interfaces.Public;
 
+using TraceWrapper = Eagle._Wrappers.Trace;
+
+using TracePair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Trace>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -107,13 +112,12 @@ namespace Eagle._Containers.Public
 
         #region Internal Methods (Interpreter Class Only)
         internal void AddRange(
-            IDictionary<string, _Wrappers.Trace> dictionary
+            IDictionary<string, TraceWrapper> dictionary
             )
         {
-            foreach (KeyValuePair<string, _Wrappers.Trace> pair
-                    in dictionary)
+            foreach (TracePair pair in dictionary)
             {
-                _Wrappers.Trace trace = pair.Value;
+                TraceWrapper trace = pair.Value;
 
                 if (trace == null)
                     continue;
@@ -162,7 +166,7 @@ namespace Eagle._Containers.Public
         {
             return ParserOps<ITrace>.ListToString(
                 this, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
         #endregion
 

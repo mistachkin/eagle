@@ -63,7 +63,7 @@ namespace Eagle._Components.Private
         private static readonly string LegacyBytesAlgorithmName =
             Sha1AlgorithmName;
 
-        private static readonly string ModernBytesAlgorithmName =
+        public static readonly string ModernBytesAlgorithmName =
             Sha512AlgorithmName;
 
         ///////////////////////////////////////////////////////////////////////

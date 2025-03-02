@@ -15,7 +15,7 @@ using Eagle._Components.Public;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("0a0f31fa-bb82-4cbe-9ef2-0c0718ac9c3d")]
-    public interface IObject : IObjectData, IValue, IValueData
+    public interface IObject : IObjectData, IValue, IValueData, IMaybeDisposed
     {
         int AddReference();
         int RemoveReference();

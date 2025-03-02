@@ -72,10 +72,15 @@ namespace Eagle._SubCommands
             ref Result result
             )
         {
+            DelegateFlags delegateFlags = this.DelegateFlags;
+
+            bool allowOptions = FlagOps.HasFlags(
+                delegateFlags, DelegateFlags.UseCallOptions, true);
+
             return ScriptOps.ExecuteOrInvokeDelegate(
                 interpreter, this.Delegate, arguments,
-                2 /* cmd subCmd ... */, this.DelegateFlags,
-                ref result);
+                allowOptions, 2 /* cmd subCmd ... */,
+                2, delegateFlags, ref result);
         }
         #endregion
     }

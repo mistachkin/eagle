@@ -179,6 +179,7 @@ set eagle_manifests(source) {
   Eagle/Library/Attributes/Public/FunctionFlagsAttribute.cs
   Eagle/Library/Attributes/Public/LexemeAttribute.cs
   Eagle/Library/Attributes/Public/MethodFlagsAttribute.cs
+  Eagle/Library/Attributes/Public/NameAndValueAttribute.cs
   Eagle/Library/Attributes/Public/NotifyFlagsAttribute.cs
   Eagle/Library/Attributes/Public/NotifyTypesAttribute.cs
   Eagle/Library/Attributes/Public/ObjectFlagsAttribute.cs
@@ -205,6 +206,7 @@ set eagle_manifests(source) {
   Eagle/Library/Commands/Append.cs
   Eagle/Library/Commands/Apply.cs
   Eagle/Library/Commands/Array.cs
+  Eagle/Library/Commands/Automatic.cs
   Eagle/Library/Commands/Base64.cs
   Eagle/Library/Commands/Bgerror.cs
   Eagle/Library/Commands/Break.cs
@@ -348,6 +350,8 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/AttributeOps.cs
   Eagle/Library/Components/Private/BinderClientData.cs
   Eagle/Library/Components/Private/BuiltIns.cs
+  Eagle/Library/Components/Private/BundleData.cs
+  Eagle/Library/Components/Private/BundleManager.cs
   Eagle/Library/Components/Private/CacheConfiguration.cs
   Eagle/Library/Components/Private/CallFrameOps.cs
   Eagle/Library/Components/Private/CertificateOps.cs
@@ -374,6 +378,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/DefaultBinder.cs
   Eagle/Library/Components/Private/Defaults.cs
   Eagle/Library/Components/Private/DefineConstants.cs
+  Eagle/Library/Components/Private/DelegateMapper.cs
   Eagle/Library/Components/Private/DelegateOps.cs
   Eagle/Library/Components/Private/Delegates.cs
   Eagle/Library/Components/Private/EngineContext.cs
@@ -530,6 +535,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Public/ExecuteCallbackData.cs
   Eagle/Library/Components/Public/Expression.cs
   Eagle/Library/Components/Public/FunctionData.cs
+  Eagle/Library/Components/Public/HaveScriptFlags.cs
   Eagle/Library/Components/Public/HistoryData.cs
   Eagle/Library/Components/Public/HistoryFilter.cs
   Eagle/Library/Components/Public/HostData.cs
@@ -604,8 +610,8 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Public/WebTransferCallbackBridge.cs
   Eagle/Library/Components/Shared/AttributeOps.cs
   Eagle/Library/Components/Shared/Enumerations.cs
-  Eagle/Library/Components/Shared/License.cs
   Eagle/Library/Components/Shared/PublicKey.cs
+  Eagle/Library/Components/Shared/SourceLicense.cs
   Eagle/Library/Components/Shared/StringOps.cs
   Eagle/Library/Configurations/EagleConsole.ini
   Eagle/Library/Configurations/EagleConsoleNoColor.ini
@@ -630,7 +636,7 @@ set eagle_manifests(source) {
   Eagle/Library/Containers/Private/CultureInfoDictionary.cs
   Eagle/Library/Containers/Private/DateTimeListDictionary.cs
   Eagle/Library/Containers/Private/DbConnectionDictionary.cs
-  Eagle/Library/Containers/Private/DbConnectionTypeStringPairDictionary.cs
+  Eagle/Library/Containers/Private/DbConnectionTypeDictionary.cs
   Eagle/Library/Containers/Private/DbTransactionDictionary.cs
   Eagle/Library/Containers/Private/DelegateWrapperDictionary.cs
   Eagle/Library/Containers/Private/DoubleDictionary.cs
@@ -730,6 +736,7 @@ set eagle_manifests(source) {
   Eagle/Library/Containers/Public/StringList.cs
   Eagle/Library/Containers/Public/StringPairList.cs
   Eagle/Library/Containers/Public/StringSortedList.cs
+  Eagle/Library/Containers/Public/ThrottleDictionary.cs
   Eagle/Library/Containers/Public/TokenList.cs
   Eagle/Library/Containers/Public/TraceList.cs
   Eagle/Library/Containers/Public/TypeCodeList.cs
@@ -866,6 +873,8 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/BaseClientData.cs
   Eagle/Library/Interfaces/Public/Binder.cs
   Eagle/Library/Interfaces/Public/BoxHost.cs
+  Eagle/Library/Interfaces/Public/BundleData.cs
+  Eagle/Library/Interfaces/Public/BundleManager.cs
   Eagle/Library/Interfaces/Public/CacheManager.cs
   Eagle/Library/Interfaces/Public/CallFrame.cs
   Eagle/Library/Interfaces/Public/Callback.cs
@@ -885,6 +894,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/DebugHost.cs
   Eagle/Library/Interfaces/Public/DebugManager.cs
   Eagle/Library/Interfaces/Public/DelegateData.cs
+  Eagle/Library/Interfaces/Public/DelegateMapper.cs
   Eagle/Library/Interfaces/Public/DisplayHost.cs
   Eagle/Library/Interfaces/Public/DynamicExecuteCallback.cs
   Eagle/Library/Interfaces/Public/DynamicExecuteDelegate.cs
@@ -927,6 +937,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/HaveObjectFlags.cs
   Eagle/Library/Interfaces/Public/HaveOwner.cs
   Eagle/Library/Interfaces/Public/HavePlugin.cs
+  Eagle/Library/Interfaces/Public/HaveScriptFlags.cs
   Eagle/Library/Interfaces/Public/HaveStringDictionary.cs
   Eagle/Library/Interfaces/Public/HaveText.cs
   Eagle/Library/Interfaces/Public/HistoryData.cs
@@ -1003,7 +1014,6 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/ScriptBinder.cs
   Eagle/Library/Interfaces/Public/ScriptBuilder.cs
   Eagle/Library/Interfaces/Public/ScriptData.cs
-  Eagle/Library/Interfaces/Public/ScriptFlags.cs
   Eagle/Library/Interfaces/Public/ScriptEventArgs.cs
   Eagle/Library/Interfaces/Public/ScriptLocation.cs
   Eagle/Library/Interfaces/Public/ScriptManager.cs
@@ -1402,6 +1412,7 @@ set eagle_manifests(source) {
   Eagle/Library/Traces/Default.cs
   Eagle/Library/Wrappers/Alias.cs
   Eagle/Library/Wrappers/Command.cs
+  Eagle/Library/Wrappers/Core.cs
   Eagle/Library/Wrappers/Default.cs
   Eagle/Library/Wrappers/Delegate.cs
   Eagle/Library/Wrappers/Execute.cs
@@ -2029,6 +2040,8 @@ set eagle_manifests(binaryPluginsLibrary) {
   Eagle/lib/Badge.Basic1.0/pkgIndex.eagle.harpy
   Eagle/lib/Harpy.Basic1.0/keyRing.General.demo.eagle
   Eagle/lib/Harpy.Basic1.0/keyRing.General.demo.eagle.harpy
+  Eagle/lib/Harpy.Basic1.0/keyRing.one.eagle
+  Eagle/lib/Harpy.Basic1.0/keyRing.one.eagle.harpy
   Eagle/lib/Harpy.Basic1.0/keyRing.zero.eagle
   Eagle/lib/Harpy.Basic1.0/keyRing.zero.eagle.harpy
   Eagle/lib/Harpy.Basic1.0/pkgIndex.eagle
@@ -2534,6 +2547,8 @@ set eagle_manifests(setupPlugins) {
   {{app}\lib\Harpy.Basic1.0\Harpy.Basic.pdb}
   {{app}\lib\Harpy.Basic1.0\keyRing.General.demo.eagle}
   {{app}\lib\Harpy.Basic1.0\keyRing.General.demo.eagle.harpy}
+  {{app}\lib\Harpy.Basic1.0\keyRing.one.eagle}
+  {{app}\lib\Harpy.Basic1.0\keyRing.one.eagle.harpy}
   {{app}\lib\Harpy.Basic1.0\keyRing.zero.eagle}
   {{app}\lib\Harpy.Basic1.0\keyRing.zero.eagle.harpy}
   {{app}\lib\Harpy.Basic1.0\pkgIndex.eagle}
@@ -3035,6 +3050,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Attributes/Public/FunctionFlagsAttribute.cs
   src/Library/Attributes/Public/LexemeAttribute.cs
   src/Library/Attributes/Public/MethodFlagsAttribute.cs
+  src/Library/Attributes/Public/NameAndValueAttribute.cs
   src/Library/Attributes/Public/NotifyFlagsAttribute.cs
   src/Library/Attributes/Public/NotifyTypesAttribute.cs
   src/Library/Attributes/Public/ObjectFlagsAttribute.cs
@@ -3061,6 +3077,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Commands/Append.cs
   src/Library/Commands/Apply.cs
   src/Library/Commands/Array.cs
+  src/Library/Commands/Automatic.cs
   src/Library/Commands/Base64.cs
   src/Library/Commands/Bgerror.cs
   src/Library/Commands/Break.cs
@@ -3204,6 +3221,8 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/AttributeOps.cs
   src/Library/Components/Private/BinderClientData.cs
   src/Library/Components/Private/BuiltIns.cs
+  src/Library/Components/Private/Bundle.cs
+  src/Library/Components/Private/BundleData.cs
   src/Library/Components/Private/CacheConfiguration.cs
   src/Library/Components/Private/CallFrameOps.cs
   src/Library/Components/Private/CertificateOps.cs
@@ -3230,6 +3249,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/DefaultBinder.cs
   src/Library/Components/Private/Defaults.cs
   src/Library/Components/Private/DefineConstants.cs
+  src/Library/Components/Private/DelegateMapper.cs
   src/Library/Components/Private/DelegateOps.cs
   src/Library/Components/Private/Delegates.cs
   src/Library/Components/Private/EngineContext.cs
@@ -3386,6 +3406,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Public/ExecuteCallbackData.cs
   src/Library/Components/Public/Expression.cs
   src/Library/Components/Public/FunctionData.cs
+  src/Library/Components/Public/HaveScriptFlags.cs
   src/Library/Components/Public/HistoryData.cs
   src/Library/Components/Public/HistoryFilter.cs
   src/Library/Components/Public/HostData.cs
@@ -3460,8 +3481,8 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Public/WebTransferCallbackBridge.cs
   src/Library/Components/Shared/AttributeOps.cs
   src/Library/Components/Shared/Enumerations.cs
-  src/Library/Components/Shared/License.cs
   src/Library/Components/Shared/PublicKey.cs
+  src/Library/Components/Shared/SourceLicense.cs
   src/Library/Components/Shared/StringOps.cs
   src/Library/Containers/Private/AliasWrapperDictionary.cs
   src/Library/Containers/Private/AppDomainDictionary.cs
@@ -3484,7 +3505,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Containers/Private/CultureInfoDictionary.cs
   src/Library/Containers/Private/DateTimeListDictionary.cs
   src/Library/Containers/Private/DbConnectionDictionary.cs
-  src/Library/Containers/Private/DbConnectionTypeStringPairDictionary.cs
+  src/Library/Containers/Private/DbConnectionTypeDictionary.cs
   src/Library/Containers/Private/DbTransactionDictionary.cs
   src/Library/Containers/Private/DelegateWrapperDictionary.cs
   src/Library/Containers/Private/DoubleDictionary.cs
@@ -3584,6 +3605,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Containers/Public/StringList.cs
   src/Library/Containers/Public/StringPairList.cs
   src/Library/Containers/Public/StringSortedList.cs
+  src/Library/Containers/Public/ThrottleDictionary.cs
   src/Library/Containers/Public/TokenList.cs
   src/Library/Containers/Public/TraceList.cs
   src/Library/Containers/Public/TypeCodeList.cs
@@ -3708,6 +3730,8 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/BaseClientData.cs
   src/Library/Interfaces/Public/Binder.cs
   src/Library/Interfaces/Public/BoxHost.cs
+  src/Library/Interfaces/Public/Bundle.cs
+  src/Library/Interfaces/Public/BundleData.cs
   src/Library/Interfaces/Public/CacheManager.cs
   src/Library/Interfaces/Public/Callback.cs
   src/Library/Interfaces/Public/CallbackData.cs
@@ -3727,6 +3751,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/DebugHost.cs
   src/Library/Interfaces/Public/DebugManager.cs
   src/Library/Interfaces/Public/DelegateData.cs
+  src/Library/Interfaces/Public/DelegateMapper.cs
   src/Library/Interfaces/Public/DisplayHost.cs
   src/Library/Interfaces/Public/DynamicExecuteCallback.cs
   src/Library/Interfaces/Public/DynamicExecuteDelegate.cs
@@ -3769,6 +3794,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/HaveObjectFlags.cs
   src/Library/Interfaces/Public/HaveOwner.cs
   src/Library/Interfaces/Public/HavePlugin.cs
+  src/Library/Interfaces/Public/HaveScriptFlags.cs
   src/Library/Interfaces/Public/HaveStringDictionary.cs
   src/Library/Interfaces/Public/HaveText.cs
   src/Library/Interfaces/Public/HistoryData.cs
@@ -3845,7 +3871,6 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/ScriptBinder.cs
   src/Library/Interfaces/Public/ScriptBuilder.cs
   src/Library/Interfaces/Public/ScriptData.cs
-  src/Library/Interfaces/Public/ScriptFlags.cs
   src/Library/Interfaces/Public/ScriptEventArgs.cs
   src/Library/Interfaces/Public/ScriptLocation.cs
   src/Library/Interfaces/Public/ScriptManager.cs
@@ -3985,6 +4010,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Traces/Default.cs
   src/Library/Wrappers/Alias.cs
   src/Library/Wrappers/Command.cs
+  src/Library/Wrappers/Core.cs
   src/Library/Wrappers/Default.cs
   src/Library/Wrappers/Delegate.cs
   src/Library/Wrappers/Execute.cs

@@ -198,6 +198,7 @@ namespace Eagle._Components.Private
 
         private const string CompactOutputFormat = "x";
         private const string ByteOutputFormat = "x2";
+        private const string UShortOutputFormat = "x4";
         private const string ULongOutputFormat = "x16";
 
         internal const string HexadecimalPrefix = "0x";
@@ -212,15 +213,13 @@ namespace Eagle._Components.Private
 
         private static readonly Regex releaseShortNameRegEx = RegExOps.Create(
             "(?:Pre-|Post-)?(?:Alpha|Beta|RC|Final|Release) \\d+(?:\\.\\d+)?",
-            RegexOptions.IgnoreCase);
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Clock Constants
         private const string GmtTimeZoneName = "GMT";
         private const string UtcTimeZoneName = "UTC";
-
-        private const int Roddenberry = 1946; // Another epoch (Hi, Jeff!)
 
         private const string DefaultFullDateTimeFormat = "dddd, dd MMMM yyyy HH:mm:ss";
 
@@ -1730,14 +1729,14 @@ namespace Eagle._Components.Private
                 // NOTE: The convention used here is that the release
                 //       attribute contains a string of the format:
                 //
-                //       "<Short_Description>(\n|.|,) <Type> XY"
+                //       "<Short_Description>(\n|.|,) <Type> XY.Z"
                 //
                 //       Where "Short_Description" is something like
                 //       "Namespaces Edition", "Type" is one of
                 //       ["Alpha", "Beta", "Final", "Release"] and
-                //       "XY" is a number.  Together, the "Type" and
-                //       "XY" portion are considered to really be the
-                //       "Short_Name".
+                //       "XY.Z" is a number.  Together, the "Type"
+                //       and "XY.Z" portions are considered to act
+                //       as sort of a "Short_Name".
                 //
                 int index = value.LastIndexOf(Characters.LineFeed);
 
@@ -1924,14 +1923,34 @@ namespace Eagle._Components.Private
             byte[] bytes
             )
         {
+            return WrapOrNull(bytes, false);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string WrapOrNull(
+            byte[] bytes,
+            bool lengthOnly
+            )
+        {
             if (bytes == null)
                 return DisplayNull;
 
-            return Parser.Quote(StringList.MakeList(
-                "Length", bytes.Length, "Base64", (bytes.Length > 0) ?
-                Convert.ToBase64String(bytes) : DisplayEmpty));
+            if (lengthOnly)
+            {
+                return Parser.Quote(StringList.MakeList(
+                    "Length", bytes.Length));
+            }
+            else
+            {
+                return Parser.Quote(StringList.MakeList(
+                    "Length", bytes.Length, "Base64",
+                    (bytes.Length > 0) ?
+                        Convert.ToBase64String(bytes) :
+                        DisplayEmpty));
+            }
         }
-#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2725,6 +2744,18 @@ namespace Eagle._Components.Private
             return String.Format("{0}{1}",
                 prefix ? HexadecimalPrefix : String.Empty,
                 value.ToString(ByteOutputFormat));
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string Hexadecimal(
+            ushort value,
+            bool prefix
+            )
+        {
+            return String.Format("{0}{1}",
+                prefix ? HexadecimalPrefix : String.Empty,
+                value.ToString(UShortOutputFormat));
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4886,10 +4917,16 @@ namespace Eagle._Components.Private
             if (error != null)
             {
                 if (exception != null)
-                    result = String.Format("{0}{1}{2}{3}", error, Environment.NewLine,
-                        Environment.NewLine, exception);
+                {
+                    result = String.Format(
+                        "{0}{1}{1}{2}", error,
+                        Environment.NewLine,
+                        exception);
+                }
                 else
+                {
                     result = error;
+                }
             }
             else
             {
@@ -5304,10 +5341,20 @@ namespace Eagle._Components.Private
             int upperBound
             )
         {
-            return String.Format(
-                (lowerBound != upperBound) ?
-                    "between {0} and {1}" : "{0}",
-                lowerBound, upperBound);
+            if (lowerBound != upperBound)
+            {
+                return String.Format(
+                    "between {0} and {1}",
+                    lowerBound, upperBound);
+            }
+            else if (lowerBound != Index.Invalid)
+            {
+                return lowerBound.ToString();
+            }
+            else
+            {
+                return DisplayNull;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6361,6 +6408,36 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if DATA
+        public static string DatabaseConnectionName(
+            object @object,                    /* in */
+            DbConnectionType dbConnectionType, /* in */
+            Interpreter interpreter            /* in */
+            )
+        {
+            long id = (interpreter != null) ?
+                interpreter.NextId() : GlobalState.NextId();
+
+            return DatabaseObjectName(
+                @object, String.Format("{0}Connection",
+                dbConnectionType), id);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string DatabaseTransactionName(
+            object @object,         /* in */
+            Interpreter interpreter /* in */
+            )
+        {
+            long id = (interpreter != null) ?
+                interpreter.NextId() : GlobalState.NextId();
+
+            return DatabaseObjectName(
+                @object, "Transaction", id);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string DatabaseObjectName(
             object @object,
             string @default,
@@ -6927,29 +7004,38 @@ namespace Eagle._Components.Private
         {
             StringBuilder builder = StringBuilderFactory.Create();
 
-            string qualifiedMethodName = QualifiedName(
-                objectName, methodName);
+            string maybeQualifiedMethodName = FlagOps.HasFlags(
+                marshalFlags, MarshalFlags.UnqualifiedNames, true) ?
+                methodName : QualifiedName(objectName, methodName);
 
-            if (AlwaysShowSignatures || FlagOps.HasFlags(
-                    marshalFlags, MarshalFlags.ShowSignatures, true))
+            if (FlagOps.HasFlags(
+                    marshalFlags, MarshalFlags.NamesOnly, true))
             {
-                MaybeAddSignature(
-                    builder, qualifiedMethodName, returnInfo,
-                    parameterInfo);
-
-                /* NO RESULT */
-                SomeKindOfPrefixAndSuffix(builder);
+                builder.Append(maybeQualifiedMethodName);
             }
             else
             {
-                builder.Append(SomeKindOfPrefixAndSuffix(
-                    qualifiedMethodName));
-            }
+                if (AlwaysShowSignatures || FlagOps.HasFlags(
+                        marshalFlags, MarshalFlags.ShowSignatures, true))
+                {
+                    MaybeAddSignature(
+                        builder, maybeQualifiedMethodName, returnInfo,
+                        parameterInfo);
 
-            if (index != Index.Invalid)
-            {
-                builder.Insert(0, String.Format("{0}{1}{2}",
-                    Characters.NumberSign, index, Characters.Space));
+                    /* NO RESULT */
+                    SomeKindOfPrefixAndSuffix(builder);
+                }
+                else
+                {
+                    builder.Append(SomeKindOfPrefixAndSuffix(
+                        maybeQualifiedMethodName));
+                }
+
+                if (index != Index.Invalid)
+                {
+                    builder.Insert(0, String.Format("{0}{1}{2}",
+                        Characters.NumberSign, index, Characters.Space));
+                }
             }
 
             return StringBuilderCache.GetStringAndRelease(ref builder);
@@ -7221,21 +7307,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        //
-        // NOTE: This algorithm was shamelessly stolen from
-        //       Kevin B. Kenny's [clock] command implementation
-        //       in Tcl 8.5.
-        //
         private static string Stardate(
             DateTime value
             ) // COMPAT: Tcl
         {
-            return String.Format(StardateOutputFormat,
-                value.Year - Roddenberry,
-                ((value.DayOfYear - 1) * 1000) / TimeOps.DaysInYear(value.Year),
-                Characters.Period,
-                (TimeOps.WholeSeconds(value) %
-                    TimeOps.SecondsInNormalDay) / (TimeOps.SecondsInNormalDay / 10));
+            long part1;
+            long part2;
+            long part3;
+
+            TimeOps.CalculateStardate(
+                value, out part1, out part2, out part3);
+
+            return String.Format(
+                StardateOutputFormat, part1, part2,
+                Characters.Period, part3);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

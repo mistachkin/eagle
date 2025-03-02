@@ -198,6 +198,7 @@ namespace Eagle._Components.Public
         private DatabaseVariable(
             DbVariableFlags dbVariableFlags,
             DbConnectionType dbConnectionType,
+            byte[] publicKeyToken,
             string assemblyFileName,
             string typeName,
             Type type,
@@ -211,6 +212,7 @@ namespace Eagle._Components.Public
         {
             this.dbVariableFlags = dbVariableFlags;
             this.dbConnectionType = dbConnectionType;
+            this.publicKeyToken = publicKeyToken;
             this.assemblyFileName = assemblyFileName;
             this.typeName = typeName;
             this.type = type;
@@ -229,6 +231,7 @@ namespace Eagle._Components.Public
         public static DatabaseVariable Create(
             DbVariableFlags dbVariableFlags,
             DbConnectionType dbConnectionType,
+            byte[] publicKeyToken,
             string assemblyFileName,
             string typeName,
             Type type,
@@ -241,9 +244,10 @@ namespace Eagle._Components.Public
             )
         {
             return new DatabaseVariable(
-                dbVariableFlags, dbConnectionType, assemblyFileName,
-                typeName, type, connectionString, tableName,
-                nameColumnName, valueColumnName, permissions, useRowId);
+                dbVariableFlags, dbConnectionType, publicKeyToken,
+                assemblyFileName, typeName, type, connectionString,
+                tableName, nameColumnName, valueColumnName,
+                permissions, useRowId);
         }
         #endregion
 
@@ -263,6 +267,14 @@ namespace Eagle._Components.Public
         public DbConnectionType DbConnectionType
         {
             get { CheckDisposed(); return dbConnectionType; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private byte[] publicKeyToken;
+        public byte[] PublicKeyToken
+        {
+            get { CheckDisposed(); return publicKeyToken; }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -520,7 +532,7 @@ namespace Eagle._Components.Public
 
                 return ParserOps<string>.ListToString(
                     list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), null, false);
+                    Characters.SpaceString, null, false);
             }
 
             return null;
@@ -550,7 +562,7 @@ namespace Eagle._Components.Public
 
                 return ParserOps<string>.ListToString(
                     list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), null, false);
+                    Characters.SpaceString, null, false);
             }
 
             return null;
@@ -591,8 +603,9 @@ namespace Eagle._Components.Public
             IDbConnection connection = null;
 
             if (DataOps.CreateDbConnection(
-                    interpreter, dbConnectionType, connectionString,
-                    assemblyFileName, typeName, typeName, type,
+                    interpreter, dbConnectionType, publicKeyToken,
+                    connectionString, assemblyFileName, typeName,
+                    typeName, type,
                     ObjectOps.GetDefaultObjectValueFlags(),
                     ref connection, ref error) == ReturnCode.Ok)
             {
@@ -628,6 +641,7 @@ namespace Eagle._Components.Public
                         break;
                     }
                 case DbConnectionType.SQLite:
+                case DbConnectionType.SQLiteEnterprise:
                     {
                         rowIdColumnName = SQLiteRowIdColumnName;
                         break;
@@ -671,10 +685,15 @@ namespace Eagle._Components.Public
             //
             // TODO: Add support for more database backends here.
             //
-            if (dbConnectionType == DbConnectionType.SQLite)
+            if ((dbConnectionType == DbConnectionType.SQLite) ||
+                (dbConnectionType == DbConnectionType.SQLiteEnterprise))
+            {
                 return SelectWhereCastCommandText;
+            }
             else
+            {
                 return SelectCommandText;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -684,10 +703,15 @@ namespace Eagle._Components.Public
             //
             // TODO: Add support for more database backends here.
             //
-            if (dbConnectionType == DbConnectionType.SQLite)
+            if ((dbConnectionType == DbConnectionType.SQLite) ||
+                (dbConnectionType == DbConnectionType.SQLiteEnterprise))
+            {
                 return SelectExistWhereCastCommandText;
+            }
             else
+            {
                 return SelectExistCommandText;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -706,7 +730,8 @@ namespace Eagle._Components.Public
             //
             // TODO: Add support for more database backends here.
             //
-            if (dbConnectionType == DbConnectionType.SQLite)
+            if ((dbConnectionType == DbConnectionType.SQLite) ||
+                (dbConnectionType == DbConnectionType.SQLiteEnterprise))
             {
                 return exists ?
                     UpdateWhereCastCommandText : InsertWhereCastCommandText;
@@ -724,10 +749,15 @@ namespace Eagle._Components.Public
             //
             // TODO: Add support for more database backends here.
             //
-            if (dbConnectionType == DbConnectionType.SQLite)
+            if ((dbConnectionType == DbConnectionType.SQLite) ||
+                (dbConnectionType == DbConnectionType.SQLiteEnterprise))
+            {
                 return DeleteWhereCastCommandText;
+            }
             else
+            {
                 return DeleteCommandText;
+            }
         }
         #endregion
 

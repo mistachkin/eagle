@@ -243,60 +243,92 @@ namespace Eagle._Hosts
             //         otherwise, we can get into very nasty situations (e.g.
             //         infinite recursion for [debug oncancel], etc).
             //
-            ReturnCode code;
+            ReturnCode code; /* IGNORED (?) */
             Result value = null;
 
-            if ((type != PromptType.None) &&
-                (localInterpreter.GetVariableValue(
-                    VariableFlags.ViaPrompt, GetPromptVariableName(
-                        type, flags), ref value) == ReturnCode.Ok))
+            if (type != PromptType.None)
             {
-                Result result = null;
-                int errorLine = 0;
-
-                code = localInterpreter.EvaluatePromptScript(
-                    value, ref result, ref errorLine);
-
-                if (code == ReturnCode.Ok)
+                if (localInterpreter.GetVariableValue(
+                        VariableFlags.ViaPrompt, GetPromptVariableName(
+                        type, flags), ref value) == ReturnCode.Ok)
                 {
-                    //
-                    // NOTE: The prompt script probably displayed some kind
-                    //       of prompt; therefore, we are done.
-                    //
-                    flags |= PromptFlags.Done;
+                    Result result = null;
+                    int errorLine = 0;
+
+                    code = localInterpreter.EvaluatePromptScript(
+                        value, ref result, ref errorLine);
+
+                    if (code == ReturnCode.Ok)
+                    {
+                        //
+                        // NOTE: The prompt script probably displayed some kind
+                        //       of complete prompt; therefore, we are done.
+                        //
+                        flags |= PromptFlags.Done;
+                    }
+                    else if (code == ReturnCode.Return)
+                    {
+                        //
+                        // NOTE: The prompt script probably displayed some kind
+                        //       of partial prompt; therefore, we are done.
+                        //
+                        flags |= PromptFlags.Partial;
+                    }
+                    else
+                    {
+                        //
+                        // NOTE: Attempt to show the error from the prompt script.
+                        //
+                        /* IGNORED */
+                        WriteResultLine(code, result, errorLine);
+
+                        //
+                        // NOTE: Add error information to the interpreter.
+                        //
+                        /* IGNORED */
+                        _Engine.AddErrorInformation(
+                            localInterpreter, result, String.Format(
+                                "{0}    (script that generates prompt, line {1})",
+                                Environment.NewLine, errorLine));
+
+                        //
+                        // NOTE: Now, transfer the prompt script evaluation error
+                        //       to the caller.
+                        //
+                        error = result;
+                    }
                 }
                 else
                 {
                     //
-                    // NOTE: Attempt to show the error from the prompt script.
+                    // NOTE: There is no prompt script configured.  Use
+                    //       the default (below).
                     //
-                    /* IGNORED */
-                    WriteResultLine(code, result, errorLine);
-
-                    //
-                    // NOTE: Add error information to the interpreter.
-                    //
-                    /* IGNORED */
-                    _Engine.AddErrorInformation(
-                        localInterpreter, result, String.Format(
-                            "{0}    (script that generates prompt, line {1})",
-                            Environment.NewLine, errorLine));
-
-                    //
-                    // NOTE: Now, transfer the prompt script evaluation error
-                    //       to the caller.
-                    //
-                    error = result;
+                    code = ReturnCode.Ok;
                 }
             }
             else
             {
                 //
-                // NOTE: Either our caller requested a prompt type of "None"
-                //       -OR- there is no prompt script configured.  So far,
-                //       this has been a complete success.
+                // NOTE: Our caller requested a prompt type of "None"
+                //       -OR- there is no prompt script configured.
+                //       So far, this has been a complete success.
                 //
                 code = ReturnCode.Ok;
+                flags |= PromptFlags.Done;
+            }
+
+            //
+            // NOTE: If tracing is enabled, emit key information about the
+            //       success -OR- failure to display the prompt.
+            //
+            if (FlagOps.HasFlags(flags, PromptFlags.Trace, true))
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "Prompt: code = {0}, flags = {1}, error = {2}",
+                    code, FormatOps.WrapOrNull(flags),
+                    FormatOps.WrapOrNull(true, true, error)),
+                    typeof(Shell).Name, TracePriority.HostDebug);
             }
 
             //
@@ -304,7 +336,7 @@ namespace Eagle._Hosts
             //       failed then we attempt to output the appropriate default
             //       prompt.
             //
-            if ((value == null) || (code != ReturnCode.Ok))
+            if (!FlagOps.HasFlags(flags, PromptFlags.Done, true))
             {
                 //
                 // NOTE: Now, we need to fallback to the default

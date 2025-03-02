@@ -217,6 +217,7 @@ namespace Eagle._Components.Public
                 }
             }
 
+#if false
             TraceOps.DebugTrace(String.Format(
                 "StaticFireDynamicInvokeCallback: " +
                 "firstArgument = {0} ({1}), callback = {2}",
@@ -225,6 +226,7 @@ namespace Eagle._Components.Public
                 FormatOps.WrapHashCode(callback)),
                 typeof(CommandCallbackWrapper).Name,
                 TracePriority.MarshalDebug2);
+#endif
 
             //
             // NOTE: The "callback" variable could be null at this point.

@@ -231,7 +231,7 @@ internal static class StrongNameDotNet
 
     ///////////////////////////////////////////////////////////////////////////
 
-    private static RSAParameters RSAParamatersFromPublicKey(
+    private static RSAParameters RSAParametersFromPublicKey(
         byte[] bytes /* in */
         ) /* throw */
     {
@@ -330,7 +330,7 @@ internal static class StrongNameDotNet
 
             using (RSA rsa = RSA.Create())
             {
-                rsa.ImportParameters(RSAParamatersFromPublicKey(publicKey));
+                rsa.ImportParameters(RSAParametersFromPublicKey(publicKey));
 
                 RSAPKCS1SignatureDeformatter deformatter =
                     new RSAPKCS1SignatureDeformatter(rsa);

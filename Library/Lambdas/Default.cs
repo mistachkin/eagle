@@ -54,6 +54,8 @@ namespace Eagle._Lambdas
                 clientData = lambdaData.ClientData;
                 arguments = lambdaData.Arguments;
                 namedArguments = lambdaData.NamedArguments;
+                overwriteArguments = lambdaData.OverwriteArguments;
+                cleanArguments = lambdaData.CleanArguments;
                 body = lambdaData.Body;
                 location = lambdaData.Location;
                 token = lambdaData.Token;
@@ -337,6 +339,24 @@ namespace Eagle._Lambdas
         {
             get { return namedArguments; }
             set { namedArguments = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private ArgumentList overwriteArguments;
+        public virtual ArgumentList OverwriteArguments
+        {
+            get { return overwriteArguments; }
+            set { overwriteArguments = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private ArgumentList cleanArguments;
+        public virtual ArgumentList CleanArguments
+        {
+            get { return cleanArguments; }
+            set { cleanArguments = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////

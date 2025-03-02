@@ -17,7 +17,10 @@ namespace Eagle._Interfaces.Public
     [ObjectId("7cc7b141-f01d-4acd-ba59-8a717680d913")]
     public interface IDbConnectionParameters : ITypeAndFullName
     {
-        DbConnectionType DbConnectionType { get; set; }
+        DbConnectionType DbConnectionType1 { get; set; }
+        DbConnectionType DbConnectionType2 { get; set; }
+        byte[] PublicKeyToken1 { get; set; }
+        byte[] PublicKeyToken2 { get; set; }
         string ConnectionString { get; set; }
         string AssemblyFileName { get; set; }
         ValueFlags ValueFlags { get; set; }

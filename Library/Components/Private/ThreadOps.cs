@@ -776,10 +776,10 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
-        private static int defaultMonoNetworkTimeout = 4000;
+        private static int defaultMonoNetworkTimeout = 40000;
 #endif
 
-        private static int defaultDotNetNetworkTimeout = 2000;
+        private static int defaultDotNetNetworkTimeout = 20000;
 #endif
 
         ///////////////////////////////////////////////////////////////////////

@@ -131,6 +131,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static bool IsPowerOfTwo(
+            ulong value /* in */
+            )
+        {
+            ulong[] values = PowersOfTwo;
+
+            if (values == null)
+                return false;
+
+            int length = values.Length;
+
+            for (int index = 0; index < length; index++) /* O(64) */
+                if (values[index] == value)
+                    return true;
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ulong? Pow2(int X)
         {
             if (PowersOfTwo == null)

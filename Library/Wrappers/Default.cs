@@ -21,14 +21,12 @@ namespace Eagle._Wrappers
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         ScriptMarshalByRefObject,
 #endif
-        IWrapper, IDisposable
+        IWrapper
     {
         #region Protected Constructors
-        protected Default(
-            long token
-            )
+        protected Default()
         {
-            this.token = token;
+            // do nothing.
         }
         #endregion
 
@@ -64,7 +62,7 @@ namespace Eagle._Wrappers
         // NOTE: The default wrapper, in order to provide any functionality,
         //       requires access to the wrapped object.
         //
-        public abstract object Object { get; }
+        public abstract object Object { get; set; }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

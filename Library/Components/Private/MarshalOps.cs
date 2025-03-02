@@ -1330,6 +1330,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static void GetParameterInfos(
+            MethodBase method,
+            out ParameterInfo returnInfo,
+            out ParameterInfo[] parameterInfos
+            )
+        {
+            returnInfo = null;
+            parameterInfos = null;
+
+            MethodInfo methodInfo = method as MethodInfo;
+
+            if (methodInfo != null)
+                returnInfo = methodInfo.ReturnParameter;
+
+            if (method != null)
+                parameterInfos = method.GetParameters();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if SHELL
         private static MethodInfoList FindPublicMethods(
             Type type,                 /* in */
@@ -9216,6 +9236,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static Type GetType(
+            TypedInstance typedInstance /* in */
+            )
+        {
+            if (typedInstance == null)
+                return null;
+
+            object @object = typedInstance.Object;
+
+            if (@object != null)
+                return AppDomainOps.MaybeGetType(@object);
+
+            return typedInstance.Type;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         //
         // HACK: For use by the GenericOps.KeysAndValues
         //       method overloads only.
@@ -11608,8 +11645,8 @@ namespace Eagle._Components.Private
                                                         //       with .NET Core.  Some type comparisons
                                                         //       return the wrong result, causing [object
                                                         //       invoke] to fail.  This flag prevents any
-                                                        //       more type conversions from being attemped
-                                                        //       on valid opaque object handles.
+                                                        //       further "type conversions" from being
+                                                        //       attempted on valid opaque object handles.
                                                         //
                                                         if (FlagOps.HasFlags(marshalFlags,
                                                                 MarshalFlags.ForceHandleOnly, true))
@@ -12712,8 +12749,8 @@ namespace Eagle._Components.Private
                                 //       with .NET Core.  Some type comparisons
                                 //       return the wrong result, causing [object
                                 //       invoke] to fail.  This flag prevents any
-                                //       more type conversions from being attemped
-                                //       on valid opaque object handles.
+                                //       further "type conversions" from being
+                                //       attempted on valid opaque object handles.
                                 //
                                 if (FlagOps.HasFlags(marshalFlags,
                                         MarshalFlags.ForceHandleOnly, true))
@@ -12726,7 +12763,7 @@ namespace Eagle._Components.Private
                         }
 
                         //
-                        // NOTE: Next, try to interpet our [possibly new] argument
+                        // NOTE: Next, try to interpret our [possibly new] argument
                         //       string as one of the "primitive" types that can
                         //       parse and understand, in ascending order of size.
                         //
@@ -13119,8 +13156,8 @@ namespace Eagle._Components.Private
                                     //       with .NET Core.  Some type comparisons
                                     //       return the wrong result, causing [object
                                     //       invoke] to fail.  This flag prevents any
-                                    //       more type conversions from being attemped
-                                    //       on valid opaque object handles.
+                                    //       further "type conversions" from being
+                                    //       attempted on valid opaque object handles.
                                     //
                                     if (FlagOps.HasFlags(marshalFlags,
                                             MarshalFlags.ForceHandleOnly, true))
@@ -13133,7 +13170,7 @@ namespace Eagle._Components.Private
                             }
 
                             //
-                            // NOTE: Next, try to interpet our [possibly new] argument
+                            // NOTE: Next, try to interpret our [possibly new] argument
                             //       string as one of the "primitive" types that can
                             //       parse and understand, in ascending order of size.
                             //

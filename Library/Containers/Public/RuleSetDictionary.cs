@@ -39,7 +39,8 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("6b3804d6-cbb3-4830-9cdf-5e3c6ab5f6e6")]
-    public sealed class RuleSetDictionary : Dictionary<string, IRuleSet>
+    public sealed class RuleSetDictionary :
+            Dictionary<string, IRuleSet>, IDisposable
     {
         #region Public Constructors
         public RuleSetDictionary()
@@ -77,6 +78,22 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        private void DisposeAll()
+        {
+            foreach (RuleSetPair pair in this)
+            {
+                IRuleSet ruleSet = pair.Value;
+
+                if (ruleSet == null)
+                    continue;
+
+                ObjectOps.DisposeOrTrace<IRuleSet>(
+                    null, ref ruleSet);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private ReturnCode MergeAll(
             string key,       /* in */
             IRuleSet ruleSet, /* in */
@@ -146,60 +163,96 @@ namespace Eagle._Containers.Public
             if (dictionary == null)
                 return null;
 
+            bool[] success = new bool[] { false, false };
             RuleSetDictionary result = new RuleSetDictionary();
 
-            RuleSetType baseRuleSetType =
-                ruleSetType & RuleSetType.BaseMask;
-
-            foreach (StringPair pair in dictionary)
+            try
             {
-                string text = pair.Value;
+                RuleSetType baseRuleSetType =
+                    ruleSetType & RuleSetType.BaseMask;
 
-                if (text == null)
-                    continue;
-
-                IRuleSet ruleSet;
-
-                if (baseRuleSetType == RuleSetType.NestedList)
+                foreach (StringPair pair in dictionary)
                 {
-                    ruleSet = RuleSet.Create(
-                        text, cultureInfo, ref error);
-                }
-                else
-                {
+                    string text = pair.Value;
+
+                    if (text == null)
+                        continue;
+
+                    success[1] = false;
+
+                    IRuleSet ruleSet = null;
+
+                    try
+                    {
+                        if (baseRuleSetType == RuleSetType.NestedList)
+                        {
+                            ruleSet = RuleSet.Create(
+                                text, cultureInfo, ref error);
+                        }
+                        else
+                        {
 #if TEST
-                    ruleSet = RuleSet.CreateFromFile(
-                        text, null, ruleSetType, ref error);
+                            ruleSet = RuleSet.CreateFromFile(
+                                text, null, ruleSetType, ref error);
 #else
-                    error = "not implemented";
-                    ruleSet = null;
+                            error = "not implemented";
+                            ruleSet = null;
 #endif
+                        }
+
+                        if (ruleSet == null)
+                            return null;
+
+                        string name = pair.Key;
+
+                        if (String.IsNullOrEmpty(name))
+                            name = null;
+
+                        if (name == null)
+                            name = ruleSet.GetName();
+
+                        if (name == null)
+                        {
+                            error = String.Format(
+                                "no name available for ruleset {0}",
+                                FormatOps.WrapOrNull(ruleSet.Id));
+
+                            return null;
+                        }
+
+                        result[name] = ruleSet;
+
+                        success[1] = true;
+                    }
+                    finally
+                    {
+                        if (!success[1] && (ruleSet != null))
+                        {
+                            ObjectOps.DisposeOrTrace<IRuleSet>(
+                                null, ref ruleSet);
+                        }
+                    }
                 }
 
-                if (ruleSet == null)
-                    return null;
+                success[0] = true;
 
-                string name = pair.Key;
-
-                if (String.IsNullOrEmpty(name))
-                    name = null;
-
-                if (name == null)
-                    name = ruleSet.GetName();
-
-                if (name == null)
-                {
-                    error = String.Format(
-                        "no name available for ruleset {0}",
-                        FormatOps.WrapOrNull(ruleSet.Id));
-
-                    return null;
-                }
-
-                result[name] = ruleSet;
+                return result;
             }
+            catch (Exception e)
+            {
+                success[0] = false;
 
-            return result;
+                error = e;
+                return null;
+            }
+            finally
+            {
+                if (!success[0] && (result != null))
+                {
+                    ObjectOps.DisposeOrTrace<RuleSetDictionary>(
+                        null, ref result);
+                }
+            }
         }
         #endregion
 
@@ -214,6 +267,8 @@ namespace Eagle._Containers.Public
             ref Result error              /* out */
             )
         {
+            CheckDisposed();
+
             if (dictionary == null)
             {
                 error = "invalid dictionary";
@@ -265,6 +320,8 @@ namespace Eagle._Containers.Public
             ref Result error              /* out */
             )
         {
+            CheckDisposed();
+
             bool success = false;
             IRuleSet newRuleSet = ruleSet;
 
@@ -336,13 +393,15 @@ namespace Eagle._Containers.Public
             RegexOptions regExOptions /* in */
             )
         {
+            CheckDisposed();
+
             StringList list = GenericOps<string, IRuleSet>.KeysAndValues(
                 this, false, true, false, mode, pattern, null, null, null,
                 null, noCase, regExOptions) as StringList;
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -351,6 +410,8 @@ namespace Eagle._Containers.Public
             string separator /* in */
             )
         {
+            CheckDisposed();
+
             StringList list = new StringList(this.Keys);
 
             return ParserOps<string>.ListToString(
@@ -365,11 +426,13 @@ namespace Eagle._Containers.Public
             bool noCase     /* in */
             )
         {
+            CheckDisposed();
+
             StringList list = new StringList(this.Keys);
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -379,11 +442,13 @@ namespace Eagle._Containers.Public
             RegexOptions regExOptions /* in */
             )
         {
+            CheckDisposed();
+
             StringList list = new StringList(this.Keys);
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, regExOptions);
+                Characters.SpaceString, pattern, regExOptions);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -395,13 +460,15 @@ namespace Eagle._Containers.Public
             RegexOptions regExOptions /* in */
             )
         {
+            CheckDisposed();
+
             StringList list = GenericOps<string, IRuleSet>.KeysAndValues(
                 this, false, false, true, mode, null, pattern, null, null,
                 null, noCase, regExOptions) as StringList;
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -411,11 +478,13 @@ namespace Eagle._Containers.Public
             bool noCase     /* in */
             )
         {
+            CheckDisposed();
+
             StringList list = new StringList(this.Values);
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -425,11 +494,13 @@ namespace Eagle._Containers.Public
             RegexOptions regExOptions /* in */
             )
         {
+            CheckDisposed();
+
             StringList list = new StringList(this.Values);
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, regExOptions);
+                Characters.SpaceString, pattern, regExOptions);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -439,13 +510,15 @@ namespace Eagle._Containers.Public
             bool noCase     /* in */
             )
         {
+            CheckDisposed();
+
             StringList list = GenericOps<string, IRuleSet>.KeysAndValues(
                 this, false, true, true, StringOps.DefaultMatchMode, pattern,
                 null, null, null, null, noCase, RegexOptions.None) as StringList;
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -455,13 +528,15 @@ namespace Eagle._Containers.Public
             RegexOptions regExOptions /* in */
             )
         {
+            CheckDisposed();
+
             StringList list = GenericOps<string, IRuleSet>.KeysAndValues(
                 this, false, true, true, MatchMode.RegExp, pattern, null, null,
                 null, null, false, regExOptions) as StringList;
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -471,11 +546,13 @@ namespace Eagle._Containers.Public
             bool noCase     /* in */
             )
         {
+            CheckDisposed();
+
             StringList list = new StringList(this.Keys);
 
             return ParserOps<string>.ListToString(list,
                 Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
         #endregion
 
@@ -484,7 +561,77 @@ namespace Eagle._Containers.Public
         #region System.Object Overrides
         public override string ToString()
         {
+            CheckDisposed();
+
             return ToString(null, false);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IDisposable "Pattern" Members
+        private bool disposed;
+        private void CheckDisposed() /* throw */
+        {
+#if THROW_ON_DISPOSED
+            if (disposed && Engine.IsThrowOnDisposed(null, false))
+            {
+                throw new ObjectDisposedException(
+                    typeof(RuleSetDictionary).Name);
+            }
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private /* protected virtual */ void Dispose(
+            bool disposing /* in */
+            )
+        {
+            try
+            {
+                if (!disposed)
+                {
+                    if (disposing)
+                    {
+                        ////////////////////////////////////
+                        // dispose managed resources here...
+                        ////////////////////////////////////
+
+                        DisposeAll();
+                        Clear();
+                    }
+
+                    //////////////////////////////////////
+                    // release unmanaged resources here...
+                    //////////////////////////////////////
+                }
+            }
+            finally
+            {
+                // base.Dispose(disposing);
+
+                disposed = true;
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IDisposable Members
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Destructor
+        ~RuleSetDictionary()
+        {
+            Dispose(false);
         }
         #endregion
     }

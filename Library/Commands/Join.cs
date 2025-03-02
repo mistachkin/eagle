@@ -48,7 +48,7 @@ namespace Eagle._Commands
                 {
                     if ((arguments.Count == 2) || (arguments.Count == 3))
                     {
-                        string separator = Characters.Space.ToString();
+                        string separator = Characters.SpaceString;
 
                         if (arguments.Count >= 3)
                             separator = arguments[2];

@@ -320,7 +320,7 @@ namespace Eagle._Components.Private
             /* Close */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Concat */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Continue */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
-            /* Debug */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.NonStandard | CommandFlags.Diagnostic,
+            /* Debug */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Critical | CommandFlags.NonStandard | CommandFlags.Diagnostic,
             /* Do */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard,
             /* Downlevel */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard,
             /* Eof */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
@@ -341,7 +341,7 @@ namespace Eagle._Components.Private
             /* Gets */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Glob */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Standard,
             /* Global */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
-            /* Host */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.NonStandard,
+            /* Host */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Critical | CommandFlags.NonStandard,
             /* If */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard | CommandFlags.Initialize | CommandFlags.SecuritySdk,
             /* Incr */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Info */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Standard
@@ -356,13 +356,13 @@ namespace Eagle._Components.Private
             /* Lappend */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Lassign */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Lget */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard,
-            /* Library */ CommandFlags.Core | CommandFlags.NativeCode | CommandFlags.Unsafe | CommandFlags.NonStandard,
+            /* Library */ CommandFlags.Core | CommandFlags.NativeCode | CommandFlags.Unsafe | CommandFlags.Critical | CommandFlags.NonStandard,
             /* Lindex */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Linsert */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* List */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard | CommandFlags.SecuritySdk,
             /* Llength */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard | CommandFlags.Initialize,
             /* Lmap */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
-            /* Load */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Standard | CommandFlags.SecuritySdk | CommandFlags.LicenseSdk,
+            /* Load */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Critical | CommandFlags.Standard | CommandFlags.SecuritySdk | CommandFlags.LicenseSdk,
             /* Lrange */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Lremove */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard,
             /* Lrepeat */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
@@ -376,7 +376,7 @@ namespace Eagle._Components.Private
             /* Napply */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard,
             /* Nop */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard,
             /* Nproc */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
-            /* Object */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.NonStandard,
+            /* Object */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Critical | CommandFlags.NonStandard,
             /* Open */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Standard,
             /* Package */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Standard | CommandFlags.Initialize | CommandFlags.SecuritySdk | CommandFlags.LicenseSdk,
             /* Parse */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard | CommandFlags.Diagnostic,
@@ -404,7 +404,7 @@ namespace Eagle._Components.Private
 #endif
             /* Subst */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Switch */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
-            /* Tcl */ CommandFlags.Core | CommandFlags.NativeCode | CommandFlags.Unsafe | CommandFlags.NonStandard,
+            /* Tcl */ CommandFlags.Core | CommandFlags.NativeCode | CommandFlags.Unsafe | CommandFlags.Critical | CommandFlags.NonStandard,
             /* Tell */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Test1 */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard | CommandFlags.Diagnostic,
             /* Test2 */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard | CommandFlags.Diagnostic
@@ -422,7 +422,7 @@ namespace Eagle._Components.Private
 #endif
             /* Truncate */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard,
             /* Try */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.NonStandard,
-            /* Unload */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Standard,
+            /* Unload */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Critical | CommandFlags.Standard,
             /* Unset */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Unsetf */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.NonStandard | CommandFlags.Obsolete | CommandFlags.Diagnostic,
             /* Update */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
@@ -432,7 +432,8 @@ namespace Eagle._Components.Private
             /* While */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
             /* Xml */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.NonStandard,
             /* _Encoding */ CommandFlags.Core | CommandFlags.Safe | CommandFlags.Standard,
-            /* _File */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Standard
+            /* _File */ CommandFlags.Core | CommandFlags.Unsafe | CommandFlags.Critical |
+            CommandFlags.Standard
 #if NATIVE && WINDOWS
             | CommandFlags.NativeCode
 #endif

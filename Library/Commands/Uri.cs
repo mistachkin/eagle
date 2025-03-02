@@ -1337,7 +1337,8 @@ namespace Eagle._Commands
 
                                                                                     code = ArrayOps.GetBytesFromList(
                                                                                         interpreter, listData, encoding,
-                                                                                        ref requestBytes, ref result);
+                                                                                        encodingType, ref requestBytes,
+                                                                                        ref result);
 
                                                                                     if (code == ReturnCode.Ok)
                                                                                     {
@@ -1374,7 +1375,8 @@ namespace Eagle._Commands
 
                                                                                 code = ArrayOps.GetBytesFromList(
                                                                                     interpreter, listData, encoding,
-                                                                                    ref requestBytes, ref result);
+                                                                                    encodingType, ref requestBytes,
+                                                                                    ref result);
 
                                                                                 if (code == ReturnCode.Ok)
                                                                                 {

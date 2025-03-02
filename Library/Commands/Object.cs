@@ -36,7 +36,8 @@ namespace Eagle._Commands
 {
     [ObjectId("95dc42f9-d1f9-467b-acdc-3312d4bcdfee")]
     [CommandFlags(
-        CommandFlags.Unsafe | CommandFlags.NonStandard)]
+        CommandFlags.Unsafe | CommandFlags.Critical |
+        CommandFlags.NonStandard)]
     [ObjectGroup("managedEnvironment")]
     internal sealed class Object : Core
     {
@@ -58,7 +59,7 @@ namespace Eagle._Commands
             "create", "declare", "dispose", "exists",
             "flags", "foreach", "fromvar", "get", "hash", "import",
             "interfaces", "invoke", "invokeall", "invokeraw",
-            "isnull", "isoftype", "list", "lmap", "load", "members",
+            "isdisposed", "isnull", "isoftype", "list", "lmap", "load", "members",
             "namespaces", "referencecount", "removecallback",
             "removereference", "resolve", "search", "strongname",
             "type", "types", "unalias", "unaliasnamespace",
@@ -3732,6 +3733,79 @@ namespace Eagle._Commands
                                         }
                                         break;
                                     }
+                                case "isdisposed":
+                                    {
+                                        if (arguments.Count >= 3)
+                                        {
+                                            OptionDictionary options = ObjectOps.GetIsDisposedOptions();
+                                            int argumentIndex = Index.Invalid;
+
+                                            code = interpreter.GetOptions(
+                                                options, arguments, 0, 2, Index.Invalid, false,
+                                                ref argumentIndex, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                if ((argumentIndex != Index.Invalid) &&
+                                                    ((argumentIndex + 1) == arguments.Count))
+                                                {
+                                                    bool noComplain;
+                                                    bool force;
+                                                    bool cannotCheck;
+                                                    bool caughtException;
+
+                                                    ObjectOps.ProcessObjectIsDisposedOptions(
+                                                        options, out noComplain, out force,
+                                                        out cannotCheck, out caughtException);
+
+                                                    IObject @object = null;
+                                                    Result error = null;
+
+                                                    code = interpreter.GetObject(
+                                                        arguments[argumentIndex],
+                                                        LookupFlags.Default,
+                                                        ref @object, ref error);
+
+                                                    if (code == ReturnCode.Ok)
+                                                    {
+                                                        result = ObjectOps.IsDisposed(
+                                                            interpreter, @object.Value, force,
+                                                            cannotCheck, caughtException);
+                                                    }
+                                                    else if (noComplain)
+                                                    {
+                                                        result = cannotCheck;
+                                                        code = ReturnCode.Ok;
+                                                    }
+                                                    else
+                                                    {
+                                                        result = error;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        Option.LooksLikeOption(arguments[argumentIndex]))
+                                                    {
+                                                        result = OptionDictionary.BadOption(
+                                                            options, arguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "wrong # args: should be \"object isdisposed ?options? object\"";
+                                                    }
+
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"object isdisposed ?options? object\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
                                 case "isnull":
                                     {
                                         if (arguments.Count >= 3)
@@ -3749,10 +3823,16 @@ namespace Eagle._Commands
                                                     ((argumentIndex + 1) == arguments.Count))
                                                 {
                                                     bool noComplain;
-                                                    bool @default;
+                                                    bool objectDisposed;
+                                                    bool valueDisposed;
+                                                    bool force;
+                                                    bool cannotCheck;
+                                                    bool caughtException;
 
                                                     ObjectOps.ProcessObjectIsNullOptions(
-                                                        options, out noComplain, out @default);
+                                                        options, out noComplain, out objectDisposed,
+                                                        out valueDisposed, out force, out cannotCheck,
+                                                        out caughtException);
 
                                                     IObject @object = null;
                                                     Result error = null;
@@ -3763,11 +3843,43 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Ok)
                                                     {
-                                                        result = (@object.Value == null);
+                                                        //
+                                                        // HACK: If the Disposed property on the
+                                                        //       object wrapper is true, treat it
+                                                        //       as invalid, which is quite close
+                                                        //       to null.  This is technically not
+                                                        //       at all related to the underlying
+                                                        //       "value object" contained within 
+                                                        //       it possibly having been disposed
+                                                        //       at some point.
+                                                        //
+                                                        if (objectDisposed && @object.Disposed)
+                                                        {
+                                                            result = true;
+                                                        }
+                                                        else
+                                                        {
+                                                            object value = @object.Value;
+
+                                                            if (value == null)
+                                                            {
+                                                                result = true;
+                                                            }
+                                                            else if (valueDisposed)
+                                                            {
+                                                                result = ObjectOps.IsDisposed(
+                                                                    interpreter, value, force,
+                                                                    cannotCheck, caughtException);
+                                                            }
+                                                            else
+                                                            {
+                                                                result = false;
+                                                            }
+                                                        }
                                                     }
                                                     else if (noComplain)
                                                     {
-                                                        result = @default;
+                                                        result = cannotCheck;
                                                         code = ReturnCode.Ok;
                                                     }
                                                     else

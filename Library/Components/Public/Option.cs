@@ -688,7 +688,7 @@ namespace Eagle._Components.Public
             return ParserOps<string>.ListToString(
                 ToList(option), _Constants.Index.Invalid,
                 _Constants.Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), null, false);
+                Characters.SpaceString, null, false);
         }
         #endregion
 

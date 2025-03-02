@@ -21,13 +21,10 @@ namespace Eagle._Wrappers
     internal sealed class Function : Default, IFunction
     {
         #region Public Constructors
-        public Function(
-            long token,
-            IFunction function
-            )
-            : base(token)
+        public Function()
+            : base()
         {
-            this.function = function;
+            // do nothing.
         }
         #endregion
 
@@ -110,10 +107,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (function != null)
-                return function.Initialize(interpreter, clientData, ref result);
-            else
+            if (function == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return function.Initialize(interpreter, clientData, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -124,10 +124,13 @@ namespace Eagle._Wrappers
             ref Result result
             )
         {
-            if (function != null)
-                return function.Terminate(interpreter, clientData, ref result);
-            else
+            if (function == null)
+            {
+                result = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return function.Terminate(interpreter, clientData, ref result);
         }
         #endregion
 
@@ -196,11 +199,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (function != null)
-                return function.Execute(
-                    interpreter, clientData, arguments, ref value, ref error);
-            else
+            if (function == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return function.Execute(
+                interpreter, clientData, arguments, ref value, ref error);
         }
         #endregion
 
@@ -283,6 +289,7 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return function; }
+            set { function = (IFunction)value; } /* throw */
         }
         #endregion
     }

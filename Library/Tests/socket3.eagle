@@ -99,7 +99,9 @@ runTest {test socket-3.2 {Dns using AsyncCallback} -setup {
   set ar [object invoke System.Net.Dns BeginGetHostEntry $test_host \
       asyncCallback null]
 
-  after 0 nop; vwait ::result; set ::result
+  after 0 nop; vwait -timeout [expr {$::test_long_timeout * 10}] ::result
+
+  set ::result
 } -cleanup {
   rename asyncCallback ""
 
@@ -123,7 +125,7 @@ runTest {test socket-3.3 {uri upload -inline} -setup {
   set request [list var1 val1 var2 val2]
 } -body {
   set response [uri upload \
-      -timeouttype network -inline -data $request $uri]
+      -timeouttype network -inline -data $request -- $uri]
 
   expr {[regexp -line -- {^var1 = val1  <br />$} $response] && \
       [regexp -line -- {^var2 = val2  <br />$} $response]}
@@ -142,7 +144,7 @@ runTest {test socket-3.4 {uri download -inline} -setup {
       [file join $test_repository_url test_env]]
 } -body {
   regexp -line -- {^g\.zPath = test_env<br />$} \
-      [uri download -timeouttype network -inline $uri]
+      [uri download -timeouttype network -inline -- $uri]
 } -cleanup {
   unset -nocomplain uri
 } -constraints {eagle compile.NETWORK internet_eagle.to fossil_repository_url\
@@ -194,7 +196,7 @@ runTest {test socket-3.50 {uri upload -inline w/custom WebClient} -setup {
     }]
 
     uri upload -timeouttype network -inline \
-        -webclientdata $script -data $request $uri
+        -webclientdata $script -data $request -- $uri
   }]
 
   expr {[regexp -line -- {^var1 = val1  <br />$} $response] && \
@@ -252,7 +254,7 @@ runTest {test socket-4.51 {custom WebClient creation failure} -setup {
       }]]
 
       uri upload -timeouttype network -inline \
-          -webclientdata $script -data $request $uri
+          -webclientdata $script -data $request -- $uri
     }]
   } error] $error
 } -cleanup {
@@ -303,11 +305,11 @@ runTest {test socket-5.50 {custom WebClient creation failure} -setup {
 
   list [catch {
     set response [interp eval $interp {
-      uri upload -timeouttype network -inline -data $request $uri
+      uri upload -timeouttype network -inline -data $request -- $uri
     }]
   } error] $error [catch {
     set response [interp eval $interp {
-      uri download -timeouttype network -inline $uri
+      uri download -timeouttype network -inline -- $uri
     }]
   } error] $error
 } -cleanup {
@@ -387,7 +389,7 @@ runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
       "http://www\.w3\.org/TR/html4/loose\.dtd">.*</html>)}
 
   set hash(uri) [hash normal sha1 [set x [string trimright \
-      [uri download -timeouttype network -inline [appendArgs \
+      [uri download -timeouttype network -inline -- [appendArgs \
       http:// $test_host :80]]]]]
 
   foreach noBlock [list false true] {

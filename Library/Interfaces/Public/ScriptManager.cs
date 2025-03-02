@@ -25,6 +25,8 @@ namespace Eagle._Interfaces.Public
         string LibraryPath { get; set; }
         StringList AutoPathList { get; set; }
 
+        IScriptLocation ScriptLocation { get; }
+
         ReturnCode PreInitialize(bool force, ref Result error);
         ReturnCode Initialize(bool force, ref Result error);
 

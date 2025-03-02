@@ -79,6 +79,12 @@ namespace Eagle._Commands
                     Index.Invalid, Index.Invalid, "-withinfo", null),
                 new Option(null, OptionFlags.MustHaveBooleanValue,
                     Index.Invalid, Index.Invalid, "-time", null),
+                new Option(null, OptionFlags.MustHaveByteArrayValue,
+                    Index.Invalid, Index.Invalid, "-password", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue,
+                    Index.Invalid, Index.Invalid, "-library", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue,
+                    Index.Invalid, Index.Invalid, "-bundle", null),
                 Option.CreateEndOfOptions()
             });
 
@@ -122,6 +128,11 @@ namespace Eagle._Commands
             if (options.IsPresent("-encoding", ref value))
                 encoding = (Encoding)value.Value;
 
+            byte[] password = null; /* NOTE: For bundle use only. */
+
+            if (options.IsPresent("-password", ref value))
+                password = (byte[])value.Value;
+
             bool withInfo = false;
 
             if (options.IsPresent("-withinfo", ref value))
@@ -131,6 +142,16 @@ namespace Eagle._Commands
 
             if (options.IsPresent("-time", ref value))
                 time = (bool)value.Value;
+
+            bool library = false;
+
+            if (options.IsPresent("-library", ref value))
+                library = (bool)value.Value;
+
+            bool bundle = false;
+
+            if (options.IsPresent("-bundle", ref value))
+                bundle = (bool)value.Value;
 
             if (code == ReturnCode.Ok)
             {
@@ -182,28 +203,48 @@ namespace Eagle._Commands
 
                             try
                             {
-                                if (time)
+                                if (library)
+                                    interpreter.EnterPackageLevel();
+
+                                try
                                 {
-                                    profiler = ProfilerState.Create(
-                                        interpreter, ref dispose);
+                                    if (time)
+                                    {
+                                        profiler = ProfilerState.Create(
+                                            interpreter, ref dispose);
+                                    }
+
+                                    if (profiler != null)
+                                        profiler.Start();
+
+                                    if (bundle)
+                                    {
+                                        code = interpreter.EvaluateBundleFile(
+                                            arguments[argumentIndex], password,
+                                            ref clientData, ref result);
+                                    }
+                                    else
+                                    {
+                                        code = interpreter.EvaluateFile(
+                                            encoding, arguments[argumentIndex],
+                                            ref result);
+                                    }
+
+                                    if (profiler != null)
+                                    {
+                                        profiler.Stop();
+
+                                        TraceOps.DebugTrace(String.Format(
+                                            "Execute: completed in {0}",
+                                            FormatOps.MaybeNull(profiler)),
+                                            typeof(Source).Name,
+                                            TracePriority.Command);
+                                    }
                                 }
-
-                                if (profiler != null)
-                                    profiler.Start();
-
-                                code = interpreter.EvaluateFile(
-                                    encoding, arguments[argumentIndex],
-                                    ref result);
-
-                                if (profiler != null)
+                                finally
                                 {
-                                    profiler.Stop();
-
-                                    TraceOps.DebugTrace(String.Format(
-                                        "Execute: completed in {0}",
-                                        FormatOps.MaybeNull(profiler)),
-                                        typeof(Source).Name,
-                                        TracePriority.Command);
+                                    if (library)
+                                        interpreter.ExitPackageLevel();
                                 }
                             }
                             finally

@@ -18,6 +18,11 @@ using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using Alias = Eagle._Commands.Alias;
 
+using CommandWrapper = Eagle._Wrappers.Command;
+
+using CommandPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Wrappers.Command>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -25,7 +30,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("d9cd17c1-34e2-4e73-a96a-18365eaa9186")]
-    internal sealed class CommandWrapperDictionary : WrapperDictionary<string, _Wrappers.Command>
+    internal sealed class CommandWrapperDictionary : WrapperDictionary<string, CommandWrapper>
     {
         public CommandWrapperDictionary()
             : base()
@@ -36,7 +41,7 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public CommandWrapperDictionary(
-            IDictionary<string, _Wrappers.Command> dictionary
+            IDictionary<string, CommandWrapper> dictionary
             )
             : base(dictionary)
         {
@@ -68,7 +73,7 @@ namespace Eagle._Containers.Private
                 {
                     inputList = new StringList();
 
-                    foreach (KeyValuePair<string, _Wrappers.Command> pair in this)
+                    foreach (CommandPair pair in this)
                     {
                         ICommand command = pair.Value;
 
@@ -92,7 +97,7 @@ namespace Eagle._Containers.Private
             {
                 inputList = new StringList();
 
-                foreach (KeyValuePair<string, _Wrappers.Command> pair in this)
+                foreach (CommandPair pair in this)
                 {
                     ICommand command = pair.Value;
 

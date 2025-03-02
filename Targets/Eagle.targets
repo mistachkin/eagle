@@ -314,6 +314,58 @@
   ******************************************************************************
   -->
 
+  <Target Name="CopyKeyRings"
+          Condition="'$(CopyKeyRings)' != 'false' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyKeyRings.done">
+    <CreateItem Include="lib\keyRing.*">
+      <Output ItemName="CopyKeyRingsItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(CopyKeyRingsItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyKeyRings.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="CopyFlatLibrary"
+          Condition="'$(CopyFlatLibrary)' != 'false' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyFlatLibrary.done">
+    <CreateItem Include="Configurations\**"
+                Exclude="Configurations\*.config">
+      <Output ItemName="CopyFlatConfigurationItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <CreateItem Include="lib\**">
+      <Output ItemName="CopyFlatLibraryItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(CopyFlatConfigurationItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Copy SourceFiles="@(CopyFlatLibraryItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyFlatLibrary.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
   <Target Name="CopyTools"
           Condition="'$(CopyTools)' != 'false' And
                      '$(OutputPath)' != '' And
@@ -2487,6 +2539,95 @@
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopySystemDataSQLite.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCopyNewtonsoftJson"
+          Condition="'$(EagleCopyNewtonsoftJson)' != 'false' And
+                     '$(EagleBinaryOutputPath)' != '' And
+                     HasTrailingSlash('$(EagleBinaryOutputPath)') And
+                     Exists('$(EagleBinaryOutputPath)') And
+                     Exists('$(EagleDir)\Externals\Newtonsoft.Json')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyNewtonsoftJson.done">
+    <CreateItem Include="$(EagleDir)\Externals\Newtonsoft.Json\netFramework20\*">
+      <Output ItemName="EagleCopyNewtonsoftJsonItem1" TaskParameter="Include" />
+    </CreateItem>
+
+    <CreateItem Include="$(EagleDir)\Externals\Newtonsoft.Json\netFramework40\*">
+      <Output ItemName="EagleCopyNewtonsoftJsonItem2" TaskParameter="Include" />
+    </CreateItem>
+
+    <CreateItem Include="$(EagleDir)\Externals\Newtonsoft.Json\netStandard20\*">
+      <Output ItemName="EagleCopyNewtonsoftJsonItem3" TaskParameter="Include" />
+    </CreateItem>
+
+    <CreateItem Include="$(EagleDir)\Externals\Newtonsoft.Json\netStandard21\*">
+      <Output ItemName="EagleCopyNewtonsoftJsonItem4" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy Condition="'$(BuildTool)' != 'DotNetCore' And
+                     ((('$(MSBuildToolsVersion)' == '' Or
+                        '$(MSBuildToolsVersion)' == '2.0' Or
+                        '$(MSBuildToolsVersion)' == '3.5') And
+                       '$(TargetFrameworkVersion)' == '') Or
+                      '$(TargetFrameworkVersion)' == 'v2.0' Or
+                      '$(TargetFrameworkVersion)' == 'v3.5')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem1)"
+          DestinationFolder="$(EagleBinaryOutputPath)" />
+
+    <Copy Condition="'$(BuildTool)' != 'DotNetCore' And
+                     ((('$(MSBuildToolsVersion)' == '4.0' Or
+                        '$(MSBuildToolsVersion)' == '12.0' Or
+                        '$(MSBuildToolsVersion)' == '14.0' Or
+                        '$(MSBuildToolsVersion)' == '15.0' Or
+                        '$(MSBuildToolsVersion)' == 'Current') And
+                       '$(TargetFrameworkVersion)' == '') Or
+                      '$(TargetFrameworkVersion)' == 'v4.0' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8.1')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem2)"
+          DestinationFolder="$(EagleBinaryOutputPath)" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.0')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem3)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.1')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem3)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.1" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.2')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem3)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.2" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.0')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.1')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.1" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyNewtonsoftJson.done" />
   </Target>
 
   <!--

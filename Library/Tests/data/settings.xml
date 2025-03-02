@@ -20,9 +20,9 @@
   <Profile>Color</Profile>
   <Text>puts stdout "this is the pre-init script."</Text>
   <LibraryPath>%EAGLE%\lib\Eagle1.0</LibraryPath>
-  <RuleSet>{id 1 type Include kind Command mode Glob regExOptions None patterns o*} {id 2 type Exclude kind Command mode Exact regExOptions None patterns open}</RuleSet>
+  <RuleSet>{id 1 type Include kind Command mode {Include Glob} regExOptions None patterns o*} {id 2 type Exclude kind Command mode {Exclude Exact} regExOptions None patterns open} {id 3 type Include kind Command mode {Include Exact} regExOptions None patterns puts} {id 4 type Include kind Command mode {Include Exact} regExOptions None patterns set}</RuleSet>
   <Args>a b c d</Args>
-  <CreateFlags>Default</CreateFlags>
+  <CreateFlags>Default -Initialize UseNamespaces</CreateFlags>
   <HostCreateFlags>Default</HostCreateFlags>
   <InitializeFlags>Default, Test</InitializeFlags>
   <ScriptFlags>Default</ScriptFlags>

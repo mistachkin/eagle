@@ -40,6 +40,13 @@ namespace Eagle._Objects
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Data
+        private bool disposed;
+        private bool disposing;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Public Constructors
         public Default(
             IObjectData objectData,
@@ -449,6 +456,24 @@ namespace Eagle._Objects
             }
 
             return false;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IMaybeDisposed Members
+        public virtual bool Disposed
+        {
+            get { return disposed; }
+            set { disposed = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public virtual bool Disposing
+        {
+            get { return disposing; }
+            set { disposing = value; }
         }
         #endregion
 

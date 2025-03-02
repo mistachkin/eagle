@@ -1553,9 +1553,23 @@ IF DEFINED MINTEST (
 )
 
 REM ****************************************************************************
+REM ************************ Shared Build Configuration ************************
+REM ****************************************************************************
+
+IF DEFINED USERDOMAIN IF /I "%USERDOMAIN%" == "LACHRYMOSE" (
+  ECHO.
+  ECHO WARNING: Building official Eagle Enterprise Edition binaries...
+  ECHO.
+  CALL :fn_AppendVariable SHARED_FLAGS " /property:EagleOfficialBinary=true"
+)
+
+%_VECHO% SharedFlags = '%SHARED_FLAGS%'
+
+REM ****************************************************************************
 REM ******************** NetStandard20 Build Configuration *********************
 REM ****************************************************************************
 
+SET NETSTANDARD20_FLAGS=%SHARED_FLAGS%
 SET NETSTANDARD20_FLAGS=%NETSTANDARD20_FLAGS% /property:EagleBuildType=%NETSTANDARD20_SUFFIX%
 SET NETSTANDARD20_FLAGS=%NETSTANDARD20_FLAGS% /property:EagleTestType=%NETSTANDARD20_SUFFIX%
 
@@ -1628,6 +1642,7 @@ REM ****************************************************************************
 REM ******************** NetStandard21 Build Configuration *********************
 REM ****************************************************************************
 
+SET NETSTANDARD21_FLAGS=%SHARED_FLAGS%
 SET NETSTANDARD21_FLAGS=%NETSTANDARD21_FLAGS% /property:EagleBuildType=%NETSTANDARD21_SUFFIX%
 SET NETSTANDARD21_FLAGS=%NETSTANDARD21_FLAGS% /property:EagleTestType=%NETSTANDARD21_SUFFIX%
 
@@ -1700,6 +1715,7 @@ REM ****************************************************************************
 REM ***************** Default ^(NetFx20^) Build Configuration ******************
 REM ****************************************************************************
 
+SET NETFX20_FLAGS=%SHARED_FLAGS%
 SET NETFX20_FLAGS=%NETFX20_FLAGS% /property:EagleBuildType=%NETFX20_SUFFIX%
 SET NETFX20_FLAGS=%NETFX20_FLAGS% /property:EagleTestType=%NETFX20_SUFFIX%
 
@@ -1772,6 +1788,7 @@ REM ****************************************************************************
 REM *********************** NetFx35 Build Configuration ************************
 REM ****************************************************************************
 
+SET NETFX35_FLAGS=%SHARED_FLAGS%
 SET NETFX35_FLAGS=%NETFX35_FLAGS% /property:EagleBuildType=%NETFX35_SUFFIX%
 SET NETFX35_FLAGS=%NETFX35_FLAGS% /property:EagleTestType=%NETFX35_SUFFIX%
 
@@ -1840,6 +1857,7 @@ REM ****************************************************************************
 REM *********************** NetFx40 Build Configuration ************************
 REM ****************************************************************************
 
+SET NETFX40_FLAGS=%SHARED_FLAGS%
 SET NETFX40_FLAGS=%NETFX40_FLAGS% /property:EagleBuildType=%NETFX40_SUFFIX%
 SET NETFX40_FLAGS=%NETFX40_FLAGS% /property:EagleTestType=%NETFX40_SUFFIX%
 
@@ -1912,6 +1930,7 @@ REM ****************************************************************************
 REM *********************** NetFx45 Build Configuration ************************
 REM ****************************************************************************
 
+SET NETFX45_FLAGS=%SHARED_FLAGS%
 SET NETFX45_FLAGS=%NETFX45_FLAGS% /property:EagleBuildType=%NETFX45_SUFFIX%
 SET NETFX45_FLAGS=%NETFX45_FLAGS% /property:EagleTestType=%NETFX45_SUFFIX%
 
@@ -1987,6 +2006,7 @@ REM ****************************************************************************
 REM *********************** NetFx451 Build Configuration ***********************
 REM ****************************************************************************
 
+SET NETFX451_FLAGS=%SHARED_FLAGS%
 SET NETFX451_FLAGS=%NETFX451_FLAGS% /property:EagleBuildType=%NETFX451_SUFFIX%
 SET NETFX451_FLAGS=%NETFX451_FLAGS% /property:EagleTestType=%NETFX451_SUFFIX%
 
@@ -2062,6 +2082,7 @@ REM ****************************************************************************
 REM *********************** NetFx452 Build Configuration ***********************
 REM ****************************************************************************
 
+SET NETFX452_FLAGS=%SHARED_FLAGS%
 SET NETFX452_FLAGS=%NETFX452_FLAGS% /property:EagleBuildType=%NETFX452_SUFFIX%
 SET NETFX452_FLAGS=%NETFX452_FLAGS% /property:EagleTestType=%NETFX452_SUFFIX%
 
@@ -2137,6 +2158,7 @@ REM ****************************************************************************
 REM *********************** NetFx46 Build Configuration ************************
 REM ****************************************************************************
 
+SET NETFX46_FLAGS=%SHARED_FLAGS%
 SET NETFX46_FLAGS=%NETFX46_FLAGS% /property:EagleBuildType=%NETFX46_SUFFIX%
 SET NETFX46_FLAGS=%NETFX46_FLAGS% /property:EagleTestType=%NETFX46_SUFFIX%
 
@@ -2212,6 +2234,7 @@ REM ****************************************************************************
 REM *********************** NetFx461 Build Configuration ***********************
 REM ****************************************************************************
 
+SET NETFX461_FLAGS=%SHARED_FLAGS%
 SET NETFX461_FLAGS=%NETFX461_FLAGS% /property:EagleBuildType=%NETFX461_SUFFIX%
 SET NETFX461_FLAGS=%NETFX461_FLAGS% /property:EagleTestType=%NETFX461_SUFFIX%
 
@@ -2287,6 +2310,7 @@ REM ****************************************************************************
 REM *********************** NetFx462 Build Configuration ***********************
 REM ****************************************************************************
 
+SET NETFX462_FLAGS=%SHARED_FLAGS%
 SET NETFX462_FLAGS=%NETFX462_FLAGS% /property:EagleBuildType=%NETFX462_SUFFIX%
 SET NETFX462_FLAGS=%NETFX462_FLAGS% /property:EagleTestType=%NETFX462_SUFFIX%
 
@@ -2362,6 +2386,7 @@ REM ****************************************************************************
 REM *********************** NetFx47 Build Configuration ************************
 REM ****************************************************************************
 
+SET NETFX47_FLAGS=%SHARED_FLAGS%
 SET NETFX47_FLAGS=%NETFX47_FLAGS% /property:EagleBuildType=%NETFX47_SUFFIX%
 SET NETFX47_FLAGS=%NETFX47_FLAGS% /property:EagleTestType=%NETFX47_SUFFIX%
 
@@ -2437,6 +2462,7 @@ REM ****************************************************************************
 REM ********************** NetFx471 Build Configuration ************************
 REM ****************************************************************************
 
+SET NETFX471_FLAGS=%SHARED_FLAGS%
 SET NETFX471_FLAGS=%NETFX471_FLAGS% /property:EagleBuildType=%NETFX471_SUFFIX%
 SET NETFX471_FLAGS=%NETFX471_FLAGS% /property:EagleTestType=%NETFX471_SUFFIX%
 
@@ -2512,6 +2538,7 @@ REM ****************************************************************************
 REM ********************** NetFx472 Build Configuration ************************
 REM ****************************************************************************
 
+SET NETFX472_FLAGS=%SHARED_FLAGS%
 SET NETFX472_FLAGS=%NETFX472_FLAGS% /property:EagleBuildType=%NETFX472_SUFFIX%
 SET NETFX472_FLAGS=%NETFX472_FLAGS% /property:EagleTestType=%NETFX472_SUFFIX%
 
@@ -2587,6 +2614,7 @@ REM ****************************************************************************
 REM *********************** NetFx48 Build Configuration ************************
 REM ****************************************************************************
 
+SET NETFX48_FLAGS=%SHARED_FLAGS%
 SET NETFX48_FLAGS=%NETFX48_FLAGS% /property:EagleBuildType=%NETFX48_SUFFIX%
 SET NETFX48_FLAGS=%NETFX48_FLAGS% /property:EagleTestType=%NETFX48_SUFFIX%
 
@@ -2666,6 +2694,7 @@ REM ****************************************************************************
 REM *********************** NetFx481 Build Configuration ************************
 REM ****************************************************************************
 
+SET NETFX481_FLAGS=%SHARED_FLAGS%
 SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleBuildType=%NETFX481_SUFFIX%
 SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleTestType=%NETFX481_SUFFIX%
 
@@ -2745,6 +2774,7 @@ REM ****************************************************************************
 REM ************************* Bare Build Configuration *************************
 REM ****************************************************************************
 
+SET BARE_FLAGS=%SHARED_FLAGS%
 SET BARE_FLAGS=%BARE_FLAGS% /property:EagleBuildType=%BARE_SUFFIX%
 SET BARE_FLAGS=%BARE_FLAGS% /property:EagleTestType=%BARE_SUFFIX%
 
@@ -2813,6 +2843,7 @@ REM ****************************************************************************
 REM ********************* LeanAndMean Build Configuration **********************
 REM ****************************************************************************
 
+SET LEAN_FLAGS=%SHARED_FLAGS%
 SET LEAN_FLAGS=%LEAN_FLAGS% /property:EagleBuildType=%LEAN_SUFFIX%
 SET LEAN_FLAGS=%LEAN_FLAGS% /property:EagleTestType=%LEAN_SUFFIX%
 
@@ -2881,6 +2912,7 @@ REM ****************************************************************************
 REM *********************** Database Build Configuration ***********************
 REM ****************************************************************************
 
+SET DATABASE_FLAGS=%SHARED_FLAGS%
 SET DATABASE_FLAGS=%DATABASE_FLAGS% /property:EagleBuildType=%DATABASE_SUFFIX%
 SET DATABASE_FLAGS=%DATABASE_FLAGS% /property:EagleTestType=%DATABASE_SUFFIX%
 
@@ -2949,6 +2981,7 @@ REM ****************************************************************************
 REM ********************** MonoOnUnix Build Configuration **********************
 REM ****************************************************************************
 
+SET UNIX_FLAGS=%SHARED_FLAGS%
 SET UNIX_FLAGS=%UNIX_FLAGS% /property:EagleBuildType=%UNIX_SUFFIX%
 SET UNIX_FLAGS=%UNIX_FLAGS% /property:EagleTestType=%UNIX_SUFFIX%
 

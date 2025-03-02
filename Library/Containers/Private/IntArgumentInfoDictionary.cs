@@ -44,7 +44,7 @@ namespace Eagle._Containers.Private
             return ParserOps<ArgumentInfo>.ListToString(
                 new ArgumentInfoList(this.Values),
                 Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
         #endregion
 

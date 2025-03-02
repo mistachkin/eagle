@@ -2291,7 +2291,7 @@ runTest {test channelBuffer-1.1 {non-blocking cr/lf with buffer} -setup {
     }
 
     try {
-      set fileName [file tempname]
+      set fileName [getTemporaryFileName]
 
       writeList $fileName $input
       set data [readFile $fileName]

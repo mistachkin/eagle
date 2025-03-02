@@ -24,21 +24,20 @@ namespace Eagle._Wrappers
     [ObjectId("95ed2ec8-3753-4cb1-b4c2-26e5b8d1671f")]
     internal sealed class _Object : Default, IObject
     {
-        #region Public Constructors
-        public _Object(
-            long token,
-            IObject @object
-            )
-            : base(token)
-        {
-            this.@object = @object;
-        }
+        #region Private Data
+        private bool disposed;
+        private bool disposing;
+        internal IObject @object;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Private Data
-        internal IObject @object;
+        #region Public Constructors
+        public _Object() : base()
+        {
+            this.disposed = false;
+            this.disposing = false;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -248,10 +247,41 @@ namespace Eagle._Wrappers
             ref int finalCount
             )
         {
-            return (@object != null) ?
-                @object.RemoveTemporaryReferences(
-                    interpreter, name, ref finalCount) :
-                false;
+            if (@object == null)
+                return false;
+
+            return @object.RemoveTemporaryReferences(
+                interpreter, name, ref finalCount);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IMaybeDisposed Members
+        public bool Disposed
+        {
+            get { return (@object != null) ? @object.Disposed : disposed; }
+            set
+            {
+                if (@object != null)
+                    @object.Disposed = value;
+                else
+                    disposed = value;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool Disposing
+        {
+            get { return (@object != null) ? @object.Disposing : disposing; }
+            set
+            {
+                if (@object != null)
+                    @object.Disposing = value;
+                else
+                    disposing = value;
+            }
         }
         #endregion
 
@@ -268,6 +298,7 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return @object; }
+            set { @object = (IObject)value; } /* throw */
         }
         #endregion
     }

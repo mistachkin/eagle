@@ -39,6 +39,10 @@ using SecurityProtocolType = System.Net.SecurityProtocolType;
 
 #if TEST
 using _SecurityProtocolType = Eagle._Components.Public.SecurityProtocolType;
+
+#if NETWORK
+using ScriptWebClient = Eagle._Tests.Default.ScriptWebClient;
+#endif
 #endif
 
 using DownloadDataPair = Eagle._Components.Public.AnyPair<
@@ -131,6 +135,15 @@ namespace Eagle._Components.Private
         // HACK: This is purposely not read-only.
         //
         private static bool DefaultNoProtocol = false;
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if TEST && NETWORK
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static string ScriptWebClientText = "::scriptWebClient";
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -741,6 +754,45 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Web Download / Upload Helper Methods
+        #region WebClient Support Methods
+        private static WebClient CreateClient(
+            string argument, /* in */
+            string tag,      /* in */
+            int? timeout,    /* in */
+            ref Result error /* out */
+            )
+        {
+            if (InOfflineMode())
+            {
+                error = String.Format(
+                    "cannot create default {0} web client while offline",
+                    FormatOps.WrapOrNull(argument));
+
+                return null;
+            }
+            else
+            {
+                if ((tag != null) || (timeout != null))
+                {
+                    TraceOps.DebugTrace("CreateClient",
+                        null, typeof(WebOps).Name,
+                        TracePriority.NetworkDebug,
+                        true, "argument", argument,
+                        "tag", tag, "timeout", timeout);
+
+                    return new TagAndTimeoutWebClient(
+                        tag, timeout);
+                }
+                else
+                {
+                    return new WebClient();
+                }
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static WebTransferCallback GetTransferCallback(
             Interpreter interpreter /* in: OPTIONAL */
             )
@@ -1231,56 +1283,6 @@ namespace Eagle._Components.Private
         #region Public Web Download Methods
         #region WebClient Support Methods
         public static WebClient CreateClient(
-            string argument, /* in */
-            int? timeout,    /* in */
-            ref Result error /* out */
-            )
-        {
-            return CreateClient(
-                argument, GetTagEnvVarValue(null),
-                timeout, ref error);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static WebClient CreateClient(
-            string argument, /* in */
-            string tag,      /* in */
-            int? timeout,    /* in */
-            ref Result error /* out */
-            )
-        {
-            if (InOfflineMode())
-            {
-                error = String.Format(
-                    "cannot create default {0} web client while offline",
-                    FormatOps.WrapOrNull(argument));
-
-                return null;
-            }
-            else
-            {
-                if ((tag != null) || (timeout != null))
-                {
-                    TraceOps.DebugTrace("CreateClient",
-                        null, typeof(WebOps).Name,
-                        TracePriority.NetworkDebug,
-                        true, "argument", argument,
-                        "tag", tag, "timeout", timeout);
-
-                    return new TagAndTimeoutWebClient(
-                        tag, timeout);
-                }
-                else
-                {
-                    return new WebClient();
-                }
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static WebClient CreateClient(
             Interpreter interpreter, /* in: OPTIONAL */
             string argument,         /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -1343,6 +1345,15 @@ namespace Eagle._Components.Private
                             interpreter, argument, clientData,
                             ref error);
                     }
+
+#if TEST && NETWORK
+                    if (interpreter.UseScriptWebClient())
+                    {
+                        return ScriptWebClient.Create(
+                            interpreter, ScriptWebClientText,
+                            argument, null, ref error);
+                    }
+#endif
                 }
             }
 

@@ -88,7 +88,8 @@ namespace Eagle._Components.Private
                 goto done;
             }
 
-            if (!CommonOps.Runtime.IsDotNetCore())
+            if (!RuntimeOps.ShouldForceTrustedHashes() &&
+                !CommonOps.Runtime.IsDotNetCore())
             {
                 error = "not supported on this platform";
                 code = ReturnCode.Error;

@@ -32,6 +32,7 @@ namespace Eagle._Components.Public
         public static readonly string CacheFlags = "CacheFlags";
 #endif
 
+        public static readonly string DataFlags = "DataFlags";
         public static readonly string CreateFailSafe = "CreateFailSafe";
         public static readonly string CreateFlags = "CreateFlags";
         public static readonly string HostCreateFlags = "HostCreateFlags";
@@ -85,10 +86,17 @@ namespace Eagle._Components.Public
         public static readonly string NoExit = "NoExit";
         public static readonly string NoInitialize = "NoInitialize";
 
+#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+        public static readonly string NoTrustedRemote = "NoTrustedRemote";
+        public static readonly string ForceTrustedRemote = "ForceTrustedRemote";
+        public static readonly string TrustedBundlePassword = "TrustedBundlePassword";
+#endif
+
 #if THREADING
         public static readonly string NoWorkers = "NoWorkers";
 #endif
 
+        public static readonly string NoWritePrompt = "NoWritePrompt";
         public static readonly string NoLoop = "NoLoop";
         public static readonly string NoThrowOnDisposed = "NoThrowOnDisposed";
         public static readonly string UseAttach = "UseAttach";

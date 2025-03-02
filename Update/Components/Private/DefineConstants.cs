@@ -118,6 +118,10 @@ namespace Eagle._Components.Private
             "OFFICIAL",
 #endif
 
+#if OFFICIAL_BINARY
+            "OFFICIAL_BINARY",
+#endif
+
 #if SHELL
             "SHELL",
 #endif

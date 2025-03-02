@@ -2381,7 +2381,7 @@ namespace Eagle._Commands
                                                                 identifier.Description, "syntax", (syntax != null) ?
                                                                 syntax.Syntax : null
 #if SHELL && INTERACTIVE_COMMANDS && XML
-                                                                , "help", HelpOps.GetHelp(identifier)
+                                                                , "help", HelpOps.GetHelp(identifier, HelpOps.GetDefaultTextFlags())
 #endif
                                                                 , "plugin", (plugin != null) ? plugin.ToString() : null,
                                                                 "flags", EntityOps.GetFlagsNoThrow(identifier)
@@ -3588,12 +3588,12 @@ namespace Eagle._Commands
                                                     //
                                                     if (!String.IsNullOrEmpty(arguments[2]))
                                                     {
-                                                        interpreter.ScriptLocation = ScriptLocation.Create(
+                                                        interpreter.ManualScriptLocation = ScriptLocation.Create(
                                                             interpreter, (string)arguments[2], true);
                                                     }
                                                     else
                                                     {
-                                                        interpreter.ScriptLocation = null;
+                                                        interpreter.ManualScriptLocation = null;
                                                     }
                                                 }
                                                 else

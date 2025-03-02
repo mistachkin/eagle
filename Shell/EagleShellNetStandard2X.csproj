@@ -42,6 +42,22 @@
 
   <!--
   ******************************************************************************
+  **                    Suppress Worthless NuGet Warnings                     **
+  ******************************************************************************
+  -->
+
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-hxrm-9w7p-39cc" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-242j-2gm6-5rwx" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-vmch-3w2x-vhgq" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-7mfr-774f-w5r9" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5crp-9r3c-p9vr" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-ghhp-997w-qr28" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-cmhx-cq75-c4mj" />
+  </ItemGroup>
+
+  <!--
+  ******************************************************************************
   **                       Project Specific Properties                        **
   ******************************************************************************
   -->
@@ -468,6 +484,7 @@
       EagleCopyResourcePngs;
       EagleCopySQLite3;
       EagleCopySystemDataSQLite;
+      EagleCopyNewtonsoftJson;
       CopyConfigurations;
     </BuildDependsOn>
     <CleanDependsOn>

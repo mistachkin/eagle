@@ -50,6 +50,13 @@ runTest {test xaml-1.1 {create/use/destroy Xaml window} -setup {
     </Window>
   }
 
+  #
+  # BUGFIX: Per the System.Windows.Window.CloseWindowBeforeShow
+  #         method, the sender will actually be marked disposed
+  #         BEFORE this event is raised; therefore, the script
+  #         library helper procedure [getStringFromObjectHandle]
+  #         will simply return its argument value.
+  #
   proc handleClosedEvent { sender e } {
     lappend ::x [list [getStringFromObjectHandle $sender] \
         [getStringFromObjectHandle $e]]
@@ -125,6 +132,8 @@ runTest {test xaml-1.1 {create/use/destroy Xaml window} -setup {
   object unimport -importpattern System.Windows
   object unimport -importpattern System.Windows.Markup
 
+  catch {object dispose $xamlObject}
+
   unset -nocomplain xamlObject application xmlReader strReader xaml x \
       assembly3 assembly2 assembly1
 
@@ -140,9 +149,9 @@ runTest {test xaml-1.1 {create/use/destroy Xaml window} -setup {
   }
 } -constraints [fixConstraints {eagle command.object interactive\
 userInteraction staThread wpf file_test.png !mda}] -once true -match regexp \
--result {^(?:\{System\.Windows\.Window\
+-result {^(?:\{System#Windows#Window#\d+\
 System\.EventArgs\}|\{System\.Windows\.Window\
-System\.Windows\.Input\.MouseButtonEventArgs\} \{System\.Windows\.Window\
+System\.Windows\.Input\.MouseButtonEventArgs\} \{System#Windows#Window#\d+\
 System\.EventArgs\})$}}
 
 ###############################################################################
@@ -251,6 +260,13 @@ runTest {test xaml-1.2 {isolated create/use/destroy Xaml window} -setup {
       </Window>
     }
 
+    #
+    # BUGFIX: Per the System.Windows.Window.CloseWindowBeforeShow
+    #         method, the sender will actually be marked disposed
+    #         BEFORE this event is raised; therefore, the script
+    #         library helper procedure [getStringFromObjectHandle]
+    #         will simply return its argument value.
+    #
     proc handleClosedEvent { sender e } {
       lappend ::x [list [getStringFromObjectHandle $sender] \
           [getStringFromObjectHandle $e]]
@@ -344,6 +360,8 @@ runTest {test xaml-1.2 {isolated create/use/destroy Xaml window} -setup {
     object unimport -importpattern System.Windows
     object unimport -importpattern System.Windows.Markup
 
+    catch {object dispose $xamlObject}
+
     unset -nocomplain xamlObject application xmlReader strReader xaml x \
         assembly3 assembly2 assembly1
 
@@ -380,9 +398,9 @@ runTest {test xaml-1.2 {isolated create/use/destroy Xaml window} -setup {
   unset -nocomplain appDomain
 } -constraints [fixConstraints {eagle command.object interactive\
 userInteraction staThread wpf compile.ISOLATED_INTERPRETERS file_test.png\
-!mda}] -match regexp -result {^(?:\{System\.Windows\.Window\
+!mda}] -match regexp -result {^(?:\{System#Windows#Window#\d+\
 System\.EventArgs\}|\{System\.Windows\.Window\
-System\.Windows\.Input\.MouseButtonEventArgs\} \{System\.Windows\.Window\
+System\.Windows\.Input\.MouseButtonEventArgs\} \{System#Windows#Window#\d+\
 System\.EventArgs\})$}}
 
 ###############################################################################

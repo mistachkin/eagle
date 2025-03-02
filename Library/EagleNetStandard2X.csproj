@@ -42,6 +42,21 @@
 
   <!--
   ******************************************************************************
+  **                    Suppress Worthless NuGet Warnings                     **
+  ******************************************************************************
+  -->
+
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-hxrm-9w7p-39cc" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-242j-2gm6-5rwx" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-vmch-3w2x-vhgq" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5crp-9r3c-p9vr" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-ghhp-997w-qr28" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-cmhx-cq75-c4mj" />
+  </ItemGroup>
+
+  <!--
+  ******************************************************************************
   **                       Project Specific Properties                        **
   ******************************************************************************
   -->
@@ -330,6 +345,21 @@
   <ItemGroup Condition="'$(EagleNetStandard20)' == 'false'">
     <Reference Include="System" />
   </ItemGroup>
+  <ItemGroup Condition="('$(TargetFrameworkVersion)' == 'v4.0' Or
+                         '$(TargetFrameworkVersion)' == 'v4.5' Or
+                         '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                         '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                         '$(TargetFrameworkVersion)' == 'v4.6' Or
+                         '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                         '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                         '$(TargetFrameworkVersion)' == 'v4.7' Or
+                         '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                         '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                         '$(TargetFrameworkVersion)' == 'v4.8' Or
+                         '$(TargetFrameworkVersion)' == 'v4.8.1') And
+                         '$(EagleNetStandard20)' == 'false'">
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
   <ItemGroup Condition="'$(TargetFrameworkVersion)' == 'v3.5' And
                         '$(EagleNetStandard20)' == 'false'">
     <Reference Include="System.Core">
@@ -424,6 +454,7 @@
     <Compile Include="Attributes\Public\FunctionFlagsAttribute.cs" />
     <Compile Include="Attributes\Public\LexemeAttribute.cs" />
     <Compile Include="Attributes\Public\MethodFlagsAttribute.cs" />
+    <Compile Include="Attributes\Public\NameAndValueAttribute.cs" />
     <Compile Include="Attributes\Public\ObjectFlagsAttribute.cs" />
     <Compile Include="Attributes\Public\ObjectGroupAttribute.cs" />
     <Compile Include="Attributes\Public\ObjectIdAttribute.cs" />
@@ -452,6 +483,7 @@
     <Compile Include="Commands\Append.cs" />
     <Compile Include="Commands\Apply.cs" />
     <Compile Include="Commands\Array.cs" />
+    <Compile Include="Commands\Automatic.cs" />
     <Compile Include="Commands\Base64.cs" />
     <Compile Include="Commands\Bgerror.cs" />
     <Compile Include="Commands\Break.cs" />
@@ -584,6 +616,8 @@
     <Compile Include="Components\Private\AttributeOps.cs" />
     <Compile Include="Components\Private\BinderClientData.cs" />
     <Compile Include="Components\Private\BuiltIns.cs" />
+    <Compile Include="Components\Private\BundleData.cs" />
+    <Compile Include="Components\Private\BundleManager.cs" />
     <Compile Include="Components\Private\CallFrameOps.cs" />
     <Compile Include="Components\Private\CertificateOps.cs" />
     <Compile Include="Components\Private\Channel.cs" />
@@ -604,6 +638,7 @@
     <Compile Include="Components\Private\DefaultBinder.cs" />
     <Compile Include="Components\Private\Defaults.cs" />
     <Compile Include="Components\Private\DefineConstants.cs" />
+    <Compile Include="Components\Private\DelegateMapper.cs" />
     <Compile Include="Components\Private\Delegates.cs" />
     <Compile Include="Components\Private\EngineFlagOps.cs" />
     <Compile Include="Components\Private\EngineThread.cs" />
@@ -712,6 +747,7 @@
     <Compile Include="Components\Public\ExecuteCallbackData.cs" />
     <Compile Include="Components\Public\Expression.cs" />
     <Compile Include="Components\Public\FunctionData.cs" />
+    <Compile Include="Components\Public\HaveScriptFlags.cs" />
     <Compile Include="Components\Public\HostData.cs" />
     <Compile Include="Components\Public\Interpreter.cs" />
     <Compile Include="Components\Public\InterpreterDisposedException.cs" />
@@ -763,8 +799,8 @@
     <Compile Include="Components\Public\Variant.cs" />
     <Compile Include="Components\Shared\AttributeOps.cs" />
     <Compile Include="Components\Shared\Enumerations.cs" />
-    <Compile Include="Components\Shared\License.cs" />
     <Compile Include="Components\Shared\PublicKey.cs" />
+    <Compile Include="Components\Shared\SourceLicense.cs" />
     <Compile Include="Components\Shared\StringOps.cs" />
     <Compile Include="Containers\Private\AliasWrapperDictionary.cs" />
     <Compile Include="Containers\Private\ArgumentInfoList.cs" />
@@ -857,6 +893,7 @@
     <Compile Include="Containers\Public\StringList.cs" />
     <Compile Include="Containers\Public\StringPairList.cs" />
     <Compile Include="Containers\Public\StringSortedList.cs" />
+    <Compile Include="Containers\Public\ThrottleDictionary.cs" />
     <Compile Include="Containers\Public\TokenList.cs" />
     <Compile Include="Containers\Public\TraceList.cs" />
     <Compile Include="Containers\Public\TypeCodeList.cs" />
@@ -964,6 +1001,8 @@
     <Compile Include="Interfaces\Public\BaseClientData.cs" />
     <Compile Include="Interfaces\Public\Binder.cs" />
     <Compile Include="Interfaces\Public\BoxHost.cs" />
+    <Compile Include="Interfaces\Public\BundleData.cs" />
+    <Compile Include="Interfaces\Public\BundleManager.cs" />
     <Compile Include="Interfaces\Public\CacheManager.cs" />
     <Compile Include="Interfaces\Public\Callback.cs" />
     <Compile Include="Interfaces\Public\CallbackData.cs" />
@@ -981,6 +1020,7 @@
     <Compile Include="Interfaces\Public\DebugHost.cs" />
     <Compile Include="Interfaces\Public\DebugManager.cs" />
     <Compile Include="Interfaces\Public\DelegateData.cs" />
+    <Compile Include="Interfaces\Public\DelegateMapper.cs" />
     <Compile Include="Interfaces\Public\DisplayHost.cs" />
     <Compile Include="Interfaces\Public\DynamicExecuteCallback.cs" />
     <Compile Include="Interfaces\Public\DynamicExecuteDelegate.cs" />
@@ -1023,6 +1063,7 @@
     <Compile Include="Interfaces\Public\HaveObjectFlags.cs" />
     <Compile Include="Interfaces\Public\HaveOwner.cs" />
     <Compile Include="Interfaces\Public\HavePlugin.cs" />
+    <Compile Include="Interfaces\Public\HaveScriptFlags.cs" />
     <Compile Include="Interfaces\Public\HaveStringDictionary.cs" />
     <Compile Include="Interfaces\Public\HaveText.cs" />
     <Compile Include="Interfaces\Public\Host.cs" />
@@ -1086,7 +1127,6 @@
     <Compile Include="Interfaces\Public\ScriptBinder.cs" />
     <Compile Include="Interfaces\Public\ScriptBuilder.cs" />
     <Compile Include="Interfaces\Public\ScriptData.cs" />
-    <Compile Include="Interfaces\Public\ScriptFlags.cs" />
     <Compile Include="Interfaces\Public\ScriptLocation.cs" />
     <Compile Include="Interfaces\Public\ScriptManager.cs" />
     <Compile Include="Interfaces\Public\ScriptPolicy.cs" />
@@ -1204,6 +1244,7 @@
     <Compile Include="Traces\Default.cs" />
     <Compile Include="Wrappers\Alias.cs" />
     <Compile Include="Wrappers\Command.cs" />
+    <Compile Include="Wrappers\Core.cs" />
     <Compile Include="Wrappers\Default.cs" />
     <Compile Include="Wrappers\Execute.cs" />
     <Compile Include="Wrappers\Function.cs" />
@@ -1255,6 +1296,16 @@
                         '$(EagleComTypeCache)' != 'false'">
     <Compile Include="Components\Private\CacheConfiguration.cs" />
   </ItemGroup>
+  <ItemGroup Condition="'$(EagleOfficialBinary)' != '' And
+                        '$(EagleOfficialBinary)' != 'false' And
+                        Exists('Components\Shared\BinaryLicense.cs')">
+    <Compile Include="Components\Shared\BinaryLicense.cs" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(EagleOfficialBinary)' != '' And
+                            '$(EagleOfficialBinary)' != 'false' And
+                            Exists('Components\Shared\BinaryLicense.cs')">
+    <DefineConstants>$(DefineConstants);OFFICIAL_BINARY</DefineConstants>
+  </PropertyGroup>
   <ItemGroup Condition="'$(EagleHistory)' != 'false'">
     <Compile Include="Components\Private\HistoryClientData.cs" />
     <Compile Include="Components\Private\HistoryOps.cs" />
@@ -1781,7 +1832,7 @@
     <Compile Include="Components\Private\DataRecord.cs" />
     <Compile Include="Components\Public\DatabaseVariable.cs" />
     <Compile Include="Containers\Private\DbConnectionDictionary.cs" />
-    <Compile Include="Containers\Private\DbConnectionTypeStringPairDictionary.cs" />
+    <Compile Include="Containers\Private\DbConnectionTypeDictionary.cs" />
     <Compile Include="Containers\Private\DbTransactionDictionary.cs" />
     <Compile Include="Interfaces\Public\DbConnectionParameters.cs" />
   </ItemGroup>

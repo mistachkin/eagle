@@ -55,7 +55,7 @@ namespace Eagle._Containers.Public
 
         #region Private Constants
         private static readonly string DefaultSeparator =
-            Characters.Space.ToString();
+            Characters.SpaceString;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

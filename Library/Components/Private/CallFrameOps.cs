@@ -16,6 +16,11 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
+using _Count = Eagle._Constants.Count;
+
+using ArgumentPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Interfaces.Public.IAnyPair<
+        int, Eagle._Components.Public.Argument>>;
 
 using VariablePair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Interfaces.Public.IVariable>;
@@ -1950,6 +1955,96 @@ namespace Eagle._Components.Private
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode MoveNamedVariables(
+            Interpreter interpreter,            /* in */
+            VariableDictionary sourceVariables, /* in, out */
+            VariableDictionary targetVariables, /* in, out */
+            ArgumentDictionary arguments,       /* in: OPTIONAL */
+            bool excludeNames,                  /* in */
+            bool skipExisting,                  /* in */
+            bool copyExisting,                  /* in */
+            bool keepExisting,                  /* in */
+            ref int count,                      /* in, out */
+            ref Result error                    /* out */
+            )
+        {
+            if (sourceVariables == null)
+            {
+                error = "invalid source variables";
+                return ReturnCode.Error;
+            }
+
+            if (targetVariables == null)
+            {
+                error = "invalid target variables";
+                return ReturnCode.Error;
+            }
+
+            ArgumentDictionary newArguments;
+
+            if (arguments == null)
+            {
+                newArguments = new ArgumentDictionary(
+                    sourceVariables.Keys);
+            }
+            else if (excludeNames)
+            {
+                newArguments = new ArgumentDictionary();
+
+                foreach (string name in sourceVariables.Keys)
+                {
+                    if (name == null) /* IMPOSSIBLE */
+                        continue;
+
+                    if (arguments.ContainsKey(name))
+                        continue;
+
+                    newArguments.Add(name, (Argument)null);
+                }
+            }
+            else
+            {
+                newArguments = arguments;
+            }
+
+            foreach (ArgumentPair pair in newArguments)
+            {
+                string name = pair.Key;
+
+                if (name == null)
+                    continue;
+
+                IVariable value;
+
+                if (!sourceVariables.TryGetValue(name, out value))
+                    continue;
+
+                if (skipExisting && targetVariables.ContainsKey(name))
+                    continue;
+
+                if (copyExisting)
+                {
+                    value = value.Clone(
+                        interpreter, CloneFlags.DeepMask, ref error);
+
+                    if (value == null)
+                        return ReturnCode.Error;
+
+                    count++;
+                }
+
+                targetVariables[name] = value;
+                count++;
+
+                if (!keepExisting && sourceVariables.Remove(name))
+                    count++;
+            }
+
+            return ReturnCode.Ok;
         }
         #endregion
     }

@@ -137,6 +137,36 @@ if {[isEagle]} then {
 
 ###############################################################################
 
+runTest {test sql-20.24 {-trustedonly and -publickeytoken1} -setup [subst {
+  package require Eagle.Test
+
+  set test_data_path {$test_data_path}
+
+  set fileName \[file join \[getTemporaryPath\] test.sqlite3\]
+  file copy -force \[file join $test_data_path test.sqlite3\] \$fileName
+}] -body {
+  set connection [sql open \
+      -type SQLite -trustedonly -publickeytoken1 0xdb937bc2d44ff139 \
+      [subst {Data Source=${fileName}}]]
+
+  set result [lindex [sql execute \
+      -execute reader -format nestedlist $connection \
+      "SELECT x FROM t1 WHERE 1 = 0;"] 0]
+
+  sql close $connection
+
+  set result
+} -cleanup {
+  catch {sql close $connection}
+  catch {file delete $fileName}
+
+  unset -nocomplain result connection fileName
+} -constraints {eagle command.object monoBug28 command.sql compile.DATA\
+windows file_sqlite3.dll file_System.Data.SQLite.dll file_test.sqlite3} \
+-isolationLevel Maximum -result {}}
+
+###############################################################################
+
 runTest {test sql-1.2 {System.Data integration (SQLite)} -setup {
   set fileName [file join [getTemporaryPath] test.sqlite3]
   file copy -force [file join $test_data_path test.sqlite3] $fileName
@@ -505,9 +535,9 @@ runTest {test sql-1.12 {DatabaseVariable (SQLite)} -setup {
   file copy -force [file join $test_data_path test.sqlite3] $fileName
 } -body {
   set databaseVariable [object invoke \
-      DatabaseVariable Create Default SQLite [file join $core_bin_path \
-      System.Data.SQLite.dll] null null [appendArgs "Data Source=" \
-      $fileName ";"] t1 y z BeforeVariableScalar false]
+      DatabaseVariable Create Default SQLite null [file join \
+      $core_bin_path System.Data.SQLite.dll] null null [appendArgs \
+      "Data Source=" $fileName ";"] t1 y z BeforeVariableScalar false]
 
   set traceCallback [object invoke Delegate CreateDelegate \
       Eagle._Components.Public.Delegates.TraceCallback $databaseVariable \
@@ -547,9 +577,9 @@ runTest {test sql-1.13 {DatabaseVariable (SQLite)} -setup {
   file copy -force [file join $test_data_path test.sqlite3] $fileName
 } -body {
   set databaseVariable [object invoke -alias \
-      DatabaseVariable Create Default SQLite [file join $core_bin_path \
-      System.Data.SQLite.dll] null null [appendArgs "Data Source=" \
-      $fileName ";"] t1 y z BeforeVariableScalar false]
+      DatabaseVariable Create Default SQLite null [file join \
+      $core_bin_path System.Data.SQLite.dll] null null [appendArgs \
+      "Data Source=" $fileName ";"] t1 y z BeforeVariableScalar false]
 
   set result(0) null
   set code(0) [$databaseVariable AddVariable "" sql-1.13 result(0)]
@@ -597,9 +627,9 @@ runTest {test sql-1.14 {DatabaseVariable (SQLite)} -setup {
   file copy -force [file join $test_data_path test.sqlite3] $fileName
 } -body {
   set databaseVariable [object invoke -alias \
-      DatabaseVariable Create Default SQLite [file join $core_bin_path \
-      System.Data.SQLite.dll] null null [appendArgs "Data Source=" \
-      $fileName ";"] t1 y z BeforeVariableScalar true]
+      DatabaseVariable Create Default SQLite null [file join \
+      $core_bin_path System.Data.SQLite.dll] null null [appendArgs \
+      "Data Source=" $fileName ";"] t1 y z BeforeVariableScalar true]
 
   set result(0) null
   set code(0) [$databaseVariable AddVariable "" sql-1.14 result(0)]
@@ -657,9 +687,9 @@ runTest {test sql-1.15 {DatabaseVariable (generic)} -setup {
   }
 } -body {
   set databaseVariable [object invoke \
-      -alias DatabaseVariable Create Default $test_database_type null null \
-      null $test_database $test_database_table y z BeforeVariableScalar \
-      false]
+      -alias DatabaseVariable Create Default null \
+      $test_database_type null null null $test_database \
+      $test_database_table y z BeforeVariableScalar false]
 
   set result(0) null
   set code(0) [$databaseVariable AddVariable "" sql-1.15 result(0)]
@@ -721,9 +751,9 @@ runTest {test sql-1.16 {DatabaseVariable (generic)} -setup {
   }
 } -body {
   set databaseVariable [object invoke \
-      -alias DatabaseVariable Create Default $test_database_type null null \
-      null $test_database $test_database_table y z BeforeVariableScalar \
-      true]
+      -alias DatabaseVariable Create Default null \
+      $test_database_type null null null $test_database \
+      $test_database_table y z BeforeVariableScalar true]
 
   set result(0) null
   set code(0) [$databaseVariable AddVariable "" sql-1.16 result(0)]
@@ -774,25 +804,43 @@ runTest {test sql-1.17.1 {types sub-command (.NET Framework)} -body {
   list [lsort [sql types]] [lsort [sql types *SQLite*]]
 } -constraints [fixConstraints {eagle command.sql compile.DATA\
 !compile.NET_STANDARD_20}] -match regexp -result [appendArgs {^\{\{None\
-\{\{System\.Object, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\
-\{\}\}\} \{Odbc \{\{System\.Data\.Odbc\.OdbcConnection, System\.Data,\
-Version=\d+\.\d+\.\d+\.\d+, Culture=neutral, PublicKeyToken=b77a5c561934e089\}\
-\{\}\}\} \{OleDb \{\{System\.Data\.OleDb\.OleDbConnection, System\.Data,\
-Version=\d+\.\d+\.\d+\.\d+, Culture=neutral, PublicKeyToken=b77a5c561934e089\}\
-\{\}\}\} \{Oracle \{\{System\.Data\.OracleClient\.OracleConnection,\
-System\.Data\.OracleClient, Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=b77a5c561934e089\} \{\}\}\} \{SQLite\
-\{System\.Data\.SQLite\.SQLiteConnection \{\}\}\} \{SQLite\
-\{\{System\.Data\.SQLite\.SQLiteConnection, System\.Data\.SQLite, Version=1\.0,\
-Culture=neutral, PublicKeyToken=db937bc2d44ff139\} \{\}\}\} \{Sql\
-\{\{System\.Data\.SqlClient\.SqlConnection, System\.Data,\
-Version=\d+\.\d+\.\d+\.\d+, Culture=neutral, PublicKeyToken=b77a5c561934e089\}\
-\{\}\}\} \{SqlCe \{\{System\.Data\.SqlServerCe\.SqlCeConnection,\
-System\.Data\.SqlServerCe, Version=3\.5\.1\.0, Culture=neutral,\
-PublicKeyToken=89845dcd8080cc91\} \{\}\}\}\} \{\{SQLite\
-\{System\.Data\.SQLite\.SQLiteConnection \{\}\}\} \{SQLite\
-\{\{System\.Data\.SQLite\.SQLiteConnection, System\.Data\.SQLite, Version=1\.0,\
-Culture=neutral, PublicKeyToken=db937bc2d44ff139\} \{\}\}\}\}$}]}
+\{System\.Object, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
+\{Odbc \{System\.Data\.Odbc\.OdbcConnection, System\.Data,\
+Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089\}\} \{OleDb\
+\{System\.Data\.OleDb\.OleDbConnection, System\.Data,\
+Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089\}\} \{Oracle\
+\{System\.Data\.OracleClient\.OracleConnection, System\.Data\.OracleClient,\
+Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089\}\} \{SQLite\
+\{System\.Data\.SQLite\.SQLiteConnection\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
+\{SQLite \{\{System\.Data\.SQLite\.SQLiteConnection, System\.Data\.SQLite,\
+Version=1\.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139\}\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
+\{SQLiteEnterprise \{System\.Data\.SQLite\.SQLiteConnection\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
+\{SQLiteEnterprise \{\{System\.Data\.SQLite\.SQLiteConnection,\
+System\.Data\.SQLite, Version=1\.0, Culture=neutral,\
+PublicKeyToken=920bc3e7f8841675\}\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\} \{Sql\
+\{System\.Data\.SqlClient\.SqlConnection, System\.Data,\
+Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089\}\} \{SqlCe\
+\{System\.Data\.SqlServerCe\.SqlCeConnection, System\.Data\.SqlServerCe,\
+Version=3\.5\.1\.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91\}\}\}\
+\{\{SQLite \{System\.Data\.SQLite\.SQLiteConnection\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
+\{SQLite \{\{System\.Data\.SQLite\.SQLiteConnection, System\.Data\.SQLite,\
+Version=1\.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139\}\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
+\{SQLiteEnterprise \{System\.Data\.SQLite\.SQLiteConnection\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
+\{SQLiteEnterprise \{\{System\.Data\.SQLite\.SQLiteConnection,\
+System\.Data\.SQLite, Version=1\.0, Culture=neutral,\
+PublicKeyToken=920bc3e7f8841675\}\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\}$}]}
 
 ###############################################################################
 
@@ -800,21 +848,33 @@ runTest {test sql-1.17.2 {types sub-command (.NET Standard)} -body {
   list [lsort [sql types]] [lsort [sql types *SQLite*]]
 } -constraints [fixConstraints {eagle command.sql compile.DATA\
 compile.NET_STANDARD_20}] -match regexp -result [appendArgs {^\{\{None\
-\{\{System\.Object, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\
-\{\}\}\} \{Oracle \{\{System\.Data\.OracleClient\.OracleConnection,\
+\{System\.Object, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
+\{Oracle \{System\.Data\.OracleClient\.OracleConnection,\
 System\.Data\.OracleClient, Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=b77a5c561934e089\} \{\}\}\} \{SQLite\
+PublicKeyToken=b77a5c561934e089\}\} \{SQLite\
 \{System\.Data\.SQLite\.SQLiteConnection\
 (?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
 \{SQLite \{\{System\.Data\.SQLite\.SQLiteConnection, System\.Data\.SQLite,\
 Version=1\.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139\}\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
+\{SQLiteEnterprise \{System\.Data\.SQLite\.SQLiteConnection\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
+\{SQLiteEnterprise \{\{System\.Data\.SQLite\.SQLiteConnection,\
+System\.Data\.SQLite, Version=1\.0, Culture=neutral,\
+PublicKeyToken=920bc3e7f8841675\}\
 (?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\} \{SqlCe\
-\{\{System\.Data\.SqlServerCe\.SqlCeConnection, System\.Data\.SqlServerCe,\
-Version=3\.5\.1\.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91\}\
-\{\}\}\}\} \{\{SQLite \{System\.Data\.SQLite\.SQLiteConnection\
+\{System\.Data\.SqlServerCe\.SqlCeConnection, System\.Data\.SqlServerCe,\
+Version=3\.5\.1\.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91\}\}\}\
+\{\{SQLite \{System\.Data\.SQLite\.SQLiteConnection\
 (?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
 \{SQLite \{\{System\.Data\.SQLite\.SQLiteConnection, System\.Data\.SQLite,\
 Version=1\.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139\}\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
+\{SQLiteEnterprise \{System\.Data\.SQLite\.SQLiteConnection\
+(?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\
+\{SQLiteEnterprise \{\{System\.Data\.SQLite\.SQLiteConnection,\
+System\.Data\.SQLite, Version=1\.0, Culture=neutral,\
+PublicKeyToken=920bc3e7f8841675\}\
 (?:\{.+\\System\.Data\.SQLite\.dll\}|.+\/System\.Data\.SQLite\.dll)\}\}\}$}]}
 
 ###############################################################################

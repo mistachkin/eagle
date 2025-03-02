@@ -20,13 +20,10 @@ namespace Eagle._Wrappers
     internal sealed class ObjectType : Default, IObjectType
     {
         #region Public Constructors
-        public ObjectType(
-            long token,
-            IObjectType objectType
-            )
-            : base(token)
+        public ObjectType()
+            : base()
         {
-            this.objectType = objectType;
+            // do nothing.
         }
         #endregion
 
@@ -112,11 +109,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (objectType != null)
-                return objectType.SetFromAny(
-                    interpreter, text, ref value, ref error);
-            else
+            if (objectType == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return objectType.SetFromAny(
+                interpreter, text, ref value, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -128,11 +128,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (objectType != null)
-                return objectType.UpdateString(
-                    interpreter, ref text, value, ref error);
-            else
+            if (objectType == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return objectType.UpdateString(
+                interpreter, ref text, value, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -144,11 +147,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (objectType != null)
-                return objectType.Duplicate(
-                    interpreter, oldValue, ref newValue, ref error);
-            else
+            if (objectType == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return objectType.Duplicate(
+                interpreter, oldValue, ref newValue, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -160,11 +166,14 @@ namespace Eagle._Wrappers
             ref Result error
             )
         {
-            if (objectType != null)
-                return objectType.Shimmer(
-                    interpreter, text, ref value, ref error);
-            else
+            if (objectType == null)
+            {
+                error = "invalid wrapper target";
                 return ReturnCode.Error;
+            }
+
+            return objectType.Shimmer(
+                interpreter, text, ref value, ref error);
         }
         #endregion
 
@@ -181,6 +190,7 @@ namespace Eagle._Wrappers
         public override object Object
         {
             get { return objectType; }
+            set { objectType = (IObjectType)value; } /* throw */
         }
         #endregion
     }

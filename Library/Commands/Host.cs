@@ -32,7 +32,8 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Commands
 {
     [ObjectId("861cf95e-54ea-41db-9be3-16908ab0ec25")]
-    [CommandFlags(CommandFlags.Unsafe | CommandFlags.NonStandard)]
+    [CommandFlags(CommandFlags.Unsafe | CommandFlags.Critical |
+        CommandFlags.NonStandard)]
     [ObjectGroup("managedEnvironment")]
     internal sealed class Host : Core
     {
@@ -1637,8 +1638,7 @@ namespace Eagle._Commands
                                                                                                     list.Add("channels");
 
                                                                                                 result = GenericOps<string>.ListToEnglish(
-                                                                                                    list, ", ", Characters.Space.ToString(),
-                                                                                                    "and ");
+                                                                                                    list, ", ", Characters.SpaceString, "and ");
 
                                                                                                 if (!String.IsNullOrEmpty(result))
                                                                                                     result += " reset";

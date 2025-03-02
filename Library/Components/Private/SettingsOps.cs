@@ -837,6 +837,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool IsConsoleColorProperty(
+            PropertyInfo propertyInfo /* in */
+            )
+        {
+            if (propertyInfo == null)
+                return false;
+
+            if (propertyInfo.PropertyType != typeof(ConsoleColor))
+                return false;
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static bool WriteNameError(
             IDebugHost debugHost, /* in: OPTIONAL */
             string name,          /* in: OPTIONAL */
@@ -944,13 +959,41 @@ namespace Eagle._Components.Private
                     else if (IsConsoleColorNone(value))
                         value = HostColor.None.ToString();
 
-                    return interactiveHost.WriteLine(String.Format(
-                        (value != null) ?
-                            NameAndValueFormat :
-                            NameOnlyFormat,
-                        (propertyInfo != null) ?
-                            propertyInfo.Name : String.Empty,
-                        value));
+                    IColorHost colorHost = interactiveHost as IColorHost;
+
+                    ConsoleColor? savedForegroundColor;
+                    ConsoleColor? savedBackgroundColor;
+
+                    MaybeSaveColors(colorHost,
+                        out savedForegroundColor,
+                        out savedBackgroundColor);
+
+                    try
+                    {
+                        MaybeUseColors(
+                            colorHost, propertyInfo, value);
+
+                        if (!interactiveHost.Write(String.Format(
+                                (value != null) ?
+                                    NameAndValueFormat : NameOnlyFormat,
+                                (propertyInfo != null) ?
+                                    propertyInfo.Name : String.Empty,
+                                value)))
+                        {
+                            return false;
+                        }
+                    }
+                    finally
+                    {
+                        MaybeRestoreColors(colorHost,
+                            ref savedForegroundColor,
+                            ref savedBackgroundColor);
+                    }
+
+                    if (!interactiveHost.WriteLine())
+                        return false;
+
+                    return true;
                 }
             }
             catch (Exception e)
@@ -961,6 +1004,114 @@ namespace Eagle._Components.Private
             }
 
             return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeUseColors(
+            IColorHost colorHost,      /* in */
+            PropertyInfo propertyInfo, /* in */
+            object value               /* in */
+            )
+        {
+            if (colorHost == null)
+                return false;
+
+            if (!IsConsoleColorProperty(propertyInfo))
+                return false;
+
+            if (!(value is ConsoleColor))
+                return false;
+
+            ConsoleColor backgroundColor = (ConsoleColor)value;
+
+            return colorHost.SetColors(true, true,
+                HostOps.GetHighContrastColor(backgroundColor),
+                backgroundColor);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeSaveColors(
+            IColorHost colorHost,                   /* in */
+            out ConsoleColor? savedForegroundColor, /* out */
+            out ConsoleColor? savedBackgroundColor  /* out */
+            )
+        {
+            savedForegroundColor = null;
+            savedBackgroundColor = null;
+
+            if (colorHost == null)
+                return false;
+
+            ConsoleColor foregroundColor = _ConsoleColor.None;
+            ConsoleColor backgroundColor = _ConsoleColor.None;
+
+            if (!colorHost.GetColors(
+                    ref foregroundColor, ref backgroundColor))
+            {
+                return false;
+            }
+
+            savedForegroundColor = foregroundColor;
+            savedBackgroundColor = backgroundColor;
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeRestoreColors(
+            IColorHost colorHost,                   /* in */
+            ref ConsoleColor? savedForegroundColor, /* in, out */
+            ref ConsoleColor? savedBackgroundColor  /* in, out */
+            )
+        {
+            if (colorHost == null)
+                return false;
+
+            int count = 0;
+
+            if (savedForegroundColor != null)
+            {
+                if (savedBackgroundColor != null)
+                {
+                    if (colorHost.SetColors(true, true,
+                            (ConsoleColor)savedForegroundColor,
+                            (ConsoleColor)savedBackgroundColor))
+                    {
+                        savedForegroundColor = null;
+                        savedBackgroundColor = null;
+
+                        count += 2;
+                    }
+                }
+                else
+                {
+                    if (colorHost.SetForegroundColor(
+                            (ConsoleColor)savedForegroundColor))
+                    {
+                        savedForegroundColor = null;
+
+                        count++;
+                    }
+                }
+            }
+            else
+            {
+                if (savedBackgroundColor != null)
+                {
+                    if (colorHost.SetForegroundColor(
+                            (ConsoleColor)savedBackgroundColor))
+                    {
+                        savedBackgroundColor = null;
+
+                        count++;
+                    }
+                }
+            }
+
+            return (count > 0);
         }
 
         ///////////////////////////////////////////////////////////////////////

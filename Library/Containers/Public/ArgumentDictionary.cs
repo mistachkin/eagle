@@ -59,6 +59,54 @@ namespace Eagle._Containers.Public
         {
             // do nothing.
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ArgumentDictionary(
+            ArgumentDictionary dictionary
+            )
+            : base(dictionary)
+        {
+            // do nothing.
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ArgumentDictionary(
+            IEnumerable<string> names /* in */
+            )
+            : this()
+        {
+            if (names != null)
+            {
+                foreach (string name in names)
+                {
+                    if (name == null)
+                        continue;
+
+                    Add(name, (Argument)null);
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ArgumentDictionary(
+            IEnumerable<Argument> arguments /* in */
+            )
+            : this()
+        {
+            if (arguments != null)
+            {
+                foreach (Argument argument in arguments)
+                {
+                    if (argument == null)
+                        continue;
+
+                    Add(argument.Name, (Argument)null);
+                }
+            }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -353,7 +401,7 @@ namespace Eagle._Containers.Public
 
             return ParserOps<string>.ListToString(
                 list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.Space.ToString(), pattern, noCase);
+                Characters.SpaceString, pattern, noCase);
         }
         #endregion
 
