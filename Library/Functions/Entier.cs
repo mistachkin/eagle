@@ -1,5 +1,5 @@
 /*
- * Bool.cs --
+ * Entier.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -10,11 +10,7 @@
  */
 
 using System;
-
-#if NET_40
 using System.Numerics;
-#endif
-
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
@@ -23,15 +19,15 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Functions
 {
-    [ObjectId("11e36c1b-be45-42de-ba3c-e173047e722c")]
-    [FunctionFlags(FunctionFlags.Safe | FunctionFlags.Standard)]
+    [ObjectId("eae9daee-f868-4f7b-9d2f-ec241fb3edb3")]
+    [FunctionFlags(FunctionFlags.Unsafe | FunctionFlags.Standard)]
     [Arguments(Arity.Unary)]
     [TypeListFlags(TypeListFlags.NumberTypes)]
     [ObjectGroup("conversion")]
-    internal sealed class Bool : Arguments
+    internal sealed class Entier : Arguments
     {
         #region Public Constructors
-        public Bool(
+        public Entier(
             IFunctionData functionData /* in */
             )
             : base(functionData)
@@ -72,44 +68,40 @@ namespace Eagle._Functions
             {
                 if (variant1.IsDateTime())
                 {
-                    value = ConversionOps.ToBool(
-                        (DateTime)variant1.Value); /* LOSSY */
+                    value = new BigInteger(ConversionOps.ToLong(
+                        (DateTime)variant1.Value));
                 }
                 else if (variant1.IsDouble())
                 {
-                    value = ConversionOps.ToBool(
-                        (double)variant1.Value); /* LOSSY */
+                    value = new BigInteger(Math.Truncate(
+                        (double)variant1.Value));
                 }
                 else if (variant1.IsDecimal())
                 {
-                    value = ConversionOps.ToBool(
-                        (decimal)variant1.Value); /* LOSSY */
+                    value = new BigInteger(Math.Truncate(
+                        (decimal)variant1.Value));
                 }
-#if NET_40
                 else if (variant1.IsBigInteger())
                 {
-                    value = ConversionOps.ToBool(
-                        (BigInteger)variant1.Value); /* LOSSY */
+                    value = (BigInteger)variant1.Value; /* NOP */
                 }
-#endif
                 else if (variant1.IsWideInteger())
                 {
-                    value = ConversionOps.ToBool(
-                        (long)variant1.Value); /* LOSSY */
+                    value = new BigInteger((long)variant1.Value);
                 }
                 else if (variant1.IsInteger())
                 {
-                    value = ConversionOps.ToBool(
-                        (int)variant1.Value); /* LOSSY */
+                    value = new BigInteger((int)variant1.Value);
                 }
                 else if (variant1.IsBoolean())
                 {
-                    value = (bool)variant1.Value; /* NOP */
+                    value = new BigInteger(ConversionOps.ToInt(
+                        (bool)variant1.Value));
                 }
                 else
                 {
                     error = String.Format(
-                        "expected boolean value but got {0}",
+                        "expected big integer but got {0}",
                         FormatOps.WrapOrNull(arguments[1]));
 
                     return ReturnCode.Error;

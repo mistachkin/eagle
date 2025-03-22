@@ -13,6 +13,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -28,6 +33,11 @@ using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using StringLongPair = Eagle._Interfaces.Public.IAnyPair<string, long>;
+
+#if NET_40
+using BigIntegerDictionary = System.Collections.Generic.Dictionary<
+    string, System.Numerics.BigInteger>;
+#endif
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -171,6 +181,12 @@ namespace Eagle._Components.Public
 
         private static NumberStyles doubleStyles =
             NumberStyles.Float | NumberStyles.AllowThousands;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        private static NumberStyles bigIntegerStyles = NumberStyles.Integer;
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -194,6 +210,12 @@ namespace Eagle._Components.Public
         #region Named Numeric Values
         private static SingleDictionary namedSingles = null; // Inf, NaN, etc (float)
         private static DoubleDictionary namedDoubles = null; // Inf, NaN, etc (double)
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        private static BigIntegerDictionary namedBigIntegers = null; // MinusOne, Zero, One, etc (BigInteger)
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -325,6 +347,11 @@ namespace Eagle._Components.Public
                     nonIntegralTypes.Remove(typeof(uint));
                     nonIntegralTypes.Remove(typeof(long));
                     nonIntegralTypes.Remove(typeof(ulong));
+
+#if NET_40
+                    nonIntegralTypes.Remove(typeof(BigInteger));
+#endif
+
                     nonIntegralTypes.Remove(typeof(Enum));
                     nonIntegralTypes.Remove(typeof(ReturnCode));
                     nonIntegralTypes.Remove(typeof(MatchMode));
@@ -367,8 +394,9 @@ namespace Eagle._Components.Public
                 //
                 if (namedSingles == null)
                 {
-                    namedSingles = new SingleDictionary(new _Comparers.StringCustom(
-                        SharedStringOps.GetSystemComparisonType(true)));
+                    namedSingles = new SingleDictionary(
+                        new _Comparers.StringCustom(
+                            SharedStringOps.GetSystemComparisonType(true)));
 
                     namedSingles.Add(
                         TclVars.Expression.Infinity, float.PositiveInfinity);
@@ -401,8 +429,9 @@ namespace Eagle._Components.Public
 
                 if (namedDoubles == null)
                 {
-                    namedDoubles = new DoubleDictionary(new _Comparers.StringCustom(
-                        SharedStringOps.GetSystemComparisonType(true)));
+                    namedDoubles = new DoubleDictionary(
+                        new _Comparers.StringCustom(
+                            SharedStringOps.GetSystemComparisonType(true)));
 
                     namedDoubles.Add(
                         TclVars.Expression.Infinity, double.PositiveInfinity);
@@ -430,6 +459,21 @@ namespace Eagle._Components.Public
 
                     namedDoubles.Add(TclVars.Expression.NaN, double.NaN);
                 }
+
+                ///////////////////////////////////////////////////////////////
+
+#if NET_40
+                if (namedBigIntegers == null)
+                {
+                    namedBigIntegers = new BigIntegerDictionary(
+                        new _Comparers.StringCustom(
+                            SharedStringOps.GetSystemComparisonType(true)));
+
+                    namedBigIntegers.Add("BigMinusOne", BigInteger.MinusOne);
+                    namedBigIntegers.Add("BigZero", BigInteger.Zero);
+                    namedBigIntegers.Add("BigOne", BigInteger.One);
+                }
+#endif
             }
         }
         #endregion
@@ -697,6 +741,20 @@ namespace Eagle._Components.Public
                 styles = doubleStyles;
             }
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        private static void GetBigIntegerStyles(
+            out NumberStyles styles
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                styles = bigIntegerStyles;
+            }
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1271,6 +1329,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if NET_40
+        private static bool TryLookupNamedBigInteger(
+            string text,
+            ref BigInteger value
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if ((text != null) && (namedBigIntegers != null) &&
+                    namedBigIntegers.TryGetValue(text, out value))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static bool CheckRadixPrefix(
             string text,                /* in */
             CultureInfo cultureInfo,    /* in: NOT USED */
@@ -1381,6 +1460,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         internal static ReturnCode GetNumeric(
+            Interpreter interpreter,
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
@@ -1390,12 +1470,13 @@ namespace Eagle._Components.Public
             Result error = null;
 
             return GetNumeric(
-                text, flags, cultureInfo, ref value, ref error);
+                interpreter, text, flags, cultureInfo, ref value, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ReturnCode GetNumeric(
+            Interpreter interpreter,
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
@@ -1446,7 +1527,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Ok;
             }
 
-            NumberStyles styles;
+            NumberStyles styles; /* REUSED */
 
             IFormatProvider formatProvider = GetNumberFormatProvider(
                 cultureInfo);
@@ -1462,25 +1543,21 @@ namespace Eagle._Components.Public
                 GetDecimalStyles(out styles);
 
                 if (decimal.TryParse(
-                        text, styles, formatProvider,
-                        out decimalValue))
+                        text, styles, formatProvider, out decimalValue))
                 {
                     value = decimalValue;
                     return ReturnCode.Ok;
                 }
-                else
+
+                GetDoubleStyles(out styles);
+
+                doubleValue = 0.0;
+
+                if (double.TryParse(
+                        text, styles, formatProvider, out doubleValue))
                 {
-                    GetDoubleStyles(out styles);
-
-                    doubleValue = 0.0;
-
-                    if (double.TryParse(
-                            text, styles, formatProvider,
-                            out doubleValue))
-                    {
-                        value = doubleValue;
-                        return ReturnCode.Ok;
-                    }
+                    value = doubleValue;
+                    return ReturnCode.Ok;
                 }
 
                 error = MaybeInvokeErrorCallback(String.Format(
@@ -1500,8 +1577,7 @@ namespace Eagle._Components.Public
                 doubleValue = 0.0;
 
                 if (double.TryParse(
-                        text, styles, formatProvider,
-                        out doubleValue))
+                        text, styles, formatProvider, out doubleValue))
                 {
                     value = doubleValue;
                     return ReturnCode.Ok;
@@ -1510,8 +1586,10 @@ namespace Eagle._Components.Public
                 triedDouble = true;
             }
 
+            bool done; /* REUSED */
             long longValue = 0;
-            bool done = false;
+
+            done = false;
 
             if (ParseWideIntegerWithRadixPrefix(
                     text, flags, cultureInfo, ref done, ref longValue,
@@ -1536,8 +1614,7 @@ namespace Eagle._Components.Public
                 longValue = 0;
 
                 if (long.TryParse(
-                        text, styles, formatProvider,
-                        out longValue))
+                        text, styles, formatProvider, out longValue))
                 {
                     value = GetIntegerOrWideInteger(longValue);
                     return ReturnCode.Ok;
@@ -1549,8 +1626,7 @@ namespace Eagle._Components.Public
             ulong ulongValue = 0;
 
             if (ulong.TryParse(
-                    text, styles, formatProvider,
-                    out ulongValue))
+                    text, styles, formatProvider, out ulongValue))
             {
                 value = GetIntegerOrWideInteger(ConversionOps.ToLong(
                     ulongValue));
@@ -1558,13 +1634,46 @@ namespace Eagle._Components.Public
                 return ReturnCode.Ok;
             }
 
+#if NET_40
+            if (ScriptOps.HasFlags(
+                    interpreter, InterpreterFlags.AllowBigIntegers, true))
+            {
+                BigInteger bigIntegerValue = BigInteger.Zero; /* REUSED */
+
+                done = false;
+
+                if (ParseBigIntegerWithRadixPrefix(
+                        text, flags, cultureInfo, ref done, ref bigIntegerValue,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                if (done)
+                {
+                    value = bigIntegerValue;
+                    return ReturnCode.Ok;
+                }
+
+                GetBigIntegerStyles(out styles);
+
+                bigIntegerValue = BigInteger.Zero;
+
+                if (BigInteger.TryParse(
+                        text, styles, formatProvider, out bigIntegerValue))
+                {
+                    value = bigIntegerValue;
+                    return ReturnCode.Ok;
+                }
+            }
+#endif
+
             GetDecimalStyles(out styles);
 
             decimalValue = Decimal.Zero;
 
             if (decimal.TryParse(
-                    text, styles, formatProvider,
-                    out decimalValue))
+                    text, styles, formatProvider, out decimalValue))
             {
                 value = decimalValue;
                 return ReturnCode.Ok;
@@ -1577,12 +1686,13 @@ namespace Eagle._Components.Public
                 doubleValue = 0.0;
 
                 if (double.TryParse(
-                        text, styles, formatProvider,
-                        out doubleValue))
+                        text, styles, formatProvider, out doubleValue))
                 {
                     value = doubleValue;
                     return ReturnCode.Ok;
                 }
+
+                triedDouble = true; /* REDUNDANT */
             }
 
             error = MaybeInvokeErrorCallback(String.Format(
@@ -5534,6 +5644,178 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if NET_40
+        //
+        // NOTE: Used by the Option Parser.
+        //
+        internal static ReturnCode GetBigInteger2(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref BigInteger value,
+            ref Result error
+            )
+        {
+            int stopIndex = Index.Invalid;
+
+            return GetBigInteger2(
+                text, flags, cultureInfo, ref value,
+                ref stopIndex, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: Used by the Expression parser.
+        //
+        internal static ReturnCode GetBigInteger2(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref BigInteger value,
+            ref int stopIndex,
+            ref Result error
+            )
+        {
+            Exception exception = null;
+
+            return GetBigInteger2(
+                text, flags, cultureInfo, ref value,
+                ref stopIndex, ref error, ref exception);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetBigInteger2(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref BigInteger value,
+            ref int stopIndex,
+            ref Result error,
+            ref Exception exception /* NOT USED */
+            )
+        {
+            ReturnCode code = ReturnCode.Error;
+
+            stopIndex = Index.Invalid;
+
+            if (!String.IsNullOrEmpty(text))
+            {
+                int length = text.Length;
+                Result localError = null; /* REUSED */
+
+                while (length > 0)
+                {
+                    localError = null;
+
+                    code = GetBigInteger(
+                        text.Substring(0, length), flags, cultureInfo,
+                        ref value, ref localError, ref exception);
+
+                    if (code == ReturnCode.Ok)
+                        break;
+                    else
+                        length--;
+                }
+
+                if (length > 0)
+                    //
+                    // NOTE: One beyond the character we actually
+                    //       succeeded at.
+                    //
+                    stopIndex = length;
+                else if (code != ReturnCode.Ok)
+                    error = MaybeInvokeErrorCallback(localError);
+                else
+                    error = localError; /* EXEMPT */
+            }
+
+            return code;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal static ReturnCode GetBigInteger(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref BigInteger value
+            )
+        {
+            Result error = null;
+
+            return GetBigInteger(
+                text, flags, cultureInfo, ref value,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetBigInteger(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref BigInteger value,
+            ref Result error
+            )
+        {
+            Exception exception = null;
+
+            return GetBigInteger(
+                text, flags, cultureInfo, ref value,
+                ref error, ref exception);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetBigInteger(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref BigInteger value,
+            ref Result error,
+            ref Exception exception /* NOT USED */
+            )
+        {
+            if (!String.IsNullOrEmpty(text))
+            {
+                if (TryLookupNamedBigInteger(text, ref value))
+                    return ReturnCode.Ok;
+
+                if (FlagOps.HasFlags(flags, ValueFlags.AnyRadix, false))
+                {
+                    bool done = false;
+
+                    if ((ParseBigIntegerWithRadixPrefix(
+                            text, flags, cultureInfo, ref done,
+                            ref value) == ReturnCode.Ok) && done)
+                    {
+                        return ReturnCode.Ok;
+                    }
+                }
+
+                NumberStyles styles;
+
+                GetBigIntegerStyles(out styles);
+
+                if (BigInteger.TryParse(text, styles,
+                        GetNumberFormatProvider(cultureInfo), out value))
+                {
+                    return ReturnCode.Ok;
+                }
+            }
+
+            error = MaybeInvokeErrorCallback(String.Format(
+                "expected big integer but got {0}",
+                FormatOps.WrapOrNull(text)));
+
+            return ReturnCode.Error;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: Used by the Expression parser.
         //
@@ -6316,6 +6598,168 @@ namespace Eagle._Components.Public
 
             return ReturnCode.Error;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        private static ReturnCode ParseBigIntegerWithRadixPrefix(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref bool done,
+            ref BigInteger value
+            )
+        {
+            Result error = null;
+
+            return ParseBigIntegerWithRadixPrefix(
+                text, flags, cultureInfo, ref done, ref value, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode ParseBigIntegerWithRadixPrefix(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref bool done,
+            ref BigInteger value,
+            ref Result error
+            )
+        {
+            string newText = text;
+
+            if (String.IsNullOrEmpty(newText))
+            {
+                error = MaybeInvokeErrorCallback(String.Format(
+                    "expected big integer but got {0}",
+                    FormatOps.WrapOrNull(text)));
+
+                return ReturnCode.Error;
+            }
+
+            ValueFlags prefixFlags = flags & ~ValueFlags.AnyRadix;
+            bool negative = false;
+
+            if (!CheckRadixPrefix(
+                    newText, cultureInfo, ref prefixFlags,
+                    ref newText, ref negative, ref error))
+            {
+                return ReturnCode.Error;
+            }
+
+            int newLength = newText.Length;
+            BigInteger newValue = value;
+
+            if (FlagOps.HasFlags(prefixFlags, ValueFlags.HexadecimalRadix, true))
+            {
+                if (!FlagOps.HasFlags(flags, ValueFlags.HexadecimalRadix, true))
+                {
+                    error = MaybeInvokeErrorCallback(
+                        "hexadecimal big integer format not supported");
+
+                    return ReturnCode.Error;
+                }
+
+                if (Parser.ParseHexadecimal(
+                        newText, 0, newLength, ref newValue) == newLength)
+                {
+                    if (!negative || (newValue != long.MinValue))
+                    {
+                        value = negative ? -newValue : newValue;
+                        done = true;
+                        return ReturnCode.Ok;
+                    }
+                }
+
+                error = MaybeInvokeErrorCallback(String.Format(
+                    "expected hexadecimal big integer but got {0}",
+                    FormatOps.WrapOrNull(text)));
+            }
+            else if (FlagOps.HasFlags(prefixFlags, ValueFlags.DecimalRadix, true))
+            {
+                if (!FlagOps.HasFlags(flags, ValueFlags.DecimalRadix, true))
+                {
+                    error = MaybeInvokeErrorCallback(
+                        "decimal big integer format not supported");
+
+                    return ReturnCode.Error;
+                }
+
+                if (Parser.ParseDecimal(
+                        newText, 0, newLength, ref newValue) == newLength)
+                {
+                    if (!negative || (newValue != long.MinValue))
+                    {
+                        value = negative ? -newValue : newValue;
+                        done = true;
+                        return ReturnCode.Ok;
+                    }
+                }
+
+                error = MaybeInvokeErrorCallback(String.Format(
+                    "expected decimal big integer but got {0}",
+                    FormatOps.WrapOrNull(text)));
+            }
+            else if (FlagOps.HasFlags(prefixFlags, ValueFlags.OctalRadix, true))
+            {
+                if (!FlagOps.HasFlags(flags, ValueFlags.OctalRadix, true))
+                {
+                    error = MaybeInvokeErrorCallback(
+                        "octal big integer format not supported");
+
+                    return ReturnCode.Error;
+                }
+
+                if (Parser.ParseOctal(
+                        newText, 0, newLength, ref newValue) == newLength)
+                {
+                    if (!negative || (newValue != long.MinValue))
+                    {
+                        value = negative ? -newValue : newValue;
+                        done = true;
+                        return ReturnCode.Ok;
+                    }
+                }
+
+                error = MaybeInvokeErrorCallback(String.Format(
+                    "expected octal big integer but got {0}",
+                    FormatOps.WrapOrNull(text)));
+            }
+            else if (FlagOps.HasFlags(prefixFlags, ValueFlags.BinaryRadix, true))
+            {
+                if (!FlagOps.HasFlags(flags, ValueFlags.BinaryRadix, true))
+                {
+                    error = MaybeInvokeErrorCallback(
+                        "binary big integer format not supported");
+
+                    return ReturnCode.Error;
+                }
+
+                if (Parser.ParseBinary(
+                        newText, 0, newLength, ref newValue) == newLength)
+                {
+                    if (!negative || (newValue != long.MinValue))
+                    {
+                        value = negative ? -newValue : newValue;
+                        done = true;
+                        return ReturnCode.Ok;
+                    }
+                }
+
+                error = MaybeInvokeErrorCallback(String.Format(
+                    "expected binary big integer but got {0}",
+                    FormatOps.WrapOrNull(text)));
+            }
+            else
+            {
+                done = false;
+                return ReturnCode.Ok;
+            }
+
+            return ReturnCode.Error;
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -10191,7 +10635,7 @@ namespace Eagle._Components.Public
 
                     localError = null;
 
-                    if (GetNumeric(
+                    if (GetNumeric(interpreter,
                             stringValue, flags, cultureInfo, ref objectValue,
                             ref localError) == ReturnCode.Ok)
                     {

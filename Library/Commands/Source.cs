@@ -18,6 +18,7 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -83,8 +84,11 @@ namespace Eagle._Commands
                     Index.Invalid, Index.Invalid, "-password", null),
                 new Option(null, OptionFlags.MustHaveBooleanValue,
                     Index.Invalid, Index.Invalid, "-library", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Nullable, Index.Invalid, Index.Invalid,
+                    "-bundle", null),
                 new Option(null, OptionFlags.MustHaveBooleanValue,
-                    Index.Invalid, Index.Invalid, "-bundle", null),
+                    Index.Invalid, Index.Invalid, "-stoponerror", null),
                 Option.CreateEndOfOptions()
             });
 
@@ -148,15 +152,20 @@ namespace Eagle._Commands
             if (options.IsPresent("-library", ref value))
                 library = (bool)value.Value;
 
-            bool bundle = false;
+            bool? bundle = null;
 
             if (options.IsPresent("-bundle", ref value))
-                bundle = (bool)value.Value;
+                bundle = (bool?)value.Value;
+
+            bool stopOnError = false;
+
+            if (options.IsPresent("-stoponerror", ref value))
+                stopOnError = (bool)value.Value;
 
             if (code == ReturnCode.Ok)
             {
-                string name = StringList.MakeList(
-                    "source", arguments[argumentIndex]);
+                string fileName = arguments[argumentIndex];
+                string name = StringList.MakeList("source", fileName);
 
                 ICallFrame frame = interpreter.NewTrackingCallFrame(
                     name, CallFrameFlags.Source);
@@ -217,17 +226,31 @@ namespace Eagle._Commands
                                     if (profiler != null)
                                         profiler.Start();
 
-                                    if (bundle)
+                                    if (bundle == null)
+                                    {
+                                        if (SharedStringOps.Equals(
+                                                PathOps.GetExtension(fileName),
+                                                FileExtension.Database,
+                                                PathOps.ComparisonType))
+                                        {
+                                            bundle = true;
+                                        }
+                                        else
+                                        {
+                                            bundle = false;
+                                        }
+                                    }
+
+                                    if ((bool)bundle)
                                     {
                                         code = interpreter.EvaluateBundleFile(
-                                            arguments[argumentIndex], password,
+                                            fileName, password, stopOnError,
                                             ref clientData, ref result);
                                     }
                                     else
                                     {
                                         code = interpreter.EvaluateFile(
-                                            encoding, arguments[argumentIndex],
-                                            ref result);
+                                            encoding, fileName, ref result);
                                     }
 
                                     if (profiler != null)

@@ -14,6 +14,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 
+#if NET_40
+using System.Numerics;
+#endif
+
 #if NATIVE && WINDOWS
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -1306,6 +1310,85 @@ namespace Eagle._Components.Private
                     bytes = Convert.FromBase64String(value);
 
                 return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetCount(
+            Encoding encoding,       /* in */
+            CultureInfo cultureInfo, /* in */
+            byte[] bytes,            /* in */
+            EncodingType type,       /* in */
+            ref int? count,          /* out */
+            ref Result error         /* out */
+            )
+        {
+            if (bytes == null)
+            {
+                error = "expected count string, got null";
+                return ReturnCode.Error;
+            }
+
+            if (bytes.Length == 0)
+            {
+                error = "expected count string, got empty";
+                return ReturnCode.Error;
+            }
+
+            if (encoding == null)
+                encoding = GetEncoding(type);
+
+            if (encoding == null)
+            {
+                error = "missing encoding for count string";
+                return ReturnCode.Error;
+            }
+
+            try
+            {
+                string value = encoding.GetString(bytes);
+
+                if (value == null)
+                {
+                    error = "got null count string";
+                    return ReturnCode.Error;
+                }
+
+                int length = value.Length;
+
+                if (length != Count.PrefixSize)
+                {
+                    error = String.Format(
+                        "count string characters: have {0}, " +
+                        "want {1}", length, Count.PrefixSize);
+
+                    return ReturnCode.Error;
+                }
+
+                value = value.Substring(0, length - 1);
+
+                int localCount;
+
+                if (int.TryParse(
+                        value, NumberStyles.AllowHexSpecifier,
+                        cultureInfo, out localCount))
+                {
+                    count = localCount;
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    error = String.Format(
+                        "count string must be hexadecimal: {0}",
+                        value);
+                }
             }
             catch (Exception e)
             {
@@ -4986,6 +5069,11 @@ namespace Eagle._Components.Private
 
                 int intValue = 0;
                 long longValue = 0;
+
+#if NET_40
+                BigInteger bigIntegerValue = BigInteger.Zero;
+#endif
+
                 double doubleValue = 0.0;
 
                 switch (character)
@@ -5015,7 +5103,9 @@ namespace Eagle._Components.Private
                                 goto error;
                             }
 
-                            segment = StringBuilderFactory.CreateNoCache(ConversionOps.ToChar(code).ToString()); /* EXEMPT */
+                            segment = StringBuilderFactory.CreateNoCache(
+                                ConversionOps.ToChar(code).ToString()); /* EXEMPT */
+
                             break;
                         }
                     case Characters.u:
@@ -5061,6 +5151,19 @@ namespace Eagle._Components.Private
 
                                     isNegative = (longValue < 0);
                                 }
+#if NET_40
+                                else if (useBig)
+                                {
+                                    //
+                                    // HACK: Grab the exact bits of the double and
+                                    //       use those for the BigInteger value.
+                                    //
+                                    bigIntegerValue = new BigInteger(
+                                        BitConverter.DoubleToInt64Bits(doubleValue));
+
+                                    isNegative = (bigIntegerValue < 0);
+                                }
+#endif
                                 else
                                 {
                                     //
@@ -5073,6 +5176,19 @@ namespace Eagle._Components.Private
                                     isNegative = (intValue < 0);
                                 }
                             }
+#if NET_40
+                            else if (useBig)
+                            {
+                                if (Value.GetBigInteger2(segment.ToString(),
+                                        ValueFlags.AnyInteger, cultureInfo, ref bigIntegerValue,
+                                        ref error) != ReturnCode.Ok)
+                                {
+                                    goto error;
+                                }
+
+                                isNegative = (bigIntegerValue < 0);
+                            }
+#endif
                             else if (useWide)
                             {
                                 if (Value.GetWideInteger2(segment.ToString(),
@@ -5195,6 +5311,10 @@ namespace Eagle._Components.Private
                                             bytes = shortValue.ToString();
                                         else if (useWide)
                                             bytes = longValue.ToString();
+#if NET_40
+                                        else if (useBig)
+                                            bytes = bigIntegerValue.ToString();
+#endif
                                         else
                                             bytes = intValue.ToString();
 
@@ -5261,6 +5381,11 @@ namespace Eagle._Components.Private
                                 case Characters.b:
                                     {
                                         ulong bits = 0;
+
+#if NET_40
+                                        BigInteger bigBits = BigInteger.Zero;
+#endif
+
                                         int numDigits = 0;
                                         int length, radix = Parser.HexadecimalRadix;
 
@@ -5304,6 +5429,20 @@ namespace Eagle._Components.Private
                                                 ulongValue /= (ulong)radix;
                                             }
                                         }
+#if NET_40
+                                        else if (useBig)
+                                        {
+                                            BigInteger ubigIntegerValue = BigInteger.Abs(
+                                                bigIntegerValue);
+
+                                            bigBits = ubigIntegerValue;
+                                            while (ubigIntegerValue != 0)
+                                            {
+                                                numDigits++;
+                                                ubigIntegerValue /= (ulong)radix;
+                                            }
+                                        }
+#endif
                                         else
                                         {
                                             uint uintValue = ConversionOps.ToUInt(intValue);
@@ -5326,20 +5465,40 @@ namespace Eagle._Components.Private
                                             numDigits = 1;
                                         }
 
-                                        StringBuilder bytes = StringBuilderFactory.CreateNoCache(numDigits); /* EXEMPT */
+                                        StringBuilder bytes = StringBuilderFactory.CreateNoCache(
+                                            numDigits); /* EXEMPT */
+
                                         bytes.Length = numDigits;
 
                                         toAppend = length = (int)numDigits;
 
-                                        while (numDigits-- > 0)
+#if NET_40
+                                        if (useBig)
                                         {
-                                            int digitOffset = (int)(bits % (ulong)radix);
+                                            while (numDigits-- > 0)
+                                            {
+                                                int digitOffset = (int)(bigBits % (ulong)radix);
 
-                                            bytes[numDigits] = (digitOffset > 9) ?
-                                                (char)(Characters.a + digitOffset - Parser.DecimalRadix) :
-                                                (char)(Characters.Zero + digitOffset);
+                                                bytes[numDigits] = (digitOffset > 9) ?
+                                                    (char)(Characters.a + digitOffset - Parser.DecimalRadix) :
+                                                    (char)(Characters.Zero + digitOffset);
 
-                                            bits /= (ulong)radix;
+                                                bigBits /= (ulong)radix;
+                                            }
+                                        }
+                                        else
+#endif
+                                        {
+                                            while (numDigits-- > 0)
+                                            {
+                                                int digitOffset = (int)(bits % (ulong)radix);
+
+                                                bytes[numDigits] = (digitOffset > 9) ?
+                                                    (char)(Characters.a + digitOffset - Parser.DecimalRadix) :
+                                                    (char)(Characters.Zero + digitOffset);
+
+                                                bits /= (ulong)radix;
+                                            }
                                         }
 
                                         if (gotPrecision)
@@ -5402,6 +5561,20 @@ namespace Eagle._Components.Private
                                     doubleValue = BitConverter.Int64BitsToDouble(
                                         longValue);
                                 }
+#if NET_40
+                                else if (useBig)
+                                {
+                                    if (Value.GetBigInteger2(segment.ToString(),
+                                            ValueFlags.AnyInteger, cultureInfo, ref bigIntegerValue,
+                                            ref error) != ReturnCode.Ok)
+                                    {
+                                        goto error;
+                                    }
+
+                                    doubleValue = BitConverter.Int64BitsToDouble(
+                                        (long)bigIntegerValue);
+                                }
+#endif
                                 else
                                 {
                                     if (Value.GetInteger2(segment.ToString(),

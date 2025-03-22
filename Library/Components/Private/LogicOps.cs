@@ -10,6 +10,11 @@
  */
 
 using System;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Threading;
 using Eagle._Attributes;
 
@@ -159,6 +164,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if NET_40
+        public static BigInteger Imp(BigInteger X, BigInteger Y)
+        {
+            return ~X | Y;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static bool Eqv(bool X, bool Y)
         {
             return (X && Y) || (!X && !Y);
@@ -184,6 +198,15 @@ namespace Eagle._Components.Private
         {
             return ~(X ^ Y);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static BigInteger Eqv(BigInteger X, BigInteger Y)
+        {
+            return ~(X ^ Y);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 

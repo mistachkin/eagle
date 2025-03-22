@@ -10,6 +10,11 @@
  */
 
 using System;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
@@ -86,6 +91,13 @@ namespace Eagle._Functions
                         return ReturnCode.Error;
                     }
                 }
+#if NET_40
+                else if (variant1.IsBigInteger())
+                {
+                    value = ConversionOps.ToTimeSpan(
+                        (BigInteger)variant1.Value);
+                }
+#endif
                 else if (variant1.IsWideInteger())
                 {
                     value = ConversionOps.ToTimeSpan(

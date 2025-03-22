@@ -1124,12 +1124,12 @@ namespace Eagle._Components.Public
         Verbose = 0x80000,                         // debug / extra information, noisy.
         Demand = 0x100000,                         // on-demand via script command, etc.
         External = 0x200000,                       // message external to library.
-        ExtraSkipFrame = 0x400000,                 // extra method call bounce.
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Core Flag Values
+        ExtraSkipFrame = 0x400000,                 // extra method call bounce.
         EnableDateTimeFlag = 0x800000,             // add DateTime to trace messages.
         EnablePriorityFlag = 0x1000000,            // add Priority to trace messages.
         EnableServerNameFlag = 0x2000000,          // add AppDomain to trace messages.
@@ -1456,6 +1456,7 @@ namespace Eagle._Components.Public
         TestDebug2 = Highest | Debug,             // test suite infrastructure, etc.
         EventDebug2 = Highest | Debug,            // event manager and processing
         ConsoleDebug2 = Highest | Debug,          // built-in console host, etc.
+        ProcessDebug2 = Highest | Debug,          // process handling, [exec], etc.
 
         InputDebug = Always | Debug,              // malformed input, parse error, etc.
         StateDebug = Always | Debug,              // internal state changes, etc.
@@ -1546,7 +1547,8 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        AnyCoreFlagMask = EnableDateTimeFlag | EnablePriorityFlag |
+        AnyCoreFlagMask = ExtraSkipFrame |
+                          EnableDateTimeFlag | EnablePriorityFlag |
                           EnableServerNameFlag | EnableTestNameFlag |
                           EnableAppDomainFlag | EnableInterpreterFlag |
                           DisableInterpreterFlag | EnableThreadIdFlag |
@@ -3322,7 +3324,7 @@ namespace Eagle._Components.Public
                                    * watchdog threads. */
         Verbose = 0x10000,        /* Retain all result messages. */
         Interrupt = 0x20000,      /* Enable interrupting the primary
-                                   * thread for the target interpreer */
+                                   * thread for the target interpreter */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3783,6 +3785,8 @@ namespace Eagle._Components.Public
     [ObjectId("15024598-4868-466e-a7cd-f6aa1069b4dc")]
     public enum Arity
     {
+        Any = -4,            /* This function or operator can accept any number of arguments or
+                              * operands. */
         Automatic = -3,      /* Use the value of the ArgumentsAttribute or the OperandsAttribute
                               * to determine the arity of the function or operator, respectively. */
         UnaryAndBinary = -2, /* This operator can accept one or two operands. */
@@ -3851,12 +3855,14 @@ namespace Eagle._Components.Public
         Assignment = 0x10000,      /* Variable assignment operators. */
         String = 0x20000,          /* All the string-only operators. */
         List = 0x40000,            /* All the list-only operators. */
-        Initialize = 0x80000,      /* This operator is needed in order to be
+        Functional = 0x80000,      /* This operator is needed in order to be
+                                    * able to call math functions. */
+        Initialize = 0x100000,     /* This operator is needed in order to be
                                     * able to initialize the minimal script
                                     * library, i.e. "init.eagle". */
-        SecuritySdk = 0x100000,    /* This operator is needed in order to use
+        SecuritySdk = 0x200000,    /* This operator is needed in order to use
                                     * the baseline security SDK. */
-        NoAttributes = 0x200000,   /* Skip querying and combining the flags,
+        NoAttributes = 0x400000,   /* Skip querying and combining the flags,
                                     * etc, from the underlying managed type. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -3865,7 +3871,7 @@ namespace Eagle._Components.Public
 
         SubsetMask = Arithmetic | Relational | Conditional |
                      Logical | Bitwise | Assignment | String |
-                     List,
+                     List | Functional,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -6898,9 +6904,10 @@ namespace Eagle._Components.Public
         Add = 7,
         Change = 8,
         Remove = 9,
-        Clear = 10,
-        Trim = 11,
-        SizeOf = 12
+        NoRemove = 10,
+        Clear = 11,
+        Trim = 12,
+        SizeOf = 13
     }
 #endif
 
@@ -8239,53 +8246,58 @@ namespace Eagle._Components.Public
         MustBeUnsignedInteger = 0x40000,          /* Value must convert to int via GetUnsignedInteger2. */
         MustBeWideInteger = 0x80000,              /* Value must convert to wideInt (long) via GetWideInteger2. */
         MustBeUnsignedWideInteger = 0x100000,     /* Value must convert to wideInt (long) via GetWideInteger2. */
-        MustBeDecimal = 0x200000,                 /* Value must convert to decimal via GetDecimal. */
-        MustBeDouble = 0x400000,                  /* Value must convert to double via GetDouble. */
-        MustBeIndex = 0x800000,                   /* Value must be an int or end[<+|-><int>]. */
-        MustBeLevel = 0x1000000,                  /* Value must be an int or #<int>. */
-        MustBeReturnCode = 0x2000000,             /* Value must be a ReturnCode or int. */
-        MustBeEnum = 0x4000000,                   /* Value must convert to the specified Enum type. */
-        MustBeEnumList = 0x8000000,               /* Value must be an EnumList object. */
-        MustBeGuid = 0x10000000,                  /* Value must convert to System.Guid. */
-        MustBeDateTime = 0x20000000,              /* Value must convert to System.DateTime. */
-        MustBeTimeSpan = 0x40000000,              /* Value must convert to System.TimeSpan. */
-        MustBeList = 0x80000000,                  /* SplitList on value must succeed. */
-        MustBeDictionary = 0x100000000,           /* Must have an even number of list elements. */
-        MustBeMatchMode = 0x200000000,            /* Value must be "exact", "glob", or "regexp". */
-        MustBeValue = 0x400000000,                /* Value must convert to some value via GetValue. */
-        MustBeObject = 0x800000000,               /* Value must be an opaque object handle. */
-        MustBeInterpreter = 0x1000000000,         /* Value must be an opaque interpreter handle. */
-        MustBeType = 0x2000000000,                /* Value must be a System.Type object. */
-        MustBeTypeList = 0x4000000000,            /* Value must be a TypeList object. */
-        MustBeAbsoluteUri = 0x8000000000,         /* Value must be a System.Uri object. */
-        MustBeVersion = 0x10000000000,            /* Value must be a System.Version object. */
-        MustBeReturnCodeList = 0x20000000000,     /* Value must be a ReturnCodeList object. */
-        MustBeIdentifier = 0x40000000000,         /* Value must be an IIdentifier object. */
-        MustBeAlias = 0x80000000000,              /* Value must be an IAlias object. */
-        MustBeOption = 0x100000000000,            /* Value must be an IOption object. */
-        MustBeAbsoluteNamespace = 0x200000000000, /* Value must be an INamespace object. */
-        MustBeRelativeNamespace = 0x400000000000, /* Value must be an INamespace object. */
-        MustBeCultureInfo = 0x800000000000,       /* Value must be a CultureInfo object. */
-        MustBeByteArray = 0x1000000000000,        /* Value must be an array of byte(s). */
 
-#if NATIVE && TCL
-        MustBeTclInterpreter = 0x2000000000000,   /* Value must be a Tcl interpreter. */
+#if NET_40
+        MustBeBigInteger = 0x200000,              /* Value must convert to entier (BigInteger) via GetBigInteger2. */
 #endif
 
-        MustBeSecureString = 0x4000000000000,     /* Value must be a SecureString object. */
-        MustBeEncoding = 0x8000000000000,         /* Value must be an Encoding object. */
-        MustBePlugin = 0x10000000000000,          /* Value must be an IPlugin object. */
-        MustBeExecute = 0x20000000000000,         /* Value must be an IExecute object. */
-        MustBeCallback = 0x40000000000000,        /* Value must be an ICallback object. */
-        MustBeRuleSet = 0x80000000000000,         /* value must be an IRuleSet object. */
+        MustBeDecimal = 0x400000,                 /* Value must convert to decimal via GetDecimal. */
+        MustBeDouble = 0x800000,                  /* Value must convert to double via GetDouble. */
+        MustBeIndex = 0x1000000,                  /* Value must be an int or end[<+|-><int>]. */
+        MustBeLevel = 0x2000000,                  /* Value must be an int or #<int>. */
+        MustBeReturnCode = 0x4000000,             /* Value must be a ReturnCode or int. */
+        MustBeEnum = 0x8000000,                   /* Value must convert to the specified Enum type. */
+        MustBeEnumList = 0x10000000,              /* Value must be an EnumList object. */
+        MustBeGuid = 0x20000000,                  /* Value must convert to System.Guid. */
+        MustBeDateTime = 0x40000000,              /* Value must convert to System.DateTime. */
+        MustBeTimeSpan = 0x80000000,              /* Value must convert to System.TimeSpan. */
+        MustBeList = 0x100000000,                 /* SplitList on value must succeed. */
+        MustBeDictionary = 0x200000000,           /* Must have an even number of list elements. */
+        MustBeMatchMode = 0x400000000,            /* Value must be "exact", "glob", or "regexp". */
+        MustBeValue = 0x800000000,                /* Value must convert to some value via GetValue. */
+        MustBeObject = 0x1000000000,              /* Value must be an opaque object handle. */
+        MustBeInterpreter = 0x2000000000,         /* Value must be an opaque interpreter handle. */
+        MustBeType = 0x4000000000,                /* Value must be a System.Type object. */
+        MustBeTypeList = 0x8000000000,            /* Value must be a TypeList object. */
+        MustBeAbsoluteUri = 0x10000000000,        /* Value must be a System.Uri object. */
+        MustBeVersion = 0x20000000000,            /* Value must be a System.Version object. */
+        MustBeReturnCodeList = 0x40000000000,     /* Value must be a ReturnCodeList object. */
+        MustBeIdentifier = 0x80000000000,         /* Value must be an IIdentifier object. */
+        MustBeAlias = 0x100000000000,             /* Value must be an IAlias object. */
+        MustBeOption = 0x200000000000,            /* Value must be an IOption object. */
+        MustBeAbsoluteNamespace = 0x400000000000, /* Value must be an INamespace object. */
+        MustBeRelativeNamespace = 0x800000000000, /* Value must be an INamespace object. */
+        MustBeCultureInfo = 0x1000000000000,      /* Value must be a CultureInfo object. */
+        MustBeByteArray = 0x2000000000000,        /* Value must be an array of byte(s). */
+
+#if NATIVE && TCL
+        MustBeTclInterpreter = 0x4000000000000,   /* Value must be a Tcl interpreter. */
+#endif
+
+        MustBeSecureString = 0x8000000000000,     /* Value must be a SecureString object. */
+        MustBeEncoding = 0x10000000000000,        /* Value must be an Encoding object. */
+        MustBePlugin = 0x20000000000000,          /* Value must be an IPlugin object. */
+        MustBeExecute = 0x40000000000000,         /* Value must be an IExecute object. */
+        MustBeCallback = 0x80000000000000,        /* Value must be an ICallback object. */
+        MustBeRuleSet = 0x100000000000000,        /* value must be an IRuleSet object. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         //
         // NOTE: Special option flags.
         //
-        EndOfOptions = 0x100000000000000,         /* This is the end-of-options marker, stop and do not process. */
-        ListOfOptions = 0x200000000000000,        /* This is the list-of-options marker, stop and show the
+        EndOfOptions = 0x200000000000000,         /* This is the end-of-options marker, stop and do not process. */
+        ListOfOptions = 0x400000000000000,        /* This is the list-of-options marker, stop and show the
                                                   /* available options, returning an error. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -8295,6 +8307,9 @@ namespace Eagle._Components.Public
         MustBeMask = MustBeBoolean | MustBeSignedByte | MustBeByte |
                      MustBeNarrowInteger | MustBeUnsignedNarrowInteger | MustBeInteger |
                      MustBeUnsignedInteger | MustBeWideInteger | MustBeUnsignedWideInteger |
+#if NET_40
+                     MustBeBigInteger |
+#endif
                      MustBeIndex | MustBeLevel | MustBeReturnCode |
                      MustBeEnum | MustBeEnumList | MustBeGuid |
                      MustBeDateTime | MustBeTimeSpan | MustBeList |
@@ -8329,6 +8344,11 @@ namespace Eagle._Components.Public
         MustHaveUnsignedIntegerValue = MustHaveValue | MustBeUnsignedInteger,
         MustHaveWideIntegerValue = MustHaveValue | MustBeWideInteger,
         MustHaveUnsignedWideIntegerValue = MustHaveValue | MustBeUnsignedWideInteger,
+
+#if NET_40
+        MustHaveBigIntegerValue = MustHaveValue | MustBeBigInteger,
+#endif
+
         MustHaveLevelValue = MustHaveValue | MustBeLevel,
         MustHaveReturnCodeValue = MustHaveValue | MustBeReturnCode,
         MustHaveDateTimeValue = MustHaveValue | MustBeDateTime,
@@ -9403,7 +9423,9 @@ namespace Eagle._Components.Public
         //       type).
         //
         None = 0x0,
-        Invalid = 0x1,
+
+        // Invalid = 0x1,
+        TrustedOnly = 0x1,
 
         //
         // NOTE: The available number bases.
@@ -9425,6 +9447,10 @@ namespace Eagle._Components.Public
         Integer = 0x800,
         WideInteger = 0x1000,
 
+#if NET_40
+        BigInteger = 0x2000,
+#endif
+
         //
         // NOTE: The available enumerated types.  These
         //       are considered to be distinct and are
@@ -9437,19 +9463,19 @@ namespace Eagle._Components.Public
         //       value of an enumerated type, e.g. via
         //       GetNumber).
         //
-        ReturnCode = 0x2000,
-        MatchMode = 0x4000,
+        ReturnCode = 0x4000,
+        MatchMode = 0x8000,
 
         //
         // NOTE: The available fixed-point types.
         //
-        Decimal = 0x8000,
+        Decimal = 0x10000,
 
         //
         // NOTE: The available floating-point types.
         //
-        Single = 0x10000,
-        Double = 0x20000,
+        Single = 0x20000,
+        Double = 0x40000,
 
         //
         // NOTE: Some kind of basic numeric value.  This
@@ -9457,29 +9483,29 @@ namespace Eagle._Components.Public
         //       and/or unsigned), fixed-point, and floating
         //       point.
         //
-        Number = 0x40000,
+        Number = 0x80000,
 
         //
         // NOTE: The available miscellaneous types.
         //
-        DateTime = 0x80000,
-        DateTimeFormat = 0x100000, /* fixup DateTime format string */
-        TimeSpan = 0x200000,
-        Guid = 0x400000,
-        Object = 0x800000, /* opaque object handle */
+        DateTime = 0x100000,
+        DateTimeFormat = 0x200000, /* fixup DateTime format string */
+        TimeSpan = 0x400000,
+        Guid = 0x800000,
+        Object = 0x1000000, /* opaque object handle */
 
         //
         // NOTE: For use by Value.GetIndex only.
         //
-        NamedIndex = 0x1000000,
-        WithOffset = 0x2000000,
+        NamedIndex = 0x2000000,
+        WithOffset = 0x4000000,
 
         //
         // NOTE: For use with Value.GetNestedObject and Value.GetNestedMember only.
         //
-        StopOnNullType = 0x4000000,
-        StopOnNullObject = 0x8000000,
-        StopOnNullMember = 0x10000000,
+        StopOnNullType = 0x8000000,
+        StopOnNullObject = 0x10000000,
+        StopOnNullMember = 0x20000000,
 
         StopOnNullMask = StopOnNullType | StopOnNullObject | StopOnNullMember,
 
@@ -9488,32 +9514,32 @@ namespace Eagle._Components.Public
         //       behavior of various methods of the Value
         //       class.
         //
-        Fast = 0x20000000,
-        AllowInteger = 0x40000000,
-        IgnoreLeading = 0x80000000, /* NOT USED */
-        IgnoreTrailing = 0x100000000, /* NOT USED */
-        Strict = 0x200000000,
-        Verbose = 0x400000000,
-        ShowName = 0x800000000,
-        FullName = 0x1000000000,
-        NoCase = 0x2000000000,
-        NoNested = 0x4000000000,
-        NoNamespace = 0x8000000000,
-        NoAssembly = 0x10000000000,
-        NoException = 0x20000000000,
-        NoComObject = 0x40000000000,
-        NoDefaultGetType = 0x80000000000,
-        AllowBooleanString = 0x100000000000,
-        AllowNull = 0x200000000000,
-        AllowEmpty = 0x400000000000,
-        AllowOpen = 0x800000000000,
-        SkipTypeGetType = 0x1000000000000,
-        AllowProxyGetType = 0x2000000000000,
-        ForceProxyGetType = 0x4000000000000,
-        ManualProxyGetType = 0x8000000000000,
-        NullForProxyType = 0x10000000000000,
-        AllGetTypeErrors = 0x20000000000000,
-        OneParameterGetType = 0x40000000000000,
+        Fast = 0x40000000,
+        AllowInteger = 0x80000000,
+        IgnoreLeading = 0x100000000, /* NOT USED */
+        IgnoreTrailing = 0x200000000, /* NOT USED */
+        Strict = 0x400000000,
+        Verbose = 0x800000000,
+        ShowName = 0x1000000000,
+        FullName = 0x2000000000,
+        NoCase = 0x4000000000,
+        NoNested = 0x8000000000,
+        NoNamespace = 0x10000000000,
+        NoAssembly = 0x20000000000,
+        NoException = 0x40000000000,
+        NoComObject = 0x80000000000,
+        NoDefaultGetType = 0x100000000000,
+        AllowBooleanString = 0x200000000000,
+        AllowNull = 0x400000000000,
+        AllowEmpty = 0x800000000000,
+        AllowOpen = 0x1000000000000,
+        SkipTypeGetType = 0x2000000000000,
+        AllowProxyGetType = 0x4000000000000,
+        ForceProxyGetType = 0x8000000000000,
+        ManualProxyGetType = 0x10000000000000,
+        NullForProxyType = 0x20000000000000,
+        AllGetTypeErrors = 0x40000000000000,
+        OneParameterGetType = 0x80000000000000,
 
         //
         // NOTE: Extra informational flags to indicate when a signed
@@ -9521,31 +9547,27 @@ namespace Eagle._Components.Public
         //       flags are not used in calls to parse the "default"
         //       signedness for a base integral type.
         //
-        Signed = 0x80000000000000,
-        Unsigned = 0x100000000000000,
+        Signed = 0x100000000000000,
+        Unsigned = 0x200000000000000,
 
         //
         // NOTE: Extra flags to control whether signed and/or
         //       unsigned variations are allowed when processing
         //       integral numbers in the decimal radix.
         //
-        DefaultSignedness = 0x200000000000000, /* decimal radix only */
-        NonDefaultSignedness = 0x400000000000000, /* decimal radix only */
+        DefaultSignedness = 0x400000000000000, /* decimal radix only */
+        NonDefaultSignedness = 0x800000000000000, /* decimal radix only */
 
-        AllowRadixSign = 0x800000000000000, /* any radix w/prefix */
-        AllowSigned = 0x1000000000000000, /* decimal radix only */
-        AllowUnsigned = 0x2000000000000000, /* decimal radix only */
+        AllowRadixSign = 0x1000000000000000, /* any radix w/prefix */
+        AllowSigned = 0x2000000000000000, /* decimal radix only */
+        AllowUnsigned = 0x4000000000000000, /* decimal radix only */
 
         //
         // NOTE: When dealing with integer values, allow use of
         //       the sign bit (e.g. 4294967295 would be allowed
         //       for a 32-bit integer value).
         //
-        WidenToUnsigned = 0x4000000000000000,
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        TrustedOnly = 0x8000000000000000,
+        WidenToUnsigned = 0x8000000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -9578,13 +9600,20 @@ namespace Eagle._Components.Public
         //
         TclBoolean = Boolean | AllowBooleanString,
 
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: These are the types (more-or-less) handled
         //       by the GetNumeric method.
         //
-        NumericMask = TclBoolean | Byte | NarrowInteger |
-                      Integer | WideInteger | Decimal |
-                      Single | Double | Number,
+        NumericMask = TclBoolean | Byte |
+                      NarrowInteger | Integer | WideInteger |
+#if NET_40
+                      BigInteger |
+#endif
+                      Decimal | Single | Double | Number,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
 
         //
         // NOTE: These flags are used with the GetVersionRange
@@ -9605,7 +9634,12 @@ namespace Eagle._Components.Public
         AnySignedness = AllowSigned | AllowUnsigned,
 
         AnyIntegral = TclBoolean | Byte | Character |
-                      NarrowInteger | Integer | WideInteger,
+                      NarrowInteger | Integer | WideInteger |
+#if NET_40
+                      BigInteger,
+#else
+                      None,
+#endif
 
         AnyIntegralNonCharacter = AnyIntegral & NonCharacterMask,
 
@@ -10062,6 +10096,11 @@ namespace Eagle._Components.Public
                                                     * active. */
         NoThreadAbort = 0x200,                     /* Prevent any implicit use of the
                                                     * Thread.Abort() method. */
+#if NET_40
+        AllowBigIntegers = 0x400,                  /* allow the BigInteger class and
+                                                    * values to be used by expression
+                                                    * parsing. */
+#endif
         FinallyResetCancel = 0x4000,               /* Call Engine.ResetCancel prior to
                                                     * evaluating finally blocks in the
                                                     * [try] command. */
@@ -10253,10 +10292,17 @@ namespace Eagle._Components.Public
         //
         // NOTE: These are disallowed when creating "safe" interpreters.
         //
-        UnsafeMask = TemporaryPackages | ReplaceEmptyListOk |
-                     ComplainViaTest | AllowRestricted |
-                     TclMathOperators | TclMathFunctions |
-                     LegacyOctal | UsePrintfForDouble|
+        UnsafeMask = TemporaryPackages |
+#if NET_40
+                     AllowBigIntegers |
+#endif
+                     ReplaceEmptyListOk |
+                     ComplainViaTest |
+                     AllowRestricted |
+                     TclMathOperators |
+                     TclMathFunctions |
+                     LegacyOctal |
+                     UsePrintfForDouble |
                      PreDisposeScripts,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -10264,17 +10310,20 @@ namespace Eagle._Components.Public
         //
         // NOTE: These are the default flags for newly created interpreters.
         //
-        Default = TemporaryPackages | FinallyResetCancel |
-                  FinallyRestoreCancel | FinallyResetExit |
-                  FinallyRestoreExit | NoPackageUnknown |
-                  ReplaceEmptyListOk | ComplainViaTest |
-                  AllowRestricted | TclMathOperators |
-                  TclMathFunctions | LegacyOctal |
-                  StrictExpressionInteger | UsePrintfForDouble |
-                  PreDisposeScripts | SafeTiming |
-                  NoNullArgument | DebugBreakNoComplain |
-                  DoesAnythingExist | AllowProxyCallback |
-                  CacheViaArgument
+        Default = TemporaryPackages |
+#if NET_40
+                  AllowBigIntegers |
+#endif
+                  FinallyResetCancel | FinallyRestoreCancel |
+                  FinallyResetExit | FinallyRestoreExit |
+                  NoPackageUnknown | ReplaceEmptyListOk |
+                  ComplainViaTest | AllowRestricted |
+                  TclMathOperators | TclMathFunctions |
+                  LegacyOctal | StrictExpressionInteger |
+                  UsePrintfForDouble | PreDisposeScripts |
+                  SafeTiming | NoNullArgument |
+                  DebugBreakNoComplain | DoesAnythingExist |
+                  AllowProxyCallback | CacheViaArgument
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -12344,8 +12393,8 @@ namespace Eagle._Components.Public
                                       * tracking purposes. */
         UseNamespace = 0x40000000,   /* Used to indicate the frame points to
                                       * a namespace with variables in the
-                                      * call frame owned by that
-                                      * namespace. */
+                                      * call frame owned by that namespace.
+                                      */
         Invisible = 0x80000000,      /* Used to indicate the frame should be
                                       * skipped for [uplevel]. */
         NoInvisible = 0x100000000,   /* Used to indicate the frame should be

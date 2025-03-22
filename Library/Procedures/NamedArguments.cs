@@ -225,7 +225,7 @@ namespace Eagle._Procedures
                                         ArgumentFlags.List,
                                     String.Format("{0}{1}{2}{3}{4}",
                                         procedureArguments.GetVariadicName(),
-                                        Characters.Space, argumentIndex,
+                                        Characters.Space, argumentIndex + 1,
                                         Characters.Space, index), list4[index],
                                     interpreter.HasNoCacheArgument());
 

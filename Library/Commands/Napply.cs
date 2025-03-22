@@ -359,7 +359,7 @@ namespace Eagle._Commands
                                                                                 ArgumentFlags.List,
                                                                             String.Format("{0}{1}{2}{3}{4}",
                                                                                 namedArguments.GetVariadicName(),
-                                                                                Characters.Space, argumentIndex,
+                                                                                Characters.Space, argumentIndex + 1,
                                                                                 Characters.Space, index), list4[index],
                                                                             interpreter.HasNoCacheArgument());
 

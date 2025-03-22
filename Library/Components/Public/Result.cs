@@ -12,6 +12,11 @@
 using System;
 using System.Collections;
 using System.Diagnostics;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Text;
 using Eagle._Attributes;
 using Eagle._Components.Private;
@@ -1251,6 +1256,12 @@ namespace Eagle._Components.Public
             {
                 return true;
             }
+#if NET_40
+            else if (type == typeof(BigInteger))
+            {
+                return true;
+            }
+#endif
             else if (type == typeof(double))
             {
                 return true;
@@ -1469,6 +1480,18 @@ namespace Eagle._Components.Public
         {
             return new Result((object)value);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        [DebuggerStepThrough()]
+        private static Result FromBigInteger(
+            BigInteger value
+            )
+        {
+            return new Result((object)value);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -1891,6 +1914,18 @@ namespace Eagle._Components.Public
         {
             return FromStringBuilder(value);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        [DebuggerStepThrough()]
+        public static implicit operator Result(
+            BigInteger value
+            )
+        {
+            return FromBigInteger(value);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 

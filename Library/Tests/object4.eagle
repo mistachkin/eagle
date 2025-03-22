@@ -98,7 +98,7 @@ runTest {test object-4.2.1 {using CSharp compiler with Eagle} -body {
 
   unset -nocomplain results errors
 
-  set code [compileCSharp [subst {
+  set command [list compileCSharp [subst {
     using System;
     using Eagle._Attributes;
     using Eagle._Components.Public;
@@ -219,8 +219,15 @@ runTest {test object-4.2.1 {using CSharp compiler with Eagle} -body {
             }
         }
     }
-  }] true false true results errors ReferencedAssemblies.Add System.dll \
-      ReferencedAssemblies.Add [lindex [info assembly] end]]
+  }] true false true results errors ReferencedAssemblies.Add System.dll]
+
+  if {[haveConstraint tip237]} then {
+    lappend command ReferencedAssemblies.Add System.Numerics.dll
+  }
+
+  lappend command ReferencedAssemblies.Add [lindex [info assembly] end]
+
+  set code [eval $command]
 
   list $code $results [expr {[info exists errors] ? $errors : ""}] \
       [expr {$code eq "Ok" ? [object invoke _Dynamic${id}.Test${id} \
@@ -230,7 +237,7 @@ runTest {test object-4.2.1 {using CSharp compiler with Eagle} -body {
     catch {info previouspid true}
   }
 
-  unset -nocomplain guid id code results errors
+  unset -nocomplain command guid id code results errors
 } -constraints {eagle command.guid command.object dotNetCoreOrShell\
 monoMatchFramework monoBug211 compileCSharp} -match regexp -result {^Ok\
 System#CodeDom#Compiler#CompilerResults#\d+ \{\} \{hello from C#\}$}}

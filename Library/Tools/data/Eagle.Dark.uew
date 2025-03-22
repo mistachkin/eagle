@@ -103,7 +103,7 @@ abs acos asin atan atan2
 bool
 ceil cos cosh
 datetime decimal double
-e epsilon exp
+e entier epsilon exp
 flags floor fmod
 hypot
 int isfinite isinf isnan isnormal issubnormal isunordered

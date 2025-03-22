@@ -59,6 +59,7 @@ namespace Eagle._Commands
                                 new IOption[] {
                                 new Option(typeof(TimeoutType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-timeouttype", null),
                                 new Option(typeof(AddressFamily), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-addressfamily", null),
+                                new Option(null, OptionFlags.MustHaveBooleanValue | OptionFlags.Nullable, Index.Invalid, Index.Invalid, "-keepalive", null), // client & server
                                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-server", null), // server only
                                 new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-buffer", null),  // client & server
                                 new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null), // client & server
@@ -95,6 +96,11 @@ namespace Eagle._Commands
 
                                     if (options.IsPresent("-addressfamily", ref value))
                                         addressFamily = (AddressFamily)value.Value;
+
+                                    bool? keepAlive = Defaults.SocketKeepAlive;
+
+                                    if (options.IsPresent("-keepalive", ref value))
+                                        keepAlive = (bool?)value.Value;
 
                                     string command = null;
 
@@ -204,8 +210,8 @@ namespace Eagle._Commands
                                                         arguments[argumentIndex],
                                                         addressFamily, streamFlags,
                                                         availableTimeout, readTimeout,
-                                                        writeTimeout, exclusive, command,
-                                                        ref result);
+                                                        writeTimeout, keepAlive, exclusive,
+                                                        command, ref result);
                                                 }
                                                 else
                                                 {
@@ -225,7 +231,7 @@ namespace Eagle._Commands
                                                 {
                                                     TcpClient client = SocketOps.NewTcpClient(
                                                         myAddress, myPort, interpreter.InternalCultureInfo,
-                                                        ref addressFamily, ref result);
+                                                        keepAlive, ref addressFamily, ref result);
 
                                                     if (client != null)
                                                     {

@@ -185,6 +185,13 @@ namespace Eagle._Components.Private
                             ref cacheCounts[(int)CacheCountType.Remove]);
 #endif
                     }
+                    else
+                    {
+#if CACHE_STATISTICS
+                        Interlocked.Increment(
+                            ref cacheCounts[(int)CacheCountType.NoRemove]);
+#endif
+                    }
                 }
 
                 cache.Add(newName, execute);
@@ -230,6 +237,13 @@ namespace Eagle._Components.Private
 #endif
 
                         return true;
+                    }
+                    else
+                    {
+#if CACHE_STATISTICS
+                        Interlocked.Increment(
+                            ref cacheCounts[(int)CacheCountType.NoRemove]);
+#endif
                     }
                 }
             }

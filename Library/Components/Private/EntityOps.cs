@@ -1997,6 +1997,7 @@ namespace Eagle._Components.Private
             if ((interpreter != null) && (variable != null))
             {
                 variable.Frame = frame;
+                variable.QualifiedName = null;
 
                 /* IGNORED */
                 interpreter.MaybeSetQualifiedName(variable);

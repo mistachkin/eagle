@@ -788,9 +788,9 @@ runTest {test expr-1.32 {signed wide detection during parsing} -body {
 
 ###############################################################################
 
-runTest {test expr-1.33 {list of number types} -body {
+runTest {test expr-1.33.1 {list of number types} -body {
   lsort [object invoke -flags +NonPublic Value numberTypes.ToString]
-} -constraints {eagle command.object} -result \
+} -constraints [fixConstraints {eagle command.object !tip237}] -result \
 {Eagle._Components.Public.MatchMode Eagle._Components.Public.ReturnCode\
 System.Boolean System.Byte System.Char System.Decimal System.Double System.Enum\
 System.Int16 System.Int32 System.Int64 System.MidpointRounding System.SByte\
@@ -798,13 +798,34 @@ System.Single System.UInt16 System.UInt32 System.UInt64}}
 
 ###############################################################################
 
-runTest {test expr-1.34 {list of integral types} -body {
+runTest {test expr-1.33.2 {list of number types} -body {
+  lsort [object invoke -flags +NonPublic Value numberTypes.ToString]
+} -constraints {eagle command.object tip237} -result \
+{Eagle._Components.Public.MatchMode Eagle._Components.Public.ReturnCode\
+System.Boolean System.Byte System.Char System.Decimal System.Double System.Enum\
+System.Int16 System.Int32 System.Int64 System.MidpointRounding\
+System.Numerics.BigInteger System.SByte System.Single System.UInt16\
+System.UInt32 System.UInt64}}
+
+###############################################################################
+
+runTest {test expr-1.34.1 {list of integral types} -body {
   lsort [object invoke -flags +NonPublic Value integralTypes.ToString]
-} -constraints {eagle command.object} -result \
+} -constraints [fixConstraints {eagle command.object !tip237}] -result \
 {Eagle._Components.Public.MatchMode Eagle._Components.Public.ReturnCode\
 System.Boolean System.Byte System.Char System.Enum System.Int16 System.Int32\
 System.Int64 System.MidpointRounding System.SByte System.UInt16 System.UInt32\
 System.UInt64}}
+
+###############################################################################
+
+runTest {test expr-1.34.2 {list of integral types} -body {
+  lsort [object invoke -flags +NonPublic Value integralTypes.ToString]
+} -constraints {eagle command.object tip237} -result \
+{Eagle._Components.Public.MatchMode Eagle._Components.Public.ReturnCode\
+System.Boolean System.Byte System.Char System.Enum System.Int16 System.Int32\
+System.Int64 System.MidpointRounding System.Numerics.BigInteger System.SByte\
+System.UInt16 System.UInt32 System.UInt64}}
 
 ###############################################################################
 
@@ -845,9 +866,9 @@ runTest {test expr-1.38 {list of non-integral types} -body {
 
 ###############################################################################
 
-runTest {test expr-1.39 {list of all "value" types} -body {
+runTest {test expr-1.39.1 {list of all "value" types} -body {
   lsort [object invoke -flags +NonPublic Value allTypes.ToString]
-} -constraints {eagle command.object} -result \
+} -constraints [fixConstraints {eagle command.object !tip237}] -result \
 {Eagle._Components.Public.Interpreter Eagle._Components.Public.MatchMode\
 Eagle._Components.Public.ReturnCode Eagle._Containers.Public.EnumList\
 Eagle._Containers.Public.ReturnCodeList\
@@ -857,13 +878,34 @@ Eagle._Interfaces.Public.ICallFrame Eagle._Interfaces.Public.ICallback\
 Eagle._Interfaces.Public.IExecute Eagle._Interfaces.Public.IIdentifier\
 Eagle._Interfaces.Public.INamespace Eagle._Interfaces.Public.IObject\
 Eagle._Interfaces.Public.IOption Eagle._Interfaces.Public.IPlugin\
-Eagle._Interfaces.Public.IRuleSet\
-System.Boolean System.Byte {System.Byte[]} System.Char System.DateTime\
-System.Decimal System.Double System.Enum System.Globalization.CultureInfo\
-System.Guid System.Int16 System.Int32 System.Int64 System.MidpointRounding\
-System.SByte System.Security.SecureString System.Single System.String\
-System.Text.Encoding System.TimeSpan System.Type System.UInt16 System.UInt32\
-System.UInt64 System.Uri System.Version}}
+Eagle._Interfaces.Public.IRuleSet System.Boolean System.Byte {System.Byte[]}\
+System.Char System.DateTime System.Decimal System.Double System.Enum\
+System.Globalization.CultureInfo System.Guid System.Int16 System.Int32\
+System.Int64 System.MidpointRounding System.SByte System.Security.SecureString\
+System.Single System.String System.Text.Encoding System.TimeSpan System.Type\
+System.UInt16 System.UInt32 System.UInt64 System.Uri System.Version}}
+
+###############################################################################
+
+runTest {test expr-1.39.2 {list of all "value" types} -body {
+  lsort [object invoke -flags +NonPublic Value allTypes.ToString]
+} -constraints {eagle command.object tip237} -result \
+{Eagle._Components.Public.Interpreter Eagle._Components.Public.MatchMode\
+Eagle._Components.Public.ReturnCode Eagle._Containers.Public.EnumList\
+Eagle._Containers.Public.ReturnCodeList\
+Eagle._Containers.Public.StringDictionary Eagle._Containers.Public.StringList\
+Eagle._Containers.Public.TypeList Eagle._Interfaces.Public.IAlias\
+Eagle._Interfaces.Public.ICallFrame Eagle._Interfaces.Public.ICallback\
+Eagle._Interfaces.Public.IExecute Eagle._Interfaces.Public.IIdentifier\
+Eagle._Interfaces.Public.INamespace Eagle._Interfaces.Public.IObject\
+Eagle._Interfaces.Public.IOption Eagle._Interfaces.Public.IPlugin\
+Eagle._Interfaces.Public.IRuleSet System.Boolean System.Byte {System.Byte[]}\
+System.Char System.DateTime System.Decimal System.Double System.Enum\
+System.Globalization.CultureInfo System.Guid System.Int16 System.Int32\
+System.Int64 System.MidpointRounding System.Numerics.BigInteger System.SByte\
+System.Security.SecureString System.Single System.String System.Text.Encoding\
+System.TimeSpan System.Type System.UInt16 System.UInt32 System.UInt64\
+System.Uri System.Version}}
 
 ###############################################################################
 

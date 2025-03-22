@@ -35,7 +35,7 @@ if {![info exists test_all_path]} then {
   #       and "lib" sub-directories are peers.
   #
   set test_all_path [file normalize [file join [file dirname [file \
-      dirname [info script]]] lib Test1.0]]
+      dirname [file normalize [info script]]]] lib Test1.0]]
 
   if {[expr $expr]} then {
     #
@@ -47,7 +47,8 @@ if {![info exists test_all_path]} then {
     #       sub-directory.
     #
     set test_all_path [file normalize [file join [file dirname [file \
-        dirname [file dirname [info script]]]] lib Test1.0]]
+        dirname [file dirname [file normalize [info script]]]]] lib \
+        Test1.0]]
   }
 
   unset expr

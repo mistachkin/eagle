@@ -774,6 +774,7 @@ proc getStringIsValues { class } {
     double -
     integer -
     wideinteger -
+    entier -
     byte -
     decimal -
     none -
@@ -1181,6 +1182,30 @@ ABC 1 0xDEAD 1 0xC0FFEE 1 abz 1 ABZ 1 __ 1 0_ 1 _0 1 # 1 . 1 \{ 1 \} 1 {$} 1\
 3.40282347E+38 1 1.7976931348623157E+308 1 {OCT 21 2015 11:29 PM +0000} 1\
 0.00:00:00.00 1 00000000-0000-0000-0000-000000000000 1 <refs(17X)> 1 SomeString\
 1}}
+
+###############################################################################
+
+runTest {test string-99.213.1 {string is entier} -body {
+  getStringIsResults $test_channel entier
+} -constraints {tcl tip237} -result {empty 1 strict 0 null 0 true 0 false\
+0 abc 0 ABC 0 0xDEAD 1 0xC0FFEE 1 abz 0 ABZ 0 __ 0 0_ 0 _0 0 # 0 . 0 \{ 0 \} 0\
+{$} 0 -1.7976931348623157E+308 0 -3.40282347E+38 0\
+-79228162514264337593543950335 1 -9223372036854775808 1 -2147483648 1 -32768 1\
+-128 1 -1 1 -0x0 1 0 1 0x0 1 1 1 0x1 1 127 1 0xFF 1 0x100 1 32767 1 65535 1\
+2147483647 1 4294967295 1 9223372036854775807 1 18446744073709551615 1\
+79228162514264337593543950335 1 3.40282347E+38 0 1.7976931348623157E+308 0}}
+
+###############################################################################
+
+runTest {test string-99.213.2 {string is entier} -body {
+  getStringIsResults $test_channel entier
+} -constraints {eagle tip237} -result {empty 1 strict 0 null 0 true 0 false 0\
+abc 0 ABC 0 0xDEAD 1 0xC0FFEE 1 abz 0 ABZ 0 __ 0 0_ 0 _0 0 # 0 . 0 \{ 0 \} 0\
+{$} 0 -1.7976931348623157E+308 0 -3.40282347E+38 0\
+-79228162514264337593543950335 1 -9223372036854775808 1 -2147483648 1 -32768 1\
+-128 1 -1 1 -0x0 1 0 1 0x0 1 1 1 0x1 1 127 1 0xFF 1 0x100 1 32767 1 65535 1\
+2147483647 1 4294967295 1 9223372036854775807 1 18446744073709551615 1\
+79228162514264337593543950335 1 3.40282347E+38 0 1.7976931348623157E+308 0}}
 
 ###############################################################################
 
@@ -2083,17 +2108,31 @@ runTest {test string-99.417 {string is annotation} -setup {
 
 ###############################################################################
 
-runTest {test string-99.418 {string is cidr} -setup {
+runTest {test string-99.418.1 {string is cidr} -setup {
   resetStringIsRefs
 } -body {
   getStringIsResults $test_channel cidr
 } -cleanup {
   unset -nocomplain refs; # NOTE: From getStringIsValues.
-} -constraints {eagle compile.NETWORK command.object} -result {empty 1 strict 0\
-null 0 true 0 false 0 -1 0 0 0 1 0 1.0 0 Eagle 0 Eagle* 0 Eagle.* 0 <refs(76X)>\
-0 <refs(77X)> 0 <refs(78X)> 1 <refs(79X)> 1 <refs(80X)> 1 <refs(81X)> 0\
-<refs(82X)> 0 <refs(83X)> 0 <refs(84X)> 1 <refs(85X)> 1 <refs(86X)> 0\
-<refs(87X)> 0}}
+} -constraints [fixConstraints {eagle compile.NETWORK command.object !tip237}] \
+-result {empty 1 strict 0 null 0 true 0 false 0 -1 0 0 0 1 0 1.0 0 Eagle 0\
+Eagle* 0 Eagle.* 0 <refs(76X)> 0 <refs(77X)> 0 <refs(78X)> 1 <refs(79X)> 1\
+<refs(80X)> 1 <refs(81X)> 0 <refs(82X)> 0 <refs(83X)> 0 <refs(84X)> 0\
+<refs(85X)> 0 <refs(86X)> 0 <refs(87X)> 0}}
+
+###############################################################################
+
+runTest {test string-99.418.2 {string is cidr} -setup {
+  resetStringIsRefs
+} -body {
+  getStringIsResults $test_channel cidr
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle compile.NETWORK command.object tip237} -result {empty 1\
+strict 0 null 0 true 0 false 0 -1 0 0 0 1 0 1.0 0 Eagle 0 Eagle* 0 Eagle.* 0\
+<refs(76X)> 0 <refs(77X)> 0 <refs(78X)> 1 <refs(79X)> 1 <refs(80X)> 1\
+<refs(81X)> 0 <refs(82X)> 0 <refs(83X)> 0 <refs(84X)> 1 <refs(85X)> 1\
+<refs(86X)> 0 <refs(87X)> 0}}
 
 ###############################################################################
 
@@ -2117,15 +2156,27 @@ rename getStringIsClasses ""
 
 ###############################################################################
 
-runTest {test string-99.500 {string classes} -body {
+runTest {test string-99.500.1 {string classes} -body {
   lsort [string classes]
-} -constraints {eagle} -result {alnum alpha annotation array ascii asciialnum\
-asciialpha asciidigit base64 boolean byte cidr command component control\
-datetime decimal dict digit directory double element encoding false file graph\
-guid hexadecimal identifier inetaddr integer interpreter list lower none not\
-number numeric object path plugin print punct real reserved ruleset scalar\
-single space timespan true type upper uri value variant version versionrange\
-wideinteger wordchar xdigit xml}}
+} -constraints [fixConstraints {eagle !tip237}] -result {alnum alpha annotation\
+array ascii asciialnum asciialpha asciidigit base64 boolean byte cidr command\
+component control datetime decimal dict digit directory double element encoding\
+false file graph guid hexadecimal identifier inetaddr integer interpreter list\
+lower none not number numeric object path plugin print punct real reserved\
+ruleset scalar single space timespan true type upper uri value variant version\
+versionrange wideinteger wordchar xdigit xml}}
+
+###############################################################################
+
+runTest {test string-99.500.2 {string classes} -body {
+  lsort [string classes]
+} -constraints {eagle tip237} -result {alnum alpha annotation array ascii\
+asciialnum asciialpha asciidigit base64 boolean byte cidr command component\
+control datetime decimal dict digit directory double element encoding entier\
+false file graph guid hexadecimal identifier inetaddr integer interpreter list\
+lower none not number numeric object path plugin print punct real reserved\
+ruleset scalar single space timespan true type upper uri value variant version\
+versionrange wideinteger wordchar xdigit xml}}
 
 ###############################################################################
 

@@ -17,6 +17,10 @@ using System.Globalization;
 using System.Net;
 #endif
 
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -92,6 +96,11 @@ namespace Eagle._Commands
                 callbacks.Add("double", null);       // *SPECIAL CASE*, whole string only
                 callbacks.Add("element", null);      // *SPECIAL CASE*, whole string only
                 callbacks.Add("encoding", null);     // *SPECIAL CASE*, whole string only
+
+#if NET_40
+                callbacks.Add("entier", null);       // *SPECIAL CASE*, whole string only
+#endif
+
                 callbacks.Add("false", null);        // *SPECIAL CASE*, whole string only
                 callbacks.Add("file", null);         // *SPECIAL CASE*, whole string only
                 callbacks.Add("guid", null);         // *SPECIAL CASE*, whole string only
@@ -679,7 +688,7 @@ namespace Eagle._Commands
                                                     new IOption[] {
                                                     new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-valueformat", null),
                                                     new Option(typeof(DateTimeKind), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-datetimekind",
-                                                        new Variant(ObjectOps.GetDefaultDateTimeKind())),
+                                                        new Variant(interpreter.DateTimeKind)),
                                                     new Option(typeof(DateTimeStyles), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-datetimestyles",
                                                         new Variant(ObjectOps.GetDefaultDateTimeStyles())),
                                                     new Option(null, OptionFlags.MustHaveCultureInfoValue, Index.Invalid, Index.Invalid, "-culture", null),
@@ -703,7 +712,7 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-valueformat", ref value))
                                                             valueFormat = value.ToString();
 
-                                                        DateTimeKind dateTimeKind = ObjectOps.GetDefaultDateTimeKind();
+                                                        DateTimeKind dateTimeKind = interpreter.DateTimeKind;
 
                                                         if (options.IsPresent("-datetimekind", ref value))
                                                             dateTimeKind = (DateTimeKind)value.Value;
@@ -846,9 +855,14 @@ namespace Eagle._Commands
                                                         OptionDictionary options = new OptionDictionary(
                                                             new IOption[] {
                                                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-strict", null),
+                                                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
                                                             new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-not", new Variant(not)),
                                                             new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-any", null),
-                                                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-failindex", null)
+                                                            new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-via", null),
+                                                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-good", null),
+                                                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-bad", null),
+                                                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-failindex", null),
+                                                            Option.CreateEndOfOptions()
                                                         });
 
                                                         int argumentIndex = Index.Invalid;
@@ -865,11 +879,31 @@ namespace Eagle._Commands
                                                                 if (options.IsPresent("-strict"))
                                                                     strict = true;
 
+                                                                bool noComplain = false;
+
+                                                                if (options.IsPresent("-nocomplain"))
+                                                                    noComplain = true;
+
                                                                 IVariant value = null;
-                                                                string varName = null;
+                                                                bool treatAsVarName = false;
+
+                                                                if (options.IsPresent("-via", ref value))
+                                                                    treatAsVarName = (bool)value.Value;
+
+                                                                string goodVarName = null;
+
+                                                                if (options.IsPresent("-good", ref value))
+                                                                    goodVarName = value.ToString();
+
+                                                                string badVarName = null;
+
+                                                                if (options.IsPresent("-bad", ref value))
+                                                                    badVarName = value.ToString();
+
+                                                                string failIndexVarName = null;
 
                                                                 if (options.IsPresent("-failindex", ref value))
-                                                                    varName = value.ToString();
+                                                                    failIndexVarName = value.ToString();
 
                                                                 bool any = false;
 
@@ -889,366 +923,791 @@ namespace Eagle._Commands
 
                                                                 bool valid = !not;
                                                                 int failIndex = Index.Invalid;
+
                                                                 Argument argument = arguments[argumentIndex];
                                                                 string @string = argument;
 
-                                                                if (!String.IsNullOrEmpty(@string))
+                                                                if (treatAsVarName)
                                                                 {
-                                                                    switch (subSubCommand)
+                                                                    Result varValue = null;
+
+                                                                    code = interpreter.GetVariableValue(
+                                                                        @string, ref varValue, ref result);
+
+                                                                    if (code == ReturnCode.Ok)
                                                                     {
-                                                                        case "annotation":
-                                                                            {
-                                                                                if (Value.IsAnnotation(@string))
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "array":
-                                                                            {
-                                                                                VariableFlags flags = VariableFlags.ArrayCommandMask;
-                                                                                IVariable variable = null;
+                                                                        argument = varValue;
+                                                                        @string = argument;
+                                                                    }
+                                                                    else if (noComplain)
+                                                                    {
+                                                                        result = not;
+                                                                        code = ReturnCode.Ok;
 
-                                                                                if (interpreter.GetVariableViaResolversWithSplit(
-                                                                                        @string, ref flags, ref variable) == ReturnCode.Ok)
-                                                                                {
-                                                                                    if (EntityOps.IsLink(variable))
-                                                                                        variable = EntityOps.FollowLinks(variable, flags);
+                                                                        goto done;
+                                                                    }
+                                                                }
 
-                                                                                    if ((variable == null) ||
-                                                                                        EntityOps.IsUndefined(variable) ||
-                                                                                        !EntityOps.IsArray(variable))
-                                                                                    {
-                                                                                        valid = not;
-                                                                                    }
-                                                                                    else
+                                                                if (code == ReturnCode.Ok)
+                                                                {
+                                                                    if (!String.IsNullOrEmpty(@string))
+                                                                    {
+                                                                        switch (subSubCommand)
+                                                                        {
+                                                                            case "annotation":
+                                                                                {
+                                                                                    if (Value.IsAnnotation(@string))
                                                                                     {
                                                                                         valid = !not;
                                                                                     }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
                                                                                 }
-                                                                                else
+                                                                            case "array":
                                                                                 {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "base64":
-                                                                            {
-                                                                                if (StringOps.IsBase64(@string))
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "boolean":
-                                                                        case "false":
-                                                                        case "true":
-                                                                            {
-                                                                                bool boolValue = false;
+                                                                                    VariableFlags flags = VariableFlags.ArrayCommandMask;
+                                                                                    IVariable variable = null;
 
-                                                                                if ((Value.GetBoolean5(@string,
-                                                                                        ValueFlags.AnyBoolean | ValueFlags.NoCase,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref boolValue) == ReturnCode.Ok) &&
-                                                                                    (SharedStringOps.SystemEquals(
-                                                                                        subSubCommand, "boolean") ||
-                                                                                    (SharedStringOps.SystemEquals(
-                                                                                        subSubCommand, "true") && boolValue) ||
-                                                                                    (SharedStringOps.SystemEquals(
-                                                                                        subSubCommand, "false") && !boolValue)))
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "byte":
-                                                                            {
-                                                                                byte byteValue = 0; /* NOT USED */
+                                                                                    if (interpreter.GetVariableViaResolversWithSplit(
+                                                                                            @string, ref flags, ref variable) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        if (EntityOps.IsLink(variable))
+                                                                                            variable = EntityOps.FollowLinks(variable, flags);
 
-                                                                                if (Value.GetByte2(
-                                                                                        @string, ValueFlags.AnyByte,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref byteValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
+                                                                                        if ((variable == null) ||
+                                                                                            EntityOps.IsUndefined(variable) ||
+                                                                                            !EntityOps.IsArray(variable))
+                                                                                        {
+                                                                                            valid = not;
+                                                                                        }
+                                                                                        else
+                                                                                        {
+                                                                                            valid = !not;
+                                                                                        }
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
                                                                                 }
-                                                                                else
+                                                                            case "base64":
                                                                                 {
-                                                                                    valid = not;
+                                                                                    if (StringOps.IsBase64(@string))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
                                                                                 }
-                                                                                break;
-                                                                            }
-                                                                        case "cidr":
-                                                                            {
+                                                                            case "boolean":
+                                                                            case "false":
+                                                                            case "true":
+                                                                                {
+                                                                                    bool boolValue = false;
+
+                                                                                    if ((Value.GetBoolean5(@string,
+                                                                                            ValueFlags.AnyBoolean | ValueFlags.NoCase,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref boolValue) == ReturnCode.Ok) &&
+                                                                                        (SharedStringOps.SystemEquals(
+                                                                                            subSubCommand, "boolean") ||
+                                                                                        (SharedStringOps.SystemEquals(
+                                                                                            subSubCommand, "true") && boolValue) ||
+                                                                                        (SharedStringOps.SystemEquals(
+                                                                                            subSubCommand, "false") && !boolValue)))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "byte":
+                                                                                {
+                                                                                    byte byteValue = 0; /* NOT USED */
+
+                                                                                    if (Value.GetByte2(
+                                                                                            @string, ValueFlags.AnyByte,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref byteValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "cidr":
+                                                                                {
 #if NETWORK
-                                                                                if (SocketOps.IsValidCIDR(
-                                                                                        @string, IpFlags.Default))
+                                                                                    if (SocketOps.IsValidCIDR(
+                                                                                            @string, IpFlags.Default))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+#endif
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "command":
+                                                                                {
+                                                                                    if (interpreter.InternalDoesIExecuteExistViaResolvers(
+                                                                                            @string) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "component":
+                                                                                {
+                                                                                    if (PathOps.CheckForValid(
+                                                                                            null, @string, true, false, true, false))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "datetime":
+                                                                                {
+                                                                                    DateTime dateTimeValue = DateTime.MinValue; /* NOT USED */
+
+                                                                                    if (Value.GetDateTime(
+                                                                                            @string, interpreter.DateTimeFormat,
+                                                                                            interpreter.DateTimeKind,
+                                                                                            interpreter.DateTimeStyles,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref dateTimeValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "decimal":
+                                                                                {
+                                                                                    decimal decimalValue = Decimal.Zero; /* NOT USED */
+
+                                                                                    //
+                                                                                    // FIXME: PRI 4: This is not 100% compatible
+                                                                                    //        with the Tcl semantics.
+                                                                                    //
+                                                                                    if (Value.GetDecimal(
+                                                                                            @string, ValueFlags.AnyDecimal,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref decimalValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "dict":
+                                                                                {
+                                                                                    //
+                                                                                    // NOTE: Also see Tcl TIP #501.
+                                                                                    //
+                                                                                    StringList list = null;
+
+                                                                                    if ((ListOps.GetOrCopyOrSplitList(
+                                                                                            interpreter, argument, true,
+                                                                                            ref list) == ReturnCode.Ok) &&
+                                                                                        ((list.Count % 2) == 0))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "directory":
+                                                                                {
+                                                                                    if (PathOps.ValidatePathAsDirectory(
+                                                                                            @string, true, true))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "double":
+                                                                                {
+                                                                                    double doubleValue = 0.0; /* NOT USED */
+
+                                                                                    //
+                                                                                    // FIXME: PRI 4: This is not 100% compatible
+                                                                                    //        with the Tcl semantics.
+                                                                                    //
+                                                                                    if (Value.GetDouble(
+                                                                                            @string, ValueFlags.AnyDouble,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref doubleValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "encoding":
+                                                                                {
+                                                                                    Encoding encoding = null;
+
+                                                                                    if (interpreter.GetEncoding(
+                                                                                            @string, LookupFlags.EncodingNoVerbose,
+                                                                                            ref encoding) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "element":
+                                                                                {
+                                                                                    VariableFlags flags = VariableFlags.CommonCommandMask;
+                                                                                    IVariable variable = null;
+
+                                                                                    if (interpreter.GetVariableViaResolversWithSplit(
+                                                                                            @string, ref flags, ref variable) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        if (EntityOps.IsLink(variable))
+                                                                                            variable = EntityOps.FollowLinks(variable, flags);
+
+                                                                                        if ((variable == null) ||
+                                                                                            EntityOps.IsUndefined(variable) ||
+                                                                                            !EntityOps.IsArray(variable) ||
+                                                                                            !FlagOps.HasFlags(flags, VariableFlags.WasElement, true))
+                                                                                        {
+                                                                                            valid = not;
+                                                                                        }
+                                                                                        else
+                                                                                        {
+                                                                                            //
+                                                                                            // HACK: To really validate that the provided string
+                                                                                            //       is an array element, we need to attempt to
+                                                                                            //       query its value.  This ends up calling into
+                                                                                            //       the resolver again; however, this cannot
+                                                                                            //       be avoided due to various trace-only arrays
+                                                                                            //       like "::env".
+                                                                                            //
+                                                                                            Result localValue = null; /* NOT USED */
+
+                                                                                            if (interpreter.GetVariableValue(
+                                                                                                    VariableFlags.None, @string,
+                                                                                                    ref localValue) == ReturnCode.Ok)
+                                                                                            {
+                                                                                                valid = !not;
+                                                                                            }
+                                                                                            else
+                                                                                            {
+                                                                                                valid = not;
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "entier":
+                                                                                {
+#if NET_40
+                                                                                BigInteger bigIntegerValue = BigInteger.Zero;
+
+                                                                                if (Value.GetBigInteger(
+                                                                                        @string, ValueFlags.AnyInteger,
+                                                                                        interpreter.InternalCultureInfo,
+                                                                                        ref bigIntegerValue) == ReturnCode.Ok)
                                                                                 {
                                                                                     valid = !not;
                                                                                 }
                                                                                 else
 #endif
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "command":
-                                                                            {
-                                                                                if (interpreter.InternalDoesIExecuteExistViaResolvers(
-                                                                                        @string) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "component":
-                                                                            {
-                                                                                if (PathOps.CheckForValid(
-                                                                                        null, @string, true, false, true, false))
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "datetime":
-                                                                            {
-                                                                                DateTime dateTimeValue = DateTime.MinValue; /* NOT USED */
-
-                                                                                if (Value.GetDateTime(
-                                                                                        @string, interpreter.DateTimeFormat,
-                                                                                        interpreter.DateTimeKind,
-                                                                                        interpreter.DateTimeStyles,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref dateTimeValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "decimal":
-                                                                            {
-                                                                                decimal decimalValue = Decimal.Zero; /* NOT USED */
-
-                                                                                //
-                                                                                // FIXME: PRI 4: This is not 100% compatible
-                                                                                //        with the Tcl semantics.
-                                                                                //
-                                                                                if (Value.GetDecimal(
-                                                                                        @string, ValueFlags.AnyDecimal,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref decimalValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "dict":
-                                                                            {
-                                                                                //
-                                                                                // NOTE: Also see Tcl TIP #501.
-                                                                                //
-                                                                                StringList list = null;
-
-                                                                                if ((ListOps.GetOrCopyOrSplitList(
-                                                                                        interpreter, argument, true,
-                                                                                        ref list) == ReturnCode.Ok) &&
-                                                                                    ((list.Count % 2) == 0))
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "directory":
-                                                                            {
-                                                                                if (PathOps.ValidatePathAsDirectory(
-                                                                                        @string, true, true))
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "double":
-                                                                            {
-                                                                                double doubleValue = 0.0; /* NOT USED */
-
-                                                                                //
-                                                                                // FIXME: PRI 4: This is not 100% compatible
-                                                                                //        with the Tcl semantics.
-                                                                                //
-                                                                                if (Value.GetDouble(
-                                                                                        @string, ValueFlags.AnyDouble,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref doubleValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "encoding":
-                                                                            {
-                                                                                Encoding encoding = null;
-
-                                                                                if (interpreter.GetEncoding(
-                                                                                        @string, LookupFlags.EncodingNoVerbose,
-                                                                                        ref encoding) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "element":
-                                                                            {
-                                                                                VariableFlags flags = VariableFlags.CommonCommandMask;
-                                                                                IVariable variable = null;
-
-                                                                                if (interpreter.GetVariableViaResolversWithSplit(
-                                                                                        @string, ref flags, ref variable) == ReturnCode.Ok)
-                                                                                {
-                                                                                    if (EntityOps.IsLink(variable))
-                                                                                        variable = EntityOps.FollowLinks(variable, flags);
-
-                                                                                    if ((variable == null) ||
-                                                                                        EntityOps.IsUndefined(variable) ||
-                                                                                        !EntityOps.IsArray(variable) ||
-                                                                                        !FlagOps.HasFlags(flags, VariableFlags.WasElement, true))
                                                                                     {
                                                                                         valid = not;
                                                                                     }
+                                                                                    break;
+                                                                                }
+                                                                            case "file":
+                                                                                {
+                                                                                    if (PathOps.ValidatePathAsFile(
+                                                                                            @string, true, true))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
                                                                                     else
                                                                                     {
-                                                                                        //
-                                                                                        // HACK: To really validate that the provided string
-                                                                                        //       is an array element, we need to attempt to
-                                                                                        //       query its value.  This ends up calling into
-                                                                                        //       the resolver again; however, this cannot
-                                                                                        //       be avoided due to various trace-only arrays
-                                                                                        //       like "::env".
-                                                                                        //
-                                                                                        Result localValue = null; /* NOT USED */
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "guid":
+                                                                                {
+                                                                                    Guid guid = Guid.Empty; /* NOT USED */
 
-                                                                                        if (interpreter.GetVariableValue(
-                                                                                                VariableFlags.None, @string,
-                                                                                                ref localValue) == ReturnCode.Ok)
+                                                                                    if (Value.GetGuid(
+                                                                                            @string, interpreter.InternalCultureInfo,
+                                                                                            ref guid) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "identifier":
+                                                                                {
+                                                                                    valid = StringOps.StringIs(@string,
+                                                                                        StringOps.CharIsIdentifierZero,
+                                                                                        StringOps.CharIsIdentifierOnePlus,
+                                                                                        not, any, !strict, ref failIndex);
+
+                                                                                    break;
+                                                                                }
+                                                                            case "inetaddr":
+                                                                                {
+                                                                                    //
+                                                                                    // HACK: Any valid 32-bit integer, including
+                                                                                    //       their signed or unsigned variations,
+                                                                                    //       is technically a valid IP address
+                                                                                    //
+                                                                                    long longValue = 0; /* NOT USED */
+
+                                                                                    if (Value.GetWideInteger2(
+                                                                                            @string, ValueFlags.AnyInteger,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref longValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+#if NETWORK
+                                                                                        IPAddress address;
+
+                                                                                        if (IPAddress.TryParse(@string, out address))
                                                                                         {
                                                                                             valid = !not;
                                                                                         }
                                                                                         else
+#endif
                                                                                         {
+                                                                                            //
+                                                                                            // HACK: Not valid -OR- not supported.
+                                                                                            //
                                                                                             valid = not;
                                                                                         }
                                                                                     }
+                                                                                    break;
                                                                                 }
-                                                                                else
+                                                                            case "integer":
                                                                                 {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "file":
-                                                                            {
-                                                                                if (PathOps.ValidatePathAsFile(
-                                                                                        @string, true, true))
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "guid":
-                                                                            {
-                                                                                Guid guid = Guid.Empty; /* NOT USED */
+                                                                                    int intValue = 0; /* NOT USED */
 
-                                                                                if (Value.GetGuid(
-                                                                                        @string, interpreter.InternalCultureInfo,
-                                                                                        ref guid) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
+                                                                                    if (Value.GetInteger2(@string,
+                                                                                            ValueFlags.AnyInteger |
+                                                                                            ValueFlags.WidenToUnsigned,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref intValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
                                                                                 }
-                                                                                else
+                                                                            case "interpreter":
                                                                                 {
-                                                                                    valid = not;
+                                                                                    Interpreter interpreterValue = null; /* NOT USED */
+
+                                                                                    if (Value.GetInterpreter(
+                                                                                            interpreter, @string, InterpreterType.Default,
+                                                                                            ref interpreterValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
                                                                                 }
-                                                                                break;
-                                                                            }
-                                                                        case "identifier":
-                                                                            {
-                                                                                valid = StringOps.StringIs(@string,
-                                                                                    StringOps.CharIsIdentifierZero,
-                                                                                    StringOps.CharIsIdentifierOnePlus,
-                                                                                    not, any, !strict, ref failIndex);
-
-                                                                                break;
-                                                                            }
-                                                                        case "inetaddr":
-                                                                            {
-                                                                                //
-                                                                                // HACK: Any valid 32-bit integer, including
-                                                                                //       their signed or unsigned variations,
-                                                                                //       is technically a valid IP address
-                                                                                //
-                                                                                long longValue = 0; /* NOT USED */
-
-                                                                                if (Value.GetWideInteger2(
-                                                                                        @string, ValueFlags.AnyInteger,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref longValue) == ReturnCode.Ok)
+                                                                            case "list":
                                                                                 {
-                                                                                    valid = !not;
+                                                                                    StringList list = null; /* NOT USED */
+
+                                                                                    if (ListOps.GetOrCopyOrSplitList(
+                                                                                            interpreter, argument, true,
+                                                                                            ref list) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
                                                                                 }
-                                                                                else
+                                                                            case "none":
                                                                                 {
-#if NETWORK
-                                                                                    IPAddress address;
+                                                                                    int index = Index.Invalid;
 
-                                                                                    if (IPAddress.TryParse(@string, out address))
+                                                                                    if ((Value.GetIndex(
+                                                                                            @string, Count.Invalid, ValueFlags.AnyIndex,
+                                                                                            interpreter.InternalCultureInfo, ref index,
+                                                                                            ref result) == ReturnCode.Ok) &&
+                                                                                        (index == Index.Invalid))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "number":
+                                                                                {
+                                                                                    INumber number = null; /* NOT USED */
+
+                                                                                    if (Value.GetNumber(
+                                                                                            @string, ValueFlags.AnyNumberAnyRadix,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref number) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "numeric":
+                                                                                {
+                                                                                    object numericValue = null; /* NOT USED */
+
+                                                                                    //
+                                                                                    // HACK: The ValueFlags passed to this method
+                                                                                    //       are only consulted when dealing with
+                                                                                    //       integer radix handling.
+                                                                                    //
+                                                                                    if (Value.GetNumeric(interpreter,
+                                                                                            @string, ValueFlags.AnyRadixAnySign,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref numericValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "object":
+                                                                                {
+                                                                                    object objectValue = null; /* NOT USED */
+
+                                                                                    if (Value.GetObject(
+                                                                                            interpreter, @string,
+                                                                                            ref objectValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "path":
+                                                                                {
+                                                                                    if (PathOps.CheckForValid(
+                                                                                            null, @string, false, false, true,
+                                                                                            PlatformOps.IsWindowsOperatingSystem()))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "plugin":
+                                                                                {
+                                                                                    IPlugin plugin = null; /* NOT USED */
+
+                                                                                    if ((interpreter.GetPlugin(
+                                                                                            @string, LookupFlags.NoVerbose,
+                                                                                            ref plugin) == ReturnCode.Ok) ||
+                                                                                        interpreter.InternalFindPlugin(
+                                                                                            null, MatchMode.Glob, @string,
+                                                                                            null, null, LookupFlags.NoVerbose,
+                                                                                            false) != null)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "real":
+                                                                                {
+                                                                                    INumber number = null; /* NOT USED */
+
+                                                                                    if (Value.GetNumber(
+                                                                                            @string, ValueFlags.AnyRealAnyRadix,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref number) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "ruleset":
+                                                                                {
+                                                                                    IRuleSet ruleSet = RuleSet.Create(
+                                                                                        @string, interpreter.InternalCultureInfo);
+
+                                                                                    if (ruleSet != null)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "scalar":
+                                                                                {
+                                                                                    VariableFlags flags = VariableFlags.CommonCommandMask;
+                                                                                    IVariable variable = null;
+
+                                                                                    if (interpreter.GetVariableViaResolversWithSplit(
+                                                                                            @string, ref flags, ref variable) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        if (EntityOps.IsLink(variable))
+                                                                                            variable = EntityOps.FollowLinks(variable, flags);
+
+                                                                                        if ((variable == null) ||
+                                                                                            EntityOps.IsUndefined(variable) ||
+                                                                                            EntityOps.IsArray(variable) ||
+                                                                                            FlagOps.HasFlags(flags, VariableFlags.WasElement, true))
+                                                                                        {
+                                                                                            valid = not;
+                                                                                        }
+                                                                                        else
+                                                                                        {
+                                                                                            valid = !not;
+                                                                                        }
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "single":
+                                                                                {
+                                                                                    float floatValue = 0.0f; /* NOT USED */
+
+                                                                                    if (Value.GetSingle(
+                                                                                            @string, interpreter.InternalCultureInfo,
+                                                                                            ref floatValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "timespan":
+                                                                                {
+                                                                                    TimeSpan timeSpanValue = TimeSpan.Zero; /* NOT USED */
+
+                                                                                    if (Value.GetTimeSpan(
+                                                                                            @string, interpreter.InternalCultureInfo,
+                                                                                            ref timeSpanValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "type":
+                                                                                {
+                                                                                    Type type = null; /* NOT USED */
+
+                                                                                    if (Value.GetAnyType(
+                                                                                            interpreter, @string, null, null,
+                                                                                            Value.GetTypeValueFlags(false, false, false),
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref type) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "uri":
+                                                                                {
+                                                                                    Uri uri = null; /* NOT USED */
+
+                                                                                    if (Value.GetUri(
+                                                                                            @string, UriKind.Absolute,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref uri) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "value":
+                                                                                {
+                                                                                    object objectValue = null; /* NOT USED */
+
+                                                                                    if (Value.GetValue(
+                                                                                            @string, interpreter.DateTimeFormat,
+                                                                                            ValueFlags.AnyNonCharacter,
+                                                                                            interpreter.DateTimeKind,
+                                                                                            interpreter.DateTimeStyles,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref objectValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "variant":
+                                                                                {
+                                                                                    IVariant variant = null; /* NOT USED */
+
+                                                                                    if (Value.GetVariant(
+                                                                                            interpreter, @string,
+                                                                                            interpreter.DateTimeFormat,
+                                                                                            ValueFlags.AnyVariant,
+                                                                                            interpreter.DateTimeKind,
+                                                                                            interpreter.DateTimeStyles,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref variant) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "version":
+                                                                                {
+                                                                                    Version version = null; /* NOT USED */
+
+                                                                                    if (Value.GetVersion(
+                                                                                            @string,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref version) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "versionrange":
+                                                                                {
+                                                                                    Version version1 = null; /* NOT USED */
+                                                                                    Version version2 = null; /* NOT USED */
+
+                                                                                    if (Value.GetVersionRange(
+                                                                                            @string, ValueFlags.AnyVersionRange,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref version1, ref version2) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
+                                                                                }
+                                                                            case "xml":
+                                                                                {
+#if XML
+                                                                                    XmlDocument document = null; /* NOT USED */
+
+                                                                                    if (XmlOps.LoadString(@string,
+                                                                                            ref document) == ReturnCode.Ok)
                                                                                     {
                                                                                         valid = !not;
                                                                                     }
@@ -1260,445 +1719,93 @@ namespace Eagle._Commands
                                                                                         //
                                                                                         valid = not;
                                                                                     }
+                                                                                    break;
                                                                                 }
-                                                                                break;
-                                                                            }
-                                                                        case "integer":
-                                                                            {
-                                                                                int intValue = 0; /* NOT USED */
+                                                                            case "wideinteger":
+                                                                                {
+                                                                                    long longValue = 0; /* NOT USED */
 
-                                                                                if (Value.GetInteger2(@string,
-                                                                                        ValueFlags.AnyInteger |
-                                                                                        ValueFlags.WidenToUnsigned,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref intValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "interpreter":
-                                                                            {
-                                                                                Interpreter interpreterValue = null; /* NOT USED */
-
-                                                                                if (Value.GetInterpreter(
-                                                                                        interpreter, @string, InterpreterType.Default,
-                                                                                        ref interpreterValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "list":
-                                                                            {
-                                                                                StringList list = null; /* NOT USED */
-
-                                                                                if (ListOps.GetOrCopyOrSplitList(
-                                                                                        interpreter, argument, true,
-                                                                                        ref list) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "none":
-                                                                            {
-                                                                                int index = Index.Invalid;
-
-                                                                                if ((Value.GetIndex(
-                                                                                        @string, Count.Invalid, ValueFlags.AnyIndex,
-                                                                                        interpreter.InternalCultureInfo, ref index,
-                                                                                        ref result) == ReturnCode.Ok) &&
-                                                                                    (index == Index.Invalid))
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "number":
-                                                                            {
-                                                                                INumber number = null; /* NOT USED */
-
-                                                                                if (Value.GetNumber(
-                                                                                        @string, ValueFlags.AnyNumberAnyRadix,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref number) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "numeric":
-                                                                            {
-                                                                                object numericValue = null; /* NOT USED */
-
-                                                                                //
-                                                                                // HACK: The ValueFlags passed to this method
-                                                                                //       are only consulted when dealing with
-                                                                                //       integer radix handling.
-                                                                                //
-                                                                                if (Value.GetNumeric(
-                                                                                        @string, ValueFlags.AnyRadixAnySign,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref numericValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "object":
-                                                                            {
-                                                                                object objectValue = null; /* NOT USED */
-
-                                                                                if (Value.GetObject(
-                                                                                        interpreter, @string,
-                                                                                        ref objectValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "path":
-                                                                            {
-                                                                                if (PathOps.CheckForValid(
-                                                                                        null, @string, false, false, true,
-                                                                                        PlatformOps.IsWindowsOperatingSystem()))
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "plugin":
-                                                                            {
-                                                                                IPlugin plugin = null; /* NOT USED */
-
-                                                                                if ((interpreter.GetPlugin(
-                                                                                        @string, LookupFlags.NoVerbose,
-                                                                                        ref plugin) == ReturnCode.Ok) ||
-                                                                                    interpreter.InternalFindPlugin(
-                                                                                        null, MatchMode.Glob, @string,
-                                                                                        null, null, LookupFlags.NoVerbose,
-                                                                                        false) != null)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "real":
-                                                                            {
-                                                                                INumber number = null; /* NOT USED */
-
-                                                                                if (Value.GetNumber(
-                                                                                        @string, ValueFlags.AnyRealAnyRadix,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref number) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "ruleset":
-                                                                            {
-                                                                                IRuleSet ruleSet = RuleSet.Create(
-                                                                                    @string, interpreter.InternalCultureInfo);
-
-                                                                                if (ruleSet != null)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "scalar":
-                                                                            {
-                                                                                VariableFlags flags = VariableFlags.CommonCommandMask;
-                                                                                IVariable variable = null;
-
-                                                                                if (interpreter.GetVariableViaResolversWithSplit(
-                                                                                        @string, ref flags, ref variable) == ReturnCode.Ok)
-                                                                                {
-                                                                                    if (EntityOps.IsLink(variable))
-                                                                                        variable = EntityOps.FollowLinks(variable, flags);
-
-                                                                                    if ((variable == null) ||
-                                                                                        EntityOps.IsUndefined(variable) ||
-                                                                                        EntityOps.IsArray(variable) ||
-                                                                                        FlagOps.HasFlags(flags, VariableFlags.WasElement, true))
-                                                                                    {
-                                                                                        valid = not;
-                                                                                    }
-                                                                                    else
+                                                                                    if (Value.GetWideInteger2(@string,
+                                                                                            ValueFlags.AnyWideInteger |
+                                                                                            ValueFlags.AllowUnsigned,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref longValue) == ReturnCode.Ok)
                                                                                     {
                                                                                         valid = !not;
                                                                                     }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
+                                                                                    break;
                                                                                 }
-                                                                                else
+                                                                            default:
                                                                                 {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "single":
-                                                                            {
-                                                                                float floatValue = 0.0f; /* NOT USED */
+                                                                                    CharIsCallback callback;
 
-                                                                                if (Value.GetSingle(
-                                                                                        @string, interpreter.InternalCultureInfo,
-                                                                                        ref floatValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "timespan":
-                                                                            {
-                                                                                TimeSpan timeSpanValue = TimeSpan.Zero; /* NOT USED */
+                                                                                    if (charIsCallbacks.TryGetValue(
+                                                                                            subSubCommand, out callback) &&
+                                                                                        (callback != null))
+                                                                                    {
+                                                                                        valid = StringOps.StringIs(
+                                                                                            @string, callback, not, any,
+                                                                                            !strict, ref failIndex);
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        result = ScriptOps.BadSubCommand(
+                                                                                            interpreter, null, "class", subSubCommand,
+                                                                                            isSubCommands, null, null);
 
-                                                                                if (Value.GetTimeSpan(
-                                                                                        @string, interpreter.InternalCultureInfo,
-                                                                                        ref timeSpanValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
+                                                                                        code = ReturnCode.Error;
+                                                                                    }
+                                                                                    break;
                                                                                 }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "type":
-                                                                            {
-                                                                                Type type = null; /* NOT USED */
-
-                                                                                if (Value.GetAnyType(
-                                                                                        interpreter, @string, null, null,
-                                                                                        Value.GetTypeValueFlags(false, false, false),
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref type) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "uri":
-                                                                            {
-                                                                                Uri uri = null; /* NOT USED */
-
-                                                                                if (Value.GetUri(
-                                                                                        @string, UriKind.Absolute,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref uri) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "value":
-                                                                            {
-                                                                                object objectValue = null; /* NOT USED */
-
-                                                                                if (Value.GetValue(
-                                                                                        @string, interpreter.DateTimeFormat,
-                                                                                        ValueFlags.AnyNonCharacter,
-                                                                                        interpreter.DateTimeKind,
-                                                                                        interpreter.DateTimeStyles,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref objectValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "variant":
-                                                                            {
-                                                                                IVariant variant = null; /* NOT USED */
-
-                                                                                if (Value.GetVariant(
-                                                                                        interpreter, @string,
-                                                                                        interpreter.DateTimeFormat,
-                                                                                        ValueFlags.AnyVariant,
-                                                                                        interpreter.DateTimeKind,
-                                                                                        interpreter.DateTimeStyles,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref variant) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "version":
-                                                                            {
-                                                                                Version version = null; /* NOT USED */
-
-                                                                                if (Value.GetVersion(
-                                                                                        @string,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref version) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "versionrange":
-                                                                            {
-                                                                                Version version1 = null; /* NOT USED */
-                                                                                Version version2 = null; /* NOT USED */
-
-                                                                                if (Value.GetVersionRange(
-                                                                                        @string, ValueFlags.AnyVersionRange,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref version1, ref version2) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "xml":
-                                                                            {
-#if XML
-                                                                                XmlDocument document = null; /* NOT USED */
-
-                                                                                if (XmlOps.LoadString(@string,
-                                                                                        ref document) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-#endif
-                                                                                {
-                                                                                    //
-                                                                                    // HACK: Not valid -OR- not supported.
-                                                                                    //
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        case "wideinteger":
-                                                                            {
-                                                                                long longValue = 0; /* NOT USED */
-
-                                                                                if (Value.GetWideInteger2(@string,
-                                                                                        ValueFlags.AnyWideInteger |
-                                                                                        ValueFlags.AllowUnsigned,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref longValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    valid = not;
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                        default:
-                                                                            {
-                                                                                CharIsCallback callback;
-
-                                                                                if (charIsCallbacks.TryGetValue(
-                                                                                        subSubCommand, out callback) &&
-                                                                                    (callback != null))
-                                                                                {
-                                                                                    valid = StringOps.StringIs(
-                                                                                        @string, callback, not, any,
-                                                                                        !strict, ref failIndex);
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    result = ScriptOps.BadSubCommand(
-                                                                                        interpreter, null, "class", subSubCommand,
-                                                                                        isSubCommands, null, null);
-
-                                                                                    code = ReturnCode.Error;
-                                                                                }
-                                                                                break;
-                                                                            }
+                                                                        }
                                                                     }
-                                                                }
-                                                                else if (strict && !noStrict)
-                                                                {
-                                                                    valid = not;
+                                                                    else if (strict && !noStrict)
+                                                                    {
+                                                                        valid = not;
+                                                                    }
                                                                 }
 
                                                                 //
                                                                 // NOTE: Handle the setting of the failure index.
                                                                 //
-                                                                if ((code == ReturnCode.Ok) && (valid == not) && (varName != null))
+                                                                if (code == ReturnCode.Ok)
                                                                 {
-                                                                    code = interpreter.SetVariableValue(
-                                                                        VariableFlags.None, varName, failIndex.ToString(),
-                                                                        null, ref result);
+                                                                    if ((valid == not) && (failIndexVarName != null))
+                                                                    {
+                                                                        code = interpreter.SetVariableValue(
+                                                                            VariableFlags.None, failIndexVarName,
+                                                                            failIndex.ToString(), null, ref result);
+                                                                    }
+                                                                }
+
+                                                                //
+                                                                // NOTE: Handle the setting of the "good" -OR- "bad"
+                                                                //       (effective) value that was actually checked.
+                                                                //
+                                                                if (code == ReturnCode.Ok)
+                                                                {
+                                                                    if (valid == not)
+                                                                    {
+                                                                        if (badVarName != null)
+                                                                        {
+                                                                            code = interpreter.SetVariableValue(
+                                                                                VariableFlags.None, badVarName,
+                                                                                @string, null, ref result);
+                                                                        }
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        if (goodVarName != null)
+                                                                        {
+                                                                            code = interpreter.SetVariableValue(
+                                                                                VariableFlags.None, goodVarName,
+                                                                                @string, null, ref result);
+                                                                        }
+                                                                    }
                                                                 }
 
                                                                 if (code == ReturnCode.Ok)
@@ -2677,6 +2784,8 @@ namespace Eagle._Commands
                 result = "invalid interpreter";
                 code = ReturnCode.Error;
             }
+
+        done:
 
             return code;
         }

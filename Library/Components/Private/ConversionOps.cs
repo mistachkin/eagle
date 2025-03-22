@@ -12,6 +12,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Reflection;
 using System.Threading;
 using Eagle._Attributes;
@@ -730,6 +735,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+#if NET_40
+        public static bool ToBool(BigInteger X) /* LOSSY */
+        {
+            return X != 0 ? true : false;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         #region Dead Code
 #if DEAD_CODE
         private static bool ToBool(ReturnCode X) /* LOSSY */
@@ -1002,6 +1016,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+#if NET_40
+        public static int ToInt(BigInteger X) /* SAFE */
+        {
+            return (int)X;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         public static int ToInt(IntPtr X) /* LOSSY */
         {
             return ToInt(X.ToInt64());
@@ -1141,6 +1164,15 @@ namespace Eagle._Components.Private
         {
             return unchecked((long)X);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static long ToLong(BigInteger X) /* SAFE */
+        {
+            return (long)X;
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -1293,6 +1325,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+#if NET_40
+        public static decimal ToDecimal(BigInteger X) /* SAFE */
+        {
+            return (decimal)X;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         public static decimal ToDecimal(DateTime X) /* SAFE */
         {
             return X.Ticks;
@@ -1318,6 +1359,15 @@ namespace Eagle._Components.Private
         {
             return X;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static double ToDouble(BigInteger X) /* SAFE */
+        {
+            return (double)X;
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -1360,6 +1410,22 @@ namespace Eagle._Components.Private
         {
             return ToDateTime(X, ObjectOps.GetDefaultDateTimeKind());
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static DateTime ToDateTime(BigInteger X) /* SAFE */
+        {
+            return ToDateTime(X, ObjectOps.GetDefaultDateTimeKind());
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        public static DateTime ToDateTime(BigInteger X, DateTimeKind kind) /* SAFE */
+        {
+            return ToDateTime((long)X, kind);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -1410,6 +1476,15 @@ namespace Eagle._Components.Private
         {
             return new TimeSpan(X);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static TimeSpan ToTimeSpan(BigInteger X) /* SAFE */
+        {
+            return new TimeSpan((long)X);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////
 

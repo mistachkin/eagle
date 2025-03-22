@@ -18,7 +18,7 @@ namespace Eagle._Functions
 {
     [ObjectId("801dfe01-7ec6-4fd9-98c6-8c3eada55da0")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.NonStandard)]
-    [Arguments(Arity.None)]
+    [Arguments(Arity.Any)]
     [TypeListFlags(TypeListFlags.AllTypes)]
     [ObjectGroup("nop")]
     internal sealed class Nop : Core

@@ -80,7 +80,8 @@ namespace Eagle._Operators
                         operand2, null, null, false, false) == ReturnCode.Ok)
                 {
                     return operand1.Calculate(
-                        this, this.Lexeme, operand2, ref value, ref error);
+                        this, this.Lexeme, operand2, NumberOps.GetRotateBits(
+                        interpreter), ref value, ref error);
                 }
                 else
                 {

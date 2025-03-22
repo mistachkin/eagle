@@ -10,6 +10,11 @@
  */
 
 using System;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
@@ -73,6 +78,12 @@ namespace Eagle._Functions
                 {
                     value = Math.Sign((decimal)variant1.Value);
                 }
+#if NET_40
+                else if (variant1.IsBigInteger())
+                {
+                    value = ((BigInteger)variant1.Value).Sign;
+                }
+#endif
                 else if (variant1.IsWideInteger())
                 {
                     value = Math.Sign((long)variant1.Value);

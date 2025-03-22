@@ -11,6 +11,11 @@
 
 using System;
 using System.Globalization;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Constants;
@@ -698,6 +703,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         private static int ParseInteger(
+            Interpreter interpreter,
             string text,
             int startIndex,
             int characters
@@ -705,18 +711,37 @@ namespace Eagle._Components.Public
         {
             int index = startIndex;
 
+            long number; /* REUSED */
+
+#if NET_40
+            BigInteger bigNumber; /* REUSED */
+#endif
+
+            int scanned; /* REUSED */
+
             if ((characters > 1) &&
                 (text[index] == Characters.Zero) &&
                 ((text[index + 1] == Characters.x) || (text[index + 1] == Characters.X)))
             {
-                long number = 0;
-
                 index += 2; characters -= 2;
 
-                int scanned = Parser.ParseHexadecimal(text, index, characters, ref number);
+                number = 0;
+                scanned = Parser.ParseHexadecimal(text, index, characters, ref number);
 
                 if (scanned > 0)
                     return scanned + 2;
+
+#if NET_40
+                if (ScriptOps.HasFlags(
+                        interpreter, InterpreterFlags.AllowBigIntegers, true))
+                {
+                    bigNumber = BigInteger.Zero;
+                    scanned = Parser.ParseHexadecimal(text, index, characters, ref bigNumber);
+
+                    if (scanned > 0)
+                        return scanned + 2;
+                }
+#endif
 
                 return 1;
             }
@@ -724,14 +749,25 @@ namespace Eagle._Components.Public
                      (text[index] == Characters.Zero) &&
                      ((text[index + 1] == Characters.d) || (text[index + 1] == Characters.D)))
             {
-                long number = 0;
-
                 index += 2; characters -= 2;
 
-                int scanned = Parser.ParseDecimal(text, index, characters, ref number);
+                number = 0;
+                scanned = Parser.ParseDecimal(text, index, characters, ref number);
 
                 if (scanned > 0)
                     return scanned + 2;
+
+#if NET_40
+                if (ScriptOps.HasFlags(
+                        interpreter, InterpreterFlags.AllowBigIntegers, true))
+                {
+                    bigNumber = BigInteger.Zero;
+                    scanned = Parser.ParseDecimal(text, index, characters, ref bigNumber);
+
+                    if (scanned > 0)
+                        return scanned + 2;
+                }
+#endif
 
                 return 1;
             }
@@ -739,14 +775,25 @@ namespace Eagle._Components.Public
                      (text[index] == Characters.Zero) &&
                      ((text[index + 1] == Characters.o) || (text[index + 1] == Characters.O)))
             {
-                long number = 0;
-
                 index += 2; characters -= 2;
 
-                int scanned = Parser.ParseOctal(text, index, characters, ref number);
+                number = 0;
+                scanned = Parser.ParseOctal(text, index, characters, ref number);
 
                 if (scanned > 0)
                     return scanned + 2;
+
+#if NET_40
+                if (ScriptOps.HasFlags(
+                        interpreter, InterpreterFlags.AllowBigIntegers, true))
+                {
+                    bigNumber = BigInteger.Zero;
+                    scanned = Parser.ParseOctal(text, index, characters, ref bigNumber);
+
+                    if (scanned > 0)
+                        return scanned + 2;
+                }
+#endif
 
                 return 1;
             }
@@ -754,14 +801,25 @@ namespace Eagle._Components.Public
                 (text[index] == Characters.Zero) &&
                      ((text[index + 1] == Characters.b) || (text[index + 1] == Characters.B)))
             {
-                long number = 0;
-
                 index += 2; characters -= 2;
 
-                int scanned = Parser.ParseBinary(text, index, characters, ref number);
+                number = 0;
+                scanned = Parser.ParseBinary(text, index, characters, ref number);
 
                 if (scanned > 0)
                     return scanned + 2;
+
+#if NET_40
+                if (ScriptOps.HasFlags(
+                        interpreter, InterpreterFlags.AllowBigIntegers, true))
+                {
+                    bigNumber = BigInteger.Zero;
+                    scanned = Parser.ParseBinary(text, index, characters, ref bigNumber);
+
+                    if (scanned > 0)
+                        return scanned + 2;
+                }
+#endif
 
                 return 1;
             }
@@ -772,13 +830,19 @@ namespace Eagle._Components.Public
             }
 
             if (characters == 0)
+            {
                 return (index - startIndex);
+            }
             else if ((text[index] != Characters.Period) &&
                      (text[index] != Characters.e) &&
                      (text[index] != Characters.E))
+            {
                 return (index - startIndex);
+            }
             else
+            {
                 return 0;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -2463,6 +2527,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
+            string text = parseState.Text;
             int exprIndex = parseState.Tokens.Count;
 
             IExpressionToken exprToken = ExpressionToken.FromState(
@@ -2480,7 +2545,7 @@ namespace Eagle._Components.Public
 
             switch (lexeme)
             {
-                case Lexeme.Literal: /* int, long, or double */
+                case Lexeme.Literal: /* int, long, BigInteger, or double */
 #if !MONO_BUILD
                 //
                 // HACK: Part of workaround for a bug in the Mono 2.10 C#
@@ -2512,7 +2577,7 @@ namespace Eagle._Components.Public
                         int dollarIndex = (exprState.Next - 1);
 
                         code = Parser.ParseVariableName(
-                            interpreter, parseState.Text, dollarIndex,
+                            interpreter, text, dollarIndex,
                             (exprState.Last - dollarIndex), parseState,
                             true, noReady, false, false, ref error);
 
@@ -2533,7 +2598,7 @@ namespace Eagle._Components.Public
                         int stringIndex = exprState.Next;
 
                         code = Parser.ParseQuotedString(
-                            interpreter, parseState.Text, exprState.Start,
+                            interpreter, text, exprState.Start,
                             (exprState.Last - stringIndex), parseState,
                             true, noReady, ref terminator, ref error);
 
@@ -2587,7 +2652,7 @@ namespace Eagle._Components.Public
                                 parseState.FileName, parseState.CurrentLine);
 
                             if (Parser.ParseCommand(
-                                    interpreter, parseState.Text, index,
+                                    interpreter, text, index,
                                     parseState.Characters - index, true, nestedParseState,
                                     noReady, ref error) != ReturnCode.Ok)
                             {
@@ -2600,7 +2665,7 @@ namespace Eagle._Components.Public
                             index = (nestedParseState.CommandStart + nestedParseState.CommandLength);
 
                             if ((nestedParseState.Terminator < parseState.Characters) &&
-                                (parseState.Text[nestedParseState.Terminator] == Characters.CloseBracket) &&
+                                (text[nestedParseState.Terminator] == Characters.CloseBracket) &&
                                 !nestedParseState.Incomplete)
                             {
                                 break;
@@ -2630,7 +2695,7 @@ namespace Eagle._Components.Public
                 case Lexeme.OpenBrace:
                     {
                         code = Parser.ParseBraces(
-                            interpreter, parseState.Text, exprState.Start,
+                            interpreter, text, exprState.Start,
                             (exprState.Last - exprState.Start), parseState,
                             true, noReady, ref terminator, ref error);
 
@@ -2689,7 +2754,7 @@ namespace Eagle._Components.Public
 
                         if (exprState.Lexeme != Lexeme.OpenParenthesis)
                         {
-                            string value = parseState.Text.Substring(
+                            string value = text.Substring(
                                 savedExprState1.Start, savedExprState1.Length);
 
                             CultureInfo cultureInfo = (interpreter != null) ?
@@ -2882,6 +2947,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
+            string text = parseState.Text;
             int index;
             int length;
             int characters;
@@ -2899,7 +2965,7 @@ namespace Eagle._Components.Public
 
                 index += scanned; characters -= scanned;
             } while ((characters > 0) &&
-                    Parser.IsLineTerminator(parseState.Text[index]) &&
+                    Parser.IsLineTerminator(text[index]) &&
                     ((int)LogicOps.Y(index++, characters--) > 0));
 
             parseState.Terminator = index;
@@ -2911,8 +2977,8 @@ namespace Eagle._Components.Public
                 return ReturnCode.Ok;
             }
 
-            if ((parseState.Text[index] != Characters.PlusSign) &&
-                (parseState.Text[index] != Characters.MinusSign))
+            if ((text[index] != Characters.PlusSign) &&
+                (text[index] != Characters.MinusSign))
             {
                 CultureInfo cultureInfo = (interpreter != null) ?
                     interpreter.InternalCultureInfo : null;
@@ -2922,14 +2988,14 @@ namespace Eagle._Components.Public
 
             retryNumber:
 
-                if (!noInteger &&
-                    ((length = ParseInteger(parseState.Text, index, end - index)) > 0))
+                if (!noInteger && ((length = ParseInteger(
+                        interpreter, text, index, end - index)) > 0))
                 {
-                    string value = parseState.Text.Substring(index, length);
+                    string value = text.Substring(index, length);
 
                     //
-                    // NOTE: See if we can parse and interpret the string
-                    //       as some kind of integer value.
+                    // NOTE: See if we can parse and interpret the string as
+                    //       "some kind" of integer value.
                     //
                     ulong ulongValue = 0;
                     Result localError = null;
@@ -2939,6 +3005,46 @@ namespace Eagle._Components.Public
                             ValueFlags.Unsigned, cultureInfo, ref ulongValue,
                             ref localError) == ReturnCode.Error)
                     {
+#if NET_40
+                        bool noBigInteger = false;
+
+                    retryBigInteger:
+
+                        if (!noBigInteger && ScriptOps.HasFlags(interpreter,
+                                InterpreterFlags.AllowBigIntegers, true))
+                        {
+                            BigInteger bigIntegerValue = BigInteger.Zero;
+                            int stopIndex = Index.Invalid;
+
+                            if ((Value.GetBigInteger2(
+                                    value, ValueFlags.AnyInteger, cultureInfo,
+                                    ref bigIntegerValue, ref stopIndex,
+                                    ref localError) == ReturnCode.Error) &&
+                                (stopIndex != Index.Invalid))
+                            {
+                                noBigInteger = true;
+                                goto retryBigInteger;
+                            }
+                            else if (stopIndex != Index.Invalid)
+                            {
+                                exprState.Lexeme = Lexeme.Literal;
+                                exprState.Start = index;
+
+                                stopIndex += index;
+
+                                if ((stopIndex - index) > length)
+                                    exprState.Length = length;
+                                else
+                                    exprState.Length = (stopIndex - index);
+
+                                exprState.Next = index + exprState.Length;
+                                parseState.Terminator = exprState.Next;
+
+                                return ReturnCode.Ok;
+                            }
+                        }
+#endif
+
                         if (ScriptOps.HasFlags(interpreter,
                                 InterpreterFlags.StrictExpressionInteger, true))
                         {
@@ -2959,9 +3065,9 @@ namespace Eagle._Components.Public
 
                     return ReturnCode.Ok;
                 }
-                else if ((length = ParseMaxDoubleLength(parseState.Text, index, end)) > 0)
+                else if ((length = ParseMaxDoubleLength(text, index, end)) > 0)
                 {
-                    string value = parseState.Text.Substring(index, length);
+                    string value = text.Substring(index, length);
 
                     //
                     // NOTE: See if we can parse and interpret the string
@@ -3006,7 +3112,7 @@ namespace Eagle._Components.Public
             exprState.Next = index + 1;
             parseState.Terminator = exprState.Next;
 
-            switch (parseState.Text[index])
+            switch (text[index])
             {
                 case Characters.OpenBracket:
                     {
@@ -3055,7 +3161,7 @@ namespace Eagle._Components.Public
                         exprState.Lexeme = Lexeme.Multiply;
 
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.Asterisk))
+                            (text[index + 1] == Characters.Asterisk))
                         {
                             exprState.Lexeme = Lexeme.Exponent;
                             exprState.Length = 2;
@@ -3089,7 +3195,7 @@ namespace Eagle._Components.Public
                         exprState.Lexeme = Lexeme.Minus;
 
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.GreaterThanSign))
+                            (text[index + 1] == Characters.GreaterThanSign))
                         {
                             exprState.Lexeme = Lexeme.BitwiseImp;
                             exprState.Length = 2;
@@ -3111,7 +3217,7 @@ namespace Eagle._Components.Public
                         exprState.Lexeme = Lexeme.Colon;
 
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.EqualSign))
+                            (text[index + 1] == Characters.EqualSign))
                         {
                             exprState.Lexeme = Lexeme.VariableAssignment;
                             exprState.Length = 2;
@@ -3128,7 +3234,7 @@ namespace Eagle._Components.Public
 
                         if ((exprState.Last - index) > 1)
                         {
-                            switch (parseState.Text[index + 1])
+                            switch (text[index + 1])
                             {
                                 case Characters.LessThanSign:
                                     {
@@ -3138,7 +3244,7 @@ namespace Eagle._Components.Public
 
                                         if ((exprState.Last - index) > 2)
                                         {
-                                            switch (parseState.Text[index + 2])
+                                            switch (text[index + 2])
                                             {
                                                 case Characters.LessThanSign:
                                                     {
@@ -3155,7 +3261,7 @@ namespace Eagle._Components.Public
                                     {
                                         if ((exprState.Last - index) > 2)
                                         {
-                                            switch (parseState.Text[index + 2])
+                                            switch (text[index + 2])
                                             {
                                                 case Characters.GreaterThanSign:
                                                     {
@@ -3176,7 +3282,7 @@ namespace Eagle._Components.Public
 
                                         if ((exprState.Last - index) > 2)
                                         {
-                                            switch (parseState.Text[index + 2])
+                                            switch (text[index + 2])
                                             {
                                                 case Characters.GreaterThanSign:
                                                     {
@@ -3202,7 +3308,7 @@ namespace Eagle._Components.Public
 
                         if ((exprState.Last - index) > 1)
                         {
-                            switch (parseState.Text[index + 1])
+                            switch (text[index + 1])
                             {
                                 case Characters.GreaterThanSign:
                                     {
@@ -3212,7 +3318,7 @@ namespace Eagle._Components.Public
 
                                         if ((exprState.Last - index) > 2)
                                         {
-                                            switch (parseState.Text[index + 2])
+                                            switch (text[index + 2])
                                             {
                                                 case Characters.GreaterThanSign:
                                                     {
@@ -3244,14 +3350,14 @@ namespace Eagle._Components.Public
                         exprState.Lexeme = Lexeme.Unknown;
 
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.EqualSign))
+                            (text[index + 1] == Characters.EqualSign))
                         {
                             exprState.Lexeme = Lexeme.Equal;
                             exprState.Length = 2;
                             exprState.Next = index + 2;
                         }
                         else if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.GreaterThanSign))
+                            (text[index + 1] == Characters.GreaterThanSign))
                         {
                             exprState.Lexeme = Lexeme.LogicalImp;
                             exprState.Length = 2;
@@ -3267,7 +3373,7 @@ namespace Eagle._Components.Public
                         exprState.Lexeme = Lexeme.LogicalNot;
 
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.EqualSign))
+                            (text[index + 1] == Characters.EqualSign))
                         {
                             exprState.Lexeme = Lexeme.NotEqual;
                             exprState.Length = 2;
@@ -3283,7 +3389,7 @@ namespace Eagle._Components.Public
                         exprState.Lexeme = Lexeme.BitwiseAnd;
 
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.Ampersand))
+                            (text[index + 1] == Characters.Ampersand))
                         {
                             exprState.Lexeme = Lexeme.LogicalAnd;
                             exprState.Length = 2;
@@ -3299,7 +3405,7 @@ namespace Eagle._Components.Public
                         exprState.Lexeme = Lexeme.BitwiseXor;
 
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.Caret))
+                            (text[index + 1] == Characters.Caret))
                         {
                             exprState.Lexeme = Lexeme.LogicalXor;
                             exprState.Length = 2;
@@ -3315,7 +3421,7 @@ namespace Eagle._Components.Public
                         exprState.Lexeme = Lexeme.BitwiseOr;
 
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.Pipe))
+                            (text[index + 1] == Characters.Pipe))
                         {
                             exprState.Lexeme = Lexeme.LogicalOr;
                             exprState.Length = 2;
@@ -3335,14 +3441,14 @@ namespace Eagle._Components.Public
                 case Characters.e:
                     {
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.q))
+                            (text[index + 1] == Characters.q))
                         {
                             //
                             // BUGFIX: Fix "eq*()" functions being detected as the
                             //         "eq" operator.
                             //
                             if (((exprState.Last - index) <= 2) ||
-                                !Parser.IsIdentifier(parseState.Text[index + 2]))
+                                !Parser.IsIdentifier(text[index + 2]))
                             {
                                 exprState.Lexeme = Lexeme.StringEqual;
                                 exprState.Length = 2;
@@ -3368,14 +3474,14 @@ namespace Eagle._Components.Public
                 case Characters.g:
                     {
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.e))
+                            (text[index + 1] == Characters.e))
                         {
                             //
                             // NOTE: Fix "ge*()" functions being detected as the
                             //       "ge" operator.
                             //
                             if (((exprState.Last - index) <= 2) ||
-                                !Parser.IsIdentifier(parseState.Text[index + 2]))
+                                !Parser.IsIdentifier(text[index + 2]))
                             {
                                 exprState.Lexeme = Lexeme.StringGreaterThanOrEqualTo;
                                 exprState.Length = 2;
@@ -3387,14 +3493,14 @@ namespace Eagle._Components.Public
                             }
                         }
                         else if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.t))
+                            (text[index + 1] == Characters.t))
                         {
                             //
                             // NOTE: Fix "gt*()" functions being detected as the
                             //       "gt" operator.
                             //
                             if (((exprState.Last - index) <= 2) ||
-                                !Parser.IsIdentifier(parseState.Text[index + 2]))
+                                !Parser.IsIdentifier(text[index + 2]))
                             {
                                 exprState.Lexeme = Lexeme.StringGreaterThan;
                                 exprState.Length = 2;
@@ -3420,14 +3526,14 @@ namespace Eagle._Components.Public
                 case Characters.i:
                     {
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.n))
+                            (text[index + 1] == Characters.n))
                         {
                             //
                             // BUGFIX: Fix "in*()" functions being detected as the
                             //         "in" operator.
                             //
                             if (((exprState.Last - index) <= 2) ||
-                                !Parser.IsIdentifier(parseState.Text[index + 2]))
+                                !Parser.IsIdentifier(text[index + 2]))
                             {
                                 exprState.Lexeme = Lexeme.ListIn;
                                 exprState.Length = 2;
@@ -3453,14 +3559,14 @@ namespace Eagle._Components.Public
                 case Characters.l:
                     {
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.e))
+                            (text[index + 1] == Characters.e))
                         {
                             //
                             // NOTE: Fix "le*()" functions being detected as the
                             //       "le" operator.
                             //
                             if (((exprState.Last - index) <= 2) ||
-                                !Parser.IsIdentifier(parseState.Text[index + 2]))
+                                !Parser.IsIdentifier(text[index + 2]))
                             {
                                 exprState.Lexeme = Lexeme.StringLessThanOrEqualTo;
                                 exprState.Length = 2;
@@ -3472,14 +3578,14 @@ namespace Eagle._Components.Public
                             }
                         }
                         else if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.t))
+                            (text[index + 1] == Characters.t))
                         {
                             //
                             // NOTE: Fix "lt*()" functions being detected as the
                             //       "lt" operator.
                             //
                             if (((exprState.Last - index) <= 2) ||
-                                !Parser.IsIdentifier(parseState.Text[index + 2]))
+                                !Parser.IsIdentifier(text[index + 2]))
                             {
                                 exprState.Lexeme = Lexeme.StringLessThan;
                                 exprState.Length = 2;
@@ -3505,14 +3611,14 @@ namespace Eagle._Components.Public
                 case Characters.n:
                     {
                         if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.e))
+                            (text[index + 1] == Characters.e))
                         {
                             //
                             // BUGFIX: Fix "ne*()" functions being detected as the
                             //         "ne" operator.
                             //
                             if (((exprState.Last - index) <= 2) ||
-                                !Parser.IsIdentifier(parseState.Text[index + 2]))
+                                !Parser.IsIdentifier(text[index + 2]))
                             {
                                 exprState.Lexeme = Lexeme.StringNotEqual;
                                 exprState.Length = 2;
@@ -3524,14 +3630,14 @@ namespace Eagle._Components.Public
                             }
                         }
                         else if (((exprState.Last - index) > 1) &&
-                            (parseState.Text[index + 1] == Characters.i))
+                            (text[index + 1] == Characters.i))
                         {
                             //
                             // BUGFIX: Fix "ni*()" functions being detected as the
                             //         "ni" operator.
                             //
                             if (((exprState.Last - index) <= 2) ||
-                                !Parser.IsIdentifier(parseState.Text[index + 2]))
+                                !Parser.IsIdentifier(text[index + 2]))
                             {
                                 exprState.Lexeme = Lexeme.ListNotIn;
                                 exprState.Length = 2;
@@ -3564,7 +3670,7 @@ namespace Eagle._Components.Public
                 checkIdentifierName:
 #endif
                     {
-                        char character = parseState.Text[index];
+                        char character = text[index];
 
                         if (Char.IsLetter(character))
                         {
@@ -3572,7 +3678,7 @@ namespace Eagle._Components.Public
                             exprState.Lexeme = Lexeme.IdentifierName;
 
                             while ((length > 0) &&
-                                   Parser.IsIdentifier(parseState.Text[index]))
+                                   Parser.IsIdentifier(text[index]))
                             {
                                 index++; length--;
                             }
@@ -3871,6 +3977,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
+            string text = parseState.Text;
             TokenList tokens = parseState.Tokens;
 
             if (tokens == null)
@@ -3979,7 +4086,7 @@ namespace Eagle._Components.Public
                     }
                 case TokenType.Text:
                     {
-                        value = Argument.FromString(parseState.Text.Substring(
+                        value = Argument.FromString(text.Substring(
                             token.Start, token.Length));
 
                         index++;
@@ -4003,7 +4110,7 @@ namespace Eagle._Components.Public
                         char? character2 = null;
 
                         Parser.ParseBackslash(
-                            parseState.Text, token.Start, token.Length,
+                            text, token.Start, token.Length,
                             ref character1, ref character2);
 
                         value = Argument.FromCharacters(character1, character2);
@@ -4028,7 +4135,7 @@ namespace Eagle._Components.Public
                         Result result = value;
 
                         code = Engine.EvaluateScript(
-                            interpreter, parseState.Text, token.Start + 1,
+                            interpreter, text, token.Start + 1,
                             token.Length - 2, engineFlags, substitutionFlags,
                             eventFlags, expressionFlags,
 #if RESULT_LIMITS
@@ -4123,7 +4230,7 @@ namespace Eagle._Components.Public
                 case TokenType.Operator:
                 case TokenType.Function:
                     {
-                        string name = parseState.Text.Substring(
+                        string name = text.Substring(
                             token.Start, token.Length);
 
                         IOperator @operator = null;

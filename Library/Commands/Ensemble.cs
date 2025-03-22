@@ -248,7 +248,7 @@ namespace Eagle._Commands
             if (interpreter != null)
             {
                 /* IGNORED */
-                interpreter.ClearArgumentCache();
+                interpreter.MaybeClearArgumentCache(name);
             }
 #endif
 

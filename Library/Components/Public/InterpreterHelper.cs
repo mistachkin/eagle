@@ -56,16 +56,8 @@ namespace Eagle._Components.Public
             ref Result result
             )
         {
-            interpreter = Interpreter.Create(
+            CreateInterpreterOrTrace(
                 interpreterSettings, strict, ref result);
-
-            //
-            // HACK: The "ref" result parameter for this constructor
-            //       is not honored when invoked using remoting from
-            //       another AppDomain; therefore, save the creation
-            //       result from Interpreter.Create now.
-            //
-            SaveResult(result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -94,7 +86,7 @@ namespace Eagle._Components.Public
             ref Result result
             )
         {
-            interpreter = Interpreter.Create(
+            CreateInterpreterOrTrace(
                 ruleSet, args, createFlags, hostCreateFlags,
                 initializeFlags, scriptFlags, interpreterFlags,
                 interpreterTestFlags, pluginFlags,
@@ -102,6 +94,37 @@ namespace Eagle._Components.Public
                 findFlags, loadFlags,
 #endif
                 text, libraryPath, autoPathList, ref result);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Methods
+        private void MaybeTraceCreationError(
+            Interpreter interpreter, /* in: OPTIONAL */
+            Result result            /* in: OPTIONAL */
+            )
+        {
+            if (interpreter != null)
+                return;
+
+            TraceOps.DebugTrace(String.Format(
+                "MaybeTraceCreationError: result = {0}",
+                FormatOps.WrapOrNull(result)),
+                typeof(InterpreterHelper).Name,
+                TracePriority.RemotingError);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void CreateInterpreterOrTrace()
+        {
+            Result result = null;
+
+            interpreter = Interpreter.Create(
+                null, false, ref result);
+
+            MaybeTraceCreationError(interpreter, result);
 
             //
             // HACK: The "ref" result parameter for this constructor
@@ -111,26 +134,61 @@ namespace Eagle._Components.Public
             //
             SaveResult(result);
         }
-        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Private Methods
-        private void CreateInterpreterOrTrace()
+        private void CreateInterpreterOrTrace(
+            InterpreterSettings interpreterSettings,
+            bool strict,
+            ref Result result
+            )
         {
-            Result result = null;
-
             interpreter = Interpreter.Create(
-                null, false, ref result);
+                interpreterSettings, strict, ref result);
 
-            if (interpreter == null)
-            {
-                TraceOps.DebugTrace(String.Format(
-                    "CreateInterpreterOrTrace: result = {0}",
-                    FormatOps.WrapOrNull(result)),
-                    typeof(InterpreterHelper).Name,
-                    TracePriority.RemotingError);
-            }
+            MaybeTraceCreationError(interpreter, result);
+
+            //
+            // HACK: The "ref" result parameter for this constructor
+            //       is not honored when invoked using remoting from
+            //       another AppDomain; therefore, save the creation
+            //       result from Interpreter.Create now.
+            //
+            SaveResult(result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void CreateInterpreterOrTrace(
+            IRuleSet ruleSet,
+            IEnumerable<string> args,
+            CreateFlags createFlags,
+            HostCreateFlags hostCreateFlags,
+            InitializeFlags initializeFlags,
+            ScriptFlags scriptFlags,
+            InterpreterFlags interpreterFlags,
+            InterpreterTestFlags interpreterTestFlags,
+            PluginFlags pluginFlags,
+#if NATIVE && TCL
+            FindFlags findFlags,
+            LoadFlags loadFlags,
+#endif
+            string text,
+            string libraryPath,
+            StringList autoPathList,
+            ref Result result
+            )
+        {
+            interpreter = Interpreter.Create(
+                ruleSet, args, createFlags, hostCreateFlags,
+                initializeFlags, scriptFlags, interpreterFlags,
+                interpreterTestFlags, pluginFlags,
+#if NATIVE && TCL
+                findFlags, loadFlags,
+#endif
+                text, libraryPath, autoPathList, ref result);
+
+            MaybeTraceCreationError(interpreter, result);
 
             //
             // HACK: The "ref" result parameter for this constructor

@@ -11,8 +11,18 @@
 
 using System;
 using System.Globalization;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Public;
+
+#if NET_40
+using Eagle._Constants;
+#endif
+
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
@@ -22,6 +32,34 @@ namespace Eagle._Components.Private
     [ObjectId("9cf2e8f7-39ea-4fa6-8799-c0d75d5794c5")]
     internal static class NumberOps
     {
+        #region Private Constants
+#if NET_40
+        private static readonly BigInteger MinimumDecimal =
+            (BigInteger)decimal.MinValue;
+
+        private static readonly BigInteger MaximumDecimal =
+            (BigInteger)decimal.MaxValue;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly BigInteger MinimumSingle =
+            (BigInteger)Math.Truncate((double)float.MinValue);
+
+        private static readonly BigInteger MaximumSingle =
+            (BigInteger)Math.Truncate((double)float.MaxValue);
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly BigInteger MinimumDouble =
+            (BigInteger)Math.Truncate((double)double.MinValue);
+
+        private static readonly BigInteger MaximumDouble =
+            (BigInteger)Math.Truncate((double)double.MaxValue);
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Static Data
         private static readonly object syncRoot = new object();
         private static TypeTypeCodeDictionary types;
@@ -63,6 +101,11 @@ namespace Eagle._Components.Private
             types[typeof(MatchMode)] = TypeCode.Empty;
             types[typeof(MidpointRounding)] = TypeCode.Empty;
             types[typeof(decimal)] = TypeCode.Decimal;
+
+#if NET_40
+            types[typeof(BigInteger)] = _TypeCode.BigInteger;
+#endif
+
             types[typeof(float)] = TypeCode.Single;
             types[typeof(double)] = TypeCode.Double;
         }
@@ -143,6 +186,75 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static TypeCode GetTypeCode(
+            object value /* in */
+            )
+        {
+#if NET_40
+            if (value is BigInteger)
+                return _TypeCode.BigInteger;
+#endif
+
+            return Convert.GetTypeCode(value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static bool IsBigIntegerExponent(
+            Lexeme lexeme,      /* in */
+            TypeCode typeCode1, /* in */
+            TypeCode? typeCode2 /* in */
+            )
+        {
+            if ((lexeme == Lexeme.Exponent) &&
+                (typeCode1 == _TypeCode.BigInteger) &&
+                ((typeCode2 == null) ||
+                ((TypeCode)typeCode2 == TypeCode.Int32)))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int GetRotateBits(
+            int? bits /* in: OPTIONAL */
+            )
+        {
+            if (bits != null)
+            {
+                int localBits = (int)bits;
+
+                if (localBits != 0)
+                    return localBits;
+            }
+
+            return ConversionOps.LongBits; // TODO: Good default?
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int? GetRotateBits(
+            Interpreter interpreter /* in: OPTIONAL */
+            )
+        {
+#if NET_40
+            if (interpreter != null)
+            {
+                return GetRotateBits(
+                    interpreter.InternalBigIntegerRotateBits);
+            }
+#endif
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static TypeList GetTypes()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -216,6 +328,13 @@ namespace Eagle._Components.Private
                 value = (bool)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToBoolean(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -248,6 +367,13 @@ namespace Eagle._Components.Private
                 value = (sbyte)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToSignedByte(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -280,6 +406,13 @@ namespace Eagle._Components.Private
                 value = (byte)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToByte(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -312,6 +445,13 @@ namespace Eagle._Components.Private
                 value = (short)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToNarrowInteger(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -344,6 +484,13 @@ namespace Eagle._Components.Private
                 value = (ushort)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToUnsignedNarrowInteger(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -376,6 +523,13 @@ namespace Eagle._Components.Private
                 value = (char)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToCharacter(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -408,6 +562,13 @@ namespace Eagle._Components.Private
                 value = (int)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToInteger(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -440,6 +601,13 @@ namespace Eagle._Components.Private
                 value = (uint)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToUnsignedInteger(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -472,6 +640,13 @@ namespace Eagle._Components.Private
                 value = (long)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToWideInteger(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -504,6 +679,13 @@ namespace Eagle._Components.Private
                 value = (ulong)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToUnsignedWideInteger(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -632,6 +814,13 @@ namespace Eagle._Components.Private
                 value = (decimal)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToDecimal(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -645,6 +834,178 @@ namespace Eagle._Components.Private
 
             return false;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static bool ToBigInteger(
+            IGetValue getValue,      /* in */
+            CultureInfo cultureInfo, /* in */
+            ref BigInteger value     /* out */
+            )
+        {
+            object objectValue;
+
+            if (!CanConvert(getValue, out objectValue))
+                return false;
+
+            if (objectValue is BigInteger)
+            {
+                value = (BigInteger)objectValue;
+                return true;
+            }
+            else
+            {
+                switch (GetTypeCode(objectValue))
+                {
+                    case TypeCode.Boolean:
+                        {
+                            if (objectValue is bool)
+                            {
+                                value = new BigInteger(
+                                    (int)((bool)objectValue ? 1 : 0));
+
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.Char: /* RAW: UInt16 */
+                        {
+                            if (objectValue is char)
+                            {
+                                value = new BigInteger(
+                                    (uint)(char)objectValue);
+
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.SByte:
+                        {
+                            if (objectValue is sbyte)
+                            {
+                                value = new BigInteger(
+                                    (int)(sbyte)objectValue);
+
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.Byte:
+                        {
+                            if (objectValue is byte)
+                            {
+                                value = new BigInteger(
+                                    (uint)(byte)objectValue);
+
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.Int16:
+                        {
+                            if (objectValue is short)
+                            {
+                                value = new BigInteger(
+                                    (int)(short)objectValue);
+
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.UInt16:
+                        {
+                            if (objectValue is ushort)
+                            {
+                                value = new BigInteger(
+                                    (uint)(ushort)objectValue);
+
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.Int32:
+                        {
+                            if (objectValue is int)
+                            {
+                                value = new BigInteger((int)objectValue);
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.UInt32:
+                        {
+                            if (objectValue is uint)
+                            {
+                                value = new BigInteger((uint)objectValue);
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.Int64:
+                        {
+                            if (objectValue is long)
+                            {
+                                value = new BigInteger((long)objectValue);
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.UInt64:
+                        {
+                            if (objectValue is ulong)
+                            {
+                                value = new BigInteger((ulong)objectValue);
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.Single:
+                        {
+                            if (objectValue is float)
+                            {
+                                value = new BigInteger((float)objectValue);
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.Double:
+                        {
+                            if (objectValue is double)
+                            {
+                                value = new BigInteger((double)objectValue);
+                                return true;
+                            }
+
+                            break;
+                        }
+                    case TypeCode.Decimal:
+                        {
+                            if (objectValue is decimal)
+                            {
+                                value = new BigInteger((decimal)objectValue);
+                                return true;
+                            }
+
+                            break;
+                        }
+                }
+            }
+
+            return false;
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -664,6 +1025,13 @@ namespace Eagle._Components.Private
                 value = (float)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToSingle(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -696,6 +1064,13 @@ namespace Eagle._Components.Private
                 value = (double)objectValue;
                 return true;
             }
+#if NET_40
+            else if (objectValue is BigInteger)
+            {
+                return ToDouble(
+                    (BigInteger)objectValue, cultureInfo, ref value);
+            }
+#endif
             else
             {
                 IConvertible convertible = objectValue as IConvertible;
@@ -709,6 +1084,236 @@ namespace Eagle._Components.Private
 
             return false;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static bool ToBoolean(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref bool value           /* out */
+            )
+        {
+            value = (bigInteger != BigInteger.Zero);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToSignedByte(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref sbyte value          /* out */
+            )
+        {
+            if ((bigInteger >= sbyte.MinValue) &&
+                (bigInteger <= sbyte.MaxValue))
+            {
+                value = (sbyte)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToByte(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref byte value           /* out */
+            )
+        {
+            if ((bigInteger >= byte.MinValue) &&
+                (bigInteger <= byte.MaxValue))
+            {
+                value = (byte)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToNarrowInteger(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref short value          /* out */
+            )
+        {
+            if ((bigInteger >= short.MinValue) &&
+                (bigInteger <= short.MaxValue))
+            {
+                value = (short)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToUnsignedNarrowInteger(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref ushort value         /* out */
+            )
+        {
+            if ((bigInteger >= ushort.MinValue) &&
+                (bigInteger <= ushort.MaxValue))
+            {
+                value = (ushort)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToCharacter(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref char value           /* out */
+            )
+        {
+            if ((bigInteger >= char.MinValue) &&
+                (bigInteger <= char.MaxValue))
+            {
+                value = (char)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToInteger(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref int value            /* out */
+            )
+        {
+            if ((bigInteger >= int.MinValue) &&
+                (bigInteger <= int.MaxValue))
+            {
+                value = (int)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToUnsignedInteger(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref uint value           /* out */
+            )
+        {
+            if ((bigInteger >= uint.MinValue) &&
+                (bigInteger <= uint.MaxValue))
+            {
+                value = (uint)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToWideInteger(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref long value           /* out */
+            )
+        {
+            if ((bigInteger >= long.MinValue) &&
+                (bigInteger <= long.MaxValue))
+            {
+                value = (long)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToUnsignedWideInteger(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref ulong value          /* out */
+            )
+        {
+            if ((bigInteger >= ulong.MinValue) &&
+                (bigInteger <= ulong.MaxValue))
+            {
+                value = (ulong)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToDecimal(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref decimal value        /* out */
+            )
+        {
+            if ((bigInteger >= MinimumDecimal) &&
+                (bigInteger <= MaximumDecimal))
+            {
+                value = (decimal)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToSingle(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref float value          /* out */
+            )
+        {
+            if ((bigInteger >= MinimumSingle) &&
+                (bigInteger <= MaximumSingle))
+            {
+                value = (float)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ToDouble(
+            BigInteger bigInteger,   /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
+            ref double value         /* out */
+            )
+        {
+            if ((bigInteger >= MinimumDouble) &&
+                (bigInteger <= MaximumDouble))
+            {
+                value = (double)bigInteger;
+                return true;
+            }
+
+            return false;
+        }
+#endif
         #endregion
     }
 }

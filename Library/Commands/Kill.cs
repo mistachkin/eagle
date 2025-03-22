@@ -55,6 +55,8 @@ namespace Eagle._Commands
                             new IOption[] {
                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-all", null),   // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-force", null), // simple switch
+                            new Option(null, OptionFlags.NoCase, Index.Invalid, Index.Invalid, "-whatIf", null), // simple switch
+                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-verbose", null), // simple switch
                             Option.CreateEndOfOptions()
                         });
 
@@ -83,10 +85,20 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-force"))
                                     force = true;
 
+                                bool whatIf = false;
+
+                                if (options.IsPresent("-whatIf"))
+                                    whatIf = true;
+
+                                bool verbose = false;
+
+                                if (options.IsPresent("-verbose"))
+                                    verbose = true;
+
                                 code = ProcessOps.KillProcess(
                                     interpreter, arguments[argumentIndex],
-                                    interpreter.InternalCultureInfo, all,
-                                    self, force, ref result);
+                                    interpreter.InternalCultureInfo, all, self,
+                                    force, whatIf, verbose, ref result);
                             }
                             else
                             {
@@ -98,7 +110,7 @@ namespace Eagle._Commands
                                 }
                                 else
                                 {
-                                    result = "wrong # args: should be \"kill ?-all? ?-force? ?--? process\"";
+                                    result = "wrong # args: should be \"kill ?options? process\"";
                                 }
 
                                 code = ReturnCode.Error;
@@ -107,7 +119,7 @@ namespace Eagle._Commands
                     }
                     else
                     {
-                        result = "wrong # args: should be \"kill ?-all? ?-force? ?--? process\"";
+                        result = "wrong # args: should be \"kill ?options? process\"";
                         code = ReturnCode.Error;
                     }
                 }

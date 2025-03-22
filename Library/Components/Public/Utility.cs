@@ -6424,6 +6424,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static DateTime MaybeTruncateDateTime(
+            DateTime? value,
+            long seconds
+            )
+        {
+            return TimeOps.MaybeTruncate(value, seconds);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region .NET Core Wrapper Methods
         //
         // HACK: These wrapper methods are primarily for use by the test

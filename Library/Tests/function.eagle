@@ -41,18 +41,24 @@ proc restorePrecision {} {
 
 runTest {test function-1.1 {add/use/remove custom math functions} -body {
   set interp [object invoke Interpreter GetActive]
-  set x [object invoke -alias Eagle._Tests.Default TestAddFunction $interp]
+  set tokens null
+
+  set x [object invoke -alias \
+      Eagle._Tests.Default TestAddFunctions $interp null tokens]
 
   list [string map [list \r\n \n] [getStringFromObjectHandle $x]] \
     [expr {min(1,2,3)}] [expr {bar(1,2,3)}] [expr {1 eq 1}] \
     [expr {"1"eq"1"}] [expr {1 eq 2}] [expr {"1"eq"2"}] [expr {eqq(1,2,3)}]
 } -cleanup {
-  set y [object invoke -alias Eagle._Tests.Default TestRemoveFunction $interp]
-  unset x y interp
+  set y [object invoke -alias \
+      Eagle._Tests.Default TestRemoveFunctions $interp]
+
+  unset x y interp tokens
 } -constraints {eagle command.object compile.TEST\
-Eagle._Tests.Default.TestAddFunction Eagle._Tests.Default.TestRemoveFunction} \
--match regexp -result {(?s)^\{\{System\.MissingMethodException: .*\} Ok\
-\{can't add "eq": operator already exists\} Ok\} 1 1 True True False False 1$}}
+Eagle._Tests.Default.TestAddFunctions\
+Eagle._Tests.Default.TestRemoveFunctions} -match regexp -result {(?s)^\{Error\
+\{System\.MissingMethodException: .*\} Ok Error \{can't add "eq": operator\
+already exists\} Ok\} 1 1 True True False False 1$}}
 
 ###############################################################################
 
@@ -167,10 +173,11 @@ runTest {test function-2.10 {datetime function} -body {
 ###############################################################################
 
 runTest {test function-2.11 {decimal function} -body {
-  list [expr {decimal("-79228162514264337593543950335")}] [expr {decimal(0)}] \
+  list [expr {decimal("-79228162514264337593543950335")}] \
+      [expr {decimal(0)}] \
       [expr {decimal("79228162514264337593543950335")}]
-} -constraints {eagle} -result {-79228162514264337593543950335 0\
-79228162514264337593543950335}}
+} -constraints {eagle} -result \
+{-79228162514264337593543950335 0 79228162514264337593543950335}}
 
 ###############################################################################
 
@@ -570,12 +577,37 @@ runTest {test function-2.47 {wide function} -body {
 
 ###############################################################################
 
-proc fixMono { str } {
+runTest {test function-2.48 {entier function} -body {
+  list [expr {entier(3155378975999999999)}] [expr {entier(2.1)}] \
+      [expr {entier(2.2)}] [expr {entier(2.4)}] [expr {entier(2.5)}] \
+      [expr {entier(2.9)}] [expr {entier(True)}]
+} -constraints {eagle tip237} -result {3155378975999999999 2 2 2 2 2 1}}
+
+###############################################################################
+
+proc fixForFunction31 { str } {
+  if {[haveConstraint tip237]} then {
+    set entier [appendArgs " " [string trim {
+      {entier () 1 {too few arguments for math function "entier"}}\
+      {entier (1) 0 1}\
+      {entier (1,1) 1 {too many arguments for math function "entier"}}\
+      {entier (1,1,1) 1 {too many arguments for math function "entier"}}\
+      {entier (1,1,1,1) 1 {too many arguments for math function "entier"}}
+    }]]
+  } else {
+    set entier {}
+  }
+
   #
-  # NOTE: Purposely strict, for now.
+  # NOTE: Purposely strict Mono handling, for now.
   #
-  return [expr {[isMono] ? \
-      [string map [list "0.248668584157093" "0.366854591000292"] $str] : $str}]
+  set map [list %entier% $entier]
+
+  if {[isMono]} then {
+    lappend map 0.248668584157093 0.366854591000292
+  }
+
+  return [string map $map $str]
 }
 
 ###############################################################################
@@ -614,7 +646,7 @@ runTest {test function-3.1 {function argument counts} -setup {
 } -cleanup {
   unset -nocomplain funcs results func i args code result
 } -constraints [fixConstraints {eagle dotNetOrDotNetCore !ieee754r2008}] \
--result [fixMono \
+-result [fixForFunction31 \
 {{abs () 1 {too few arguments for math function "abs"}}\
 {abs (1) 0 1}\
 {abs (1,1) 1 {too many arguments for math function "abs"}}\
@@ -679,7 +711,7 @@ runTest {test function-3.1 {function argument counts} -setup {
 {e (1) 1 {too many arguments for math function "e"}}\
 {e (1,1) 1 {too many arguments for math function "e"}}\
 {e (1,1,1) 1 {too many arguments for math function "e"}}\
-{e (1,1,1,1) 1 {too many arguments for math function "e"}}\
+{e (1,1,1,1) 1 {too many arguments for math function "e"}}%entier%\
 {epsilon () 0 4.94065645841247E-324}\
 {epsilon (1) 1 {too many arguments for math function "epsilon"}}\
 {epsilon (1,1) 1 {too many arguments for math function "epsilon"}}\
@@ -883,11 +915,11 @@ runTest {test function-3.1 {function argument counts} -setup {
 
 ###############################################################################
 
-rename fixMono ""
+rename fixForFunction31 ""
 
 ###############################################################################
 
-runTest {test function-4.1 {function groups} -body {
+runTest {test function-4.1.1 {function groups} -body {
   set result [list]
 
   foreach name [lsort [info functions -safe -unsafe]] {
@@ -905,20 +937,55 @@ runTest {test function-4.1 {function groups} -body {
   set result
 } -cleanup {
   unset -nocomplain code error token function name result
-} -constraints {eagle command.object} -result {{abs component} {acos\
+} -constraints [fixConstraints {eagle command.object !tip237}] -result {{abs\
+component} {acos trigonometric} {asin trigonometric} {atan trigonometric}\
+{atan2 trigonometric} {bool conversion} {ceil rounding} {cos trigonometric}\
+{cosh trigonometric} {datetime conversion} {decimal conversion} {double\
+conversion} {e constant} {epsilon constant} {exp exponential} {flags control}\
+{floor rounding} {fmod congruence} {hypot trigonometric} {int conversion}\
+{isfinite indicator} {isinf indicator} {isnan indicator} {isnormal indicator}\
+{issubnormal indicator} {isunordered indicator} {list conversion} {log\
+logarithmic} {log10 logarithmic} {log2 logarithmic} {logx logarithmic} {max\
+aggregate} {min aggregate} {nop nop} {pi constant} {pow power} {rand random}\
+{random random} {randstr random} {round rounding} {round2 rounding} {round3\
+rounding} {sign component} {sin trigonometric} {sinh trigonometric} {sqrt\
+power} {srand random} {tan trigonometric} {tanh trigonometric} {timespan\
+conversion} {truncate rounding} {typeof conversion} {wide conversion}}}
+
+###############################################################################
+
+runTest {test function-4.1.2 {function groups} -body {
+  set result [list]
+
+  foreach name [lsort [info functions -safe -unsafe]] {
+    set function null; set token 0; set error null
+
+    set code [object invoke Interpreter.GetActive GetFunction \
+        $name NoWrapper token function error]
+
+    lappend result [list $name \
+        [expr {$code eq "Ok" ? [object invoke $function Group] : "error"}]]
+
+    unset -nocomplain code error token function
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain code error token function name result
+} -constraints {eagle command.object tip237} -result {{abs component} {acos\
 trigonometric} {asin trigonometric} {atan trigonometric} {atan2 trigonometric}\
 {bool conversion} {ceil rounding} {cos trigonometric} {cosh trigonometric}\
 {datetime conversion} {decimal conversion} {double conversion} {e constant}\
-{epsilon constant} {exp exponential} {flags control} {floor rounding} {fmod\
-congruence} {hypot trigonometric} {int conversion} {isfinite indicator} {isinf\
-indicator} {isnan indicator} {isnormal indicator} {issubnormal indicator}\
-{isunordered indicator} {list conversion} {log logarithmic} {log10 logarithmic}\
-{log2 logarithmic} {logx logarithmic} {max aggregate} {min aggregate} {nop nop}\
-{pi constant} {pow power} {rand random} {random random} {randstr random} {round\
-rounding} {round2 rounding} {round3 rounding} {sign component} {sin\
-trigonometric} {sinh trigonometric} {sqrt power} {srand random} {tan\
-trigonometric} {tanh trigonometric} {timespan conversion} {truncate rounding}\
-{typeof conversion} {wide conversion}}}
+{entier conversion} {epsilon constant} {exp exponential} {flags control} {floor\
+rounding} {fmod congruence} {hypot trigonometric} {int conversion} {isfinite\
+indicator} {isinf indicator} {isnan indicator} {isnormal indicator}\
+{issubnormal indicator} {isunordered indicator} {list conversion} {log\
+logarithmic} {log10 logarithmic} {log2 logarithmic} {logx logarithmic} {max\
+aggregate} {min aggregate} {nop nop} {pi constant} {pow power} {rand random}\
+{random random} {randstr random} {round rounding} {round2 rounding} {round3\
+rounding} {sign component} {sin trigonometric} {sinh trigonometric} {sqrt\
+power} {srand random} {tan trigonometric} {tanh trigonometric} {timespan\
+conversion} {truncate rounding} {typeof conversion} {wide conversion}}}
 
 ###############################################################################
 

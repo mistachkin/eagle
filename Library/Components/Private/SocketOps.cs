@@ -1558,6 +1558,7 @@ namespace Eagle._Components.Private
             string hostNameOrAddress,         /* in */
             string portNameOrNumber,          /* in */
             CultureInfo cultureInfo,          /* in: OPTIONAL */
+            bool? keepAlive,                  /* in: OPTIONAL */
             ref AddressFamily? addressFamily, /* in, out: OPTIONAL */
             ref Result error                  /* out */
             )
@@ -1566,14 +1567,15 @@ namespace Eagle._Components.Private
                 IpFlags.AllowAnyIp | IpFlags.AllowAnyPort;
 
             IPAddress address = GetIpAddress(
-                hostNameOrAddress, addressFamily, null, null, ipFlags,
-                ref error);
+                hostNameOrAddress, addressFamily, null, null,
+                ipFlags, ref error);
 
             if (address == null)
                 return null;
 
             int port = GetPortNumber(
-                portNameOrNumber, cultureInfo, ipFlags, ref error);
+                portNameOrNumber, cultureInfo, ipFlags,
+                ref error);
 
             if (port == Port.Invalid)
                 return null;
@@ -1581,7 +1583,30 @@ namespace Eagle._Components.Private
             if (addressFamily == null)
                 addressFamily = address.AddressFamily;
 
-            return new TcpClient(new IPEndPoint(address, port));
+            TcpClient client = new TcpClient(
+                new IPEndPoint(address, port));
+
+            if (keepAlive != null)
+            {
+                Socket socket = client.Client; /* throw */
+
+                if (socket == null)
+                {
+                    error = String.Format(
+                        "invalid client socket for {0}:{1}",
+                        FormatOps.MaybeNull(address), port);
+
+                    return null;
+                }
+
+                /* NO RESULT */
+                socket.SetSocketOption(
+                    SocketOptionLevel.Socket,
+                    SocketOptionName.KeepAlive,
+                    (bool)keepAlive);
+            }
+
+            return client;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2093,6 +2118,17 @@ namespace Eagle._Components.Private
                                 clientData.ReturnCode = ReturnCode.Error;
 
                                 return;
+                            }
+
+                            bool? keepAlive = clientData.KeepAlive;
+
+                            if (keepAlive != null)
+                            {
+                                /* NO RESULT */
+                                socket.SetSocketOption(
+                                    SocketOptionLevel.Socket,
+                                    SocketOptionName.KeepAlive,
+                                    (bool)keepAlive);
                             }
 
                             bool channelAdded = false;

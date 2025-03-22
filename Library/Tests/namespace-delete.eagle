@@ -767,4 +767,143 @@ runTest {test namespace-99.1005 {rename hidden without namespaces} -setup {
 
 ###############################################################################
 
+runTest {test namespace-99.2023 {upvar to missing namespace} -setup {
+  if {[isEagle]} then {
+    set i [interp create -namespaces]
+  } else {
+    set i [interp create]
+  }
+
+  interp eval $i {
+    proc globalFoo1 { varName } {
+      upvar 1 $varName array
+
+      return [array names array]
+    }
+  }
+} -body {
+  interp eval $i {globalFoo1 ::foo::var1}
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {namespaces.available} -returnCodes 1 -result [expr {[isEagle] \
+? {namespace "::foo" not found} : {can't access "::foo::var1": parent namespace\
+doesn't exist}}]}
+
+###############################################################################
+
+runTest {test namespace-99.2024 {upvar to undefined namspace var} -setup {
+  if {[isEagle]} then {
+    set i [interp create -namespaces]
+  } else {
+    set i [interp create]
+  }
+
+  interp eval $i {
+    namespace eval ::foo {}
+
+    proc globalFoo1 { varName } {
+      upvar 1 $varName array
+
+      return [array names array]
+    }
+  }
+} -body {
+  list [interp eval $i {globalFoo1 ::foo::var1}] \
+      [interp eval $i {globalFoo1 ::foo::var1}]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {namespaces.available} -result {{} {}}}
+
+###############################################################################
+
+runTest {test namespace-99.2025 {upvar to namspace var} -setup {
+  if {[isEagle]} then {
+    set i [interp create -namespaces]
+  } else {
+    set i [interp create]
+  }
+
+  interp eval $i {
+    namespace eval ::foo {
+      proc foo1 {} {
+        variable var1
+
+        if {[info exists var1(0)]} then {
+          incr var1(0)
+        } else {
+          set var1(0) 0
+        }
+      }
+    }
+
+    proc globalFoo1 { varName } {
+      upvar 1 $varName array
+
+      return [array names array]
+    }
+  }
+} -body {
+  list [interp eval $i {globalFoo1 ::foo::var1}] \
+      [interp eval $i {globalFoo1 ::foo::var1}] \
+      [interp eval $i {::foo::foo1}] \
+      [interp eval $i {::foo::foo1}] \
+      [interp eval $i {globalFoo1 ::foo::var1}] \
+      [interp eval $i {globalFoo1 ::foo::var1}] \
+      [interp eval $i {::foo::foo1}] \
+      [interp eval $i {::foo::foo1}]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {namespaces.available} -result {{} {} 0 1 0 0 2 3}}
+
+###############################################################################
+
+runTest {test namespace-99.2026 {upvar to global namspace var} -setup {
+  if {[isEagle]} then {
+    set i [interp create -namespaces]
+  } else {
+    set i [interp create]
+  }
+
+  interp eval $i {
+    namespace eval ::foo {
+      proc foo1 {} {
+        global var1
+
+        if {[info exists var1(0)]} then {
+          incr var1(0)
+        } else {
+          set var1(0) 0
+        }
+      }
+    }
+
+    proc globalFoo1 { varName } {
+      upvar 1 $varName array
+
+      return [array names array]
+    }
+  }
+} -body {
+  list [interp eval $i {globalFoo1 ::var1}] \
+      [interp eval $i {globalFoo1 ::var1}] \
+      [interp eval $i {::foo::foo1}] \
+      [interp eval $i {::foo::foo1}] \
+      [interp eval $i {globalFoo1 ::var1}] \
+      [interp eval $i {globalFoo1 ::var1}] \
+      [interp eval $i {::foo::foo1}] \
+      [interp eval $i {::foo::foo1}]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {namespaces.available} -result {{} {} 0 1 0 0 2 3}}
+
+###############################################################################
+
 source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

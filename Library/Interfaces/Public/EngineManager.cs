@@ -171,6 +171,7 @@ namespace Eagle._Interfaces.Public
         ReturnCode EvaluateBundleFile(
             string fileName,
             byte[] password,
+            bool stopOnError,
             ref IClientData clientData,
             ref Result result
             );
@@ -178,6 +179,7 @@ namespace Eagle._Interfaces.Public
         ReturnCode EvaluateBundleFile(
             string fileName,
             byte[] password,
+            bool stopOnError,
             ref IClientData clientData,
             ref Result result,
             ref int errorLine
@@ -187,6 +189,7 @@ namespace Eagle._Interfaces.Public
             string fileName,
             byte[] password,
             IHaveScriptFlags haveScriptFlags,
+            bool stopOnError,
             ref IClientData clientData,
             ref Result result,
             ref int errorLine

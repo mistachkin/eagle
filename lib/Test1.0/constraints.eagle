@@ -190,6 +190,9 @@ namespace eval ::Eagle {
     #       the Mono runtime is released -OR- when one is skipped (e.g.
     #       5.6 and 5.22).
     #
+    # NOTE: As of 6.14, the Mono project is managed by the Wine project
+    #       team.
+    #
     if {[info exists ::test_well_known(monoVersions)]} then {
       return $::test_well_known(monoVersions)
     }
@@ -202,7 +205,7 @@ namespace eval ::Eagle {
           [list 4 6] [list 4 8] [list 5 0] [list 5 2] [list 5 4] [list 5 8] \
           [list 5 10] [list 5 12] [list 5 14] [list 5 16] [list 5 18] \
           [list 5 20] [list 6 0] [list 6 4] [list 6 6] [list 6 8] [list 6 10] \
-          [list 6 12]]
+          [list 6 12] [list 6 14]]
     } else {
       return [list]
     }
@@ -314,7 +317,9 @@ namespace eval ::Eagle {
     }
 
     if {$force || ![info exists ::no(tclVersions)]} then {
-      return [list [list 8 4] [list 8 5] [list 8 6] [list 8 7] [list 9 0]]
+      return [list \
+          [list 8 4] [list 8 5] [list 8 6] [list 8 7] [list 9 0] \
+          [list 9 1]]
     } else {
       return [list]
     }
@@ -2768,6 +2773,21 @@ namespace eval ::Eagle {
 
     if {![string match {bad option "-namespace": *} $error]} then {
       addConstraint tip207
+
+      tputs $channel yes\n
+    } else {
+      tputs $channel no\n
+    }
+  }
+
+  proc checkForTip237 { channel } {
+    tputs $channel "---- checking for TIP #237... "
+
+    #
+    # NOTE: Is the interpreter TIP #237 ready?
+    #
+    if {[catch {expr {entier(0)}}] == 0} then {
+      addConstraint tip237
 
       tputs $channel yes\n
     } else {
@@ -7231,18 +7251,18 @@ namespace eval ::Eagle {
         checkForTestMachine checkForTestPlatform checkForTestConfiguration \
         checkForTestNamePrefix checkForTestSuffix checkForGnuScreen \
         checkForFile checkForPathFile checkForNativeCode checkForTip127 \
-        checkForTip182 checkForTip194 checkForTip207 checkForTip241 \
-        checkForTip285 checkForTip405 checkForTip421 checkForTip426 \
-        checkForTip429 checkForTip440 checkForTip461 checkForTip463 \
-        checkForTip471 checkForTip508 checkForTip521 checkForTiming \
-        checkForPerformance checkForBigLists checkForProcessorIntensive \
-        checkForFileSystemIntensive checkForTimeIntensive checkForFullTest \
-        checkForMemoryIntensive checkForStackIntensive checkForStackSize \
-        checkForInteractive checkForInteractiveFocus \
-        checkForInteractiveCommand checkForUserInteraction \
-        checkForOfflineMode checkForNetwork maybeDownloadFromUri \
-        checkForInternet checkForTlsOk checkForCompileOption \
-        checkForBuildType checkForKnownBuildTypes \
+        checkForTip182 checkForTip194 checkForTip207 checkForTip237 \
+        checkForTip241 checkForTip285 checkForTip405 checkForTip421 \
+        checkForTip426 checkForTip429 checkForTip440 checkForTip461 \
+        checkForTip463 checkForTip471 checkForTip508 checkForTip521 \
+        checkForTiming checkForPerformance checkForBigLists \
+        checkForProcessorIntensive checkForFileSystemIntensive \
+        checkForTimeIntensive checkForFullTest checkForMemoryIntensive \
+        checkForStackIntensive checkForStackSize checkForInteractive \
+        checkForInteractiveFocus checkForInteractiveCommand \
+        checkForUserInteraction checkForOfflineMode checkForNetwork \
+        maybeDownloadFromUri checkForInternet checkForTlsOk \
+        checkForCompileOption checkForBuildType checkForKnownBuildTypes \
         checkForKnownCompileOptions] false false
 
     ###########################################################################

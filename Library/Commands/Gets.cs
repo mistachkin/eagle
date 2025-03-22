@@ -78,11 +78,16 @@ namespace Eagle._Commands
 
             OptionDictionary options = new OptionDictionary(
                 new IOption[] {
+                new Option(null, OptionFlags.Unsafe, Index.Invalid,
+                    Index.Invalid, "-usecount", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-noblock", null),
                 new Option(null, OptionFlags.None |
                     OptionFlags.MustHaveBooleanValue, Index.Invalid,
                     Index.Invalid, "-keepeol", null),
+                new Option(null, OptionFlags.None |
+                    OptionFlags.MustHaveIntegerValue, Index.Invalid,
+                    Index.Invalid, "-count", null),
                 Option.CreateEndOfOptions()
             });
 
@@ -114,6 +119,16 @@ namespace Eagle._Commands
             }
 
             IVariant value = null;
+            bool useCount = false;
+
+            if (options.IsPresent("-usecount"))
+                useCount = true;
+
+            int? count = null;
+
+            if (options.IsPresent("-count", ref value))
+                count = (int?)value.Value;
+
             bool? keepEol = null;
 
             if (options.IsPresent("-keepeol", ref value))
@@ -157,21 +172,88 @@ namespace Eagle._Commands
                     keepEndOfLineChars = (bool)keepEol;
 
                 ReturnCode code;
-                ByteList buffer = null;
+                ByteList buffer;
 
-                if (noBlock)
+            retry:
+
+                buffer = null;
+
+                if (count != null)
                 {
-                    code = channel.ReadBuffer(
-                        endOfLine, useAnyEndOfLineChar,
-                        keepEndOfLineChars, ref buffer,
-                        ref result);
+                    if (noBlock)
+                    {
+                        code = channel.ReadBuffer((int)count,
+                            endOfLine, useAnyEndOfLineChar,
+                            keepEndOfLineChars, ref buffer,
+                            ref result);
+                    }
+                    else
+                    {
+                        code = channel.Read((int)count,
+                            endOfLine, useAnyEndOfLineChar,
+                            keepEndOfLineChars, ref buffer,
+                            ref result);
+                    }
+                }
+                else if (useCount)
+                {
+                    if (noBlock)
+                    {
+                        code = channel.ReadBuffer(
+                            Count.PrefixSize, null, false,
+                            false, ref buffer, ref result);
+
+                        if (code == ReturnCode.Ok)
+                        {
+                            code = StringOps.GetCount(
+                                encoding, interpreter.InternalCultureInfo,
+                                ArrayOps.GetArray<byte>(buffer, true),
+                                EncodingType.Binary, ref count, ref result);
+
+                            if (code == ReturnCode.Ok)
+                            {
+                                useCount = false;
+                                goto retry;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        code = channel.Read(
+                            Count.PrefixSize, null, false,
+                            false, ref buffer, ref result);
+
+                        if (code == ReturnCode.Ok)
+                        {
+                            code = StringOps.GetCount(
+                                encoding, interpreter.InternalCultureInfo,
+                                ArrayOps.GetArray<byte>(buffer, true),
+                                EncodingType.Binary, ref count, ref result);
+
+                            if (code == ReturnCode.Ok)
+                            {
+                                useCount = false;
+                                goto retry;
+                            }
+                        }
+                    }
                 }
                 else
                 {
-                    code = channel.Read(
-                        endOfLine, useAnyEndOfLineChar,
-                        keepEndOfLineChars, ref buffer,
-                        ref result);
+                    if (noBlock)
+                    {
+                        code = channel.ReadBuffer(
+                            endOfLine, useAnyEndOfLineChar,
+                            keepEndOfLineChars, ref buffer,
+                            ref result);
+                    }
+                    else
+                    {
+                        code = channel.Read(
+                            endOfLine, useAnyEndOfLineChar,
+                            keepEndOfLineChars, ref buffer,
+                            ref result);
+                    }
                 }
 
                 if (code != ReturnCode.Ok)

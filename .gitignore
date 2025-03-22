@@ -17,7 +17,6 @@
 mono_crash.*
 
 # Build results
-github_artifacts/*
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -32,7 +31,6 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
-github_artifacts/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -84,6 +82,8 @@ StyleCopReport.xml
 *.pgc
 *.pgd
 *.rsp
+# but not Directory.Build.rsp, as it configures directory-level build defaults
+!Directory.Build.rsp
 *.sbr
 *.tlb
 *.tli

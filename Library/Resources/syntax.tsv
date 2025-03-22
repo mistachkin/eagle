@@ -420,7 +420,7 @@ interp varlimit	interp varlimit path ?limit?
 interp watchdog	interp watchdog ?path? ?enabled? ?flags? ?type?
 invoke	invoke ?level? cmd ?arg ...?
 join	join list ?joinString?
-kill	kill ?-all? ?-force? ?--? process
+kill	kill ?options? process
 lappend	lappend varName ?value ...?
 lassign	lassign list varName ?varName ...?
 lget	lget varName ?index ...?

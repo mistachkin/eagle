@@ -3229,7 +3229,7 @@ namespace Eagle._Components.Private
 
 #if ARGUMENT_CACHE
             /* IGNORED */
-            interpreter.ClearArgumentCache();
+            interpreter.MaybeClearArgumentCache(null);
 #endif
 
             return ReturnCode.Ok;

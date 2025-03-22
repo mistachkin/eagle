@@ -10,6 +10,11 @@
  */
 
 using System;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
@@ -63,6 +68,8 @@ namespace Eagle._Functions
                 return ReturnCode.Error;
             }
 
+            DateTimeKind dateTimeKind = interpreter.DateTimeKind;
+
             try
             {
                 if (variant1.IsDateTime())
@@ -72,7 +79,7 @@ namespace Eagle._Functions
                 else if (variant1.IsDouble())
                 {
                     value = ConversionOps.ToDateTime(
-                        (double)variant1.Value); /* SAFE */
+                        (double)variant1.Value, dateTimeKind); /* SAFE */
                 }
                 else if (variant1.IsDecimal())
                 {
@@ -86,20 +93,27 @@ namespace Eagle._Functions
                         return ReturnCode.Error;
                     }
                 }
+#if NET_40
+                else if (variant1.IsBigInteger())
+                {
+                    value = ConversionOps.ToDateTime(
+                        (BigInteger)variant1.Value, dateTimeKind);
+                }
+#endif
                 else if (variant1.IsWideInteger())
                 {
                     value = ConversionOps.ToDateTime(
-                        (long)variant1.Value);
+                        (long)variant1.Value, dateTimeKind);
                 }
                 else if (variant1.IsInteger())
                 {
                     value = ConversionOps.ToDateTime(
-                        (int)variant1.Value);
+                        (int)variant1.Value, dateTimeKind);
                 }
                 else if (variant1.IsBoolean())
                 {
                     value = ConversionOps.ToDateTime(
-                        (bool)variant1.Value);
+                        (bool)variant1.Value, dateTimeKind);
                 }
                 else
                 {

@@ -111,6 +111,10 @@ namespace Eagle._Components.Private
 
         public static OptionBehaviorFlags OptionBehaviorFlags =
             OptionBehaviorFlags.None;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool? SocketKeepAlive = null; // TODO: Good default?
         #endregion
     }
 }

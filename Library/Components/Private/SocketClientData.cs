@@ -52,6 +52,7 @@ namespace Eagle._Components.Private
             int? availableTimeout,
             int? readTimeout,
             int? writeTimeout,
+            bool? keepAlive,
             bool exclusive,
             string text /* command */
             )
@@ -67,6 +68,7 @@ namespace Eagle._Components.Private
             this.availableTimeout = availableTimeout;
             this.readTimeout = readTimeout;
             this.writeTimeout = writeTimeout;
+            this.keepAlive = keepAlive;
             this.exclusive = exclusive;
             this.text = text;
         }
@@ -288,6 +290,27 @@ namespace Eagle._Components.Private
                 lock (syncRoot)
                 {
                     writeTimeout = value;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool? keepAlive;
+        public bool? KeepAlive
+        {
+            get
+            {
+                lock (syncRoot)
+                {
+                    return keepAlive;
+                }
+            }
+            set
+            {
+                lock (syncRoot)
+                {
+                    keepAlive = value;
                 }
             }
         }

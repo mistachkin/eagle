@@ -586,6 +586,13 @@ namespace Eagle._Components.Public
                 {
                     result = "index";
                 }
+#if NET_40
+                else if (FlagOps.HasFlags(
+                        flags, OptionFlags.MustBeBigInteger, true))
+                {
+                    result = "big integer";
+                }
+#endif
                 else if (FlagOps.HasFlags(
                         flags, OptionFlags.MustBeUnsignedWideInteger, true))
                 {

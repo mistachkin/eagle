@@ -28,6 +28,9 @@
 #       5. Prefix each test name with a dynamic prefix, so the test file can
 #          be run in different configurations more easily.
 #
+#       6. Test "format-1.12" now has an explicit call to the "entier" math
+#          function and an additional test constraint, aptly named "tip237".
+#
 # -- Joe Mistachkin, 2018/07/17
 #
 
@@ -101,8 +104,8 @@ test [appendArgs [getTestNamePrefix] format-1.11] {integer formatting} longIs32b
 test [appendArgs [getTestNamePrefix] format-1.11.1] {integer formatting} longIs64bit {
     format "%-#20o %#-20o %#-20o %#-20o" 6 34 16923 -12 -1
 } {06                   042                  041033               01777777777777777777764}
-test [appendArgs [getTestNamePrefix] format-1.12] {integer formatting} tcl86Feature {
-    format "%b %#b %llb" 5 5 [expr {2**100}]
+test [appendArgs [getTestNamePrefix] format-1.12] {integer formatting} tip237 {
+    format "%b %#b %llb" 5 5 [expr {entier(2)**100}]
 } {101 0b101 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000}
 
 test [appendArgs [getTestNamePrefix] format-2.1] {string formatting} {

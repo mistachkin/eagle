@@ -10,6 +10,11 @@
  */
 
 using System;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
@@ -20,7 +25,7 @@ namespace Eagle._Functions
 {
     [ObjectId("44e2cc2a-f2a8-445f-83d6-cb4c4ec60cd8")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.Standard)]
-    [Arguments(Arity.None)]
+    [Arguments(Arity.Any)]
     [TypeListFlags(TypeListFlags.NumberTypes)]
     [ObjectGroup("aggregate")]
     internal sealed class Max : Arguments
@@ -109,6 +114,14 @@ namespace Eagle._Functions
                             (decimal)variant1.Value,
                             (decimal)variant2.Value);
                     }
+#if NET_40
+                    else if (variant1.IsBigInteger())
+                    {
+                        variant1.Value = BigInteger.Max(
+                            (BigInteger)variant1.Value,
+                            (BigInteger)variant2.Value);
+                    }
+#endif
                     else if (variant1.IsWideInteger())
                     {
                         variant1.Value = Math.Max(

@@ -26,6 +26,20 @@ using ConsoleColor = Eagle._Components.Public.ConsoleColor;
 
 namespace Eagle._Constants
 {
+#if NET_40
+    [ObjectId("67e99580-6ea8-42c2-9f13-9b8cc8d9c509")]
+    public static class _TypeCode
+    {
+        //
+        // HACK: The .NET Framework does not (yet?) have a
+        //       real TypeCode enumeration value for this.
+        //
+        public const TypeCode BigInteger = (TypeCode)9999;
+    }
+#endif
+
+    ///////////////////////////////////////////////////////////////////////////
+
     [ObjectId("71552ae2-fdc3-402f-ae9e-9eade60d96a8")]
     public static class WebHeaders
     {
@@ -246,6 +260,8 @@ namespace Eagle._Constants
     [ObjectId("17cc4b98-cdf3-4a73-ada6-3c8dcf34d9ad")]
     public static class Count
     {
+        public static readonly int PrefixSize = (sizeof(int) * 2) + 1;
+
         public static readonly int Invalid = -1;
         public static readonly int None = -2;
     }
@@ -805,6 +821,15 @@ namespace Eagle._Constants
         public static readonly string Enabled = "Enabled";
         public static readonly string Disabled = "Disabled";
         public static readonly string Undefined = "Undefined";
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    [ObjectId("78e90182-cf54-4e3d-9a70-b2c2e4095024")]
+    public static class DataNames
+    {
+        public static readonly string AsDictionary = "AsDictionary"; // COMPAT: Harpy.
+        public static readonly string Id = "Id"; // COMPAT: Harpy (legacy).
     }
 
     ///////////////////////////////////////////////////////////////////////////

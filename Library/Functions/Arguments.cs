@@ -65,7 +65,7 @@ namespace Eagle._Functions
             int wantArgumentCount = this.Arguments;
             int haveArgumentCount = arguments.Count;
 
-            if (wantArgumentCount != (int)Arity.None)
+            if (wantArgumentCount != (int)Arity.Any)
             {
                 wantArgumentCount++;
 

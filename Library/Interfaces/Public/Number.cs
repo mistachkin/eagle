@@ -10,6 +10,11 @@
  */
 
 using System;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Public;
 
@@ -29,7 +34,13 @@ namespace Eagle._Interfaces.Public
         bool IsWideInteger();
         bool IsUnsignedWideInteger();
 
+#if NET_40
+        bool IsBigInteger();
+#endif
+
         bool IsReturnCode();
+        bool IsMatchMode();
+        bool IsMidpointRounding();
 
         bool IsDecimal();
         bool IsSingle();
@@ -51,6 +62,10 @@ namespace Eagle._Interfaces.Public
         bool ToUnsignedInteger(ref uint value);
         bool ToWideInteger(ref long value);
         bool ToUnsignedWideInteger(ref ulong value);
+
+#if NET_40
+        bool ToBigInteger(ref BigInteger value);
+#endif
 
         bool ToReturnCode(ref ReturnCode value);
         bool ToMatchMode(ref MatchMode value);

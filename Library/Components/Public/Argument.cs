@@ -17,6 +17,11 @@ using System.Collections.Generic;
 #endif
 
 using System.Diagnostics;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Text;
 using Eagle._Attributes;
 using Eagle._Components.Private;
@@ -286,6 +291,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Reset Helper Methods
+        [DebuggerStepThrough()]
         internal void ResetValue(
             Interpreter interpreter,
             bool zero
@@ -314,6 +320,59 @@ namespace Eagle._Components.Public
 
             InvalidateCachedString(true);
 #endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        internal void Reset(
+            ArgumentFlags flags,
+            object value
+            )
+        {
+            if (FlagOps.HasFlags(flags, ArgumentFlags.Zero, true))
+            {
+                this.flags = ArgumentFlags.None;
+                this.name = null;
+                this.value = null;
+
+#if CACHE_ARGUMENT_TOSTRING
+                InvalidateCachedString(true);
+#endif
+
+                this.@default = null;
+                this.fileName = null;
+                this.startLine = 0;
+                this.endLine = 0;
+                this.viaSource = false;
+
+                this.cacheValue = null;
+                this.hashValue = null;
+            }
+            else
+            {
+                this.flags = NoFlags;
+                this.name = NoName;
+                this.value = NoValue;
+
+#if CACHE_ARGUMENT_TOSTRING
+                InvalidateCachedString(false);
+#endif
+
+                this.@default = NoDefault;
+                this.fileName = NoFileName;
+                this.startLine = NoLine;
+                this.endLine = NoLine;
+                this.viaSource = NoViaSource;
+
+                this.cacheValue = NoCacheValue;
+                this.hashValue = NoHashValue;
+            }
+
+            this.engineData = null;
+
+            if (value != null)
+                this.value = GetValue(value);
         }
         #endregion
 
@@ -394,8 +453,10 @@ namespace Eagle._Components.Public
             object value
             )
         {
-            if (value is IGetValue)
-                return ((IGetValue)value).Value;
+            IGetValue getValue = value as IGetValue;
+
+            if (getValue != null)
+                return getValue.Value;
 
             return value;
         }
@@ -411,6 +472,7 @@ namespace Eagle._Components.Public
         //          EngineContext (constructor)
         //          StringOps.GetArgumentFromObject
         //          Interpreter.ClearArgumentCache
+        //          Interpreter.GetOrCreateCacheArgument
         //
         /* INTERNAL STATIC OK */
         [DebuggerStepThrough()]
@@ -550,7 +612,7 @@ namespace Eagle._Components.Public
         [DebuggerStepThrough()]
         internal static Argument GetOrCreate(
             Interpreter interpreter,
-            IVariant value,
+            IGetValue getValue,
             bool createOnly
             )
         {
@@ -562,17 +624,16 @@ namespace Eagle._Components.Public
                 if ((interpreter != null) && interpreter.CanUseArgumentCache(
                         CacheFlags.ForVariant, ref argument))
                 {
-                    argument.Reset(ArgumentFlags.ResetWithDefault);
-                    argument.value = (value != null) ? value.Value : null;
+                    argument.Reset(ArgumentFlags.ResetWithDefault, getValue);
 
                     if (interpreter.GetCachedArgument(ref argument))
                         return argument;
 
 #if LIST_CACHE
-                    if (IsReadOnly(value))
+                    if (IsReadOnly(getValue))
 #endif
                     {
-                        argument = InternalCreate(value);
+                        argument = InternalCreate(getValue);
 
                         interpreter.AddCachedArgument(argument);
 
@@ -582,7 +643,7 @@ namespace Eagle._Components.Public
             }
 #endif
 
-            return InternalCreate(value);
+            return InternalCreate(getValue);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -603,8 +664,7 @@ namespace Eagle._Components.Public
                 if ((interpreter != null) && interpreter.CanUseArgumentCache(
                         CacheFlags.ForResult, ref argument))
                 {
-                    argument.Reset(ArgumentFlags.ResetWithDefault);
-                    argument.value = (value != null) ? value.Value : null;
+                    argument.Reset(ArgumentFlags.ResetWithDefault, value);
 
                     if (interpreter.GetCachedArgument(ref argument))
                         return argument;
@@ -646,12 +706,11 @@ namespace Eagle._Components.Public
                 if ((interpreter != null) && interpreter.CanUseArgumentCache(
                         CacheFlags.ForProcedure, ref argument))
                 {
-                    argument.Reset(ArgumentFlags.ResetWithDefault);
+                    argument.Reset(ArgumentFlags.ResetWithDefault, value);
                     argument.flags = flags;
                     argument.name = name;
 
-                    object localValue = GetValue(value);
-                    argument.value = localValue;
+                    object localValue = argument.value;
 
                     if (interpreter.GetCachedArgument(ref argument))
                         return argument;
@@ -696,8 +755,7 @@ namespace Eagle._Components.Public
                 if ((interpreter != null) && interpreter.CanUseArgumentCache(
                         CacheFlags.ForResultWithLocation, ref argument))
                 {
-                    argument.Reset(ArgumentFlags.ResetWithDefault);
-                    argument.value = (value != null) ? value.Value : null;
+                    argument.Reset(ArgumentFlags.ResetWithDefault, value);
                     argument.fileName = fileName;
                     argument.startLine = startLine;
                     argument.endLine = endLine;
@@ -846,6 +904,12 @@ namespace Eagle._Components.Public
             {
                 return true;
             }
+#if NET_40
+            else if (type == typeof(BigInteger))
+            {
+                return true;
+            }
+#endif
             else if (type == typeof(double))
             {
                 return true;
@@ -1058,6 +1122,18 @@ namespace Eagle._Components.Public
         {
             return PrivateCreate((object)value);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        [DebuggerStepThrough()]
+        private static Argument FromBigInteger(
+            BigInteger value
+            )
+        {
+            return PrivateCreate((object)value);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -1485,6 +1561,18 @@ namespace Eagle._Components.Public
         {
             return FromStringBuilder(value);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        [DebuggerStepThrough()]
+        public static implicit operator Argument(
+            BigInteger value
+            )
+        {
+            return FromBigInteger(value);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -2100,46 +2188,7 @@ namespace Eagle._Components.Public
             ArgumentFlags flags
             )
         {
-            if (FlagOps.HasFlags(flags, ArgumentFlags.Zero, true))
-            {
-                this.flags = ArgumentFlags.None;
-                this.name = null;
-                this.value = null;
-
-#if CACHE_ARGUMENT_TOSTRING
-                InvalidateCachedString(true);
-#endif
-
-                this.@default = null;
-                this.fileName = null;
-                this.startLine = 0;
-                this.endLine = 0;
-                this.viaSource = false;
-
-                this.cacheValue = null;
-                this.hashValue = null;
-            }
-            else
-            {
-                this.flags = NoFlags;
-                this.name = NoName;
-                this.value = NoValue;
-
-#if CACHE_ARGUMENT_TOSTRING
-                InvalidateCachedString(false);
-#endif
-
-                this.@default = NoDefault;
-                this.fileName = NoFileName;
-                this.startLine = NoLine;
-                this.endLine = NoLine;
-                this.viaSource = NoViaSource;
-
-                this.cacheValue = NoCacheValue;
-                this.hashValue = NoHashValue;
-            }
-
-            this.engineData = null;
+            Reset(flags, null);
         }
 
         ///////////////////////////////////////////////////////////////////////

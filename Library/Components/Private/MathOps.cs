@@ -12,6 +12,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -400,6 +405,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if NET_40
+        public static BigInteger LeftShift(BigInteger X, int Y)
+        {
+            //
+            // NOTE: It seems that for wide integers, Tcl 8.4 returns zero
+            //       for all negative shift values (COMPAT: Tcl 8.4).
+            //
+            return X << Y;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static long RightShift(long X, int Y)
         {
             //
@@ -408,6 +426,19 @@ namespace Eagle._Components.Private
             //
             return (Y >= 0) && (Y < ConversionOps.LongBits) ? X >> Y : 0;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static BigInteger RightShift(BigInteger X, int Y)
+        {
+            //
+            // NOTE: It seems that for wide integers, Tcl 8.4 returns zero
+            //       for all negative shift values (COMPAT: Tcl 8.4).
+            //
+            return X >> Y;
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -448,6 +479,28 @@ namespace Eagle._Components.Private
             //
             return ((X >> Y) | (X << (ConversionOps.LongBits - Y)));
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static BigInteger LeftRotate(BigInteger X, int Y, int bits)
+        {
+            //
+            // NOTE: Per MSDN, C# masks the high bits for us.
+            //
+            return ((X << Y) | (X >> (bits - Y)));
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static BigInteger RightRotate(BigInteger X, int Y, int bits)
+        {
+            //
+            // NOTE: Per MSDN, C# masks the high bits for us.
+            //
+            return ((X >> Y) | (X << (bits - Y)));
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -768,6 +821,15 @@ namespace Eagle._Components.Private
 
             return result;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static double Log2(BigInteger X)
+        {
+            return BigInteger.Log(X, 2);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 

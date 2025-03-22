@@ -10,6 +10,11 @@
  */
 
 using System;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
@@ -21,7 +26,7 @@ namespace Eagle._Functions
     [ObjectId("5d755c5f-63ba-4441-959e-fc15aaf41200")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.Standard)]
     [Arguments(Arity.Unary)]
-    [TypeListFlags(TypeListFlags.FloatTypes)]
+    [TypeListFlags(TypeListFlags.NumberTypes)]
     [ObjectGroup("logarithmic")]
     internal sealed class Log10 : Arguments
     {
@@ -53,10 +58,11 @@ namespace Eagle._Functions
                 return ReturnCode.Error;
             }
 
-            double doubleValue = 0.0;
+            IVariant variant1 = null;
 
-            if (Value.GetDouble((IGetValue)arguments[1],
-                    interpreter.InternalCultureInfo, ref doubleValue,
+            if (Value.GetVariant(interpreter,
+                    (IGetValue)arguments[1], ValueFlags.AnyVariant,
+                    interpreter.InternalCultureInfo, ref variant1,
                     ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
@@ -64,7 +70,28 @@ namespace Eagle._Functions
 
             try
             {
-                value = Math.Log10(doubleValue);
+                if (variant1.IsDouble())
+                {
+                    value = Math.Log10((double)variant1.Value);
+                }
+#if NET_40
+                else if (variant1.IsBigInteger())
+                {
+                    value = BigInteger.Log10((BigInteger)variant1.Value);
+                }
+#endif
+                else if (variant1.ConvertTo(TypeCode.Double))
+                {
+                    value = Math.Log10((double)variant1.Value);
+                }
+                else
+                {
+                    error = String.Format(
+                        "unsupported argument type for function {0}",
+                        FormatOps.WrapOrNull(base.Name));
+
+                    return ReturnCode.Error;
+                }
             }
             catch (Exception e)
             {

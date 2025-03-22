@@ -2121,6 +2121,7 @@ namespace Eagle._Components.Private
                 long add = counts[(int)CacheCountType.Add];
                 long change = counts[(int)CacheCountType.Change];
                 long remove = counts[(int)CacheCountType.Remove];
+                long noRemove = counts[(int)CacheCountType.NoRemove];
                 long clear = counts[(int)CacheCountType.Clear];
                 long trim = counts[(int)CacheCountType.Trim];
                 long total = hit + miss;
@@ -2159,6 +2160,9 @@ namespace Eagle._Components.Private
 
                 if (empty || (remove > 0))
                     list.Add("remove", remove.ToString());
+
+                if (empty || (noRemove > 0))
+                    list.Add("noRemove", noRemove.ToString());
 
                 if (empty || (clear > 0))
                     list.Add("clear", clear.ToString());
@@ -5327,6 +5331,37 @@ namespace Eagle._Components.Private
 
                 if (!String.IsNullOrEmpty(fileName))
                     return StringList.MakeList(id, fileName);
+                else
+                    return id.ToString();
+            }
+
+            return display ? DisplayUnknown : null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string ThreadName(
+            Thread thread,
+            bool display
+            )
+        {
+            if (thread != null)
+            {
+                int id = 0;
+
+                try
+                {
+                    id = thread.ManagedThreadId;
+                }
+                catch
+                {
+                    // do nothing.
+                }
+
+                string threadName = thread.Name;
+
+                if (!String.IsNullOrEmpty(threadName))
+                    return StringList.MakeList(id, threadName);
                 else
                     return id.ToString();
             }

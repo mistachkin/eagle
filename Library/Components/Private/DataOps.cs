@@ -829,10 +829,22 @@ namespace Eagle._Components.Private
                 long length = fileInfo.Length;
 
                 if (length < minimumBundleFileSize)
+                {
+                    error = String.Format(
+                        "file {0} too small to be database",
+                        FormatOps.WrapOrNull(fileName));
+
                     return false;
+                }
 
                 if ((length % minimumBundleFileSize) != 0)
+                {
+                    error = String.Format(
+                        "file {0} wrong size to be database",
+                        FormatOps.WrapOrNull(fileName));
+
                     return false;
+                }
 
                 fileName = fileInfo.FullName;
                 return true;

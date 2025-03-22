@@ -1595,7 +1595,7 @@ namespace Eagle._Components.Private
                                 ref localResult) != ReturnCode.Ok)
                         {
                             if (killOnError)
-                                KillProcess(process, verbose);
+                                KillProcess(process, false, verbose);
 
                             error = localResult;
                             return ReturnCode.Error;
@@ -1668,7 +1668,7 @@ namespace Eagle._Components.Private
                                 //         the child process.
                                 //
                                 if (killOnError)
-                                    KillProcess(process, verbose);
+                                    KillProcess(process, false, verbose);
 
                                 error = localResult;
                                 return ReturnCode.Error;
@@ -1677,7 +1677,7 @@ namespace Eagle._Components.Private
                         catch (Exception e)
                         {
                             if (killOnError)
-                                KillProcess(process, verbose);
+                                KillProcess(process, false, verbose);
 
                             error = e;
                             return ReturnCode.Error;
@@ -1700,7 +1700,7 @@ namespace Eagle._Components.Private
             catch (Exception e)
             {
                 if (killOnError)
-                    KillProcess(process, verbose);
+                    KillProcess(process, false, verbose);
 
                 error = e;
             }
@@ -1712,7 +1712,8 @@ namespace Eagle._Components.Private
 
         private static void KillProcess(
             Process process, /* in */
-            bool verbose
+            bool whatIf,     /* in */
+            bool verbose     /* in */
             )
         {
             if (process == null)
@@ -1720,13 +1721,25 @@ namespace Eagle._Components.Private
 
             try
             {
-                process.Kill(); /* throw */
+                if (whatIf)
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "KillProcess: KILL {0}",
+                        FormatOps.ProcessName(process, true)),
+                        typeof(ProcessOps).Name,
+                        TracePriority.ProcessDebug2);
+                }
+                else
+                {
+                    process.Kill(); /* throw */
+                }
 
                 if (verbose)
                 {
                     TraceOps.DebugTrace(String.Format(
-                        "KillProcess: {0}", FormatOps.ProcessName(
-                        process, true)), typeof(ProcessOps).Name,
+                        "KillProcess: {0}",
+                        FormatOps.ProcessName(process, true)),
+                        typeof(ProcessOps).Name,
                         TracePriority.ProcessDebug);
                 }
             }
@@ -2126,6 +2139,8 @@ namespace Eagle._Components.Private
             Process process,        /* in */
             bool self,              /* in */
             bool force,             /* in */
+            bool whatIf,            /* in */
+            bool verbose,           /* in */
             ref ResultList results, /* in, out */
             ref ResultList errors   /* in, out */
             )
@@ -2183,7 +2198,27 @@ namespace Eagle._Components.Private
                     // NOTE: Attempt to forcibly terminate process
                     //       now.
                     //
-                    process.Kill(); /* throw */
+                    if (whatIf)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "KillProcess: KILL {0}",
+                            FormatOps.ProcessName(process, true)),
+                            typeof(ProcessOps).Name,
+                            TracePriority.ProcessDebug2);
+                    }
+                    else
+                    {
+                        process.Kill(); /* throw */
+                    }
+
+                    if (verbose)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "KillProcess: {0}",
+                            FormatOps.ProcessName(process, true)),
+                            typeof(ProcessOps).Name,
+                            TracePriority.ProcessDebug);
+                    }
 
                     //
                     // NOTE: If we get here, it should be dead now.
@@ -2265,6 +2300,8 @@ namespace Eagle._Components.Private
             int id,                 /* in */
             bool self,              /* in */
             bool force,             /* in */
+            bool whatIf,            /* in */
+            bool verbose,           /* in */
             ref ResultList results, /* in, out */
             ref ResultList errors   /* in, out */
             )
@@ -2294,7 +2331,8 @@ namespace Eagle._Components.Private
             }
 
             return KillProcess(
-                process, self, force, ref results, ref errors);
+                process, self, force, whatIf, verbose, ref results,
+                ref errors);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2307,6 +2345,8 @@ namespace Eagle._Components.Private
             bool all,                /* in */
             bool self,               /* in */
             bool force,              /* in */
+            bool whatIf,             /* in */
+            bool verbose,            /* in */
             ref ResultList results,  /* in, out */
             ref ResultList errors    /* in, out */
             )
@@ -2374,8 +2414,8 @@ namespace Eagle._Components.Private
                     continue;
 
                 ReturnCode code = KillProcess(
-                    process, self, force, ref results,
-                    ref errors);
+                    process, self, force, whatIf, verbose,
+                    ref results, ref errors);
 
                 if (!all)
                     return code;
@@ -2986,6 +3026,8 @@ namespace Eagle._Components.Private
             bool all,                /* in */
             bool self,               /* in */
             bool force,              /* in */
+            bool whatIf,             /* in */
+            bool verbose,            /* in */
             ref Result result        /* out */
             )
         {
@@ -3003,8 +3045,9 @@ namespace Eagle._Components.Private
                     return ReturnCode.Error;
                 }
 
-                if (KillProcess(id, self,
-                        force, ref results, ref errors) == ReturnCode.Ok)
+                if (KillProcess(
+                        id, self, force, whatIf, verbose, ref results,
+                        ref errors) == ReturnCode.Ok)
                 {
                     result = results;
                     return ReturnCode.Ok;
@@ -3014,8 +3057,8 @@ namespace Eagle._Components.Private
             {
                 if (KillProcess(
                         interpreter, MatchMode.Glob, idOrPattern,
-                        PathOps.NoCase, all, self, force, ref results,
-                        ref errors) == ReturnCode.Ok)
+                        PathOps.NoCase, all, self, force, whatIf,
+                        verbose, ref results, ref errors) == ReturnCode.Ok)
                 {
                     result = results;
                     return ReturnCode.Ok;

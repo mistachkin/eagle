@@ -512,9 +512,9 @@ namespace Eagle._Plugins
                             version = this.Version;
 
                         //
-                        // NOTE: Formally "provide" (i.e. announce) this
-                        //       package to the interpreter so that scripts
-                        //       can easily detect it.
+                        // NOTE: Formally "provide" (i.e. announce)
+                        //       this package to the interpreter so
+                        //       that scripts can easily detect it.
                         //
                         code = interpreter.PkgProvide(GetPackageName(
                             FlagOps.HasFlags(flags, PluginFlags.SimpleName,
@@ -1260,7 +1260,7 @@ namespace Eagle._Plugins
         ///
         /// <param name="result">
         ///   Upon success, the <see cref="Result.Value" /> property will be
-        ///   the target type iself (<see cref="Type" />) or an instance of
+        ///   the target type itself (<see cref="Type" />) or an instance of
         ///   it.
         /// </param>
         ///

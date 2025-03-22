@@ -22,6 +22,7 @@ namespace Eagle._Interfaces.Public
             IIdentifierName identifierName,
             Lexeme lexeme,
             IConvert convert,
+            int? bits,
             ref Argument result,
             ref Result error
         );

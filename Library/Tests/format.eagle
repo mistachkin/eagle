@@ -35,11 +35,14 @@ if {[isEagle]} then {
       ![info exists no(skipSomeFormatTests)]} then {
     set skipNames [list]
 
-    lappend skipNames format-1.12; # NOTE: Needs BigNum.
+    if {![haveConstraint tip237]} then {
+      lappend skipNames format-1.12; # NOTE: Needs BigNum.
+      lappend skipNames managed-format-1.12; # NOTE: Needs BigNum.
+      lappend skipNames native-format-1.12; # NOTE: Needs BigNum.
+    }
+
     lappend skipNames format-20.1; # NOTE: Needs [dict].
-    lappend skipNames managed-format-1.12; # NOTE: Needs BigNum.
     lappend skipNames managed-format-20.1; # NOTE: Needs [dict].
-    lappend skipNames native-format-1.12; # NOTE: Needs BigNum.
     lappend skipNames native-format-20.1; # NOTE: Needs [dict].
 
     #

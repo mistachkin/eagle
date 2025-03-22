@@ -29,6 +29,10 @@ using System.IO;
 using System.Net.Sockets;
 #endif
 
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Reflection;
 using System.Resources;
 using System.Security;
@@ -1789,6 +1793,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private int precision; // COMPAT: Tcl.
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        private int bigIntegerRotateBits = 0;
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3631,6 +3641,30 @@ namespace Eagle._Components.Public
                                                     }
                                                 }
                                             }
+#if NET_40
+                                            else if (FlagOps.HasFlags(flags, OptionFlags.MustBeBigInteger, true))
+                                            {
+                                                if (nextValue is BigInteger)
+                                                {
+                                                    variant = new Variant((BigInteger)nextValue);
+                                                }
+                                                else
+                                                {
+                                                    BigInteger bigIntegerValue = BigInteger.Zero;
+
+                                                    if (Value.GetBigInteger2(
+                                                            nextString, ValueFlags.AnyInteger, cultureInfo,
+                                                            ref bigIntegerValue, ref error) == ReturnCode.Ok)
+                                                    {
+                                                        variant = new Variant(bigIntegerValue);
+                                                    }
+                                                    else
+                                                    {
+                                                        return ReturnCode.Error;
+                                                    }
+                                                }
+                                            }
+#endif
                                             else if (FlagOps.HasFlags(flags, OptionFlags.MustBeUnsignedWideInteger, true))
                                             {
                                                 if (nextValue is ulong)
@@ -5445,6 +5479,7 @@ namespace Eagle._Components.Public
                     hiddenExecuteCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     hiddenExecuteCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
                 }
@@ -5455,6 +5490,7 @@ namespace Eagle._Components.Public
                     executeCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     executeCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
                 }
@@ -5466,16 +5502,23 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if ARGUMENT_CACHE
-        internal int ClearArgumentCache()
+        private int ClearArgumentCache(
+            bool argumentOnly /* in */
+            )
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 int result = 0;
 
-                if (argumentCache != null)
+                if (!argumentOnly && (argumentCache != null))
                 {
                     result += argumentCache.Count;
                     argumentCache.Clear();
+
+#if CACHE_STATISTICS
+                    /* IGNORED */
+                    argumentCache.IncrementCacheCount(CacheCountType.Clear);
+#endif
                 }
 
                 Argument argument = CacheArgument;
@@ -5487,6 +5530,53 @@ namespace Eagle._Components.Public
                 }
 
                 CacheArgument = Argument.InternalCreate();
+                return result;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private Argument GetOrCreateCacheArgument()
+        {
+            Argument argument = CacheArgument;
+
+            if (argument != null)
+                return argument;
+
+            return Argument.InternalCreate();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal int MaybeClearArgumentCache(
+            string value /* in: OPTIONAL */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                int result = 0;
+
+                if (value != null)
+                {
+                    Argument argument = GetOrCreateCacheArgument();
+
+                    if (argument != null)
+                    {
+                        argument.Reset(
+                            ArgumentFlags.ResetWithDefault, value);
+
+                        if (MaybeRemoveCachedArgument(argument))
+                        {
+                            result += ClearArgumentCache(true) + 1;
+                            goto done;
+                        }
+                    }
+                }
+
+                result += ClearArgumentCache(false);
+
+            done:
+
                 return result;
             }
         }
@@ -5521,6 +5611,7 @@ namespace Eagle._Components.Public
                     argumentCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     argumentCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
                 }
@@ -5538,6 +5629,7 @@ namespace Eagle._Components.Public
                     stringListCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     stringListCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
                 }
@@ -5555,6 +5647,7 @@ namespace Eagle._Components.Public
                     parseStateCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     parseStateCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
                 }
@@ -5572,6 +5665,7 @@ namespace Eagle._Components.Public
                     executeCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     executeCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
                 }
@@ -5585,6 +5679,7 @@ namespace Eagle._Components.Public
                     hiddenExecuteCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     hiddenExecuteCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
                 }
@@ -5602,6 +5697,7 @@ namespace Eagle._Components.Public
                     typeCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     typeCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
                 }
@@ -5619,6 +5715,7 @@ namespace Eagle._Components.Public
                     comTypeListCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     comTypeListCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
                 }
@@ -8610,6 +8707,7 @@ namespace Eagle._Components.Public
         public ReturnCode EvaluateBundleFile(
             string fileName,
             byte[] password,
+            bool stopOnError,
             ref IClientData clientData,
             ref Result result
             )
@@ -8619,7 +8717,7 @@ namespace Eagle._Components.Public
             int errorLine = 0;
 
             ReturnCode code = EvaluateBundleFile(
-                fileName, password, ref clientData,
+                fileName, password, stopOnError, ref clientData,
                 ref result, ref errorLine);
 
             if (errorLine != 0)
@@ -8633,6 +8731,7 @@ namespace Eagle._Components.Public
         public ReturnCode EvaluateBundleFile(
             string fileName,
             byte[] password,
+            bool stopOnError,
             ref IClientData clientData,
             ref Result result,
             ref int errorLine
@@ -8652,8 +8751,8 @@ namespace Eagle._Components.Public
             }
 
             return EvaluateBundleFile(
-                fileName, password, haveScriptFlags, ref clientData,
-                ref result, ref errorLine);
+                fileName, password, haveScriptFlags, stopOnError,
+                ref clientData, ref result, ref errorLine);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -8662,6 +8761,7 @@ namespace Eagle._Components.Public
             string fileName,                  /* in */
             byte[] password,                  /* in: OPTIONAL */
             IHaveScriptFlags haveScriptFlags, /* in: OPTIONAL */
+            bool stopOnError,                 /* in */
             ref IClientData clientData,       /* in, out: OPTIONAL */
             ref Result result,                /* out */
             ref int errorLine                 /* out */
@@ -8684,10 +8784,12 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
+            Result localResult; /* REUSED */
+
             string keyRingFileName = ScriptOps.FindSecurityPackageFile(
                 this, mergeBundleKeyRingFileName);
 
-            if (!String.IsNullOrEmpty(keyRingFileName))
+            if (!String.IsNullOrEmpty(keyRingFileName)) /* OPTIONAL(?) */
             {
                 StringList mergeCommand = new StringList();
 
@@ -8697,11 +8799,14 @@ namespace Eagle._Components.Public
                 mergeCommand.Add(mergeBundleSubCommandName);
                 mergeCommand.Add(keyRingFileName);
 
+                localResult = null;
+
                 if (EvaluateTrustedScript(
                         mergeCommand.ToString(),
                         TrustFlags.MaybeMarkTrusted,
-                        ref result) != ReturnCode.Ok)
+                        ref localResult) != ReturnCode.Ok)
                 {
+                    result = localResult;
                     return ReturnCode.Error;
                 }
             }
@@ -8714,11 +8819,14 @@ namespace Eagle._Components.Public
             verifyCommand.Add(verifyBundleSubCommandName);
             verifyCommand.Add(fileName);
 
+            localResult = null;
+
             if (EvaluateTrustedScript(
                     verifyCommand.ToString(),
                     TrustFlags.MaybeMarkTrusted,
-                    ref result) != ReturnCode.Ok)
+                    ref localResult) != ReturnCode.Ok)
             {
+                result = localResult;
                 return ReturnCode.Error;
             }
 
@@ -8778,6 +8886,10 @@ namespace Eagle._Components.Public
 
                 try
                 {
+                    ResultList results = null;
+                    ResultList errors = null;
+                    int localErrorLine = 0;
+
                     foreach (Script script in scripts)
                     {
                         if (script == null)
@@ -8788,15 +8900,44 @@ namespace Eagle._Components.Public
                         if (bundleData == null)
                             continue;
 
+                        localResult = null;
+
                         if (Engine.EvaluateScript(this,
-                                script, bundleData, ref result,
-                                ref errorLine) != ReturnCode.Ok)
+                                script, bundleData, ref localResult,
+                                ref localErrorLine) == ReturnCode.Ok)
                         {
-                            return ReturnCode.Error;
+                            if (results == null)
+                                results = new ResultList();
+
+                            results.Add(localResult);
+                        }
+                        else
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(localResult);
+
+                            if (stopOnError)
+                                break;
                         }
                     }
 
-                    return ReturnCode.Ok;
+                    if (errors != null)
+                    {
+                        result = ResultList.Combine(
+                            errors, results);
+
+                        if (localErrorLine != 0)
+                            errorLine = localErrorLine;
+
+                        return ReturnCode.Error;
+                    }
+                    else
+                    {
+                        result = results;
+                        return ReturnCode.Ok;
+                    }
                 }
                 finally
                 {
@@ -11261,7 +11402,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                                 /* IGNORED */
-                                ClearArgumentCache();
+                                MaybeClearArgumentCache(key);
 #endif
 
                                 count++;
@@ -11309,7 +11450,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                                 /* IGNORED */
-                                ClearArgumentCache();
+                                MaybeClearArgumentCache(key);
 #endif
 
                                 count++;
@@ -11411,7 +11552,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                                 /* IGNORED */
-                                ClearArgumentCache();
+                                MaybeClearArgumentCache(key);
 #endif
 
                                 count++;
@@ -11496,7 +11637,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                                 /* IGNORED */
-                                ClearArgumentCache();
+                                MaybeClearArgumentCache(key);
 #endif
 
                                 count++;
@@ -11547,7 +11688,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                             /* IGNORED */
-                            ClearArgumentCache();
+                            MaybeClearArgumentCache(newName);
 #endif
 
                             return ReturnCode.Ok;
@@ -11571,7 +11712,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                             /* IGNORED */
-                            ClearArgumentCache();
+                            MaybeClearArgumentCache(procedureWrapper.Name);
 #endif
 
                             return ReturnCode.Ok;
@@ -11595,7 +11736,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                             /* IGNORED */
-                            ClearArgumentCache();
+                            MaybeClearArgumentCache(commandWrapper.Name);
 #endif
 
                             return ReturnCode.Ok;
@@ -11657,7 +11798,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                             /* IGNORED */
-                            ClearArgumentCache();
+                            MaybeClearArgumentCache(newName);
 #endif
 
                             return ReturnCode.Ok;
@@ -11681,7 +11822,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                             /* IGNORED */
-                            ClearArgumentCache();
+                            MaybeClearArgumentCache(procedureWrapper.Name);
 #endif
 
                             return ReturnCode.Ok;
@@ -11705,7 +11846,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                             /* IGNORED */
-                            ClearArgumentCache();
+                            MaybeClearArgumentCache(commandWrapper.Name);
 #endif
 
                             return ReturnCode.Ok;
@@ -16756,7 +16897,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                         /* IGNORED */
-                        ClearArgumentCache();
+                        MaybeClearArgumentCache(name);
 #endif
 
 #if NOTIFY
@@ -17369,7 +17510,10 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                                             /* IGNORED */
-                                            ClearArgumentCache();
+                                            MaybeClearArgumentCache(oldName);
+
+                                            /* IGNORED */
+                                            MaybeClearArgumentCache(newName);
 #endif
 
 #if NOTIFY
@@ -17455,7 +17599,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                     /* IGNORED */
-                    ClearArgumentCache();
+                    MaybeClearArgumentCache(name);
 #endif
 
 #if NOTIFY
@@ -21435,7 +21579,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
             /* IGNORED */
-            ClearArgumentCache();
+            MaybeClearArgumentCache(name);
 #endif
 
             return ReturnCode.Ok;
@@ -21779,7 +21923,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
             /* IGNORED */
-            ClearArgumentCache();
+            MaybeClearArgumentCache(name);
 #endif
 
             return ReturnCode.Ok;
@@ -21978,7 +22122,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                         /* IGNORED */
-                        ClearArgumentCache();
+                        MaybeClearArgumentCache(name);
 #endif
 
 #if NOTIFY
@@ -23306,7 +23450,10 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                                                 /* IGNORED */
-                                                ClearArgumentCache();
+                                                MaybeClearArgumentCache(oldName);
+
+                                                /* IGNORED */
+                                                MaybeClearArgumentCache(newName);
 #endif
 
 #if NOTIFY
@@ -23402,7 +23549,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                     /* IGNORED */
-                    ClearArgumentCache();
+                    MaybeClearArgumentCache(name);
 #endif
 
                     if (command != null)
@@ -27871,7 +28018,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                             /* IGNORED */
-                            ClearArgumentCache();
+                            MaybeClearArgumentCache(name);
 #endif
 
 #if NOTIFY
@@ -27893,7 +28040,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                             /* IGNORED */
-                            ClearArgumentCache();
+                            MaybeClearArgumentCache(name);
 #endif
 
 #if NOTIFY
@@ -27991,7 +28138,10 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                                                 /* IGNORED */
-                                                ClearArgumentCache();
+                                                MaybeClearArgumentCache(oldName);
+
+                                                /* IGNORED */
+                                                MaybeClearArgumentCache(newName);
 #endif
 
 #if NOTIFY
@@ -28082,7 +28232,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                     /* IGNORED */
-                    ClearArgumentCache();
+                    MaybeClearArgumentCache(name);
 #endif
 
 #if NOTIFY
@@ -30283,7 +30433,10 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                                                 /* IGNORED */
-                                                ClearArgumentCache();
+                                                MaybeClearArgumentCache(oldName);
+
+                                                /* IGNORED */
+                                                MaybeClearArgumentCache(newName);
 #endif
 
 #if NOTIFY
@@ -30747,7 +30900,10 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                                                 /* IGNORED */
-                                                ClearArgumentCache();
+                                                MaybeClearArgumentCache(oldName);
+
+                                                /* IGNORED */
+                                                MaybeClearArgumentCache(newName);
 #endif
 
 #if NOTIFY
@@ -31173,7 +31329,10 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                                             /* IGNORED */
-                                            ClearArgumentCache();
+                                            MaybeClearArgumentCache(oldName);
+
+                                            /* IGNORED */
+                                            MaybeClearArgumentCache(newName);
 #endif
 
 #if NOTIFY
@@ -35676,7 +35835,7 @@ namespace Eagle._Components.Public
 
         #region Namespace Variable Support
         internal bool MaybeSetQualifiedName(
-            IVariable variable
+            IVariable variable /* in, out */
             )
         {
             //
@@ -35703,9 +35862,12 @@ namespace Eagle._Components.Public
             //       current namespace will be used; otherwise, the namespace
             //       associated with the call frame will be used.
             //
+            // BUGFIX: If this is a local call frame then there should not be
+            //         a qualified name set on it.
+            //
             ICallFrame frame = variable.Frame;
 
-            if (CallFrameOps.IsScope(frame))
+            if (CallFrameOps.IsLocal(frame))
                 return false;
 
             //
@@ -35715,11 +35877,9 @@ namespace Eagle._Components.Public
             //
             if (frame != null)
             {
-                INamespace @namespace = NamespaceOps.GetCurrent(this, frame);
-
                 variable.QualifiedName = NamespaceOps.MakeAbsoluteName(
-                    NamespaceOps.MakeQualifiedName(this, @namespace,
-                    variable.Name));
+                    NamespaceOps.MakeQualifiedName(this,
+                        NamespaceOps.GetCurrent(this, frame), variable.Name));
             }
             else
             {
@@ -36738,7 +36898,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                         /* IGNORED */
-                        ClearArgumentCache();
+                        MaybeClearArgumentCache(null);
 #endif
                     }
 
@@ -36783,7 +36943,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                         /* IGNORED */
-                        ClearArgumentCache();
+                        MaybeClearArgumentCache(null);
 #endif
                     }
 
@@ -36847,7 +37007,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                         /* IGNORED */
-                        ClearArgumentCache();
+                        MaybeClearArgumentCache(null);
 #endif
                     }
 
@@ -36911,7 +37071,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                         /* IGNORED */
-                        ClearArgumentCache();
+                        MaybeClearArgumentCache(null);
 #endif
                     }
 
@@ -37018,7 +37178,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                         /* IGNORED */
-                        ClearArgumentCache();
+                        MaybeClearArgumentCache(null);
 #endif
                     }
 
@@ -37124,7 +37284,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                         /* IGNORED */
-                        ClearArgumentCache();
+                        MaybeClearArgumentCache(null);
 #endif
                     }
 
@@ -41101,6 +41261,57 @@ namespace Eagle._Components.Public
 
                 return PrivateSetupEvent;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public bool LookForCommercialLicense(
+            string name,
+            out Guid? id,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            id = null;
+
+            Result result = null;
+
+            if (ScriptOps.CheckSecurityCertificate(
+                    this, true, ref result) != ReturnCode.Ok)
+            {
+                error = result;
+                return false;
+            }
+
+            StringDictionary dictionary = StringDictionary.FromString(
+                result, true, false, ref error);
+
+            if (dictionary == null)
+                return false;
+
+            string value;
+
+            if (!dictionary.TryGetValue(DataNames.Id, out value))
+            {
+                error = String.Format(
+                    "missing {0} data value from license",
+                    FormatOps.WrapOrNull(DataNames.Id));
+
+                return false;
+            }
+
+            Guid localId = Guid.Empty;
+
+            if (Value.GetGuid(
+                    value, InternalCultureInfo, ref localId,
+                    ref error) != ReturnCode.Ok)
+            {
+                return false;
+            }
+
+            id = localId;
+            return true;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -55846,6 +56057,7 @@ namespace Eagle._Components.Public
                                     lookupFlags, localExecute, ref localExecute))
                             {
 #if CACHE_STATISTICS
+                                /* IGNORED */
                                 hiddenExecuteCache.IncrementCacheCount(CacheCountType.Hit);
 #endif
 
@@ -55855,6 +56067,7 @@ namespace Eagle._Components.Public
 #if CACHE_STATISTICS
                             else
                             {
+                                /* IGNORED */
                                 hiddenExecuteCache.IncrementCacheCount(CacheCountType.Miss);
                             }
 #endif
@@ -55862,6 +56075,7 @@ namespace Eagle._Components.Public
 #if CACHE_STATISTICS
                         else
                         {
+                            /* IGNORED */
                             hiddenExecuteCache.IncrementCacheCount(CacheCountType.Miss);
                         }
 #endif
@@ -55879,6 +56093,7 @@ namespace Eagle._Components.Public
                                     lookupFlags, localExecute, ref localExecute))
                             {
 #if CACHE_STATISTICS
+                                /* IGNORED */
                                 executeCache.IncrementCacheCount(CacheCountType.Hit);
 #endif
 
@@ -55888,6 +56103,7 @@ namespace Eagle._Components.Public
 #if CACHE_STATISTICS
                             else
                             {
+                                /* IGNORED */
                                 executeCache.IncrementCacheCount(CacheCountType.Miss);
                             }
 #endif
@@ -55895,6 +56111,7 @@ namespace Eagle._Components.Public
 #if CACHE_STATISTICS
                         else
                         {
+                            /* IGNORED */
                             executeCache.IncrementCacheCount(CacheCountType.Miss);
                         }
 #endif
@@ -57677,7 +57894,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                 /* IGNORED */
-                ClearArgumentCache();
+                MaybeClearArgumentCache(null);
 #endif
 
 #if NOTIFY
@@ -57726,7 +57943,7 @@ namespace Eagle._Components.Public
 
 #if ARGUMENT_CACHE
                     /* IGNORED */
-                    ClearArgumentCache();
+                    MaybeClearArgumentCache(null);
 #endif
 
 #if NOTIFY
@@ -109277,6 +109494,7 @@ namespace Eagle._Components.Public
                         if (!CacheConfiguration.IsItemReadSizeOk(argument, false))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             argumentCache.IncrementCacheCount(CacheCountType.Miss);
 #endif
 
@@ -109288,6 +109506,7 @@ namespace Eagle._Components.Public
                         if (argumentCache.TryGetValue(argument, out localArgument))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             argumentCache.IncrementCacheCount(CacheCountType.Hit);
 #endif
 
@@ -109297,6 +109516,7 @@ namespace Eagle._Components.Public
 #if CACHE_STATISTICS
                         else
                         {
+                            /* IGNORED */
                             argumentCache.IncrementCacheCount(CacheCountType.Miss);
                         }
 #endif
@@ -109305,6 +109525,39 @@ namespace Eagle._Components.Public
             }
 
             return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool MaybeRemoveCachedArgument(
+            Argument argument /* in, out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (argumentCache != null)
+                {
+                    if ((argument != null) && argumentCache.Remove(argument))
+                    {
+#if CACHE_STATISTICS
+                        /* IGNORED */
+                        argumentCache.IncrementCacheCount(CacheCountType.Remove);
+#endif
+
+                        argument = null;
+                        return true;
+                    }
+                    else
+                    {
+#if CACHE_STATISTICS
+                        /* IGNORED */
+                        argumentCache.IncrementCacheCount(CacheCountType.NoRemove);
+#endif
+                    }
+                }
+
+                return false;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -109330,12 +109583,16 @@ namespace Eagle._Components.Public
                     {
                         if ((bool)clear)
                         {
+                            /* IGNORED */
                             argumentCache.IncrementCacheCount(CacheCountType.Clear);
                         }
                         else
                         {
                             while (trimCount-- > 0)
+                            {
+                                /* IGNORED */
                                 argumentCache.IncrementCacheCount(CacheCountType.Trim);
+                            }
                         }
                     }
 #endif
@@ -109343,6 +109600,7 @@ namespace Eagle._Components.Public
                     argumentCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     argumentCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
 #endif
@@ -109396,6 +109654,7 @@ namespace Eagle._Components.Public
                         if (!CacheConfiguration.IsItemWriteSizeOk(argument, false))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             argumentCache.IncrementCacheCount(CacheCountType.Skip);
 #endif
 
@@ -109405,6 +109664,7 @@ namespace Eagle._Components.Public
                         if (argumentCache.ContainsKey(argument))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             argumentCache.IncrementCacheCount(CacheCountType.Collide);
 #endif
 
@@ -109465,7 +109725,15 @@ namespace Eagle._Components.Public
 
 #if CACHE_STATISTICS
                         if (result)
+                        {
+                            /* IGNORED */
                             argumentCache.IncrementCacheCount(CacheCountType.Remove);
+                        }
+                        else
+                        {
+                            /* IGNORED */
+                            argumentCache.IncrementCacheCount(CacheCountType.NoRemove);
+                        }
 #endif
 
                         return result;
@@ -109504,6 +109772,7 @@ namespace Eagle._Components.Public
                         if (!CacheConfiguration.IsItemReadSizeOk(text, false))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             stringListCache.IncrementCacheCount(CacheCountType.Miss);
 #endif
 
@@ -109521,6 +109790,7 @@ namespace Eagle._Components.Public
                         if (stringListCache.TryGetValue(text, out localList))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             stringListCache.IncrementCacheCount(CacheCountType.Hit);
 #endif
 
@@ -109530,6 +109800,7 @@ namespace Eagle._Components.Public
 #if CACHE_STATISTICS
                         else
                         {
+                            /* IGNORED */
                             stringListCache.IncrementCacheCount(CacheCountType.Miss);
                         }
 #endif
@@ -109563,12 +109834,16 @@ namespace Eagle._Components.Public
                     {
                         if ((bool)clear)
                         {
+                            /* IGNORED */
                             stringListCache.IncrementCacheCount(CacheCountType.Clear);
                         }
                         else
                         {
                             while (trimCount-- > 0)
+                            {
+                                /* IGNORED */
                                 stringListCache.IncrementCacheCount(CacheCountType.Trim);
+                            }
                         }
                     }
 #endif
@@ -109576,6 +109851,7 @@ namespace Eagle._Components.Public
                     stringListCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     stringListCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
 #endif
@@ -109630,6 +109906,7 @@ namespace Eagle._Components.Public
                         if (!CacheConfiguration.IsItemWriteSizeOk(text, false))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             stringListCache.IncrementCacheCount(CacheCountType.Skip);
 #endif
 
@@ -109639,6 +109916,7 @@ namespace Eagle._Components.Public
                         if (!CacheConfiguration.IsItemWriteSizeOk((ICollection)list, false))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             stringListCache.IncrementCacheCount(CacheCountType.Skip);
 #endif
 
@@ -109648,6 +109926,7 @@ namespace Eagle._Components.Public
                         if (stringListCache.ContainsKey(text))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             stringListCache.IncrementCacheCount(CacheCountType.Collide);
 #endif
 
@@ -109657,6 +109936,7 @@ namespace Eagle._Components.Public
                         stringListCache.Add(text, list);
 
 #if CACHE_STATISTICS
+                        /* IGNORED */
                         stringListCache.IncrementCacheCount(CacheCountType.Add);
 #endif
 
@@ -109706,7 +109986,15 @@ namespace Eagle._Components.Public
 
 #if CACHE_STATISTICS
                         if (result)
+                        {
+                            /* IGNORED */
                             stringListCache.IncrementCacheCount(CacheCountType.Remove);
+                        }
+                        else
+                        {
+                            /* IGNORED */
+                            stringListCache.IncrementCacheCount(CacheCountType.NoRemove);
+                        }
 #endif
 
                         return result;
@@ -109746,6 +110034,7 @@ namespace Eagle._Components.Public
                         if (!CacheConfiguration.IsItemReadSizeOk(text, false))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             parseStateCache.IncrementCacheCount(CacheCountType.Miss);
 #endif
 
@@ -109757,6 +110046,7 @@ namespace Eagle._Components.Public
                         if (parseStateCache.TryGetValue(text, out localParseState))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             parseStateCache.IncrementCacheCount(CacheCountType.Hit);
 #endif
 
@@ -109766,6 +110056,7 @@ namespace Eagle._Components.Public
 #if CACHE_STATISTICS
                         else
                         {
+                            /* IGNORED */
                             parseStateCache.IncrementCacheCount(CacheCountType.Miss);
                         }
 #endif
@@ -109799,12 +110090,16 @@ namespace Eagle._Components.Public
                     {
                         if ((bool)clear)
                         {
+                            /* IGNORED */
                             parseStateCache.IncrementCacheCount(CacheCountType.Clear);
                         }
                         else
                         {
                             while (trimCount-- > 0)
+                            {
+                                /* IGNORED */
                                 parseStateCache.IncrementCacheCount(CacheCountType.Trim);
+                            }
                         }
                     }
 #endif
@@ -109812,6 +110107,7 @@ namespace Eagle._Components.Public
                     parseStateCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     parseStateCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
 #endif
@@ -109872,6 +110168,7 @@ namespace Eagle._Components.Public
                             if (!CacheConfiguration.IsItemWriteSizeOk(text, false))
                             {
 #if CACHE_STATISTICS
+                                /* IGNORED */
                                 parseStateCache.IncrementCacheCount(CacheCountType.Skip);
 #endif
 
@@ -109883,6 +110180,7 @@ namespace Eagle._Components.Public
                             if (!CacheConfiguration.IsItemWriteSizeOk(tokens, false))
                             {
 #if CACHE_STATISTICS
+                                /* IGNORED */
                                 parseStateCache.IncrementCacheCount(CacheCountType.Skip);
 #endif
 
@@ -109892,6 +110190,7 @@ namespace Eagle._Components.Public
                             if (parseStateCache.ContainsKey(text))
                             {
 #if CACHE_STATISTICS
+                                /* IGNORED */
                                 parseStateCache.IncrementCacheCount(CacheCountType.Collide);
 #endif
 
@@ -109901,6 +110200,7 @@ namespace Eagle._Components.Public
                             parseStateCache.Add(text, parseState);
 
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             parseStateCache.IncrementCacheCount(CacheCountType.Add);
 #endif
 
@@ -109936,6 +110236,7 @@ namespace Eagle._Components.Public
                         if (!CacheConfiguration.IsItemReadSizeOk(name, false))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             typeCache.IncrementCacheCount(CacheCountType.Miss);
 #endif
 
@@ -109945,6 +110246,7 @@ namespace Eagle._Components.Public
                         if (typeCache.TryGetValue(name, out type))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             typeCache.IncrementCacheCount(CacheCountType.Hit);
 #endif
 
@@ -109953,6 +110255,7 @@ namespace Eagle._Components.Public
 #if CACHE_STATISTICS
                         else
                         {
+                            /* IGNORED */
                             typeCache.IncrementCacheCount(CacheCountType.Miss);
                         }
 #endif
@@ -109986,12 +110289,16 @@ namespace Eagle._Components.Public
                     {
                         if ((bool)clear)
                         {
+                            /* IGNORED */
                             typeCache.IncrementCacheCount(CacheCountType.Clear);
                         }
                         else
                         {
                             while (trimCount-- > 0)
+                            {
+                                /* IGNORED */
                                 typeCache.IncrementCacheCount(CacheCountType.Trim);
+                            }
                         }
                     }
 #endif
@@ -109999,6 +110306,7 @@ namespace Eagle._Components.Public
                     typeCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     typeCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
 #endif
@@ -110050,6 +110358,7 @@ namespace Eagle._Components.Public
                         if (!CacheConfiguration.IsItemWriteSizeOk(name, false))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             typeCache.IncrementCacheCount(CacheCountType.Skip);
 #endif
 
@@ -110059,6 +110368,7 @@ namespace Eagle._Components.Public
                         if (typeCache.ContainsKey(name))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             typeCache.IncrementCacheCount(CacheCountType.Collide);
 #endif
 
@@ -110068,6 +110378,7 @@ namespace Eagle._Components.Public
                         typeCache.Add(name, type);
 
 #if CACHE_STATISTICS
+                        /* IGNORED */
                         typeCache.IncrementCacheCount(CacheCountType.Add);
 #endif
 
@@ -110114,7 +110425,15 @@ namespace Eagle._Components.Public
 
 #if CACHE_STATISTICS
                         if (result)
+                        {
+                            /* IGNORED */
                             typeCache.IncrementCacheCount(CacheCountType.Remove);
+                        }
+                        else
+                        {
+                            /* IGNORED */
+                            typeCache.IncrementCacheCount(CacheCountType.NoRemove);
+                        }
 #endif
 
                         return result;
@@ -110150,6 +110469,7 @@ namespace Eagle._Components.Public
                         if (comTypeListCache.TryGetValue(unknown, out localTypes))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             comTypeListCache.IncrementCacheCount(CacheCountType.Hit);
 #endif
 
@@ -110159,6 +110479,7 @@ namespace Eagle._Components.Public
 #if CACHE_STATISTICS
                         else
                         {
+                            /* IGNORED */
                             comTypeListCache.IncrementCacheCount(CacheCountType.Miss);
                         }
 #endif
@@ -110192,12 +110513,16 @@ namespace Eagle._Components.Public
                     {
                         if ((bool)clear)
                         {
+                            /* IGNORED */
                             comTypeListCache.IncrementCacheCount(CacheCountType.Clear);
                         }
                         else
                         {
                             while (trimCount-- > 0)
+                            {
+                                /* IGNORED */
                                 comTypeListCache.IncrementCacheCount(CacheCountType.Trim);
+                            }
                         }
                     }
 #endif
@@ -110205,6 +110530,7 @@ namespace Eagle._Components.Public
                     comTypeListCache.Clear();
 
 #if CACHE_STATISTICS
+                    /* IGNORED */
                     comTypeListCache.IncrementCacheCount(CacheCountType.Clear);
 #endif
 #endif
@@ -110256,6 +110582,7 @@ namespace Eagle._Components.Public
                         if (!CacheConfiguration.IsItemWriteSizeOk(types, false))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             comTypeListCache.IncrementCacheCount(CacheCountType.Skip);
 #endif
 
@@ -110265,6 +110592,7 @@ namespace Eagle._Components.Public
                         if (comTypeListCache.ContainsKey(unknown))
                         {
 #if CACHE_STATISTICS
+                            /* IGNORED */
                             comTypeListCache.IncrementCacheCount(CacheCountType.Collide);
 #endif
 
@@ -110274,6 +110602,7 @@ namespace Eagle._Components.Public
                         comTypeListCache.Add(unknown, types);
 
 #if CACHE_STATISTICS
+                        /* IGNORED */
                         comTypeListCache.IncrementCacheCount(CacheCountType.Add);
 #endif
 
@@ -110320,7 +110649,15 @@ namespace Eagle._Components.Public
 
 #if CACHE_STATISTICS
                         if (result)
+                        {
+                            /* IGNORED */
                             comTypeListCache.IncrementCacheCount(CacheCountType.Remove);
+                        }
+                        else
+                        {
+                            /* IGNORED */
+                            comTypeListCache.IncrementCacheCount(CacheCountType.NoRemove);
+                        }
 #endif
 
                         return result;
@@ -111698,6 +112035,16 @@ namespace Eagle._Components.Public
             get { return Interlocked.CompareExchange(ref precision, 0, 0); }
             set { Interlocked.Exchange(ref precision, value); }
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        internal int InternalBigIntegerRotateBits
+        {
+            get { return Interlocked.CompareExchange(ref bigIntegerRotateBits, 0, 0); }
+            set { Interlocked.Exchange(ref bigIntegerRotateBits, value); }
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -113888,6 +114235,7 @@ namespace Eagle._Components.Public
             int? availableTimeout,
             int? readTimeout,
             int? writeTimeout,
+            bool? keepAlive,
             bool exclusive,
             string text, /* command */
             ref Result result
@@ -113909,7 +114257,8 @@ namespace Eagle._Components.Public
                 SocketClientData clientData = new SocketClientData(
                     null, localEvent, this, options, address, port,
                     addressFamily, streamFlags, availableTimeout,
-                    readTimeout, writeTimeout, exclusive, text);
+                    readTimeout, writeTimeout, keepAlive, exclusive,
+                    text);
 
                 int localTimeout = ThreadOps.GetTimeout(
                     this, timeout, TimeoutType.Start);
@@ -118369,6 +118718,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Disposal Phases
+        //
+        // NOTE: This method assumes it is being called when the
+        //       interpreter lock is NOT held.
+        //
         private void DisposePhase0(
             DisposalPhase phase
             )
@@ -118398,10 +118751,30 @@ namespace Eagle._Components.Public
             if (FlagOps.HasFlags(phase, DisposalPhase.NativeTcl, true))
                 MakeTclReadOnly(false);
 #endif
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Dispose of any utility threads that may be running.
+            //
+            if (FlagOps.HasFlags(phase, DisposalPhase.Thread, true))
+                DisposeOtherThreads();
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Dispose any nested interpreters first.
+            //
+            if (FlagOps.HasFlags(phase, DisposalPhase.Interpreter, true))
+                DisposeChildInterpreters();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: This method assumes it is being called when the
+        //       interpreter lock is held.
+        //
         private void DisposePhase1(
             DisposalPhase phase,
             bool reset
@@ -118419,10 +118792,7 @@ namespace Eagle._Components.Public
             // NOTE: Dispose any nested interpreters first.
             //
             if (FlagOps.HasFlags(phase, DisposalPhase.Interpreter, true))
-            {
                 DisposeBundleManager();
-                DisposeChildInterpreters();
-            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -118577,6 +118947,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: This method assumes it is being called when the
+        //       interpreter lock is held.
+        //
         private void DisposePhase2(
             DisposalPhase phase,
             bool disposing,
@@ -118693,6 +119067,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: This method assumes it is being called when the
+        //       interpreter lock is held.
+        //
         private void DisposePhase3(
             DisposalPhase phase
             )
@@ -118719,6 +119097,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL
+        //
+        // NOTE: This method assumes it is being called when the
+        //       interpreter lock is NOT held.
+        //
         private void DisposePhase4(
             DisposalPhase phase,
             bool disposing
@@ -118754,6 +119136,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: This method assumes it is being called when the
+        //       interpreter lock is held.
+        //
         private void DisposePhase5(
             bool disposing
             )

@@ -59,6 +59,7 @@ namespace Eagle._Commands
                     {
                         OptionDictionary options = new OptionDictionary(
                             new IOption[] {
+                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-usecount", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-useobject", null),
                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nonewline", null)
                         });
@@ -71,6 +72,11 @@ namespace Eagle._Commands
                         {
                             if ((argumentIndex != Index.Invalid) && ((argumentIndex + 2) >= argumentCount))
                             {
+                                bool useCount = false;
+
+                                if (options.IsPresent("-usecount"))
+                                    useCount = true;
+
                                 bool useObject = false;
 
                                 if (options.IsPresent("-useobject"))
@@ -94,23 +100,53 @@ namespace Eagle._Commands
 
                                     if (channel.NullEncoding || (encoding != null))
                                     {
+                                        StringBuilder builder; /* REUSED */
                                         int outputIndex = argumentCount - 1;
-                                        string output;
+                                        Argument outputArgument = arguments[outputIndex];
+                                        int outputLength = outputArgument.Length;
+                                        string outputString;
 
                                         if (newLine)
                                         {
-                                            StringBuilder builder = StringBuilderFactory.Create(
-                                                arguments[outputIndex]);
+                                            if (useCount)
+                                            {
+                                                builder = StringBuilderFactory.Create(
+                                                    Count.PrefixSize + outputLength);
+
+                                                builder.AppendFormat("{0:X8}", outputLength);
+                                                builder.Append(Characters.Space);
+                                                builder.Append(outputArgument);
+                                            }
+                                            else
+                                            {
+                                                builder = StringBuilderFactory.Create(
+                                                    outputArgument);
+                                            }
 
                                             builder.Append(
                                                 ConversionOps.ToChar(ChannelOps.NewLine));
 
-                                            output = StringBuilderCache.GetStringAndRelease(
+                                            outputString = StringBuilderCache.GetStringAndRelease(
                                                 ref builder);
                                         }
                                         else
                                         {
-                                            output = arguments[outputIndex];
+                                            if (useCount)
+                                            {
+                                                builder = StringBuilderFactory.Create(
+                                                    Count.PrefixSize + outputLength);
+
+                                                builder.AppendFormat("{0:X8}", outputLength);
+                                                builder.Append(Characters.Space);
+                                                builder.Append(outputArgument);
+
+                                                outputString = StringBuilderCache.GetStringAndRelease(
+                                                    ref builder);
+                                            }
+                                            else
+                                            {
+                                                outputString = outputArgument;
+                                            }
                                         }
 
                                         try
@@ -126,7 +162,8 @@ namespace Eagle._Commands
                                                     //       for any value conversions.
                                                     //
                                                     code = interpreter.AppendObjectAsVirtualOutput(
-                                                        output, LookupFlags.Default, channel, ref result);
+                                                        outputString, LookupFlags.Default, channel,
+                                                        ref result);
                                                 }
                                                 else
                                                 {
@@ -135,7 +172,7 @@ namespace Eagle._Commands
                                                     //       directly from the input string, which is
                                                     //       already Unicode.
                                                     //
-                                                    channel.AppendVirtualOutput(output);
+                                                    channel.AppendVirtualOutput(outputString);
                                                     result = String.Empty;
                                                 }
                                             }
@@ -150,13 +187,13 @@ namespace Eagle._Commands
                                                     if (useObject)
                                                     {
                                                         code = interpreter.GetObjectAsBytes(
-                                                            encoding, output, LookupFlags.Default,
+                                                            encoding, outputString, LookupFlags.Default,
                                                             ref bytes, ref result);
                                                     }
                                                     else
                                                     {
                                                         code = StringOps.GetBytes(
-                                                            encoding, output, EncodingType.Binary,
+                                                            encoding, outputString, EncodingType.Binary,
                                                             true, ref bytes, ref result);
                                                     }
 

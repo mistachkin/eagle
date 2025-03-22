@@ -14,6 +14,26 @@
 #
 ###############################################################################
 
+#
+# NOTE: If the path to the test suite files (i.e. which must be in the
+#       same place as this file) is not set correctly, make sure to do
+#       that now.
+#
+set expr {![info exists test_path] || ![file exists $test_path] || \
+    ![file isdirectory $test_path] || ([info exists \
+    ::tcl_platform(engine)] && [string compare -nocase eagle \
+    $::tcl_platform(engine)] == 0 ? ![file same $test_path [file \
+    normalize [file dirname [info script]]]] : [file normalize \
+    $test_path] ne [file normalize [file dirname [info script]]])}
+
+if {[expr $expr]} then {
+  set test_path [file normalize [file dirname [info script]]]
+}
+
+unset expr
+
+###############################################################################
+
 if {![info exists test_all_path]} then {
   #
   # NOTE: Build a reusable expression that can be used to verify the
@@ -32,7 +52,7 @@ if {![info exists test_all_path]} then {
   #       and "lib" sub-directories are peers.
   #
   set test_all_path [file normalize [file join [file dirname [file \
-      dirname [info script]]] lib Test1.0]]
+      dirname [file normalize [info script]]]] lib Test1.0]]
 
   if {[expr $expr]} then {
     #
@@ -44,11 +64,14 @@ if {![info exists test_all_path]} then {
     #       sub-directory.
     #
     set test_all_path [file normalize [file join [file dirname [file \
-        dirname [file dirname [info script]]]] lib Test1.0]]
+        dirname [file dirname [file normalize [info script]]]]] lib \
+        Test1.0]]
   }
 
   unset expr
 }
+
+###############################################################################
 
 if {![info exists test_suite_file]} then {
   #
@@ -58,5 +81,7 @@ if {![info exists test_suite_file]} then {
   #
   set test_suite_file [file join $test_all_path all.eagle]
 }
+
+###############################################################################
 
 source [file join $test_all_path prologue.eagle]

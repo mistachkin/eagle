@@ -5383,7 +5383,7 @@ namespace Eagle._Components.Private
             Result result = null;
 
             if (ScriptOps.CheckSecurityCertificate(
-                    interpreter, ref result) != ReturnCode.Ok)
+                    interpreter, false, ref result) != ReturnCode.Ok)
             {
                 error = result;
                 return false;
@@ -8952,7 +8952,10 @@ namespace Eagle._Components.Private
             savedCacheCounts[flags] = counts;
 
             if (move)
+            {
+                /* IGNORED */
                 cacheCounts.SetCacheCounts(null, false);
+            }
 
             return true;
         }
@@ -8978,6 +8981,7 @@ namespace Eagle._Components.Private
             if (counts == null)
                 return false;
 
+            /* IGNORED */
             cacheCounts.SetCacheCounts(counts, merge);
 
             if (move)

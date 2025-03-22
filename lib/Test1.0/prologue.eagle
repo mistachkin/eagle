@@ -2243,10 +2243,10 @@ if {![info exists no([file tail [info script]])]} then {
         # NOTE: For test "function-1.1".
         #
         checkForObjectMember $test_channel Eagle._Tests.Default \
-            *TestAddFunction*
+            *TestAddFunctions*
 
         checkForObjectMember $test_channel Eagle._Tests.Default \
-            *TestRemoveFunction*
+            *TestRemoveFunctions*
 
         #
         # NOTE: For tests "function-5.*".
@@ -3810,6 +3810,10 @@ if {![info exists no([file tail [info script]])]} then {
 
   if {![info exists no(tip207)]} then {
     checkForTip207 $test_channel
+  }
+
+  if {![info exists no(tip237)]} then {
+    checkForTip237 $test_channel
   }
 
   if {![info exists no(tip241)]} then {

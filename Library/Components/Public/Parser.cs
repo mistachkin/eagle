@@ -10,6 +10,11 @@
  */
 
 using System;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Text;
 using Eagle._Attributes;
 using Eagle._Components.Private;
@@ -1897,7 +1902,9 @@ namespace Eagle._Components.Public
 
             if (!String.IsNullOrEmpty(text))
             {
-                while ((index < text.Length) && (characters-- > 0))
+                int length = text.Length;
+
+                while ((index < length) && (characters-- > 0))
                 {
                     char digit = text[index];
 
@@ -1914,6 +1921,42 @@ namespace Eagle._Components.Public
             number = result;
             return (index - startIndex);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        internal static int ParseBinary(
+            string text,
+            int startIndex,
+            int characters,
+            ref BigInteger number
+            )
+        {
+            int index = startIndex;
+            BigInteger result = BigInteger.Zero;
+
+            if (!String.IsNullOrEmpty(text))
+            {
+                int length = text.Length;
+
+                while ((index < length) && (characters-- > 0))
+                {
+                    char digit = text[index];
+
+                    if (!IsBinaryDigit(digit))
+                        break;
+
+                    index++;
+
+                    result <<= 1;
+                    result |= (byte)(digit - Characters.Zero);
+                }
+            }
+
+            number = result;
+            return (index - startIndex);
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1940,7 +1983,9 @@ namespace Eagle._Components.Public
 
             if (!String.IsNullOrEmpty(text))
             {
-                while ((index < text.Length) && (characters-- > 0))
+                int length = text.Length;
+
+                while ((index < length) && (characters-- > 0))
                 {
                     char digit = text[index];
 
@@ -1957,6 +2002,42 @@ namespace Eagle._Components.Public
             number = result;
             return (index - startIndex);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        internal static int ParseOctal(
+            string text,
+            int startIndex,
+            int characters,
+            ref BigInteger number
+            )
+        {
+            int index = startIndex;
+            BigInteger result = BigInteger.Zero;
+
+            if (!String.IsNullOrEmpty(text))
+            {
+                int length = text.Length;
+
+                while ((index < length) && (characters-- > 0))
+                {
+                    char digit = text[index];
+
+                    if (!IsOctalDigit(digit))
+                        break;
+
+                    index++;
+
+                    result <<= 3;
+                    result |= (byte)(digit - Characters.Zero);
+                }
+            }
+
+            number = result;
+            return (index - startIndex);
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1983,7 +2064,9 @@ namespace Eagle._Components.Public
 
             if (!String.IsNullOrEmpty(text))
             {
-                while ((index < text.Length) && (characters-- > 0))
+                int length = text.Length;
+
+                while ((index < length) && (characters-- > 0))
                 {
                     char digit = text[index];
 
@@ -2000,6 +2083,42 @@ namespace Eagle._Components.Public
             number = result;
             return (index - startIndex);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        internal static int ParseDecimal(
+            string text,
+            int startIndex,
+            int characters,
+            ref BigInteger number
+            )
+        {
+            int index = startIndex;
+            BigInteger result = BigInteger.Zero;
+
+            if (!String.IsNullOrEmpty(text))
+            {
+                int length = text.Length;
+
+                while ((index < length) && (characters-- > 0))
+                {
+                    char digit = text[index];
+
+                    if (!IsDecimalDigit(digit))
+                        break;
+
+                    index++;
+
+                    result *= 10;
+                    result += (byte)(digit - Characters.Zero);
+                }
+            }
+
+            number = result;
+            return (index - startIndex);
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2028,7 +2147,9 @@ namespace Eagle._Components.Public
 
             if (!String.IsNullOrEmpty(text))
             {
-                while ((index < text.Length) && (characters-- > 0))
+                int length = text.Length;
+
+                while ((index < length) && (characters-- > 0))
                 {
                     char digit = text[index];
 
@@ -2050,6 +2171,47 @@ namespace Eagle._Components.Public
             number = result;
             return (index - startIndex);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        internal static int ParseHexadecimal(
+            string text,
+            int startIndex,
+            int characters,
+            ref BigInteger number
+            )
+        {
+            int index = startIndex;
+            BigInteger result = BigInteger.Zero;
+
+            if (!String.IsNullOrEmpty(text))
+            {
+                int length = text.Length;
+
+                while ((index < length) && (characters-- > 0))
+                {
+                    char digit = text[index];
+
+                    if (!IsHexadecimalDigit(digit))
+                        break;
+
+                    index++;
+                    result <<= 4;
+
+                    if (digit >= Characters.a)
+                        result |= (byte)(DecimalRadix + digit - Characters.a);
+                    else if (digit >= Characters.A)
+                        result |= (byte)(DecimalRadix + digit - Characters.A);
+                    else
+                        result |= (byte)(digit - Characters.Zero);
+                }
+            }
+
+            number = result;
+            return (index - startIndex);
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2077,7 +2239,9 @@ namespace Eagle._Components.Public
 
             if (!String.IsNullOrEmpty(text))
             {
-                while ((index < text.Length) && (characters-- > 0))
+                int length = text.Length;
+
+                while ((index < length) && (characters-- > 0))
                 {
                     char digit = text[index];
 
@@ -2097,6 +2261,45 @@ namespace Eagle._Components.Public
             number = result;
             return (index - startIndex);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        internal static int ParseHexavigesimal(
+            string text,
+            int startIndex,
+            int characters,
+            ref BigInteger number
+            )
+        {
+            int index = startIndex;
+            BigInteger result = BigInteger.Zero;
+
+            if (!String.IsNullOrEmpty(text))
+            {
+                int length = text.Length;
+
+                while ((index < length) && (characters-- > 0))
+                {
+                    char digit = text[index];
+
+                    if (!IsHexavigesimalDigit(digit))
+                        break;
+
+                    index++;
+                    result *= 26;
+
+                    if (digit >= Characters.a)
+                        result += (byte)(digit - Characters.a);
+                    else
+                        result += (byte)(digit - Characters.A);
+                }
+            }
+
+            number = result;
+            return (index - startIndex);
+        }
+#endif
         #endregion
         #endregion
 
@@ -2176,8 +2379,9 @@ namespace Eagle._Components.Public
             if (!String.IsNullOrEmpty(text) && (characters > 0))
             {
                 int index = startIndex + 1;
+                int length = text.Length;
 
-                if ((index >= text.Length) || // TEST: Test this.
+                if ((index >= length) || // TEST: Test this.
                     (characters == 1))
                 {
                     character1 = Characters.Backslash;
@@ -2382,7 +2586,7 @@ namespace Eagle._Components.Public
                                 do
                                 {
                                     index++; read++;
-                                } while ((index < text.Length) && // TEST: Test this.
+                                } while ((index < length) && // TEST: Test this.
                                          (read < characters) &&
                                          IsTabOrSpace(text[index]));
 

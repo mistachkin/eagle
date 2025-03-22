@@ -499,7 +499,7 @@ namespace Eagle._Commands
                                                     if (argumentIndex == Index.Invalid)
                                                     {
                                                         IVariant value = null;
-                                                        DateTimeKind kind = ObjectOps.GetDefaultDateTimeKind();
+                                                        DateTimeKind kind = interpreter.DateTimeKind;
 
                                                         if (options.IsPresent("-kind", ref value))
                                                             kind = (DateTimeKind)value.Value;

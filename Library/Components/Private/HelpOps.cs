@@ -5135,7 +5135,7 @@ namespace Eagle._Components.Private
                             localResult, ResultFlags.CopyObject); /* COPY */
 
                         if (ScriptOps.CheckSecurityCertificate(
-                                interpreter,
+                                interpreter, false,
                                 ref certificateResult) == ReturnCode.Ok)
                         {
                             result = certificateResult;

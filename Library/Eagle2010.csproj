@@ -902,6 +902,20 @@
     <Compile Include="Wrappers\SubCommand.cs" />
     <Compile Include="Wrappers\Trace.cs" />
   </ItemGroup>
+  <ItemGroup Condition="'$(TargetFrameworkVersion)' == 'v4.0' Or
+                        '$(TargetFrameworkVersion)' == 'v4.5' Or
+                        '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                        '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                        '$(TargetFrameworkVersion)' == 'v4.6' Or
+                        '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                        '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                        '$(TargetFrameworkVersion)' == 'v4.7' Or
+                        '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                        '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                        '$(TargetFrameworkVersion)' == 'v4.8' Or
+                        '$(TargetFrameworkVersion)' == 'v4.8.1'">
+    <Compile Include="Functions\Entier.cs" />
+  </ItemGroup>
   <ItemGroup Condition="'$(EagleCacheStatistics)' != 'false'">
     <Compile Include="Interfaces\Private\CacheCounts.cs" />
   </ItemGroup>

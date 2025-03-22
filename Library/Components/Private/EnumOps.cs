@@ -2306,7 +2306,7 @@ namespace Eagle._Components.Private
             CultureInfo cultureInfo /* in: OPTIONAL */
             ) /* SAFE */
         {
-            TypeCode typeCode = Convert.GetTypeCode(value);
+            TypeCode typeCode = NumberOps.GetTypeCode(value);
 
             switch (typeCode)
             {

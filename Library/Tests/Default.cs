@@ -29,6 +29,10 @@ using System.IO.Pipes;
 using System.Net;
 #endif
 
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -1486,6 +1490,66 @@ namespace Eagle._Tests
 
                 return ReturnCode.Error;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestRemoveCommands(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in: OPTIONAL */
+            ref LongList tokens,     /* in, out */
+            ref ResultList errors    /* in, out */
+            )
+        {
+            if (interpreter == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid interpreter");
+                return ReturnCode.Error;
+            }
+
+            if (tokens == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid token list");
+                return ReturnCode.Error;
+            }
+
+            LongList localTokens = new LongList(tokens);
+
+            foreach (long token in localTokens)
+            {
+                Result result = null;
+
+                if (interpreter.RemoveCommand(
+                        token, clientData,
+                        ref result) == ReturnCode.Ok)
+                {
+                    if (!tokens.Remove(token))
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(String.Format(
+                            "could not remove token: {0}",
+                            token));
+                    }
+                }
+                else
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(result);
+                }
+            }
+
+            return (tokens.Count == 0) ?
+                ReturnCode.Ok : ReturnCode.Error;
         }
         #endregion
 
@@ -5637,11 +5701,8 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            if (!whatIf)
-            {
-                TestExitNow(FailSafeExitCode, formatted);
-                TestKillOrAbortSelfNow();
-            }
+            TestExitNow(FailSafeExitCode, formatted, whatIf);
+            TestKillOrAbortSelfNow(whatIf);
         }
         #endregion
 
@@ -8835,58 +8896,263 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static ResultList TestAddFunction(
-            Interpreter interpreter
+        public static ResultList TestAddFunctions(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in: OPTIONAL */
+            ref LongList tokens      /* in, out */
             )
         {
             ResultList results = new ResultList();
-            long token = 0;
 
-            ReturnCode code;
-            Result result = null;
+            if (interpreter == null)
+            {
+                results.Add(ReturnCode.Error);
+                results.Add("invalid interpreter");
 
-            code = interpreter.AddFunction(
-                typeof(_Tests.Default), "foo", (int)Arity.None, null,
-                FunctionFlags.ForTestUse, null, null, true, ref token,
-                ref result);
+                goto done;
+            }
 
-            if (code == ReturnCode.Ok)
-                results.Add(code);
-            else
-                results.Add(result);
+            IPlugin plugin;
+            Result error = null;
 
-            code = interpreter.AddFunction(
-                typeof(_Functions.Min), "bar", (int)Arity.None, null,
-                FunctionFlags.ForTestUse, null, null, true, ref token,
-                ref result);
+            plugin = interpreter.GetTestPlugin(ref error);
 
-            if (code == ReturnCode.Ok)
-                results.Add(code);
-            else
-                results.Add(result);
+            if (plugin == null)
+            {
+                results.Add(error);
+                goto done;
+            }
 
-            code = interpreter.AddFunction(
-                typeof(_Functions.Min), "eq", (int)Arity.None, null,
-                FunctionFlags.ForTestUse, null, null, true, ref token,
-                ref result);
+            if (tokens == null)
+                tokens = new LongList();
 
-            if (code == ReturnCode.Ok)
-                results.Add(code);
-            else
-                results.Add(result);
+            ReturnCode code; /* REUSED */
+            long token; /* REUSED */
+            Result result; /* REUSED */
+
+            token = 0;
+            result = null;
 
             code = interpreter.AddFunction(
-                typeof(_Functions.Min), "eqq", (int)Arity.None, null,
-                FunctionFlags.ForTestUse, null, null, true, ref token,
-                ref result);
+                typeof(_Tests.Default), "foo", (int)Arity.Any, null,
+                FunctionFlags.ForTestUse, plugin, clientData, true,
+                ref token, ref result);
 
             if (code == ReturnCode.Ok)
+            {
                 results.Add(code);
+                tokens.Add(token);
+            }
             else
+            {
+                results.Add(code);
                 results.Add(result);
+            }
+
+            token = 0;
+            result = null;
+
+            code = interpreter.AddFunction(
+                typeof(_Functions.Min), "bar", (int)Arity.Any, null,
+                FunctionFlags.ForTestUse, plugin, clientData, true,
+                ref token, ref result);
+
+            if (code == ReturnCode.Ok)
+            {
+                results.Add(code);
+                tokens.Add(token);
+            }
+            else
+            {
+                results.Add(code);
+                results.Add(result);
+            }
+
+            token = 0;
+            result = null;
+
+            code = interpreter.AddFunction(
+                typeof(_Functions.Min), "eq", (int)Arity.Any, null,
+                FunctionFlags.ForTestUse, plugin, clientData, true,
+                ref token, ref result);
+
+            if (code == ReturnCode.Ok)
+            {
+                results.Add(code);
+                tokens.Add(token);
+            }
+            else
+            {
+                results.Add(code);
+                results.Add(result);
+            }
+
+            token = 0;
+            result = null;
+
+            code = interpreter.AddFunction(
+                typeof(_Functions.Min), "eqq", (int)Arity.Any, null,
+                FunctionFlags.ForTestUse, plugin, clientData, true,
+                ref token, ref result);
+
+            if (code == ReturnCode.Ok)
+            {
+                results.Add(code);
+                tokens.Add(token);
+            }
+            else
+            {
+                results.Add(code);
+                results.Add(result);
+            }
+
+        done:
 
             return results;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static ResultList TestAddBigIntegerFunctions(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref LongList tokens
+            )
+        {
+            ResultList results = new ResultList();
+
+            if (interpreter == null)
+            {
+                results.Add(ReturnCode.Error);
+                results.Add("invalid interpreter");
+
+                goto done;
+            }
+
+            IPlugin plugin;
+            Result error = null;
+
+            plugin = interpreter.GetTestPlugin(ref error);
+
+            if (plugin == null)
+            {
+                results.Add(error);
+                goto done;
+            }
+
+            if (tokens == null)
+                tokens = new LongList();
+
+            ReturnCode code; /* REUSED */
+            long token; /* REUSED */
+            Result result; /* REUSED */
+
+            token = 0;
+            result = null;
+
+            code = interpreter.AddFunction(
+                typeof(_Tests.Default.Modpow), "modpow", (int)Arity.Ternary,
+                null, FunctionFlags.ForTestUse, plugin, clientData, true,
+                ref token, ref result);
+
+            if (code == ReturnCode.Ok)
+            {
+                results.Add(code);
+                tokens.Add(token);
+            }
+            else
+            {
+                results.Add(code);
+                results.Add(result);
+            }
+
+            token = 0;
+            result = null;
+
+            code = interpreter.AddFunction(
+                typeof(_Tests.Default.Divrem), "divrem", (int)Arity.Ternary,
+                null, FunctionFlags.ForTestUse, plugin, clientData, true,
+                ref token, ref result);
+
+            if (code == ReturnCode.Ok)
+            {
+                results.Add(code);
+                tokens.Add(token);
+            }
+            else
+            {
+                results.Add(code);
+                results.Add(result);
+            }
+
+            token = 0;
+            result = null;
+
+            code = interpreter.AddFunction(
+                typeof(_Tests.Default.Gcd), "gcd", (int)Arity.Binary, null,
+                FunctionFlags.ForTestUse, plugin, clientData, true,
+                ref token, ref result);
+
+            if (code == ReturnCode.Ok)
+            {
+                results.Add(code);
+                tokens.Add(token);
+            }
+            else
+            {
+                results.Add(code);
+                results.Add(result);
+            }
+
+        done:
+
+            return results;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ResultList TestRemoveBigIntegerFunctions(
+            Interpreter interpreter, /* in */
+            IClientData clientData   /* in */
+            )
+        {
+            ResultList results = new ResultList();
+
+            if (interpreter == null)
+            {
+                results.Add(ReturnCode.Error);
+                results.Add("invalid interpreter");
+
+                goto done;
+            }
+
+            ReturnCode code; /* REUSED */
+            Result result; /* REUSED */
+
+            result = null;
+            code = interpreter.RemoveFunction("modpow", clientData, ref result);
+
+            results.Add(code);
+            results.Add(result);
+
+            result = null;
+            code = interpreter.RemoveFunction("divrem", clientData, ref result);
+
+            results.Add(code);
+            results.Add(result);
+
+            result = null;
+            code = interpreter.RemoveFunction("gcd", clientData, ref result);
+
+            results.Add(code);
+            results.Add(result);
+
+        done:
+
+            return results;
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -8897,10 +9163,16 @@ namespace Eagle._Tests
             ref Result result
             )
         {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
             long token = 0;
 
             return interpreter.AddFunction(
-                typeof(_Tests.Default.Function), name, (int)Arity.None,
+                typeof(_Tests.Default.Function1), name, (int)Arity.Any,
                 null, FunctionFlags.ForTestUse, null, clientData, true,
                 ref token, ref result);
         }
@@ -8914,6 +9186,12 @@ namespace Eagle._Tests
             ref Result result
             )
         {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
             long token = 0;
 
             return interpreter.AddFunction(
@@ -8931,6 +9209,12 @@ namespace Eagle._Tests
             ref Result result
             )
         {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
             long token = 0;
 
             return interpreter.AddFunction(
@@ -8941,44 +9225,110 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static ResultList TestRemoveFunction(
+        public static ResultList TestRemoveFunctions(
             Interpreter interpreter
             )
         {
             ResultList results = new ResultList();
 
-            ReturnCode code;
-            Result result = null;
+            if (interpreter == null)
+            {
+                results.Add(ReturnCode.Error);
+                results.Add("invalid interpreter");
 
+                goto done;
+            }
+
+            ReturnCode code; /* REUSED */
+            Result result; /* REUSED */
+
+            result = null;
             code = interpreter.RemoveFunction("foo", null, ref result);
 
-            if (code == ReturnCode.Ok)
-                results.Add(code);
-            else
-                results.Add(result);
+            results.Add(code);
+            results.Add(result);
 
+            result = null;
             code = interpreter.RemoveFunction("bar", null, ref result);
 
-            if (code == ReturnCode.Ok)
-                results.Add(code);
-            else
-                results.Add(result);
+            results.Add(code);
+            results.Add(result);
 
+            result = null;
             code = interpreter.RemoveFunction("eq", null, ref result);
 
-            if (code == ReturnCode.Ok)
-                results.Add(code);
-            else
-                results.Add(result);
+            results.Add(code);
+            results.Add(result);
 
+            result = null;
             code = interpreter.RemoveFunction("eqq", null, ref result);
 
-            if (code == ReturnCode.Ok)
-                results.Add(code);
-            else
-                results.Add(result);
+            results.Add(code);
+            results.Add(result);
+
+        done:
 
             return results;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestRemoveFunctions(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in: OPTIONAL */
+            ref LongList tokens,     /* in, out */
+            ref ResultList errors    /* in, out */
+            )
+        {
+            if (interpreter == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid interpreter");
+                return ReturnCode.Error;
+            }
+
+            if (tokens == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid token list");
+                return ReturnCode.Error;
+            }
+
+            LongList localTokens = new LongList(tokens);
+
+            foreach (long token in localTokens)
+            {
+                Result result = null;
+
+                if (interpreter.RemoveFunction(
+                        token, clientData,
+                        ref result) == ReturnCode.Ok)
+                {
+                    if (!tokens.Remove(token))
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(String.Format(
+                            "could not remove token: {0}",
+                            token));
+                    }
+                }
+                else
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(result);
+                }
+            }
+
+            return (tokens.Count == 0) ?
+                ReturnCode.Ok : ReturnCode.Error;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -8990,6 +9340,12 @@ namespace Eagle._Tests
             Result result
             )
         {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
             return interpreter.RemoveFunction(name, clientData, ref result);
         }
 
@@ -16975,12 +17331,24 @@ namespace Eagle._Tests
 
         private static void TestExitNow(
             ExitCode exitCode, /* in */
-            string message     /* in */
+            string message,    /* in */
+            bool whatIf        /* in */
             )
         {
             try
             {
-                Environment.Exit((int)exitCode); /* throw */
+                if (whatIf)
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "TestExitNow: EXIT {0}: {1}",
+                        exitCode, FormatOps.MaybeNull(message)),
+                        typeof(Default).Name,
+                        TracePriority.ProcessDebug2);
+                }
+                else
+                {
+                    Environment.Exit((int)exitCode); /* throw */
+                }
             }
             catch
             {
@@ -16991,7 +17359,18 @@ namespace Eagle._Tests
 
             try
             {
-                Environment.FailFast(message); /* throw */
+                if (whatIf)
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "TestExitNow: FAIL-FAST {0}: {1}",
+                        exitCode, FormatOps.MaybeNull(message)),
+                        typeof(Default).Name,
+                        TracePriority.ProcessDebug2);
+                }
+                else
+                {
+                    Environment.FailFast(message); /* throw */
+                }
             }
             catch
             {
@@ -17001,7 +17380,9 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static void TestKillOrAbortSelfNow()
+        private static void TestKillOrAbortSelfNow(
+            bool whatIf
+            )
         {
             Process process;
             Thread thread;
@@ -17014,7 +17395,18 @@ namespace Eagle._Tests
             {
                 try
                 {
-                    process.Kill(); /* throw */
+                    if (whatIf)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "TestKillOrAbortSelfNow: KILL {0}",
+                            FormatOps.ProcessName(process, true)),
+                            typeof(Default).Name,
+                            TracePriority.ProcessDebug2);
+                    }
+                    else
+                    {
+                        process.Kill(); /* throw */
+                    }
                 }
                 catch
                 {
@@ -17028,7 +17420,18 @@ namespace Eagle._Tests
             {
                 try
                 {
-                    thread.Abort(); /* throw */
+                    if (whatIf)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "TestKillOrAbortSelfNow: ABORT {0}",
+                            FormatOps.ThreadName(thread, true)),
+                            typeof(Default).Name,
+                            TracePriority.ProcessDebug2);
+                    }
+                    else
+                    {
+                        thread.Abort(); /* throw */
+                    }
                 }
                 catch
                 {
@@ -35925,10 +36328,10 @@ namespace Eagle._Tests
         [FunctionFlags(FunctionFlags.Safe | FunctionFlags.NoPopulate)]
         [Arguments(Arity.Unary)]
         [ObjectGroup("test")]
-        public sealed class Function : _Functions.Default
+        public sealed class Function1 : _Functions.Default
         {
             #region Public Constructors
-            public Function(
+            public Function1(
                 IFunctionData functionData
                 )
                 : base(functionData)
@@ -36104,7 +36507,7 @@ namespace Eagle._Tests
         #region IFunction Test Class #3
         [ObjectId("c06da159-fe1f-4482-85ec-1b4c3bf4d0d0")]
         [FunctionFlags(FunctionFlags.Unsafe | FunctionFlags.NoPopulate)]
-        [Arguments(Arity.None)]
+        [Arguments(Arity.Any)]
         [ObjectGroup("test")]
         public sealed class Function3 : _Functions.Default
         {
@@ -36185,6 +36588,264 @@ namespace Eagle._Tests
             }
             #endregion
         }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IFunction Test Class #4 (BigInteger)
+#if NET_40
+        [ObjectId("80402271-58be-4b82-a3b2-96722fd312fb")]
+        [FunctionFlags(FunctionFlags.Unsafe | FunctionFlags.NoPopulate)]
+        [Arguments(Arity.Ternary)]
+        [TypeListFlags(TypeListFlags.IntegralTypes)]
+        [ObjectGroup("test")]
+        public sealed class Modpow : _Functions.Default
+        {
+            #region Public Constructors
+            public Modpow(
+                IFunctionData functionData
+                )
+                : base(functionData)
+            {
+                this.Flags |= AttributeOps.GetFunctionFlags(GetType().BaseType) |
+                    AttributeOps.GetFunctionFlags(this);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IExecuteArgument Members
+            public override ReturnCode Execute(
+                Interpreter interpreter,
+                IClientData clientData,
+                ArgumentList arguments,
+                ref Argument value,
+                ref Result error
+                )
+            {
+                if (base.Execute(
+                        interpreter, clientData, arguments, ref value,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+                BigInteger @base = BigInteger.Zero;
+
+                if (Value.GetBigInteger2(
+                        arguments[1], ValueFlags.AnyInteger, cultureInfo,
+                        ref @base, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                BigInteger exponent = BigInteger.Zero;
+
+                if (Value.GetBigInteger2(
+                        arguments[2], ValueFlags.AnyInteger, cultureInfo,
+                        ref exponent, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                BigInteger modulus = BigInteger.Zero;
+
+                if (Value.GetBigInteger2(
+                        arguments[3], ValueFlags.AnyInteger, cultureInfo,
+                        ref modulus, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                try
+                {
+                    value = BigInteger.ModPow(@base, exponent, modulus);
+                }
+                catch (Exception e)
+                {
+                    Engine.SetExceptionErrorCode(interpreter, e);
+
+                    error = String.Format("caught math exception: {0}", e);
+
+                    return ReturnCode.Error;
+                }
+
+                return ReturnCode.Ok;
+            }
+            #endregion
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IFunction Test Class #5 (BigInteger)
+#if NET_40
+        [ObjectId("ceb13f0a-01f7-4dda-8e23-bc36dff8456e")]
+        [FunctionFlags(FunctionFlags.Unsafe | FunctionFlags.NoPopulate)]
+        [Arguments(Arity.Ternary)]
+        [TypeListFlags(TypeListFlags.IntegralTypes)]
+        [ObjectGroup("test")]
+        public sealed class Divrem : _Functions.Default
+        {
+            #region Public Constructors
+            public Divrem(
+                IFunctionData functionData
+                )
+                : base(functionData)
+            {
+                this.Flags |= AttributeOps.GetFunctionFlags(GetType().BaseType) |
+                    AttributeOps.GetFunctionFlags(this);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IExecuteArgument Members
+            public override ReturnCode Execute(
+                Interpreter interpreter,
+                IClientData clientData,
+                ArgumentList arguments,
+                ref Argument value,
+                ref Result error
+                )
+            {
+                if (base.Execute(
+                        interpreter, clientData, arguments, ref value,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+                BigInteger dividend = BigInteger.Zero;
+
+                if (Value.GetBigInteger2(
+                        arguments[1], ValueFlags.AnyInteger, cultureInfo,
+                        ref dividend, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                BigInteger divisor = BigInteger.Zero;
+
+                if (Value.GetBigInteger2(
+                        arguments[2], ValueFlags.AnyInteger, cultureInfo,
+                        ref divisor, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                BigInteger remainder = BigInteger.Zero;
+
+                if (Value.GetBigInteger2(
+                        arguments[3], ValueFlags.AnyInteger, cultureInfo,
+                        ref remainder, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                try
+                {
+                    BigInteger result = BigInteger.DivRem(
+                        dividend, divisor, out remainder);
+
+                    value = StringList.MakeList(result, remainder);
+                }
+                catch (Exception e)
+                {
+                    Engine.SetExceptionErrorCode(interpreter, e);
+
+                    error = String.Format("caught math exception: {0}", e);
+
+                    return ReturnCode.Error;
+                }
+
+                return ReturnCode.Ok;
+            }
+            #endregion
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IFunction Test Class #6 (BigInteger)
+#if NET_40
+        [ObjectId("a57d1db1-1567-419f-b45f-9f1ff96249ed")]
+        [FunctionFlags(FunctionFlags.Unsafe | FunctionFlags.NoPopulate)]
+        [Arguments(Arity.Binary)]
+        [TypeListFlags(TypeListFlags.IntegralTypes)]
+        [ObjectGroup("test")]
+        public sealed class Gcd : _Functions.Default
+        {
+            #region Public Constructors
+            public Gcd(
+                IFunctionData functionData
+                )
+                : base(functionData)
+            {
+                this.Flags |= AttributeOps.GetFunctionFlags(GetType().BaseType) |
+                    AttributeOps.GetFunctionFlags(this);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IExecuteArgument Members
+            public override ReturnCode Execute(
+                Interpreter interpreter,
+                IClientData clientData,
+                ArgumentList arguments,
+                ref Argument value,
+                ref Result error
+                )
+            {
+                if (base.Execute(
+                        interpreter, clientData, arguments, ref value,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+                BigInteger left = BigInteger.Zero;
+
+                if (Value.GetBigInteger2(
+                        arguments[1], ValueFlags.AnyInteger, cultureInfo,
+                        ref left, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                BigInteger right = BigInteger.Zero;
+
+                if (Value.GetBigInteger2(
+                        arguments[2], ValueFlags.AnyInteger, cultureInfo,
+                        ref right, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                try
+                {
+                    value = BigInteger.GreatestCommonDivisor(left, right);
+                }
+                catch (Exception e)
+                {
+                    Engine.SetExceptionErrorCode(interpreter, e);
+
+                    error = String.Format("caught math exception: {0}", e);
+
+                    return ReturnCode.Error;
+                }
+
+                return ReturnCode.Ok;
+            }
+            #endregion
+        }
+#endif
         #endregion
         #endregion
 

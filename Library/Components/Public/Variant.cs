@@ -12,10 +12,20 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+
+#if NET_40
+using System.Numerics;
+#endif
+
 using System.Security;
 using System.Text;
 using Eagle._Attributes;
 using Eagle._Components.Private;
+
+#if NET_40
+using Eagle._Constants;
+#endif
+
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using _Value = Eagle._Components.Public.Value;
@@ -39,6 +49,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static readonly TypeCode[] integralTypeCodes = {
+#if NET_40
+            _TypeCode.BigInteger,
+#endif
             TypeCode.Int64, TypeCode.Int32, TypeCode.Int16,
             TypeCode.Byte, TypeCode.Boolean
         };
@@ -184,6 +197,17 @@ namespace Eagle._Components.Public
         {
             SetValueNoThrow(value);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public Variant(
+            BigInteger value /* in */
+            )
+        {
+            SetValueNoThrow(value);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -675,13 +699,16 @@ namespace Eagle._Components.Public
             NumberType numberType /* in */
             )
         {
-            switch (Convert.GetTypeCode(value))
+            switch (NumberOps.GetTypeCode(value))
             {
                 case TypeCode.Boolean:
                 case TypeCode.Byte:
                 case TypeCode.Int16:
                 case TypeCode.Int32:
                 case TypeCode.Int64:
+#if NET_40
+                case _TypeCode.BigInteger:
+#endif
                     {
                         return (numberType == NumberType.Integral);
                     }
@@ -707,7 +734,29 @@ namespace Eagle._Components.Public
             TypeCode typeCode /* in */
             )
         {
-            return Convert.GetTypeCode(value) == typeCode;
+            return NumberOps.GetTypeCode(value) == typeCode;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool CanShiftOrRotate(
+            TypeCode typeCode /* in */
+            )
+        {
+            switch (typeCode)
+            {
+                case TypeCode.Int64:
+#if NET_40
+                case _TypeCode.BigInteger:
+#endif
+                    {
+                        return true;
+                    }
+                default:
+                    {
+                        return false;
+                    }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -841,6 +890,20 @@ namespace Eagle._Components.Public
 
                         break;
                     }
+#if NET_40
+                case _TypeCode.BigInteger:
+                    {
+                        BigInteger bigIntegerValue = BigInteger.Zero;
+
+                        if (ToBigInteger(ref bigIntegerValue))
+                        {
+                            SetValueNoThrow(bigIntegerValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+#endif
                 case TypeCode.Single:
                     {
                         float floatValue = 0.0f;
@@ -1281,12 +1344,13 @@ namespace Eagle._Components.Public
             IIdentifierName identifierName, /* in */
             Lexeme lexeme,                  /* in */
             IConvert convert,               /* in */
+            int? bits,                      /* in */
             ref Argument result,            /* in */
             ref Result error                /* in */
             )
         {
             object value1 = value;
-            TypeCode typeCode1 = Convert.GetTypeCode(value1);
+            TypeCode typeCode1 = NumberOps.GetTypeCode(value1);
 
             object value2 = null;
             TypeCode typeCode2 = TypeCode.Empty;
@@ -1294,7 +1358,7 @@ namespace Eagle._Components.Public
             if (convert != null)
             {
                 value2 = convert.Value;
-                typeCode2 = Convert.GetTypeCode(value2);
+                typeCode2 = NumberOps.GetTypeCode(value2);
             }
 
             switch (lexeme)
@@ -1319,20 +1383,32 @@ namespace Eagle._Components.Public
                 default:
                     {
                         //
-                        // NOTE: All other operators do require
-                        //       both type codes to be equal.
+                        // NOTE: Almost all other operators do
+                        //       require both type codes to be
+                        //       equal.  The only real special
+                        //       case here is Exponent with the
+                        //       operand types of BigInteger
+                        //       and Int32, which only applies
+                        //       when compiling for the .NET
+                        //       Framework 4.0 or later.
                         //
                         if (typeCode1 != typeCode2) /* IMPOSSIBLE? */
                         {
-                            //
-                            // HACK: It is like that this code
-                            //       is impossible to hit.
-                            //
-                            error = UnsupportedOperandTypes(
-                                typeCode1, typeCode2,
-                                identifierName, lexeme);
+#if NET_40
+                            if (!NumberOps.IsBigIntegerExponent(
+                                    lexeme, typeCode1, typeCode2))
+#endif
+                            {
+                                //
+                                // HACK: It is like that this code
+                                //       is impossible to hit.
+                                //
+                                error = UnsupportedOperandTypes(
+                                    typeCode1, typeCode2,
+                                    identifierName, lexeme);
 
-                            return ReturnCode.Error;
+                                return ReturnCode.Error;
+                            }
                         }
 
                         break;
@@ -1343,6 +1419,30 @@ namespace Eagle._Components.Public
             {
                 case Lexeme.Exponent:
                     {
+#if NET_40
+                        //
+                        // HACK: *SPECIAL* Since the exponent operator
+                        //       always requires the second operand to
+                        //       be of type System.Int32, make sure to
+                        //       convert it to that type now, if needed.
+                        //
+                        if (typeCode1 == _TypeCode.BigInteger)
+                        {
+                            if ((convert != null) &&
+                                convert.ConvertTo(TypeCode.Int32))
+                            {
+                                value2 = convert.Value; /* CONVERTED */
+                            }
+                            else
+                            {
+                                error = UnsupportedOperandType("2nd",
+                                    typeCode2, identifierName, lexeme);
+
+                                return ReturnCode.Error;
+                            }
+                        }
+#endif
+
                         switch (typeCode1)
                         {
                             case TypeCode.Boolean:
@@ -1363,6 +1463,15 @@ namespace Eagle._Components.Public
                                     result = MathOps.Pow((long)value1, (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = BigInteger.Pow(
+                                        (BigInteger)value1, (int)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             case TypeCode.Double:
                                 {
                                     result = Math.Pow((double)value1, (double)value2);
@@ -1423,6 +1532,13 @@ namespace Eagle._Components.Public
                                     result = ((long)value1 * (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 * (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             case TypeCode.Double:
                                 {
                                     result = ((double)value1 * (double)value2);
@@ -1463,6 +1579,13 @@ namespace Eagle._Components.Public
                                     result = ((long)value1 / (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 / (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             case TypeCode.Double:
                                 {
                                     result = ((double)value1 / (double)value2);
@@ -1503,6 +1626,13 @@ namespace Eagle._Components.Public
                                     result = ((long)value1 % (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 % (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -1552,6 +1682,13 @@ namespace Eagle._Components.Public
                                         result = ((long)value1 + (long)value2);
                                         return ReturnCode.Ok;
                                     }
+#if NET_40
+                                case _TypeCode.BigInteger:
+                                    {
+                                        result = ((BigInteger)value1 + (BigInteger)value2);
+                                        return ReturnCode.Ok;
+                                    }
+#endif
                                 case TypeCode.Double:
                                     {
                                         result = ((double)value1 + (double)value2);
@@ -1590,6 +1727,13 @@ namespace Eagle._Components.Public
                                         result = +(long)value1;
                                         return ReturnCode.Ok;
                                     }
+#if NET_40
+                                case _TypeCode.BigInteger:
+                                    {
+                                        result = +(BigInteger)value1;
+                                        return ReturnCode.Ok;
+                                    }
+#endif
                                 case TypeCode.Double:
                                     {
                                         result = +(double)value1;
@@ -1650,6 +1794,13 @@ namespace Eagle._Components.Public
                                         result = ((long)value1 - (long)value2);
                                         return ReturnCode.Ok;
                                     }
+#if NET_40
+                                case _TypeCode.BigInteger:
+                                    {
+                                        result = ((BigInteger)value1 - (BigInteger)value2);
+                                        return ReturnCode.Ok;
+                                    }
+#endif
                                 case TypeCode.Double:
                                     {
                                         result = ((double)value1 - (double)value2);
@@ -1688,6 +1839,13 @@ namespace Eagle._Components.Public
                                         result = -(long)value1;
                                         return ReturnCode.Ok;
                                     }
+#if NET_40
+                                case _TypeCode.BigInteger:
+                                    {
+                                        result = -(BigInteger)value1;
+                                        return ReturnCode.Ok;
+                                    }
+#endif
                                 case TypeCode.Double:
                                     {
                                         result = -(double)value1;
@@ -1717,7 +1875,7 @@ namespace Eagle._Components.Public
                         //       make sure to convert it to that type
                         //       now, if needed.
                         //
-                        if (typeCode1 == TypeCode.Int64)
+                        if (CanShiftOrRotate(typeCode1))
                         {
                             if ((convert != null) &&
                                 convert.ConvertTo(TypeCode.Int32))
@@ -1745,14 +1903,27 @@ namespace Eagle._Components.Public
                                 }
                             case TypeCode.Int32:
                                 {
-                                    result = MathOps.LeftShift((int)value1, (int)value2);
+                                    result = MathOps.LeftShift(
+                                        (int)value1, (int)value2);
+
                                     return ReturnCode.Ok;
                                 }
                             case TypeCode.Int64:
                                 {
-                                    result = MathOps.LeftShift((long)value1, (int)value2);
+                                    result = MathOps.LeftShift(
+                                        (long)value1, (int)value2);
+
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = MathOps.LeftShift(
+                                        (BigInteger)value1, (int)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -1771,7 +1942,7 @@ namespace Eagle._Components.Public
                         //       make sure to convert it to that type
                         //       now, if needed.
                         //
-                        if (typeCode1 == TypeCode.Int64)
+                        if (CanShiftOrRotate(typeCode1))
                         {
                             if ((convert != null) &&
                                 convert.ConvertTo(TypeCode.Int32))
@@ -1799,14 +1970,27 @@ namespace Eagle._Components.Public
                                 }
                             case TypeCode.Int32:
                                 {
-                                    result = MathOps.RightShift((int)value1, (int)value2);
+                                    result = MathOps.RightShift(
+                                        (int)value1, (int)value2);
+
                                     return ReturnCode.Ok;
                                 }
                             case TypeCode.Int64:
                                 {
-                                    result = MathOps.RightShift((long)value1, (int)value2);
+                                    result = MathOps.RightShift(
+                                        (long)value1, (int)value2);
+
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = MathOps.RightShift(
+                                        (BigInteger)value1, (int)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -1825,7 +2009,7 @@ namespace Eagle._Components.Public
                         //       make sure to convert it to that type
                         //       now, if needed.
                         //
-                        if (typeCode1 == TypeCode.Int64)
+                        if (CanShiftOrRotate(typeCode1))
                         {
                             if ((convert != null) &&
                                 convert.ConvertTo(TypeCode.Int32))
@@ -1853,14 +2037,28 @@ namespace Eagle._Components.Public
                                 }
                             case TypeCode.Int32:
                                 {
-                                    result = MathOps.LeftRotate((int)value1, (int)value2);
+                                    result = MathOps.LeftRotate(
+                                        (int)value1, (int)value2);
+
                                     return ReturnCode.Ok;
                                 }
                             case TypeCode.Int64:
                                 {
-                                    result = MathOps.LeftRotate((long)value1, (int)value2);
+                                    result = MathOps.LeftRotate(
+                                        (long)value1, (int)value2);
+
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = MathOps.LeftRotate(
+                                        (BigInteger)value1, (int)value2,
+                                        NumberOps.GetRotateBits(bits));
+
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -1879,7 +2077,7 @@ namespace Eagle._Components.Public
                         //       make sure to convert it to that type
                         //       now, if needed.
                         //
-                        if (typeCode1 == TypeCode.Int64)
+                        if (CanShiftOrRotate(typeCode1))
                         {
                             if ((convert != null) &&
                                 convert.ConvertTo(TypeCode.Int32))
@@ -1907,14 +2105,28 @@ namespace Eagle._Components.Public
                                 }
                             case TypeCode.Int32:
                                 {
-                                    result = MathOps.RightRotate((int)value1, (int)value2);
+                                    result = MathOps.RightRotate(
+                                        (int)value1, (int)value2);
+
                                     return ReturnCode.Ok;
                                 }
                             case TypeCode.Int64:
                                 {
-                                    result = MathOps.RightRotate((long)value1, (int)value2);
+                                    result = MathOps.RightRotate(
+                                        (long)value1, (int)value2);
+
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = MathOps.RightRotate(
+                                        (BigInteger)value1, (int)value2,
+                                        NumberOps.GetRotateBits(bits));
+
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -1945,6 +2157,13 @@ namespace Eagle._Components.Public
                                     result = ((long)value1 < (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 < (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             case TypeCode.Double:
                                 {
                                     result = ((double)value1 < (double)value2);
@@ -1985,6 +2204,13 @@ namespace Eagle._Components.Public
                                     result = ((long)value1 > (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 > (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             case TypeCode.Double:
                                 {
                                     result = ((double)value1 > (double)value2);
@@ -2025,6 +2251,13 @@ namespace Eagle._Components.Public
                                     result = ((long)value1 <= (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 <= (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             case TypeCode.Double:
                                 {
                                     result = ((double)value1 <= (double)value2);
@@ -2065,6 +2298,13 @@ namespace Eagle._Components.Public
                                     result = ((long)value1 >= (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 >= (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             case TypeCode.Double:
                                 {
                                     result = ((double)value1 >= (double)value2);
@@ -2105,6 +2345,13 @@ namespace Eagle._Components.Public
                                     result = ((long)value1 == (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 == (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             case TypeCode.Double:
                                 {
                                     result = ((double)value1 == (double)value2);
@@ -2145,6 +2392,13 @@ namespace Eagle._Components.Public
                                     result = ((long)value1 != (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 != (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             case TypeCode.Double:
                                 {
                                     result = ((double)value1 != (double)value2);
@@ -2188,6 +2442,13 @@ namespace Eagle._Components.Public
                                     result = (long)value1 & (long)value2;
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 & (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -2221,6 +2482,13 @@ namespace Eagle._Components.Public
                                     result = (long)value1 ^ (long)value2;
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 ^ (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -2254,6 +2522,13 @@ namespace Eagle._Components.Public
                                     result = (long)value1 | (long)value2;
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ((BigInteger)value1 | (BigInteger)value2);
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -2287,6 +2562,15 @@ namespace Eagle._Components.Public
                                     result = LogicOps.Eqv((long)value1, (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = LogicOps.Eqv(
+                                        (BigInteger)value1, (BigInteger)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -2320,6 +2604,15 @@ namespace Eagle._Components.Public
                                     result = LogicOps.Imp((long)value1, (long)value2);
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = LogicOps.Imp(
+                                        (BigInteger)value1, (BigInteger)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -2487,6 +2780,13 @@ namespace Eagle._Components.Public
                                     result = ~(long)value1;
                                     return ReturnCode.Ok;
                                 }
+#if NET_40
+                            case _TypeCode.BigInteger:
+                                {
+                                    result = ~(BigInteger)value1;
+                                    return ReturnCode.Ok;
+                                }
+#endif
                             default:
                                 {
                                     error = UnsupportedOperandType(null,
@@ -2524,7 +2824,7 @@ namespace Eagle._Components.Public
             }
 
             object value1 = value;
-            TypeCode typeCode1 = Convert.GetTypeCode(value1);
+            TypeCode typeCode1 = NumberOps.GetTypeCode(value1);
 
             if (typeCode1 != TypeCode.String)
             {
@@ -2535,7 +2835,7 @@ namespace Eagle._Components.Public
             }
 
             object value2 = convert.Value;
-            TypeCode typeCode2 = Convert.GetTypeCode(value2);
+            TypeCode typeCode2 = NumberOps.GetTypeCode(value2);
 
             if (typeCode2 != TypeCode.String)
             {
@@ -2629,7 +2929,7 @@ namespace Eagle._Components.Public
             }
 
             object value1 = value;
-            TypeCode typeCode1 = Convert.GetTypeCode(value1);
+            TypeCode typeCode1 = NumberOps.GetTypeCode(value1);
 
             if (typeCode1 != TypeCode.String)
             {
@@ -2640,7 +2940,7 @@ namespace Eagle._Components.Public
             }
 
             object value2 = convert.Value;
-            TypeCode typeCode2 = Convert.GetTypeCode(value2);
+            TypeCode typeCode2 = NumberOps.GetTypeCode(value2);
 
             if (!(value2 is StringList))
             {
@@ -2750,9 +3050,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if NET_40
+        public bool IsBigInteger()
+        {
+            return (value is BigInteger);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public bool IsReturnCode()
         {
             return (value is ReturnCode);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsMatchMode()
+        {
+            return (value is MatchMode);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsMidpointRounding()
+        {
+            return (value is MidpointRounding);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2780,7 +3103,7 @@ namespace Eagle._Components.Public
 
         public bool IsIntegral()
         {
-            switch (Convert.GetTypeCode(value))
+            switch (NumberOps.GetTypeCode(value))
             {
                 case TypeCode.Boolean:
                 case TypeCode.Char:
@@ -2792,6 +3115,9 @@ namespace Eagle._Components.Public
                 case TypeCode.UInt32:
                 case TypeCode.Int64:
                 case TypeCode.UInt64:
+#if NET_40
+                case _TypeCode.BigInteger:
+#endif
                     return true;
                 default:
                     return false;
@@ -2816,7 +3142,7 @@ namespace Eagle._Components.Public
 
         public bool IsFixedPoint()
         {
-            switch (Convert.GetTypeCode(value))
+            switch (NumberOps.GetTypeCode(value))
             {
                 case TypeCode.Decimal:
                     return true;
@@ -2829,7 +3155,7 @@ namespace Eagle._Components.Public
 
         public bool IsFloatingPoint()
         {
-            switch (Convert.GetTypeCode(value))
+            switch (NumberOps.GetTypeCode(value))
             {
                 case TypeCode.Single:
                 case TypeCode.Double:
@@ -2931,6 +3257,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if NET_40
+        public bool ToBigInteger(
+            ref BigInteger value /* out */
+            )
+        {
+            return NumberOps.ToBigInteger(this, null, ref value);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public bool ToReturnCode(
             ref ReturnCode value /* out */
             )
@@ -2989,7 +3326,7 @@ namespace Eagle._Components.Public
         #region IVariant Members
         public bool IsNumber()
         {
-            switch (Convert.GetTypeCode(value))
+            switch (NumberOps.GetTypeCode(value))
             {
                 case TypeCode.Boolean:
                 case TypeCode.Char:
@@ -3000,6 +3337,9 @@ namespace Eagle._Components.Public
                 case TypeCode.Int32:
                 case TypeCode.UInt32:
                 case TypeCode.Int64:
+#if NET_40
+                case _TypeCode.BigInteger:
+#endif
                 case TypeCode.UInt64:
                 case TypeCode.Single:
                 case TypeCode.Double:

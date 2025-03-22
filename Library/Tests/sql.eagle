@@ -687,9 +687,9 @@ runTest {test sql-1.15 {DatabaseVariable (generic)} -setup {
   }
 } -body {
   set databaseVariable [object invoke \
-      -alias DatabaseVariable Create Default null \
-      $test_database_type null null null $test_database \
-      $test_database_table y z BeforeVariableScalar false]
+      -alias DatabaseVariable Create Default $test_database_type \
+      null null null null $test_database $test_database_table y z \
+      BeforeVariableScalar false]
 
   set result(0) null
   set code(0) [$databaseVariable AddVariable "" sql-1.15 result(0)]
@@ -751,9 +751,9 @@ runTest {test sql-1.16 {DatabaseVariable (generic)} -setup {
   }
 } -body {
   set databaseVariable [object invoke \
-      -alias DatabaseVariable Create Default null \
-      $test_database_type null null null $test_database \
-      $test_database_table y z BeforeVariableScalar true]
+      -alias DatabaseVariable Create Default $test_database_type \
+      null null null null $test_database $test_database_table y z \
+      BeforeVariableScalar true]
 
   set result(0) null
   set code(0) [$databaseVariable AddVariable "" sql-1.16 result(0)]

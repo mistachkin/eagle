@@ -778,6 +778,7 @@ set eagle_manifests(source) {
   Eagle/Library/Functions/Default.cs
   Eagle/Library/Functions/Double.cs
   Eagle/Library/Functions/E.cs
+  Eagle/Library/Functions/Entier.cs
   Eagle/Library/Functions/Epsilon.cs
   Eagle/Library/Functions/Exp.cs
   Eagle/Library/Functions/Flags.cs
@@ -3636,6 +3637,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Functions/Default.cs
   src/Library/Functions/Double.cs
   src/Library/Functions/E.cs
+  src/Library/Functions/Entier.cs
   src/Library/Functions/Epsilon.cs
   src/Library/Functions/Exp.cs
   src/Library/Functions/Flags.cs

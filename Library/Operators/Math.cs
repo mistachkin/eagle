@@ -84,7 +84,8 @@ namespace Eagle._Operators
                 }
 
                 return operand1.Calculate(
-                    this, this.Lexeme, operand2, ref value, ref error);
+                    this, this.Lexeme, operand2, NumberOps.GetRotateBits(
+                    interpreter), ref value, ref error);
             }
             catch (Exception e)
             {

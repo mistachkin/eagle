@@ -1,7 +1,13 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
-BUGFIX: fix and/or address Coverity issues from #434153 to #506970.
+BUGFIX: fix and/or address Coverity issues from #434153 to #516206.
+
+BUGFIX: do not set the qualified name of local script variables, e.g. via the
+        Interpreter.MaybeSetQualifiedName method.
+
+BUGFIX: fixes to [upvar] when the target variable is namespace qualified -AND-
+        refers to a non-global namespace.
 
 BUGFIX: restore the ability to create Variant instances with a null value.
 
@@ -28,6 +34,12 @@ REFACTOR: *BREAKING CHANGE* heavily revise how the wrapper classes are created
 REFACTOR: *BREAKING CHANGE* modify the "enableSecurity" and "disableSecurity"
           embedded (security package) scripts to be more resilient when script
           security is already enabled or disabled.
+
+FEATURE: add -good, -bad, -via, and -nocomplain options to the [string is]
+         sub-command.
+
+FEATURE: add -usecount option to the [gets] and [puts] commands and the -count
+         option to the [gets] command.
 
 FEATURE: add the [string is ruleset] sub-command.
 
@@ -64,9 +76,14 @@ FEATURE: add the highly experimental AddAutomaticCommands method to the
          attribute your object methods with [CommandFlags(CommandFlags.Safe)]
          or [CommandFlags(CommandFlags.Unsafe)] attributes.
 
-FEATURE: add the even more highly experimental -bundle option to the [source]
-         command and its associated subsystems.  this is a fairly large change
-         and will take some time to mature.
+FEATURE: add even more highly experimental -bundle and -stoponerror options to
+         the [source] command and its associated subsystems.  this is a fairly
+         large change and will take some time to mature.
+
+FEATURE: add -keepalive option to the [socket] command.
+
+FEATURE: *MAJOR* add full (experimental) support for the BigInteger type for
+         use by the [expr] command and all related subsystems.
 
 ************************* Beta 1.0.8734.30319 RELEASE *************************
 

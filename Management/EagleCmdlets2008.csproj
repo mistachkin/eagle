@@ -51,6 +51,20 @@
       <HintPath>$(EaglePowerShellDirectory)\System.Management.Automation.dll</HintPath>
     </Reference>
   </ItemGroup>
+  <ItemGroup Condition="'$(TargetFrameworkVersion)' == 'v4.0' Or
+                        '$(TargetFrameworkVersion)' == 'v4.5' Or
+                        '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                        '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                        '$(TargetFrameworkVersion)' == 'v4.6' Or
+                        '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                        '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                        '$(TargetFrameworkVersion)' == 'v4.7' Or
+                        '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                        '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                        '$(TargetFrameworkVersion)' == 'v4.8' Or
+                        '$(TargetFrameworkVersion)' == 'v4.8.1'">
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="Cmdlets\EvaluateExpression.cs" />
     <Compile Include="Cmdlets\EvaluateFile.cs" />

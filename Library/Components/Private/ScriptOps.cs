@@ -1339,6 +1339,7 @@ namespace Eagle._Components.Private
             Interpreter interpreter, /* in */
             IPlugin plugin,          /* in */
             byte[] bytes,            /* in */
+            bool asDictionary,       /* in */
             ref Result result        /* in, out */
             )
         {
@@ -1371,30 +1372,34 @@ namespace Eagle._Components.Private
 
             try
             {
-                IClientData clientData = new ClientData(
-                    SecurityCertificateRequestName);
-
-                object[] request = {
-                    interpreter, corePlugin, bytes, result
-                };
-
-                object response = null;
-
-                if (plugin.Execute(
-                        interpreter, clientData, request,
-                        ref response, ref result) != ReturnCode.Ok)
+                using (AnyClientData anyClientData = new AnyClientData(
+                        SecurityCertificateRequestName))
                 {
-                    return ReturnCode.Error;
-                }
+                    anyClientData.TrySetAny(
+                        DataNames.AsDictionary, asDictionary);
 
-                if (response == null)
-                {
-                    result = "invalid response";
-                    return ReturnCode.Error;
-                }
+                    object[] request = {
+                        interpreter, corePlugin, bytes, result
+                    };
 
-                result = StringOps.GetStringFromObject(response);
-                return ReturnCode.Ok;
+                    object response = null;
+
+                    if (plugin.Execute(
+                            interpreter, anyClientData, request,
+                            ref response, ref result) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+
+                    if (response == null)
+                    {
+                        result = "invalid response";
+                        return ReturnCode.Error;
+                    }
+
+                    result = StringOps.GetStringFromObject(response);
+                    return ReturnCode.Ok;
+                }
             }
             catch (Exception e)
             {
@@ -1408,6 +1413,7 @@ namespace Eagle._Components.Private
 
         public static ReturnCode CheckSecurityCertificate(
             Interpreter interpreter, /* in */
+            bool asDictionary,       /* in */
             ref Result result        /* in, out */
             )
         {
@@ -1459,7 +1465,7 @@ namespace Eagle._Components.Private
                 }
 
                 return CheckSecurityCertificate(
-                    interpreter, plugin, bytes, ref result);
+                    interpreter, plugin, bytes, asDictionary, ref result);
             }
             finally
             {
@@ -7555,19 +7561,26 @@ namespace Eagle._Components.Private
                     MakeVariableName(localVarName);
 
                 //
-                // NOTE: *NAMESPACES* Need to make sure the correct frame is
-                //       being used if the other frame is marked to use the
-                //       associated namespace.
+                // NOTE: *NAMESPACES* Need to make sure the correct frame
+                //       is being used if the other frame is marked to use
+                //       the associated namespace.
                 //
-                otherFrame = CallFrameOps.FollowNext(otherFrame);
-
-                if (useNamespaces && CallFrameOps.IsUseNamespace(otherFrame))
+                // BUGFIX: This was broken for namespace prefixed "other"
+                //         variable names (see test "namespace-99.2025").
+                //
+                if (useNamespaces)
                 {
-                    INamespace otherNamespace = NamespaceOps.GetCurrent(
-                        interpreter, otherFrame);
+                    INamespace otherNamespace;
 
-                    if (otherNamespace != null)
+                    if (NamespaceOps.IsQualifiedName(otherVarName))
                     {
+                        otherNamespace = NamespaceOps.LookupParent(
+                            interpreter, otherVarName, false, false,
+                            false, ref error);
+
+                        if (otherNamespace == null)
+                            return ReturnCode.Error;
+
                         if (NamespaceOps.IsGlobal(
                                 interpreter, otherNamespace))
                         {
@@ -7576,6 +7589,29 @@ namespace Eagle._Components.Private
                         else
                         {
                             otherFrame = otherNamespace.VariableFrame;
+                        }
+                    }
+                    else
+                    {
+                        otherFrame = CallFrameOps.FollowNext(otherFrame);
+
+                        if (CallFrameOps.IsUseNamespace(otherFrame))
+                        {
+                            otherNamespace = NamespaceOps.GetCurrent(
+                                interpreter, otherFrame);
+
+                            if (otherNamespace != null)
+                            {
+                                if (NamespaceOps.IsGlobal(
+                                        interpreter, otherNamespace))
+                                {
+                                    otherFrame = interpreter.CurrentGlobalFrame;
+                                }
+                                else
+                                {
+                                    otherFrame = otherNamespace.VariableFrame;
+                                }
+                            }
                         }
                     }
                 }
@@ -10383,8 +10419,8 @@ namespace Eagle._Components.Private
                             Result result = null;
 
                             if (interpreter.EvaluateBundleFile(
-                                    bundleFileName, password, ref clientData,
-                                    ref result) == ReturnCode.Ok)
+                                    bundleFileName, password, true,
+                                    ref clientData, ref result) == ReturnCode.Ok)
                             {
                                 interpreter.MarkAsTrustedRemoteOk();
 
