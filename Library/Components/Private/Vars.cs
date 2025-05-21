@@ -273,6 +273,16 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+#if ENTERPRISE_LOCKDOWN || MAYBE_ENTERPRISE_LOCKDOWN
+            //
+            // NOTE: Used for the "about" banner.
+            //
+            public static readonly string Lockdown =
+                "Core: Interpreter {0} thinks enterprise lockdown is {1}.";
+#endif
+
+            ///////////////////////////////////////////////////////////////////
+
 #if ISOLATED_PLUGINS
             //
             // NOTE: Used for the "about" banner.

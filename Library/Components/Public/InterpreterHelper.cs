@@ -51,7 +51,7 @@ namespace Eagle._Components.Public
         //       overload ONLY.
         //
         private InterpreterHelper(
-            InterpreterSettings interpreterSettings,
+            IInterpreterSettings interpreterSettings,
             bool strict,
             ref Result result
             )
@@ -138,7 +138,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private void CreateInterpreterOrTrace(
-            InterpreterSettings interpreterSettings,
+            IInterpreterSettings interpreterSettings,
             bool strict,
             ref Result result
             )
@@ -233,7 +233,7 @@ namespace Eagle._Components.Public
         #region Static "Factory" Methods
         public static InterpreterHelper Create(
             AppDomain appDomain,
-            InterpreterSettings interpreterSettings,
+            IInterpreterSettings interpreterSettings,
             bool strict,
             ref Result result
             )

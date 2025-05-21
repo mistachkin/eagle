@@ -206,6 +206,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if NATIVE && (WINDOWS || UNIX)
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool GlobNormalPathsOnly = true;
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool GlobIgnoreSyntheticAttributes = true;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static readonly char[] GlobWildcardChars = {
             Characters.OpenBracket,
             Characters.Backslash,
@@ -1474,7 +1490,7 @@ namespace Eagle._Components.Private
                             case AccessControlType.Deny:
                                 //
                                 // NOTE: The file system rights access mask represents
-                                //       rights the user has been deined, remove them
+                                //       rights the user has been denied, remove them
                                 //       from the granted rights.
                                 //
                                 grantedRights &= ~accessRule.FileSystemRights;
@@ -2113,6 +2129,67 @@ namespace Eagle._Components.Private
                 out isTemporary, out isSparseFile, out isReparsePoint,
                 out isCompressed, out isOffline, out isNotContentIndexed,
                 out isEncrypted);
+
+            ///////////////////////////////////////////////////////////////////
+            // MAYBE IGNORE SYNTHETIC ATTRIBUTES (OPTIONAL?)
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // HACK: On non-Windows operating systems, the .NET runtime will
+            //       return "FileAttributes" values that include several of
+            //       the "legacy" MS-DOS file system flags based on metadata
+            //       not otherwise available to managed code, e.g. it will
+            //       "synthesize" the "Hidden" flag if the name begins with
+            //       a dot -OR- the file should (simply?) be hidden from the
+            //       user interface (e.g. macOS).  This ends up causing some
+            //       issues with native Tcl compatibility; therefore, we try
+            //       to detect and work around this situation.  Please refer
+            //       to the following .NET runtime source code for complete
+            //       implementation details:
+            //
+            //       src/libraries/System.Private.CoreLib/src/System/IO/FileStatus.Unix.cs (GetAttributes)
+            //       src/coreclr/pal/src/file/file.cpp (GetFileAttributesA)
+            //       src/native/libs/System.Native/pal_io.c (UF_HIDDEN)
+            //
+            if (GlobIgnoreSyntheticAttributes &&
+                !types.ContainsKey("synthetic") &&
+                !PlatformOps.IsWindowsOperatingSystem())
+            {
+                if (isReadOnly)
+                    isReadOnly = false; /* NOTE: HasReadOnlyFlag. */
+
+                if (isHidden)
+                {
+                    //
+                    // HACK: For compatibility with native Tcl, treat all
+                    //       file names that start with a period (a.k.a.
+                    //       "dotfiles") as hidden for our purposes here.
+                    //
+                    if (types.ContainsKey("dotfiles") ||
+                        !SharedStringOps.StartsWith(
+                            fileSystemInfo.Name, Characters.PeriodString,
+                            StringComparison.Ordinal))
+                    {
+                        isHidden = false; /* NOTE: HasHiddenFlag. */
+                    }
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////
+            // FILTER OUT "SPECIAL" PATHS (OPTIONAL?)
+            ///////////////////////////////////////////////////////////////////
+
+#if NATIVE && (WINDOWS || UNIX)
+            if ((isNormal || isDirectory) && GlobNormalPathsOnly)
+            {
+                if (!PathOps.IsNormal(
+                        fileSystemInfo.FullName, null, true))
+                {
+                    isNormal = false;
+                    isDirectory = false;
+                }
+            }
+#endif
 
             ///////////////////////////////////////////////////////////////////
             // BEGIN EXCLUDED BY DEFAULT
@@ -3006,6 +3083,18 @@ namespace Eagle._Components.Private
 
                 return ReturnCode.Error;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetFileAttributes(
+            string path,
+            ref FileAttributes fileAttributes
+            )
+        {
+            Result error = null;
+
+            return GetFileAttributes(path, ref fileAttributes, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

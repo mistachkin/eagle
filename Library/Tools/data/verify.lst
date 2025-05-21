@@ -668,6 +668,7 @@ set eagle_manifests(source) {
   Eagle/Library/Containers/Private/ObjectList.cs
   Eagle/Library/Containers/Private/ObjectWrapperDictionary.cs
   Eagle/Library/Containers/Private/OperatorWrapperDictionary.cs
+  Eagle/Library/Containers/Private/PackageAliasDictionary.cs
   Eagle/Library/Containers/Private/PackageIndexDictionary.cs
   Eagle/Library/Containers/Private/PackageWrapperDictionary.cs
   Eagle/Library/Containers/Private/PairList.cs
@@ -957,6 +958,8 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/InteractiveManager.cs
   Eagle/Library/Interfaces/Public/Interpreter.cs
   Eagle/Library/Interfaces/Public/InterpreterManager.cs
+  Eagle/Library/Interfaces/Public/InterpreterSettings.cs
+  Eagle/Library/Interfaces/Public/InterpreterSettingsData.cs
   Eagle/Library/Interfaces/Public/Levels.cs
   Eagle/Library/Interfaces/Public/KeyEventManager.cs
   Eagle/Library/Interfaces/Public/Math.cs
@@ -3538,6 +3541,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Containers/Private/ObjectList.cs
   src/Library/Containers/Private/ObjectWrapperDictionary.cs
   src/Library/Containers/Private/OperatorWrapperDictionary.cs
+  src/Library/Containers/Private/PackageAliasDictionary.cs
   src/Library/Containers/Private/PackageIndexDictionary.cs
   src/Library/Containers/Private/PackageWrapperDictionary.cs
   src/Library/Containers/Private/PairList.cs
@@ -3815,6 +3819,8 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/InteractiveManager.cs
   src/Library/Interfaces/Public/Interpreter.cs
   src/Library/Interfaces/Public/InterpreterManager.cs
+  src/Library/Interfaces/Public/InterpreterSettings.cs
+  src/Library/Interfaces/Public/InterpreterSettingsData.cs
   src/Library/Interfaces/Public/Levels.cs
   src/Library/Interfaces/Public/KeyEventManager.cs
   src/Library/Interfaces/Public/Math.cs

@@ -89,7 +89,20 @@ System#CodeDom#Compiler#CompilerResults#\d+ \{\} \{hello from C#\}$}}
 #
 #               "%ProgramFiles%\Mono-2.11\lib\lib\build\mcs.exe"
 #
-runTest {test object-4.2.1 {using CSharp compiler with Eagle} -body {
+runTest {test object-4.2.1 {using CSharp compiler with Eagle} -setup {
+  #
+  # HACK: When using [compileCSharp] on .NET Core 3.0, it will produce
+  #       compiler warnings complaining about mismatched versions of the
+  #       .NET Standard reference assemblies, e.g. 2.0 versus 2.1; Since
+  #       the test suite considers these warnings to be an indication of
+  #       test failure, we disable them here.  When everything has been
+  #       updated to support both, remove this.
+  #
+  if {![info exists no(disableWarning1701)] && [isDotNetCore]} then {
+    set savedCsharpOptions $eagle_platform(csharpOptions)
+    lappend eagle_platform(csharpOptions) nowarn:1701
+  }
+} -body {
   set id [object invoke Interpreter.GetActive NextId]
 
   set guid [expr {
@@ -233,6 +246,11 @@ runTest {test object-4.2.1 {using CSharp compiler with Eagle} -body {
       [expr {$code eq "Ok" ? [object invoke _Dynamic${id}.Test${id} \
       HelloWorld] : ""}]
 } -cleanup {
+  if {[info exists savedCsharpOptions]} then {
+    set eagle_platform(csharpOptions) $savedCsharpOptions
+    unset -nocomplain savedCsharpOptions
+  }
+
   if {[isDotNetCore]} then {
     catch {info previouspid true}
   }

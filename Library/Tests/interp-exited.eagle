@@ -2873,19 +2873,19 @@ dispose exists flags foreach fromvar get hash import interfaces invoke\
 invokeall invokeraw isdisposed isnull isoftype list lmap load members\
 namespaces referencecount removecallback removereference resolve search\
 strongname type types unalias unaliasnamespace undeclare unimport untype\
-verifyall} {absent forget ifneeded indexes info loaded names pending present\
-provide relativefilename require reset scan unknown vcompare versions vloaded\
-vsatisfies vsort withdraw} {} {} {compare create download escape get host\
-isvalid join offline parse ping post scheme security softwareupdates time\
-unescape upload} {active cancel clear counts dump enable flags idle info}\
-{buildnumber days duration filetime format isvalid monthdays scan seconds}\
-{channels dirname join split validname} {appdomain args body commands complete\
-context default engine ensembles exists functions globals level library locals\
-nprocs objects operands operators patchlevel procs script subcommands\
-tclversion vars} {alias aliases cancel children exists issafe issdk rename}\
-{dispose exists invoke invokeall invokeraw isnull isoftype} {absent forget\
-ifneeded info loaded names pending present provide require unknown vcompare\
-versions vsatisfies vsort withdraw} {} {} {get isvalid post}}}
+verifyall} {absent alias aliases forget ifneeded indexes info loaded names\
+pending present provide relativefilename require reset scan unknown vcompare\
+versions vloaded vsatisfies vsort withdraw} {} {} {compare create download\
+escape get host isvalid join offline parse ping post scheme security\
+softwareupdates time unescape upload} {active cancel clear counts dump enable\
+flags idle info} {buildnumber days duration filetime format isvalid monthdays\
+scan seconds} {channels dirname join split validname} {appdomain args body\
+commands complete context default engine ensembles exists functions globals\
+level library locals nprocs objects operands operators patchlevel procs script\
+subcommands tclversion vars} {alias aliases cancel children exists issafe issdk\
+rename} {dispose exists invoke invokeall invokeraw isnull isoftype} {absent\
+forget ifneeded info loaded names pending present provide require unknown\
+vcompare versions vsatisfies vsort withdraw} {} {} {get isvalid post}}}
 
 ###############################################################################
 
@@ -2904,7 +2904,7 @@ runTest {test interp-1.85 {script policy with arguments} -setup {
     }
   }
 
-  set i [interp create -safe]
+  set i [interp create -safe -nosecurity]
 } -body {
   interp policy -flags +Arguments -type Eagle._Commands.Info \
       $i "infoCmdCount [list $i]"
@@ -3381,7 +3381,7 @@ length of 50000 characters exceeded (65536)}}}
 ###############################################################################
 
 runTest {test interp-1.502 {procedure limit} -setup {
-  set interp [interp create -noinitialize]
+  set interp [interp create -noinitialize -nosecurity]
 } -body {
   interp eval $interp {set x 0}
   set script {proc myProc[incr x] {} {}}
@@ -4044,7 +4044,7 @@ member_Eagle._Tests.Default.ScriptThreadClientData.ToString}] \
 ###############################################################################
 
 runTest {test interp-1.901 {command limit without auto-reset} -setup {
-  set interp [interp create -safe]
+  set interp [interp create -safe -nosecurity]
   interp set $interp x 0
 } -body {
   set limiter [object invoke -alias \
@@ -4105,7 +4105,7 @@ True 1 {command limit exceeded: 1000 versus 1000} 1 {command limit exceeded:\
 ###############################################################################
 
 runTest {test interp-1.902 {command limit with auto-reset} -setup {
-  set interp [interp create -safe]
+  set interp [interp create -safe -nosecurity]
   interp set $interp x 0
 } -body {
   set limiter [object invoke -alias \
@@ -4167,7 +4167,7 @@ versus 900}}}
 ###############################################################################
 
 runTest {test interp-1.903 {operation limit without auto-reset} -setup {
-  set interp [interp create -safe]
+  set interp [interp create -safe -nosecurity]
   interp set $interp x 0
 } -body {
   set limiter [object invoke -alias \
@@ -4230,7 +4230,7 @@ exceeded: 1001 versus 900}}}
 ###############################################################################
 
 runTest {test interp-1.904 {operation limit with auto-reset} -setup {
-  set interp [interp create -safe]
+  set interp [interp create -safe -nosecurity]
   interp set $interp x 0
 } -body {
   set limiter [object invoke -alias \
@@ -4501,7 +4501,7 @@ False 0 \{ok 1\} 0 \{\} \{callback 0\} 0 True 0 0 0 \{\} 0 \{\} 0 \{\} 0 \{\} 0\
 ###############################################################################
 
 runTest {test interp-1.2001 {info commands in "safe" interp} -setup {
-  set i [interp create -safe]
+  set i [interp create -safe -nosecurity]
 } -body {
   interp eval $i {
     lsort [info commands -noprocedures]
@@ -5371,7 +5371,7 @@ runTest {test interp-1.60003 {total interpreter count (AppDomain)} -body {
   set count(1) [object invoke -flags +NonPublic \
       Eagle._Components.Private.GlobalState CountInterpreters true]
 
-  set i [interp create]
+  set i [interp create -nosecurity]
 
   set count(2) [object invoke -flags +NonPublic \
       Eagle._Components.Private.GlobalState CountInterpreters true]
@@ -5391,7 +5391,7 @@ runTest {test interp-1.60003 {total interpreter count (AppDomain)} -body {
 ###############################################################################
 
 runTest {test interp-1.70000 {IRuleSet handling} -setup {
-  set i [interp create]
+  set i [interp create -nosecurity]
 
   interp set $i fileName \
       [file join $env(XDG_RULESET_DIR) test1.ruleSet]
@@ -5508,18 +5508,18 @@ runTest {test interp-1.70001 {automatic object commands} -setup {
   set instance(3) $interpreter
   set instance(4) [object invoke -alias $typeName(4) Create]
 
-  oip $instance(4) createCount 0;              # Default.cs:28574
-  oip $instance(4) instanceCount 0;            # Default.cs:28577
-  oip $instance(4) staticCount 0;              # Default.cs:28580
-  oip $instance(4) dispose0Count 0;            # Default.cs:28583
-  oip $instance(4) significantDispose1Count 0; # Default.cs:28586
-  oip $instance(4) significantRelease1Count 0; # Default.cs:28589
-  oip $instance(4) redundantDispose1Count 0;   # Default.cs:28592
-  oip $instance(4) redundantRelease1Count 0;   # Default.cs:28595
-  oip $instance(4) destroyCount 0;             # Default.cs:28598
-  oip $typeName(4) neutralStaticField 1;       # Default.cs:28603
-  oip $typeName(4) safeStaticField 2;          # Default.cs:28606
-  oip $typeName(4) unsafeStaticField 3;        # Default.cs:28609
+  oip $instance(4) createCount 0;              # Default.cs:29091
+  oip $instance(4) instanceCount 0;            # Default.cs:29094
+  oip $instance(4) staticCount 0;              # Default.cs:29097
+  oip $instance(4) dispose0Count 0;            # Default.cs:29100
+  oip $instance(4) significantDispose1Count 0; # Default.cs:29103
+  oip $instance(4) significantRelease1Count 0; # Default.cs:29106
+  oip $instance(4) redundantDispose1Count 0;   # Default.cs:29109
+  oip $instance(4) redundantRelease1Count 0;   # Default.cs:29112
+  oip $instance(4) destroyCount 0;             # Default.cs:29115
+  oip $typeName(4) neutralStaticField 1;       # Default.cs:29120
+  oip $typeName(4) safeStaticField 2;          # Default.cs:29123
+  oip $typeName(4) unsafeStaticField 3;        # Default.cs:29126
 
   interp set $interp instance(4) $instance(4)
   interp shareobject $interp $instance(4)

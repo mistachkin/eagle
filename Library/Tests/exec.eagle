@@ -416,13 +416,13 @@ runTest {test processIsolation-1.1 {test with process isolation} -body {
     $eagle_tests(CurrentName) eq "processIsolation-1.1" ? \
         [info pid] : "current test name mismatch"
   }
-} -constraints {eagle testExec} -time true -match regexp -isolationLevel \
-Process -isolationTemplate $isolationTemplate -isolationPathType Library \
--isolationFileName [file join $test_path temporary-isolated.eagle] \
--isolationOtherArguments [list -preInitialize [list set test_run_id \
-[getTestRunId]] -preInitialize [list set test_run_bucket [getTestRunBucket]]] \
--isolationFailDetail Highest -isolationLogFile $test_log_if -execExitCode \
-Success -noProcessId true -constraintExpression \
+} -constraints [fixConstraints {eagle testExec !security.enabled}] -time true \
+-match regexp -isolationLevel Process -isolationTemplate $isolationTemplate \
+-isolationPathType Library -isolationFileName [file join $test_path \
+temporary-isolated.eagle] -isolationOtherArguments [list -preInitialize [list \
+set test_run_id [getTestRunId]] -preInitialize [list set test_run_bucket \
+[getTestRunBucket]]] -isolationFailDetail Highest -isolationLogFile \
+$test_log_if -execExitCode Success -noProcessId true -constraintExpression \
 {[haveConstraint dotNetOrDotNetCore] || \
 ![haveConstraint windows] || [haveConstraint mono20] || \
 [haveConstraint mono22] || [haveConstraint mono24] || \

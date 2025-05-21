@@ -240,6 +240,13 @@ namespace Eagle._Components.Private
         private static Guid IID_ICorRuntimeHost = new Guid(
             UnsafeNativeMethods.IID_ICorRuntimeHost_String);
 #endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static string SavedLogFileNameData = "SavedLogFileName";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -274,6 +281,58 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region AppDomain / Remoting Support Methods
+        public static string GetSavedLogFileName()
+        {
+            AppDomain appDomain = GetCurrent();
+
+            if (appDomain != null)
+            {
+                try
+                {
+                    return appDomain.GetData(
+                        SavedLogFileNameData) as string;
+                }
+                catch (Exception e)
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(AppDomainOps).Name,
+                        TracePriority.RemotingError);
+                }
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SetSavedLogFileName(
+            string fileName /* in: OPTIONAL */
+            )
+        {
+            AppDomain appDomain = GetCurrent();
+
+            if (appDomain != null)
+            {
+                try
+                {
+                    appDomain.SetData(
+                        SavedLogFileNameData, fileName);
+
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(AppDomainOps).Name,
+                        TracePriority.RemotingError);
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if NATIVE && WINDOWS
         public static bool CanGetDefault()
         {

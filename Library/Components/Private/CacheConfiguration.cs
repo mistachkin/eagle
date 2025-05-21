@@ -3033,7 +3033,7 @@ namespace Eagle._Components.Private
                 // NOTE: Start clearing (i.e. instead of trimming) ALL
                 //       caches if native system memory is starting to
                 //       get "too full".  Also, reset the minimum usage
-                //       count to the orignally configured value.
+                //       count to the originally configured value.
                 //
                 if (!noClear && !IsClearMemoryLoadOk(cacheFlags))
                 {

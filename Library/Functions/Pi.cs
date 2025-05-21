@@ -11,6 +11,7 @@
 
 using System;
 using Eagle._Attributes;
+using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
@@ -53,7 +54,7 @@ namespace Eagle._Functions
 
             try
             {
-                value = Math.PI;
+                value = MathOps.Pi();
             }
             catch (Exception e)
             {

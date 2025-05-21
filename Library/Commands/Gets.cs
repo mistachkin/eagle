@@ -78,6 +78,9 @@ namespace Eagle._Commands
 
             OptionDictionary options = new OptionDictionary(
                 new IOption[] {
+                new Option(null, OptionFlags.MustHaveEncodingValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-encoding", null),
                 new Option(null, OptionFlags.Unsafe, Index.Invalid,
                     Index.Invalid, "-usecount", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
@@ -119,6 +122,11 @@ namespace Eagle._Commands
             }
 
             IVariant value = null;
+            Encoding encoding = null;
+
+            if (options.IsPresent("-encoding", ref value))
+                encoding = (Encoding)value.Value;
+
             bool useCount = false;
 
             if (options.IsPresent("-usecount"))
@@ -147,7 +155,8 @@ namespace Eagle._Commands
             if (channel == null)
                 return ReturnCode.Error;
 
-            Encoding encoding = channel.GetEncoding();
+            if (encoding == null)
+                encoding = channel.GetEncoding();
 
             if (!channel.NullEncoding && (encoding == null))
             {

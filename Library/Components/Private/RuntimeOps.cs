@@ -4241,6 +4241,8 @@ namespace Eagle._Components.Private
 
             list.MaybeAdd(GetGenuine(), allowNull);
 
+            ///////////////////////////////////////////////////////////////////
+
             if (safe)
             {
                 if (allowNull)
@@ -4269,11 +4271,15 @@ namespace Eagle._Components.Private
                     GetAssemblyTextOrSuffix(assembly), allowNull);
             }
 
+            ///////////////////////////////////////////////////////////////////
+
             list.MaybeAdd(
                 AttributeOps.GetAssemblyConfiguration(assembly),
                 allowNull);
 
             list.MaybeAdd(GetTclVersionString(), allowNull);
+
+            ///////////////////////////////////////////////////////////////////
 
             if (safe)
             {
@@ -4310,6 +4316,13 @@ namespace Eagle._Components.Private
 
                 list.MaybeAdd(PlatformOps.GetMachineName(), allowNull);
             }
+
+            ///////////////////////////////////////////////////////////////////
+
+#if ENTERPRISE_LOCKDOWN || MAYBE_ENTERPRISE_LOCKDOWN
+            if (Interpreter.IsEnterpriseLockdownEnabled())
+                list.MaybeAdd("ENTERPRISE_LOCKDOWN", allowNull);
+#endif
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -7298,6 +7311,7 @@ namespace Eagle._Components.Private
             IRuleSet ruleSet,
             IPlugin plugin,
             CommandFlags? commandFlags,
+            CommandFlags? notCommandFlags,
             ref Result error
             )
         {
@@ -7350,6 +7364,13 @@ namespace Eagle._Components.Private
 
                 if ((commandFlags != null) && !FlagOps.HasFlags(
                         localCommandFlags, (CommandFlags)commandFlags,
+                        false))
+                {
+                    continue;
+                }
+
+                if ((notCommandFlags != null) && FlagOps.HasFlags(
+                        localCommandFlags, (CommandFlags)notCommandFlags,
                         false))
                 {
                     continue;
@@ -7464,6 +7485,7 @@ namespace Eagle._Components.Private
             IPlugin plugin,
             TypeList types,
             CommandFlags? commandFlags,
+            CommandFlags? notCommandFlags,
             bool verbose,
             ref Result error
             )
@@ -7528,6 +7550,13 @@ namespace Eagle._Components.Private
 
                 if ((commandFlags != null) && !FlagOps.HasFlags(
                         localCommandFlags, (CommandFlags)commandFlags,
+                        false))
+                {
+                    continue;
+                }
+
+                if ((notCommandFlags != null) && FlagOps.HasFlags(
+                        localCommandFlags, (CommandFlags)notCommandFlags,
                         false))
                 {
                     continue;
@@ -7692,6 +7721,7 @@ namespace Eagle._Components.Private
             TypeList types,
             IRuleSet ruleSet,
             CommandFlags? commandFlags,
+            CommandFlags? notCommandFlags,
             bool useBuiltIn,
             bool noCommands,
             bool noPolicies,
@@ -7731,7 +7761,8 @@ namespace Eagle._Components.Private
                 {
                     code = PopulateBuiltInCommands(
                         interpreter, ruleSet, plugin,
-                        commandFlags, ref error);
+                        commandFlags, notCommandFlags,
+                        ref error);
 
                     if (code != ReturnCode.Ok)
                         return code;
@@ -7741,7 +7772,8 @@ namespace Eagle._Components.Private
                     code = PopulatePluginCommands(
                         interpreter, ruleSet, plugin,
                         localTypes, commandFlags,
-                        verbose, ref error);
+                        notCommandFlags, verbose,
+                        ref error);
 
                     if (code != ReturnCode.Ok)
                         return code;

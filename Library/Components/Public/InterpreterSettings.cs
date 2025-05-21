@@ -36,10 +36,11 @@ namespace Eagle._Components.Public
     [Serializable()]
 #endif
     [ObjectId("1d0263ae-929f-4ea1-a6c6-cd8b749d55bb")]
-    public sealed class InterpreterSettings
+    public sealed class InterpreterSettings :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
-        : ScriptMarshalByRefObject
+        ScriptMarshalByRefObject,
 #endif
+        IInterpreterSettings
     {
         #region Private Constants
         private static readonly string LoadFromFileNameFormat =
@@ -102,7 +103,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
-        internal InterpreterSettings()
+        private InterpreterSettings()
         {
             // do nothing.
         }
@@ -110,211 +111,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Private Methods
-        private void ResetEverything()
-        {
-            //
-            // TODO: Update whenever the list of fields is updated.
-            //
-            ruleSet = null;
-            args = null;
-            culture = null;
-            createFlags = CreateFlags.None;
-            hostCreateFlags = HostCreateFlags.None;
-            initializeFlags = InitializeFlags.None;
-            scriptFlags = ScriptFlags.None;
-            interpreterFlags = InterpreterFlags.None;
-            interpreterTestFlags = InterpreterTestFlags.None;
-            pluginFlags = PluginFlags.None;
-
-#if NATIVE && TCL
-            findFlags = FindFlags.None;
-            loadFlags = LoadFlags.None;
-#endif
-
-            appDomain = null;
-            host = null;
-            profile = null;
-            owner = null;
-            applicationObject = null;
-            policyObject = null;
-            resolverObject = null;
-            userObject = null;
-            policies = null;
-            traces = null;
-            text = null;
-            libraryPath = null;
-            autoPathList = null;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private void UseDefaultsForFlags()
-        {
-            //
-            // TODO: Update whenever the list of flags fields is updated.
-            //
-            createFlags = Defaults.CreateFlags;
-            hostCreateFlags = Defaults.HostCreateFlags;
-            initializeFlags = Defaults.InitializeFlags;
-            scriptFlags = Defaults.ScriptFlags;
-            interpreterFlags = Defaults.InterpreterFlags;
-            interpreterTestFlags = Defaults.InterpreterTestFlags;
-            pluginFlags = Defaults.PluginFlags;
-
-#if NATIVE && TCL
-            findFlags = Defaults.FindFlags;
-            loadFlags = Defaults.LoadFlags;
-#endif
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private void UseFlagsFromInterpreter(
-            Interpreter interpreter
-            )
-        {
-            if (interpreter == null)
-                return;
-
-            createFlags = interpreter.CreateFlags;
-            hostCreateFlags = interpreter.HostCreateFlags;
-            initializeFlags = interpreter.InitializeFlags;
-            scriptFlags = interpreter.ScriptFlags;
-            interpreterFlags = interpreter.InterpreterFlags;
-            interpreterTestFlags = interpreter.InterpreterTestFlags;
-            pluginFlags = interpreter.PluginFlags;
-
-#if NATIVE && TCL
-            findFlags = interpreter.TclFindFlags;
-            loadFlags = interpreter.TclLoadFlags;
-#endif
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private void UseObjectsFromInterpreter(
-            Interpreter interpreter
-            )
-        {
-            if (interpreter == null)
-                return;
-
-            owner = interpreter.Owner;
-            applicationObject = interpreter.ApplicationObject;
-            policyObject = interpreter.PolicyObject;
-            resolverObject = interpreter.ResolverObject;
-            userObject = interpreter.UserObject;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void MakeSafe() /* DO NOT USE: PrivateShellMainCore ONLY. */
-        {
-            createFlags |= CreateFlags.SafeAndHideUnsafe;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void MakeStandard() /* DO NOT USE: PrivateShellMainCore ONLY. */
-        {
-            createFlags |= CreateFlags.StandardAndHideNonStandard;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void DisableInitialize()
-        {
-            createFlags &= ~CreateFlags.Initialize;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void EnableNamespaces() /* DO NOT USE: TESTS ONLY. */
-        {
-            createFlags |= CreateFlags.UseNamespaces;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void DisableNamespaces() /* DO NOT USE: TESTS ONLY. */
-        {
-            createFlags &= ~CreateFlags.UseNamespaces;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void DisableLoader() /* DO NOT USE: TESTS ONLY. */
-        {
-            initializeFlags &= ~InitializeFlags.Loader;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void DisableInitialization() /* DO NOT USE: TESTS ONLY. */
-        {
-            initializeFlags &= ~InitializeFlags.Initialization;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void DisableSetAutoPath() /* DO NOT USE: TESTS ONLY. */
-        {
-            initializeFlags &= ~InitializeFlags.SetAutoPath;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void RemoveUnsafeOptions() /* DO NOT USE: TESTS ONLY. */
-        {
-            interpreterFlags &= ~InterpreterFlags.UnsafeMask;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void RemoveUnsafeTestOptions() /* DO NOT USE: TESTS ONLY. */
-        {
-            interpreterTestFlags &= ~InterpreterTestFlags.UnsafeMask;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void EnableSecurity() /* DO NOT USE: TESTS ONLY. */
-        {
-            initializeFlags |= InitializeFlags.Security;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void DisableSecurity() /* DO NOT USE: TESTS ONLY. */
-        {
-            initializeFlags &= ~InitializeFlags.Security;
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
         #region Static "Factory" Methods
-        public static InterpreterSettings Create()
+        public static IInterpreterSettings Create()
         {
             return new InterpreterSettings();
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static InterpreterSettings CreateDefault()
+        public static IInterpreterSettings CreateDefault()
         {
             return CreateDefault(null, null);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static InterpreterSettings CreateDefault(
-            IRuleSet ruleSet,
-            IEnumerable<string> args
+        public static IInterpreterSettings CreateDefault(
+            IRuleSet ruleSet,        /* in */
+            IEnumerable<string> args /* in */
             )
         {
-            InterpreterSettings interpreterSettings = Create();
+            IInterpreterSettings interpreterSettings = Create();
 
             if (interpreterSettings != null)
             {
@@ -333,12 +150,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static InterpreterSettings CreateSafe(
-            IRuleSet ruleSet,
-            IEnumerable<string> args
+        public static IInterpreterSettings CreateSafe(
+            IRuleSet ruleSet,        /* in */
+            IEnumerable<string> args /* in */
             )
         {
-            InterpreterSettings interpreterSettings = CreateDefault();
+            IInterpreterSettings interpreterSettings = CreateDefault();
 
             if (ruleSet != null)
                 interpreterSettings.RuleSet = ruleSet;
@@ -354,15 +171,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static InterpreterSettings CreateFrom(
-            string fileName,
-            CultureInfo cultureInfo,
-            bool merge,
-            bool expand,
-            ref Result error
+        public static IInterpreterSettings CreateNonCritical(
+            IRuleSet ruleSet,        /* in */
+            IEnumerable<string> args /* in */
             )
         {
-            InterpreterSettings interpreterSettings = null;
+            IInterpreterSettings interpreterSettings = CreateDefault();
+
+            if (ruleSet != null)
+                interpreterSettings.RuleSet = ruleSet;
+
+            if (args != null)
+                interpreterSettings.Args = args;
+
+            interpreterSettings.InitializeFlags |= InitializeFlags.NoCritical;
+
+            return interpreterSettings;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static IInterpreterSettings CreateFrom(
+            string fileName,         /* in */
+            CultureInfo cultureInfo, /* in */
+            bool merge,              /* in */
+            bool expand,             /* in */
+            ref Result error         /* out */
+            )
+        {
+            IInterpreterSettings interpreterSettings = null;
 
             if (LoadFrom(fileName,
                     cultureInfo, merge, expand,
@@ -377,13 +214,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static InterpreterSettings CreateShell( /* PrivateShellMain */
-            IRuleSet ruleSet,
-            IEnumerable<string> args,
-            OptionOriginFlags originFlags,
-            bool console,
-            bool verbose,
-            ref Result error
+        public static IInterpreterSettings CreateShell( /* PrivateShellMain */
+            IRuleSet ruleSet,              /* in */
+            IEnumerable<string> args,      /* in */
+            OptionOriginFlags originFlags, /* in */
+            bool console,                  /* in */
+            bool verbose,                  /* in */
+            ref Result error               /* out */
             )
         {
             //
@@ -437,11 +274,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        internal static InterpreterSettings Create(
-            IRuleSet ruleSet,
-            IEnumerable<string> args,
-            SecurityLevel securityLevel,
-            ref Result error
+        internal static IInterpreterSettings Create(
+            IRuleSet ruleSet,            /* in */
+            IEnumerable<string> args,    /* in */
+            SecurityLevel securityLevel, /* in */
+            ref Result error             /* out */
             )
         {
             if (FlagOps.HasFlags(
@@ -467,18 +304,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static InterpreterSettings Create(
-            IRuleSet ruleSet,
-            IEnumerable<string> args,
-            CreateFlags createFlags,
-            HostCreateFlags hostCreateFlags,
-            InitializeFlags initializeFlags,
-            ScriptFlags scriptFlags,
-            string text,
-            string libraryPath
+        private static IInterpreterSettings Create(
+            IRuleSet ruleSet,                /* in */
+            IEnumerable<string> args,        /* in */
+            CreateFlags createFlags,         /* in */
+            HostCreateFlags hostCreateFlags, /* in */
+            InitializeFlags initializeFlags, /* in */
+            ScriptFlags scriptFlags,         /* in */
+            string text,                     /* in */
+            string libraryPath               /* in */
             )
         {
-            InterpreterSettings interpreterSettings = CreateDefault();
+            IInterpreterSettings interpreterSettings = CreateDefault();
 
             interpreterSettings.RuleSet = ruleSet;
             interpreterSettings.Args = args;
@@ -576,7 +413,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static bool CouldBeDocument(
-            string path
+            string path /* in */
             )
         {
             if (String.IsNullOrEmpty(path))
@@ -599,7 +436,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static string Expand(
-            string value
+            string value /* in */
             )
         {
             if (String.IsNullOrEmpty(value))
@@ -611,7 +448,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         internal static void Expand(
-            InterpreterSettings interpreterSettings
+            IInterpreterSettings interpreterSettings /* in, out */
             )
         {
             if (interpreterSettings != null)
@@ -652,11 +489,11 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode FromInterpreter(
-            Interpreter interpreter,
-            InterpreterSettings interpreterSettings,
-            bool recreate,
-            bool full,
-            ref Result error
+            Interpreter interpreter,                  /* in */
+            IInterpreterSettings interpreterSettings, /* in, out */
+            bool recreate,                            /* in */
+            bool full,                                /* in */
+            ref Result error                          /* out */
             )
         {
             if (interpreter == null)
@@ -691,9 +528,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         internal static StringList Copy(
-            InterpreterSettings sourceInterpreterSettings,
-            InterpreterSettings targetInterpreterSettings,
-            bool forceMissing
+            IInterpreterSettings sourceInterpreterSettings, /* in */
+            IInterpreterSettings targetInterpreterSettings, /* in, out */
+            bool forceMissing                               /* in */
             )
         {
             StringList result = null;
@@ -918,13 +755,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode LoadFromIni(
-            string fileName,
-            Stream stream,
-            CultureInfo cultureInfo,
-            bool merge,
-            bool expand,
-            ref InterpreterSettings interpreterSettings,
-            ref Result error
+            string fileName,                              /* in */
+            Stream stream,                                /* in */
+            CultureInfo cultureInfo,                      /* in */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* out */
+            ref Result error                              /* out */
             )
         {
             return SettingsOps.LoadForInterpreter(
@@ -936,12 +773,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode LoadFromIni(
-            string fileName,
-            CultureInfo cultureInfo,
-            bool merge,
-            bool expand,
-            ref InterpreterSettings interpreterSettings,
-            ref Result error
+            string fileName,                              /* in */
+            CultureInfo cultureInfo,                      /* in */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* out */
+            ref Result error                              /* out */
             )
         {
             return SettingsOps.LoadForInterpreter(
@@ -953,10 +790,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode SaveToIni(
-            string fileName,
-            bool expand,
-            InterpreterSettings interpreterSettings,
-            ref Result error
+            string fileName,                          /* in */
+            bool expand,                              /* in */
+            IInterpreterSettings interpreterSettings, /* in */
+            ref Result error                          /* out */
             )
         {
             return SettingsOps.SaveForInterpreter(null,
@@ -968,10 +805,10 @@ namespace Eagle._Components.Public
 
 #if XML
         private static ReturnCode FromDocument(
-            XmlDocument document,
-            CultureInfo cultureInfo,
-            InterpreterSettings interpreterSettings,
-            ref Result error
+            XmlDocument document,                     /* in */
+            CultureInfo cultureInfo,                  /* in */
+            IInterpreterSettings interpreterSettings, /* in, out */
+            ref Result error                          /* out */
             )
         {
             if (document == null)
@@ -1199,9 +1036,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ReturnCode ToDocument(
-            XmlDocument document,
-            InterpreterSettings interpreterSettings,
-            ref Result error
+            XmlDocument document,                     /* in */
+            IInterpreterSettings interpreterSettings, /* in */
+            ref Result error                          /* out */
             )
         {
             if (document == null)
@@ -1295,12 +1132,12 @@ namespace Eagle._Components.Public
 
 #if SERIALIZATION
         private static ReturnCode LoadFromXml(
-            XmlDocument document,
-            CultureInfo cultureInfo,
-            bool merge,
-            bool expand,
-            ref InterpreterSettings interpreterSettings,
-            ref Result error
+            XmlDocument document,                         /* in */
+            CultureInfo cultureInfo,                      /* in */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* out */
+            ref Result error                              /* out */
             )
         {
             if (document == null)
@@ -1329,8 +1166,8 @@ namespace Eagle._Components.Public
                         typeof(InterpreterSettings), reader,
                         ref @object, ref error) == ReturnCode.Ok)
                 {
-                    InterpreterSettings documentInterpreterSettings =
-                        @object as InterpreterSettings;
+                    IInterpreterSettings documentInterpreterSettings =
+                        @object as IInterpreterSettings;
 
                     if (FromDocument(document,
                             cultureInfo, documentInterpreterSettings,
@@ -1339,7 +1176,7 @@ namespace Eagle._Components.Public
                         if (expand)
                             Expand(documentInterpreterSettings);
 
-                        InterpreterSettings newInterpreterSettings;
+                        IInterpreterSettings newInterpreterSettings;
 
                         if (merge && (interpreterSettings != null))
                             newInterpreterSettings = interpreterSettings;
@@ -1368,13 +1205,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode LoadFromXml(
-            string fileName,
-            Stream stream,
-            CultureInfo cultureInfo,
-            bool merge,
-            bool expand,
-            ref InterpreterSettings interpreterSettings,
-            ref Result error
+            string fileName,                              /* in */
+            Stream stream,                                /* in */
+            CultureInfo cultureInfo,                      /* in */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* out */
+            ref Result error                              /* out */
             )
         {
             if (stream == null)
@@ -1404,12 +1241,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode LoadFromXml(
-            string fileName,
-            CultureInfo cultureInfo,
-            bool merge,
-            bool expand,
-            ref InterpreterSettings interpreterSettings,
-            ref Result error
+            string fileName,                              /* in */
+            CultureInfo cultureInfo,                      /* in */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* out */
+            ref Result error                              /* out */
             )
         {
             if (String.IsNullOrEmpty(fileName))
@@ -1448,10 +1285,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode SaveToXml(
-            string fileName,
-            bool expand,
-            InterpreterSettings interpreterSettings,
-            ref Result error
+            string fileName,                          /* in */
+            bool expand,                              /* in */
+            IInterpreterSettings interpreterSettings, /* in */
+            ref Result error                          /* out */
             )
         {
             if (String.IsNullOrEmpty(fileName))
@@ -1545,9 +1382,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private static void CheckPoliciesAndTraces(
-            InterpreterSettings interpreterSettings,
-            PolicyList policies,
-            TraceList traces
+            IInterpreterSettings interpreterSettings, /* in, out */
+            PolicyList policies,                      /* in */
+            TraceList traces                          /* in */
             )
         {
             if (interpreterSettings != null)
@@ -1575,7 +1412,7 @@ namespace Eagle._Components.Public
 
         #region Internal Static Methods
         internal static void CheckPoliciesAndTraces(
-            InterpreterSettings interpreterSettings
+            IInterpreterSettings interpreterSettings /* in, out */
             )
         {
             if (interpreterSettings != null)
@@ -1589,10 +1426,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         internal static ReturnCode UseStartupDefaults(
-            InterpreterSettings interpreterSettings,
-            CreateFlags createFlags,
-            HostCreateFlags hostCreateFlags,
-            ref Result error
+            IInterpreterSettings interpreterSettings, /* in, out */
+            CreateFlags createFlags,                  /* in */
+            HostCreateFlags hostCreateFlags,          /* in */
+            ref Result error                          /* out */
             )
         {
             if (interpreterSettings == null)
@@ -1647,9 +1484,9 @@ namespace Eagle._Components.Public
 
 #if SHELL
         internal static ReturnCode UseShellDefaults(
-            InterpreterSettings interpreterSettings,
-            CreateFlags createFlags,
-            ref Result error
+            IInterpreterSettings interpreterSettings, /* in, out */
+            CreateFlags createFlags,                  /* in */
+            ref Result error                          /* out */
             )
         {
             if (interpreterSettings == null)
@@ -1689,7 +1526,7 @@ namespace Eagle._Components.Public
             }
 
             interpreterSettings.InterpreterFlags = interpreterFlags;
-            interpreterSettings.interpreterTestFlags = interpreterTestFlags;
+            interpreterSettings.InterpreterTestFlags = interpreterTestFlags;
 
             return ReturnCode.Ok;
         }
@@ -1698,12 +1535,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         internal static ReturnCode LoadFrom(
-            CultureInfo cultureInfo,
-            bool optional,
-            bool merge,
-            bool expand,
-            ref InterpreterSettings interpreterSettings,
-            ref Result error
+            CultureInfo cultureInfo,                      /* in */
+            bool optional,                                /* in */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* out */
+            ref Result error                              /* out */
             )
         {
             string baseFileName = PathOps.GetManagedExecutableName();
@@ -1755,12 +1592,12 @@ namespace Eagle._Components.Public
 
         #region Public Static Methods
         public static ReturnCode LoadFrom(
-            Interpreter interpreter,
-            bool expand,
-            bool recreate,
-            bool full,
-            ref InterpreterSettings interpreterSettings,
-            ref Result error
+            Interpreter interpreter,                      /* in */
+            bool expand,                                  /* in */
+            bool recreate,                                /* in */
+            bool full,                                    /* in */
+            ref IInterpreterSettings interpreterSettings, /* out */
+            ref Result error                              /* out */
             )
         {
             if (interpreter == null)
@@ -1777,7 +1614,7 @@ namespace Eagle._Components.Public
 
             try
             {
-                InterpreterSettings newInterpreterSettings = Create();
+                IInterpreterSettings newInterpreterSettings = Create();
 
                 if (FromInterpreter(
                         interpreter, newInterpreterSettings,
@@ -1801,12 +1638,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadFrom(
-            string fileName,
-            CultureInfo cultureInfo,
-            bool merge,
-            bool expand,
-            ref InterpreterSettings interpreterSettings,
-            ref Result error
+            string fileName,                              /* in */
+            CultureInfo cultureInfo,                      /* in */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* out */
+            ref Result error                              /* out */
             )
         {
             bool couldBeDocument = CouldBeDocument(fileName);
@@ -1835,13 +1672,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadFrom(
-            string fileName,
-            Stream stream,
-            CultureInfo cultureInfo,
-            bool merge,
-            bool expand,
-            ref InterpreterSettings interpreterSettings,
-            ref Result error
+            string fileName,                              /* in */
+            Stream stream,                                /* in */
+            CultureInfo cultureInfo,                      /* in */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* out */
+            ref Result error                              /* out */
             )
         {
             bool couldBeDocument = CouldBeDocument(fileName);
@@ -1870,10 +1707,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode SaveTo(
-            string fileName,
-            bool expand,
-            InterpreterSettings interpreterSettings,
-            ref Result error
+            string fileName,                          /* in */
+            bool expand,                              /* in */
+            IInterpreterSettings interpreterSettings, /* in */
+            ref Result error                          /* out */
             )
         {
             bool couldBeDocument = CouldBeDocument(fileName);
@@ -1902,7 +1739,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Public Properties
+        #region IInterpreterSettingsData Members
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -2169,10 +2006,192 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Public Methods
+        #region IInterpreterSettings Members
+        public void MakeSafe() /* DO NOT USE: PrivateShellMainCore ONLY. */
+        {
+            createFlags |= CreateFlags.SafeAndHideUnsafe;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void MakeStandard() /* DO NOT USE: PrivateShellMainCore ONLY. */
+        {
+            createFlags |= CreateFlags.StandardAndHideNonStandard;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void DisableInitialize()
+        {
+            createFlags &= ~CreateFlags.Initialize;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void EnableNamespaces() /* DO NOT USE: TESTS ONLY. */
+        {
+            createFlags |= CreateFlags.UseNamespaces;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void DisableNamespaces() /* DO NOT USE: TESTS ONLY. */
+        {
+            createFlags &= ~CreateFlags.UseNamespaces;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void DisableLoader() /* DO NOT USE: TESTS ONLY. */
+        {
+            initializeFlags &= ~InitializeFlags.Loader;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void DisableInitialization() /* DO NOT USE: TESTS ONLY. */
+        {
+            initializeFlags &= ~InitializeFlags.Initialization;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void DisableSetAutoPath() /* DO NOT USE: TESTS ONLY. */
+        {
+            initializeFlags &= ~InitializeFlags.SetAutoPath;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void RemoveUnsafeOptions() /* DO NOT USE: TESTS ONLY. */
+        {
+            interpreterFlags &= ~InterpreterFlags.UnsafeMask;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void RemoveUnsafeTestOptions() /* DO NOT USE: TESTS ONLY. */
+        {
+            interpreterTestFlags &= ~InterpreterTestFlags.UnsafeMask;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void EnableSecurity() /* DO NOT USE: TESTS ONLY. */
+        {
+            initializeFlags |= InitializeFlags.Security;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void DisableSecurity() /* DO NOT USE: TESTS ONLY. */
+        {
+            initializeFlags &= ~InitializeFlags.Security;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void ResetEverything()
+        {
+            //
+            // TODO: Update whenever the list of fields is updated.
+            //
+            ruleSet = null;
+            args = null;
+            culture = null;
+            createFlags = CreateFlags.None;
+            hostCreateFlags = HostCreateFlags.None;
+            initializeFlags = InitializeFlags.None;
+            scriptFlags = ScriptFlags.None;
+            interpreterFlags = InterpreterFlags.None;
+            interpreterTestFlags = InterpreterTestFlags.None;
+            pluginFlags = PluginFlags.None;
+
+#if NATIVE && TCL
+            findFlags = FindFlags.None;
+            loadFlags = LoadFlags.None;
+#endif
+
+            appDomain = null;
+            host = null;
+            profile = null;
+            owner = null;
+            applicationObject = null;
+            policyObject = null;
+            resolverObject = null;
+            userObject = null;
+            policies = null;
+            traces = null;
+            text = null;
+            libraryPath = null;
+            autoPathList = null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void UseDefaultsForFlags()
+        {
+            //
+            // TODO: Update whenever the list of flags fields is updated.
+            //
+            createFlags = Defaults.CreateFlags;
+            hostCreateFlags = Defaults.HostCreateFlags;
+            initializeFlags = Defaults.InitializeFlags;
+            scriptFlags = Defaults.ScriptFlags;
+            interpreterFlags = Defaults.InterpreterFlags;
+            interpreterTestFlags = Defaults.InterpreterTestFlags;
+            pluginFlags = Defaults.PluginFlags;
+
+#if NATIVE && TCL
+            findFlags = Defaults.FindFlags;
+            loadFlags = Defaults.LoadFlags;
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void UseFlagsFromInterpreter(
+            Interpreter interpreter /* in */
+            )
+        {
+            if (interpreter == null)
+                return;
+
+            createFlags = interpreter.CreateFlags;
+            hostCreateFlags = interpreter.HostCreateFlags;
+            initializeFlags = interpreter.InitializeFlags;
+            scriptFlags = interpreter.ScriptFlags;
+            interpreterFlags = interpreter.InterpreterFlags;
+            interpreterTestFlags = interpreter.InterpreterTestFlags;
+            pluginFlags = interpreter.PluginFlags;
+
+#if NATIVE && TCL
+            findFlags = interpreter.TclFindFlags;
+            loadFlags = interpreter.TclLoadFlags;
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void UseObjectsFromInterpreter(
+            Interpreter interpreter /* in */
+            )
+        {
+            if (interpreter == null)
+                return;
+
+            owner = interpreter.Owner;
+            applicationObject = interpreter.ApplicationObject;
+            policyObject = interpreter.PolicyObject;
+            resolverObject = interpreter.ResolverObject;
+            userObject = interpreter.UserObject;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public ReturnCode MaybeSetRuleSet(
-            IRuleSet ruleSet,
-            ref Result error
+            IRuleSet ruleSet, /* in */
+            ref Result error  /* out */
             )
         {
             if (ruleSet == null)

@@ -59,11 +59,17 @@ namespace Eagle._Components.Private
 
         private static readonly StringComparer DefaultStringComparer =
             StringComparer.CurrentCulture;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static readonly CultureInfo DefaultCultureInfo = CultureInfo.InvariantCulture;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Encoding Constants
+        private static string CountFormat = "{0:X8}";
+
         private const int CharMaxAscii = 0x7F;
 
         internal static readonly string NullEncodingName = _String.Null;
@@ -1181,6 +1187,8 @@ namespace Eagle._Components.Private
                     return TextEncoding;
                 case EncodingType.Profile:
                     return TextEncoding;
+                case EncodingType.Syntax:
+                    return TextEncoding;
 #if HISTORY
                 case EncodingType.History:
                     return TextEncoding;
@@ -1323,7 +1331,7 @@ namespace Eagle._Components.Private
 
         public static ReturnCode GetCount(
             Encoding encoding,       /* in */
-            CultureInfo cultureInfo, /* in */
+            CultureInfo cultureInfo, /* in: NOT USED */
             byte[] bytes,            /* in */
             EncodingType type,       /* in */
             ref int? count,          /* out */
@@ -1378,7 +1386,7 @@ namespace Eagle._Components.Private
 
                 if (int.TryParse(
                         value, NumberStyles.AllowHexSpecifier,
-                        cultureInfo, out localCount))
+                        DefaultCultureInfo, out localCount))
                 {
                     count = localCount;
                     return ReturnCode.Ok;
@@ -1396,6 +1404,67 @@ namespace Eagle._Components.Private
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode AppendCount(
+            Encoding encoding,         /* in */
+            CultureInfo cultureInfo,   /* in: NOT USED */
+            string value,              /* in */
+            EncodingType type,         /* in */
+            ref StringBuilder builder, /* in, out */
+            ref Result error           /* out */
+            )
+        {
+            if (value == null)
+            {
+                error = "invalid string";
+                return ReturnCode.Error;
+            }
+
+            string countFormat = CountFormat;
+
+            if (countFormat == null)
+            {
+                error = "count format string unavailable";
+                return ReturnCode.Error;
+            }
+
+            if (encoding == null)
+                encoding = GetEncoding(type);
+
+            if (encoding == null)
+            {
+                error = "missing encoding for count string";
+                return ReturnCode.Error;
+            }
+
+            int count = encoding.GetByteCount(value);
+
+            string countString = String.Format(
+                DefaultCultureInfo, countFormat, count);
+
+            if (countString == null)
+            {
+                error = "expected count string, got null";
+                return ReturnCode.Error;
+            }
+
+            if (builder == null)
+            {
+                int capacity = Count.PrefixSize;
+
+                capacity += countString.Length;
+                capacity += 1 /* Space */ + count;
+
+                builder = StringBuilderFactory.Create(capacity);
+            }
+
+            builder.Append(countString);
+            builder.Append(Characters.Space);
+
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3656,20 +3725,7 @@ namespace Eagle._Components.Private
                 StringBuilder builder = StringBuilderFactory.Create(
                     result);
 
-                builder.Replace(Characters.Backslash_t_String,
-                    Characters.HorizontalTabString);
-
-                builder.Replace(Characters.Backslash_n_String,
-                    Characters.LineFeedString);
-
-                builder.Replace(Characters.Backslash_v_String,
-                    Characters.VerticalTabString);
-
-                builder.Replace(Characters.Backslash_f_String,
-                    Characters.FormFeedString);
-
-                builder.Replace(Characters.Backslash_r_String,
-                    Characters.CarriageReturnString);
+                UnescapeWhiteSpace(builder);
 
                 return StringBuilderCache.GetStringAndRelease(
                     ref builder);
@@ -3678,6 +3734,64 @@ namespace Eagle._Components.Private
             return result;
         }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void EscapeWhiteSpace(
+            ref string text /* in, out */
+            )
+        {
+            StringBuilder builder = StringBuilderFactory.Create(text);
+
+            EscapeWhiteSpace(builder);
+
+            text = StringBuilderCache.GetStringAndRelease(ref builder);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void EscapeWhiteSpace(
+            StringBuilder builder
+            )
+        {
+            if (builder == null)
+                return;
+
+            builder.Replace(Characters.HorizontalTabString, Characters.Backslash_t_String);
+            builder.Replace(Characters.LineFeedString, Characters.Backslash_n_String);
+            builder.Replace(Characters.VerticalTabString, Characters.Backslash_v_String);
+            builder.Replace(Characters.FormFeedString, Characters.Backslash_f_String);
+            builder.Replace(Characters.CarriageReturnString, Characters.Backslash_r_String);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void UnescapeWhiteSpace(
+            ref string text /* in, out */
+            )
+        {
+            StringBuilder builder = StringBuilderFactory.Create(text);
+
+            UnescapeWhiteSpace(builder);
+
+            text = StringBuilderCache.GetStringAndRelease(ref builder);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void UnescapeWhiteSpace(
+            StringBuilder builder
+            )
+        {
+            if (builder == null)
+                return;
+
+            builder.Replace(Characters.Backslash_t_String, Characters.HorizontalTabString);
+            builder.Replace(Characters.Backslash_n_String, Characters.LineFeedString);
+            builder.Replace(Characters.Backslash_v_String, Characters.VerticalTabString);
+            builder.Replace(Characters.Backslash_f_String, Characters.FormFeedString);
+            builder.Replace(Characters.Backslash_r_String, Characters.CarriageReturnString);
+        }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 

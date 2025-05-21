@@ -103,13 +103,13 @@ methodName Format callingConvention Standard returnType {{System.String, " \
 "} {System.Object\[\], " [getRuntimeAssemblyName] "}}} {memberType Method\
 memberName Format methodType Method methodName Format callingConvention\
 Standard returnType {{System.String, " [getRuntimeAssemblyName] "}}\
-parameterTypes {{System.String, " [getRuntimeAssemblyName] "} {System.Object, " \
-[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] \
+parameterTypes {{System.String, " [getRuntimeAssemblyName] "} {System.Object,\
+" [getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] \
 "} {System.Object, " [getRuntimeAssemblyName] "}}} {memberType Method\
 memberName Format methodType Method methodName Format callingConvention\
 Standard returnType {{System.String, " [getRuntimeAssemblyName] "}}\
-parameterTypes {{System.String, " [getRuntimeAssemblyName] "} {System.Object, " \
-[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] "}}}\
+parameterTypes {{System.String, " [getRuntimeAssemblyName] "} {System.Object,\
+" [getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] "}}}\
 {memberType Method memberName Format methodType Method methodName Format\
 callingConvention Standard returnType {{System.String, " \
 [getRuntimeAssemblyName] "}} parameterTypes {{System.String, " \
@@ -130,44 +130,46 @@ runTest {test object-97.3.2 {assembly qualified member names} -body {
       "* memberName Format *" $type]
 } -cleanup {
   unset -nocomplain type
-} -constraints {eagle command.object} -constraintExpression {[haveConstraint \
+} -constraints {eagle command.object} -constraintExpression {([haveConstraint \
 mono54OrHigher] || [haveConstraint dotNetCore] || ([haveConstraint dotNet40] \
-&& [haveConstraint dotNet46OrHigher])} -result [appendArgs "{{memberType Method\
-memberName Format}} {{memberType Method memberName Format methodType Method\
-methodName Format callingConvention Standard returnType {{System.String, " \
-[getRuntimeAssemblyName] "}} parameterTypes {{System.IFormatProvider, " \
-[getRuntimeAssemblyName] "} {System.String, " [getRuntimeAssemblyName] \
-"} {System.Object, " [getRuntimeAssemblyName] "} {System.Object, " \
-[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] \
-"}}} {memberType Method memberName Format methodType Method methodName Format\
-callingConvention Standard returnType {{System.String, " \
-[getRuntimeAssemblyName] "}} parameterTypes {{System.IFormatProvider, " \
-[getRuntimeAssemblyName] "} {System.String, " [getRuntimeAssemblyName] \
-"} {System.Object, " [getRuntimeAssemblyName] "} {System.Object, " \
-[getRuntimeAssemblyName] "}}} {memberType Method memberName Format methodType\
-Method methodName Format callingConvention Standard returnType {{System.String, " \
-[getRuntimeAssemblyName] "}} parameterTypes {{System.IFormatProvider, " \
-[getRuntimeAssemblyName] "} {System.String, " [getRuntimeAssemblyName] \
-"} {System.Object, " [getRuntimeAssemblyName] "}}} {memberType Method\
-memberName Format methodType Method methodName Format callingConvention\
+&& [haveConstraint dotNet46OrHigher])) && ![haveConstraint dotNetCore80] && \
+![haveConstraint dotNetCore90]} \
+-result [appendArgs "{{memberType Method memberName Format}} {{memberType\
+Method memberName Format methodType Method methodName Format callingConvention\
 Standard returnType {{System.String, " [getRuntimeAssemblyName] "}}\
 parameterTypes {{System.IFormatProvider, " [getRuntimeAssemblyName] "}\
-{System.String, " [getRuntimeAssemblyName] "} {System.Object\[\], " \
-[getRuntimeAssemblyName] "}}} {memberType Method memberName Format methodType\
-Method methodName Format callingConvention Standard returnType {{System.String, " \
-[getRuntimeAssemblyName] "}} parameterTypes {{System.String, " \
-[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] \
-"} {System.Object, " [getRuntimeAssemblyName] "} {System.Object, " \
-[getRuntimeAssemblyName] "}}} {memberType Method memberName Format methodType\
-Method methodName Format callingConvention Standard returnType {{System.String, " \
-[getRuntimeAssemblyName] "}} parameterTypes {{System.String, " \
-[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] \
-"} {System.Object, " [getRuntimeAssemblyName] "}}} {memberType Method\
+{System.String, " [getRuntimeAssemblyName] "} {System.Object, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] "}\
+{System.Object, " [getRuntimeAssemblyName] "}}} {memberType Method memberName\
+Format methodType Method methodName Format callingConvention Standard\
+returnType {{System.String, " [getRuntimeAssemblyName] "}} parameterTypes\
+{{System.IFormatProvider, " [getRuntimeAssemblyName] "} {System.String, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] "}\
+{System.Object, " [getRuntimeAssemblyName] "}}} {memberType Method memberName\
+Format methodType Method methodName Format callingConvention Standard\
+returnType {{System.String, " [getRuntimeAssemblyName] "}} parameterTypes\
+{{System.IFormatProvider, " [getRuntimeAssemblyName] "} {System.String, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] "}}}\
+{memberType Method memberName Format methodType Method methodName Format\
+callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.IFormatProvider, " \
+[getRuntimeAssemblyName] "} {System.String, " [getRuntimeAssemblyName] "}\
+{System.Object\[\], " [getRuntimeAssemblyName] "}}} {memberType Method\
 memberName Format methodType Method methodName Format callingConvention\
 Standard returnType {{System.String, " [getRuntimeAssemblyName] "}}\
-parameterTypes {{System.String, " [getRuntimeAssemblyName] "} {System.Object, " \
-[getRuntimeAssemblyName] "}}} {memberType Method memberName Format methodType\
-Method methodName Format callingConvention Standard returnType {{System.String, " \
+parameterTypes {{System.String, " [getRuntimeAssemblyName] "} {System.Object,\
+" [getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] "}\
+{System.Object, " [getRuntimeAssemblyName] "}}} {memberType Method memberName\
+Format methodType Method methodName Format callingConvention Standard\
+returnType {{System.String, " [getRuntimeAssemblyName] "}} parameterTypes\
+{{System.String, " [getRuntimeAssemblyName] "} {System.Object, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] "}}}\
+{memberType Method memberName Format methodType Method methodName Format\
+callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.String, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] "}}}\
+{memberType Method memberName Format methodType Method methodName Format\
+callingConvention Standard returnType {{System.String, " \
 [getRuntimeAssemblyName] "}} parameterTypes {{System.String, " \
 [getRuntimeAssemblyName] "} {System.Object\[\], " [getRuntimeAssemblyName] \
 "}}}}"]}

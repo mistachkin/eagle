@@ -590,7 +590,8 @@ namespace Eagle._Components.Public
             {
                 Type type = null;
 
-                if (NumberOps.HaveType(value, ref type))
+                if (NumberOps.HaveType(value, ref type) ||
+                    NumberOps.HaveTypeCode(type))
                 {
                     SetValueNoThrow(value);
                 }

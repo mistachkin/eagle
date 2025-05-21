@@ -43,7 +43,7 @@ namespace Eagle._Interfaces.Public
         ReturnCode CreateChildInterpreter(
             string path,
             IClientData clientData,
-            InterpreterSettings interpreterSettings,
+            IInterpreterSettings interpreterSettings,
             bool isolated,
             bool security,
             ref Result result

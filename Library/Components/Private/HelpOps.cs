@@ -422,8 +422,7 @@ namespace Eagle._Components.Private
             string helpType;
 
             return MaybeAdjustHelpItemTopic(
-                topic, defaultPrefix, textFlags, out prefix,
-                out helpType);
+                topic, defaultPrefix, textFlags, out prefix, out helpType);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -514,6 +513,71 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode GetIExecuteViaResolvers(
+            Interpreter interpreter, /* in */
+            StringList list,         /* in */
+            ref string type          /* out */
+            )
+        {
+            if ((interpreter == null) || (list == null))
+                return ReturnCode.Error;
+
+            int count = list.Count;
+
+            if (count == 0)
+                return ReturnCode.Error;
+
+            string topic = list[0]; /* COMMAND (?) */
+
+            EngineFlags engineFlags =
+                interpreter.GetResolveEngineFlagsNoLock(true);
+
+            IExecute localExecute = null;
+
+            if ((interpreter.InternalGetIExecuteViaResolvers(
+                    engineFlags, topic, null, LookupFlags.HelpNoVerbose,
+                    ref localExecute) != ReturnCode.Ok) ||
+                (localExecute == null))
+            {
+                return ReturnCode.Error;
+            }
+
+            if (count >= 2) /* NOTE: Is there a sub-command name? */
+            {
+                string subTopic = list[1]; /* SUB-COMMAND (?) */
+
+                if (!String.IsNullOrEmpty(subTopic))
+                {
+                    IEnsemble ensemble = localExecute as IEnsemble;
+
+                    if (ensemble != null)
+                    {
+                        EnsembleDictionary subCommands = ensemble.SubCommands;
+                        ISubCommand subCommand = null;
+
+                        if ((subCommands != null) &&
+                            subCommands.TryGetValue(subTopic, out subCommand))
+                        {
+                            type = "sub-command";
+                            return ReturnCode.Ok;
+                        }
+                    }
+                }
+            }
+
+            //
+            // NOTE: At this point, we know the topic represents an IExecute,
+            //       due to the success of the GetIExecuteViaResolvers method
+            //       call (above); however, also at this point, we know it is
+            //       probably not a sub-command, because the above code would
+            //       have (most likely) already handled that.
+            //
+            type = "command";
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static ReturnCode GetIExecuteViaResolvers(
             Interpreter interpreter, /* in */
             string topic1,           /* in */
@@ -526,7 +590,9 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
 
             IExecute localExecute; /* REUSED */
-            EngineFlags engineFlags = interpreter.GetResolveEngineFlagsNoLock(true);
+
+            EngineFlags engineFlags =
+                interpreter.GetResolveEngineFlagsNoLock(true);
 
             localExecute = null;
 
@@ -832,12 +898,19 @@ namespace Eagle._Components.Private
             {
                 if (helpGroup.Count > 0)
                 {
+                    //
+                    // BUGFIX: The prefix should be trimmed
+                    //         here to avoid any superfluous
+                    //         spacing within the final help
+                    //         string.
+                    //
                     return String.Format(
                         groupAndListFormat, topic,
                         GenericOps<string>.ListToEnglish(
                             helpGroup, itemSeparator,
                             Characters.SpaceString,
-                            itemSuffix, prefix, null));
+                            itemSuffix, (prefix != null) ?
+                            prefix.Trim() : null, null));
                 }
                 else
                 {
@@ -3277,6 +3350,7 @@ namespace Eagle._Components.Private
             bool noTrusted,          /* in */
             bool noStable,           /* in */
             bool noSafe,             /* in */
+            bool noLockdown,         /* in */
             bool noSecurity,         /* in */
             bool noPlugins,          /* in */
             bool compactMode         /* in */
@@ -3361,6 +3435,8 @@ namespace Eagle._Components.Private
                         }
                     }
 
+                    ///////////////////////////////////////////////////////////////////////////////////
+
                     bool wroteOfficial = false;
 
                     if (!noOfficial)
@@ -3397,6 +3473,8 @@ namespace Eagle._Components.Private
                         }
                     }
 
+                    ///////////////////////////////////////////////////////////////////////////////////
+
                     bool wroteTrusted = false;
 
                     if (!noTrusted)
@@ -3432,6 +3510,8 @@ namespace Eagle._Components.Private
                             }
                         }
                     }
+
+                    ///////////////////////////////////////////////////////////////////////////////////
 
                     bool wroteStable = false;
 
@@ -3471,6 +3551,8 @@ namespace Eagle._Components.Private
                             }
                         }
                     }
+
+                    ///////////////////////////////////////////////////////////////////////////////////
 
                     bool wroteSafe = false;
 
@@ -3519,8 +3601,65 @@ namespace Eagle._Components.Private
                         }
                     }
 
-#if ISOLATED_PLUGINS
+                    ///////////////////////////////////////////////////////////////////////////////////
+
+                    bool wroteLockdown = false;
+
+#if ENTERPRISE_LOCKDOWN || MAYBE_ENTERPRISE_LOCKDOWN
+                    if (!noLockdown)
+                    {
+                        bool lockdown = Interpreter.IsEnterpriseLockdownEnabled();
+
+                        if (lockdown || !compactMode)
+                        {
+                            ConsoleColor lockdownForegroundColor = _ConsoleColor.Default;
+                            ConsoleColor lockdownBackgroundColor = _ConsoleColor.Default;
+
+                            interpreter.GetHostColors(
+                                displayHost, lockdown ? ColorName.Enabled : ColorName.Disabled,
+                                false, ref lockdownForegroundColor, ref lockdownBackgroundColor);
+
+                            value = String.Format(
+                                Vars.Description.Lockdown, FormatOps.InterpreterNoThrow(
+                                interpreter), lockdown ? "enabled" : "disabled");
+
+                            if (!String.IsNullOrEmpty(value))
+                            {
+                                if (wrote && !wroteOfficial && !wroteTrusted &&
+                                    !wroteStable && !wroteSafe && !displayHost.WriteLine())
+                                {
+                                    return false;
+                                }
+
+                                if (wrote &&
+                                    (wroteOfficial || wroteTrusted || wroteStable) &&
+                                    !wroteSafe && !displayHost.WriteLine())
+                                {
+                                    return false;
+                                }
+
+                                if (!HostTryWriteColor(
+                                        displayHost, value, true, lockdownForegroundColor,
+                                        lockdownBackgroundColor))
+                                {
+                                    return false;
+                                }
+
+                                wroteLockdown = true;
+                                wrote = true;
+                            }
+                        }
+                    }
+#endif
+
+                    ///////////////////////////////////////////////////////////////////////////////////
+
+#if !ISOLATED_PLUGINS
+#pragma warning disable 219
+#endif
                     bool wroteSecurity = false;
+#if !ISOLATED_PLUGINS
+#pragma warning restore 219
 #endif
 
                     if (!noSecurity)
@@ -3543,14 +3682,15 @@ namespace Eagle._Components.Private
                             if (!String.IsNullOrEmpty(value))
                             {
                                 if (wrote && !wroteOfficial && !wroteTrusted &&
-                                    !wroteStable && !wroteSafe && !displayHost.WriteLine())
+                                    !wroteStable && !wroteSafe && !wroteLockdown &&
+                                    !displayHost.WriteLine())
                                 {
                                     return false;
                                 }
 
                                 if (wrote &&
                                     (wroteOfficial || wroteTrusted || wroteStable) &&
-                                    !wroteSafe && !displayHost.WriteLine())
+                                    !wroteSafe && !wroteLockdown && !displayHost.WriteLine())
                                 {
                                     return false;
                                 }
@@ -3562,18 +3702,17 @@ namespace Eagle._Components.Private
                                     return false;
                                 }
 
-#if ISOLATED_PLUGINS
                                 wroteSecurity = true;
-#endif
-
                                 wrote = true;
                             }
                         }
                     }
 
-// #if ISOLATED_PLUGINS
-//                     bool wroteIsolated = false;
-// #endif
+                    ///////////////////////////////////////////////////////////////////////////////////
+
+#pragma warning disable 219
+                    bool wroteIsolated = false;
+#pragma warning restore 219
 
                     if (!noPlugins)
                     {
@@ -3597,15 +3736,16 @@ namespace Eagle._Components.Private
                             if (!String.IsNullOrEmpty(value))
                             {
                                 if (wrote && !wroteOfficial && !wroteTrusted &&
-                                    !wroteStable && !wroteSafe && !wroteSecurity &&
-                                    !displayHost.WriteLine())
+                                    !wroteStable && !wroteSafe && !wroteLockdown &&
+                                    !wroteSecurity && !displayHost.WriteLine())
                                 {
                                     return false;
                                 }
 
                                 if (wrote &&
                                     (wroteOfficial || wroteTrusted || wroteStable) &&
-                                    !wroteSafe && !wroteSecurity && !displayHost.WriteLine())
+                                    !wroteSafe && !wroteLockdown && !wroteSecurity &&
+                                    !displayHost.WriteLine())
                                 {
                                     return false;
                                 }
@@ -3617,11 +3757,13 @@ namespace Eagle._Components.Private
                                     return false;
                                 }
 
-                                // wroteIsolated = true;
+                                wroteIsolated = true;
                                 wrote = true;
                             }
                         }
 #endif
+
+                        ///////////////////////////////////////////////////////////////////////////////
 
                         PluginWrapperDictionary plugins = interpreter.CopyPlugins();
 
@@ -3800,8 +3942,9 @@ namespace Eagle._Components.Private
                                 displayHost.WriteLine();
 
                             WriteBanner(
-                                interpreter, false, false, false, false,
-                                false, false, false, false, compactMode);
+                                interpreter, false, false, false,
+                                false, false, false, false, false,
+                                false, compactMode);
                         }
 
                         if (showLegalese)
@@ -5431,8 +5574,9 @@ namespace Eagle._Components.Private
                         if (showBanner)
                         {
                             WriteBanner(
-                                interpreter, false, false, false, false,
-                                false, false, false, false, compactMode);
+                                interpreter, false, false, false,
+                                false, false, false, false, false,
+                                false, compactMode);
                         }
 
                         if (showLegalese)
@@ -5988,7 +6132,7 @@ namespace Eagle._Components.Private
             }
 
             string pattern;
-            string prefix;
+            string prefix; /* NOTE: Value UNUSED after line #6008. */
             string helpType;
 
             pattern = MaybeAdjustHelpItemTopic(

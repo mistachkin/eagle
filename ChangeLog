@@ -1,7 +1,9 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
-BUGFIX: fix and/or address Coverity issues from #434153 to #516206.
+BUGFIX: fix and/or address Coverity issues from #434153 to #523770.
+
+BUGFIX: several important performance fixes to the (generic) caching subsystem.
 
 BUGFIX: do not set the qualified name of local script variables, e.g. via the
         Interpreter.MaybeSetQualifiedName method.
@@ -35,11 +37,27 @@ REFACTOR: *BREAKING CHANGE* modify the "enableSecurity" and "disableSecurity"
           embedded (security package) scripts to be more resilient when script
           security is already enabled or disabled.
 
+REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
+          option.
+
+REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
+          the InterpreterFlags enumeration.
+
+FEATURE: add the NoCritical interpreter creation flag and the NonCritical SDK
+         type.
+
+FEATURE: add support for an optional valueVarName argument to the [info exists]
+         sub-command.  when present, the variable specified by it will receive
+         the current value of the variable currently being checked, (i.e. when
+         the return value of this sub-command ends up being non-zero).
+
 FEATURE: add -good, -bad, -via, and -nocomplain options to the [string is]
          sub-command.
 
 FEATURE: add -usecount option to the [gets] and [puts] commands and the -count
          option to the [gets] command.
+
+FEATURE: add -encoding option to the [gets], [puts], and [read] commands.
 
 FEATURE: add the [string is ruleset] sub-command.
 
@@ -62,6 +80,9 @@ FEATURE: add the ScriptLocation property to the IScriptManager interface.
 FEATURE: add the Precise, Human, and other flags along with the -flags option
          to the [clock duration] sub-command.
 
+FEATURE: add the DefaultValue and DefaultInnerValue properties to the IOption
+         interface.
+
 FEATURE: add the [clock monthdays] sub-command.
 
 FEATURE: add the DataFlags environment variable.  it is used to set or alter
@@ -81,6 +102,8 @@ FEATURE: add even more highly experimental -bundle and -stoponerror options to
          large change and will take some time to mature.
 
 FEATURE: add -keepalive option to the [socket] command.
+
+FEATURE: add experimental [package alias] and [package aliases] sub-commands.
 
 FEATURE: *MAJOR* add full (experimental) support for the BigInteger type for
          use by the [expr] command and all related subsystems.
@@ -7084,7 +7107,7 @@ FEATURE: add -break command line option to force a managed debugger break prior
 
 FEATURE: add static InteractiveLoopThread method to the Interpreter class.
 
-FEATURE: add _Commands.Ensemble base command implemenation for use by external
+FEATURE: add _Commands.Ensemble base command implementation for use by external
          applications and plugins.  this command is used to provide an easy to
          use, extensible ensemble implementation.
 
@@ -10271,7 +10294,7 @@ FEATURE: add the PolicyObject and ResolverObject properties to the IInterpreter
 FEATURE: add [object exists] sub-command to determine if an opaque object handle
          represents a currently valid object.
 
-FEATURE: add _Commands._Delegate base command implemenation for use by external
+FEATURE: add _Commands._Delegate base command implementation for use by external
          applications and plugins.  this command is used to wrap an arbitrary
          delegate, making it easily callable from the script engine.  there are
          two modes.  the first is "raw" mode (i.e. method calls do not go
@@ -13214,7 +13237,7 @@ BUGFIX: fine-tune result handling in the Interpreter creation code.  the Result
         [object] for a successful call should be null (or an empty string if the
         script library initialization is performed).
 
-BUGFIX: in Debugger.CreateInterpreter, check if the Interpreter was sucessfully
+BUGFIX: in Debugger.CreateInterpreter, check if an Interpreter was successfully
         created before using it.
 
 BUGFIX: fix an incorrect directory name handling bug in clean tool when cleaning

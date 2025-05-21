@@ -10419,7 +10419,7 @@ namespace Eagle._Components.Private
                             Result result = null;
 
                             if (interpreter.EvaluateBundleFile(
-                                    bundleFileName, password, true,
+                                    bundleFileName, password, false, true,
                                     ref clientData, ref result) == ReturnCode.Ok)
                             {
                                 interpreter.MarkAsTrustedRemoteOk();

@@ -88,6 +88,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -147,6 +148,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -208,6 +210,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -267,6 +270,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -327,6 +331,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -387,6 +392,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -449,6 +455,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -511,6 +518,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -571,6 +579,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -631,6 +640,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -693,6 +703,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -755,6 +766,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -817,6 +829,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -879,6 +892,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -941,6 +955,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
@@ -1360,6 +1375,7 @@
     <EagleEmbeddedLibrary Condition="'$(EagleEmbeddedLibrary)' == ''">true</EagleEmbeddedLibrary>
     <EagleFastErrorCode Condition="'$(EagleFastErrorCode)' == ''">true</EagleFastErrorCode>
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNativePackage Condition="'$(EagleNativePackage)' == ''">false</EagleNativePackage>
@@ -1424,6 +1440,7 @@
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleMono Condition="'$(EagleMono)' == ''">true</EagleMono>
     <EagleNativeUtilityBstr Condition="'$(EagleNativeUtilityBstr)' == ''">false</EagleNativeUtilityBstr>
@@ -1490,6 +1507,7 @@
     <EagleForTestUseOnly Condition="'$(EagleForTestUseOnly)' == ''">true</EagleForTestUseOnly>
     <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
     <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">true</EagleMaybeEnterpriseLockdown>
     <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
     <EagleObsolete Condition="'$(EagleObsolete)' == ''">true</EagleObsolete>
     <EaglePatchLevel Condition="'$(EaglePatchLevel)' == ''">true</EaglePatchLevel>

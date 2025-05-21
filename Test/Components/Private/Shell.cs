@@ -367,7 +367,7 @@ namespace Eagle._Shell
                                     resourceManager, null, 0));
 
                                 code = Utility.PopulatePluginEntities(
-                                    interpreter, plugin, null, null,
+                                    interpreter, plugin, null, null, null,
                                     null, false, false, false, ref result);
 
                                 if (code == ReturnCode.Ok)

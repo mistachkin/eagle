@@ -300,7 +300,7 @@ info default	info default procName arg varName
 info delegates	info delegates ?pattern?
 info engine	info engine ?attribute? ?refresh? ?all?
 info ensembles	info ensembles ?pattern?
-info exists	info exists varName
+info exists	info exists nameVarName ?valueVarName?
 info externals	info externals
 info frame	info frame ?refresh?
 info framework	info framework ?refresh?
@@ -524,6 +524,8 @@ object untype	object untype ?options?
 object verifyall	object verifyall ?options?
 open	open fileName ?access? ?permissions? ?type? ?options?
 package absent	package absent ?-exact? package ?version?
+package alias	package alias ?options? name ?package? ?version?
+package aliases	package aliases ?pattern?
 package forget	package forget ?package package ...?
 package ifneeded	package ifneeded package version ?script? ?flags?
 package indexes	package indexes ?pattern?

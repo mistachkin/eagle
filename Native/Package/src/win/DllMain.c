@@ -62,7 +62,7 @@ static HANDLE mutex = NULL;
  *	loaded or unloaded, either directly or indirectly).
  *
  * Results:
- *	TRUE on sucess, FALSE on failure.  The result is ignored by
+ *	TRUE on success, FALSE on failure.  The result is ignored by
  *	Windows unless the reason is DLL_PROCESS_ATTACH.
  *
  * Side effects:

@@ -2493,6 +2493,7 @@ namespace Eagle._Components.Public
         Xml = 0x200,           /* UTF-8 */
         Policy = 0x400,        /* UTF-8 */
         Profile = 0x800,       /* UTF-8 */
+        Syntax = 0x1000,       /* UTF-8 */
 
 #if HISTORY
         History = 0x10000,     /* UTF-8 */
@@ -5141,9 +5142,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Flags Control Values
-        GetFlags = 0x2,            /* Modify the specified creation flags and
-                                    * host creation flags using their associated
-                                    * static methods. */
+        GetFlags = 0x2,            /* Modify the specified creation flags
+                                    * and host creation flags using their
+                                    * associated static methods. */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -5189,46 +5190,42 @@ namespace Eagle._Components.Public
         Verbose = 0x100,           /* Verbose mode enabled.  This will result
                                     * in more diagnostic output, possibly to
                                     * the System.Console. */
-        Interactive = 0x200,       /* Force interactive mode upon creation?
-                                    * The [debug break] sub-command will not
-                                    * break into the interactive loop without
-                                    * this flag being set. */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Pre-Setup Control
-        UseNamespaces = 0x400,     /* Enable Tcl 8.4+ compatible namespace
+        UseNamespaces = 0x200,     /* Enable Tcl 8.4+ compatible namespace
                                     * support for created interpreter. */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Post-Setup Control
-        SetArguments = 0x800,      /* Make sure the "argc" and "argv" global
+        SetArguments = 0x400,      /* Make sure the "argc" and "argv" global
                                     * variables are set even if specified
                                     * managed argument array is null. */
-        Startup = 0x1000,          /* Process startup options from environment,
+        Startup = 0x800,           /* Process startup options from environment,
                                     * etc. */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Script Library Control
-        Initialize = 0x2000,       /* Initialize core script library during
+        Initialize = 0x1000,       /* Initialize core script library during
                                     * creation?  Without this flag, all core
                                     * script library procedures will be
                                     * unavailable. */
-        IgnoreOnError = 0x4000,    /* Just ignore initialization errors?  This
+        IgnoreOnError = 0x2000,    /* Just ignore initialization errors?  This
                                     * should rarely, if ever, be necessary. */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Exception Control
-        ThrowOnDisposed = 0x8000,  /* Throw exceptions when disposed objects
+        ThrowOnDisposed = 0x4000,  /* Throw exceptions when disposed objects
                                     * are accessed?  Highly recommended. */
-        ThrowOnError = 0x10000,    /* Throw exception on initialization fail?
+        ThrowOnError = 0x8000,     /* Throw exception on initialization fail?
                                     * Recommended. */
         #endregion
 
@@ -5242,6 +5239,10 @@ namespace Eagle._Components.Public
         //       almost certainly cause script library initialization to
         //       fail.
         //
+        NoCritical = 0x10000,           /* Do not include any command that is
+                                         * marked as "Critical", e.g. [debug],
+                                         * [file], [host], [library], [load],
+                                         * [object], [tcl], [unload], etc. */
         Safe = 0x20000,                 /* Include only "safe" commands and
                                          * remove all "unsafe" commands from
                                          * the created interpreter. */
@@ -5769,8 +5770,9 @@ namespace Eagle._Components.Public
         Initialize = 0x1000,
         Security = 0x2000,
         License = 0x4000,
+        NonCritical = 0x8000,
 
-        AnySdkMask = Security | License,
+        AnySdkMask = Security | License | NonCritical,
         AnyMask = Initialize | AnySdkMask,
 
         Default = None
@@ -5849,61 +5851,66 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         Shell = 0x1000000,
-        ShellWorker = 0x2000000,
+        SyntaxHelp = 0x2000000,
+        ShellWorker = 0x4000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Asynchronous = 0x4000000,
-        WaitForStart = 0x8000000,
-        KeepSecurity = 0x10000000,
+        Asynchronous = 0x8000000,
+        WaitForStart = 0x10000000,
+        KeepSecurity = 0x20000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Worker1 = 0x20000000,
-        Worker2 = 0x40000000,  /* NOT YET IMPLEMENTED */
-        Worker3 = 0x80000000,  /* NOT YET IMPLEMENTED */
-        Worker4 = 0x100000000, /* NOT YET IMPLEMENTED */
+        Worker1 = 0x40000000,
+        Worker2 = 0x80000000,  /* NOT YET IMPLEMENTED */
+        Worker3 = 0x100000000, /* NOT YET IMPLEMENTED */
+        Worker4 = 0x200000000, /* NOT YET IMPLEMENTED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Startup1 = 0x200000000,
-        Startup2 = 0x400000000,  /* NOT YET IMPLEMENTED */
-        Startup3 = 0x800000000,
-        Startup4 = 0x1000000000, /* NOT YET IMPLEMENTED */
+        Startup1 = 0x400000000,
+        Startup2 = 0x800000000,  /* NOT YET IMPLEMENTED */
+        Startup3 = 0x1000000000,
+        Startup4 = 0x2000000000, /* NOT YET IMPLEMENTED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        SetAutoPath = 0x1000000000,
-        GlobalAutoPath = 0x2000000000,
-        NoTraceAutoPath = 0x4000000000,
-        StrictAutoPath = 0x8000000000,   /* Candidate directories for the "auto_path"
+        SetAutoPath = 0x4000000000,
+        GlobalAutoPath = 0x8000000000,
+        NoTraceAutoPath = 0x10000000000,
+        StrictAutoPath = 0x20000000000,  /* Candidate directories for the "auto_path"
                                           * must actually exist? */
-        ShowAutoPath = 0x10000000000,    /* Show all auto-path search information? */
-        RefreshAutoPath = 0x20000000000, /* When used with the Scan flag, forces the
+        ShowAutoPath = 0x40000000000,    /* Show all auto-path search information? */
+        RefreshAutoPath = 0x80000000000, /* When used with the Scan flag, forces the
                                           * global auto-path to be refreshed. */
-        IgnoreError = 0x40000000000,
+        IgnoreError = 0x100000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        LibraryPath = 0x100000000000,
+        LibraryPath = 0x200000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Direct = 0x200000000000,
+        Direct = 0x400000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if ISOLATED_PLUGINS
-        Isolated = 0x400000000000,
+        Isolated = 0x800000000000,
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Health = 0x800000000000,
+        Health = 0x1000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        GlobalTracking = 0x1000000000000,
+        GlobalTracking = 0x2000000000000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        NoCritical = 0x4000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -5964,14 +5971,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         AnyShellWorker = ShellWorker | Worker,
-        ShellOrStartup = AnyShellWorker | Shell | Startup,
+        ShellOrStartup = AnyShellWorker | Shell | SyntaxHelp | Startup,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         Library = Loader | Initialization | Safe | Test |
                   Embedding | Vendor | Startup | Worker,
 
-        ShellLibrary = Shell | ShellWorker | Startup | Worker,
+        ShellLibrary = Shell| SyntaxHelp | ShellWorker | Startup | Worker,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -7522,20 +7529,28 @@ namespace Eagle._Components.Public
         FILE_FLAG_OVERLAPPED = 0x40000000,
         FILE_FLAG_WRITE_THROUGH = unchecked((int)0x80000000)
     }
+#endif
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if NATIVE && (WINDOWS || UNIX)
     [Flags()]
     [ObjectId("7f34cb91-54db-4bb1-9d11-63afd74bedb7")]
-    public enum FileStatusModes /* COMPAT: POSIX. */
+    public enum FileStatusModes : uint /* COMPAT: POSIX (?), Linux. */
     {
         S_INONE = 0x0000,
+
         S_IEXEC = 0x0040,
         S_IWRITE = 0x0080,
         S_IREAD = 0x0100,
+
         S_IFDIR = 0x4000,
         S_IFREG = 0x8000,
         S_IFLNK = 0xA000,
+
+        S_IFMT = 0xF000,
+
+        S_IFNRML = S_IFDIR | S_IFREG | S_IFLNK,
 
         S_IRWX = S_IREAD | S_IWRITE | S_IEXEC
     }
@@ -10101,6 +10116,11 @@ namespace Eagle._Components.Public
                                                     * values to be used by expression
                                                     * parsing. */
 #endif
+        Interactive = 0x1000,                      /* Force interactive mode (upon its
+                                                    * creation, etc)?
+                                                    * The [debug break] sub-command will
+                                                    * not break into the interactive loop
+                                                    * without this flag being set. */
         FinallyResetCancel = 0x4000,               /* Call Engine.ResetCancel prior to
                                                     * evaluating finally blocks in the
                                                     * [try] command. */
@@ -11244,7 +11264,12 @@ namespace Eagle._Components.Public
                                    * in a case-insensitive manner, including
                                    * (and especially, and possibly only) its
                                    * sub-command names. */
-        Critical = 0x400000000,
+        Critical = 0x400000000,   /* This command is specially marked so it is
+                                   * clear that if any script has access to it,
+                                   * it will be able to easily break out of its
+                                   * "safe" sandbox, if any, and have what is
+                                   * effectively full access to its containing
+                                   * process. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11989,7 +12014,7 @@ namespace Eagle._Components.Public
 
     [Flags()]
     [ObjectId("753ee5b0-e42b-4c69-b398-960f54ba75dd")]
-    public enum PackageFlags
+    public enum PackageFlags : ulong
     {
         None = 0x0,             /* Nothing special. */
         Invalid = 0x1,          /* Invalid, do not use. */
@@ -12032,6 +12057,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        NoAlias = 0x100000,     /* Disable use of package aliases during
+                                 * package resolution. */
+        Overwrite = 0x200000,   /* An existing package (alias?) entry should
+                                 * be overwritten, if necessary. */
+        Disabled = 0x400000,    /* The package (alias?) has been explicitly
+                                 * disabled. */
+        Exact = 0x800000,       /* The -exact option was used for [package],
+                                 * et al. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: This value is used when evaluating the Harpy / Badge package
         //       indexes prior to the interpreter being initialized.  This is
@@ -12049,6 +12085,8 @@ namespace Eagle._Components.Public
                        Plugin | Library | Interactive |
                        Automatic | Locked | Rejected |
                        Temporary,
+
+        AliasMask = Disabled | Exact,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 

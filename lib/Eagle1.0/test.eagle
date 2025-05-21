@@ -28,6 +28,101 @@
 #       theme or piece of functionality.
 #
 namespace eval ::Eagle {
+  proc addTestScripts { scriptVarName args } {
+    upvar 1 $scriptVarName script
+
+    set count 0
+
+    set indexes [lsort -integer [array names script]]
+    set index [expr {[llength $indexes] > 0 ? [lindex $indexes end] : 0}]
+
+    foreach arg $args {set script([incr index]) $arg; incr count}
+
+    return $count
+  }
+
+  proc evaluateTestScripts {
+          interp scriptVarName codeVarName resultVarName } {
+    upvar 1 $scriptVarName script
+    upvar 1 $codeVarName code
+    upvar 1 $resultVarName result
+
+    set count 0
+
+    foreach index [lsort -integer [array names script]] {
+      if {[string length $interp] > 0} then {
+        set code($index) [catch [list \
+            interp eval $interp $script($index)] result($index)]
+      } else {
+        set code($index) [catch [list \
+            uplevel 1 $script($index)] result($index)]
+      }
+    }
+
+    return $count
+  }
+
+  proc combineTestScriptResults {
+          scriptVarName codeVarName resultVarName {debug false} } {
+    upvar 1 $scriptVarName script
+    upvar 1 $codeVarName code
+    upvar 1 $resultVarName result
+
+    set list [list]
+
+    foreach index [lsort -integer [array names script]] {
+      set subList [list index $index]
+
+      if {$debug} then {
+        lappend subList script $script($index)
+      }
+
+      if {[info exists code($index)]} then {
+        lappend subList code $code($index)
+      }
+
+      if {[info exists result($index)]} then {
+        lappend subList result $result($index)
+      }
+
+      lappend list $subList
+    }
+
+    return $list
+  }
+
+  proc newPackageId { {fileName false} } {
+    if {[isEagle]} then {
+      set number [expr {random()}]
+
+      if {[llength [info commands object]] > 0} then {
+        set extension [object invoke \
+            Eagle._Constants.FileExtension Script]
+      } else {
+        set extension .eagle
+      }
+    } else {
+      set random {wide(rand() * wide(0xFFFFFFFF))}
+
+      set half(1) [expr $random]
+      set half(2) [expr $random]
+
+      set number [expr {($half(1) << 32) | $half(2)}]
+
+      set extension .tcl
+    }
+
+    set id [format %016lx $number]
+
+    if {$fileName} then {
+      set result [appendArgs pkgIndex_ $id $extension]
+    } else {
+      set result $id
+    }
+
+    return $result
+  }
+
   #
   # NOTE: This procedure attempts to locate the specified (named) parameter,
   #       optionally perform type validation on the resulting value, if any,
@@ -1152,7 +1247,7 @@ namespace eval ::Eagle {
           if {$i < $length} then {
             set value [lindex $argv $i]
 
-            if {[lsearch -exact -- $value $subValue] == -1} then {
+            if {[lsearch -exact $value $subValue] == -1} then {
               lset argv $i [concat $value [list $subValue]]
             }
           } else {
@@ -1187,7 +1282,7 @@ namespace eval ::Eagle {
 
           if {$i(1) < $length} then {
             set value [lindex $argv $i(1)]
-            set i(2) [lsearch -exact -- $value $subValue]
+            set i(2) [lsearch -exact $value $subValue]
 
             if {$i(2) != -1} then {
               set value [lreplace $value $i(2) $i(2)]
@@ -1402,8 +1497,6 @@ namespace eval ::Eagle {
     }
 
     if {[catch {
-      package require Eagle.Test
-
       set rid [getTestRunId]
     }]} then {
       set rid ""
@@ -4218,25 +4311,104 @@ namespace eval ::Eagle {
     }
   }
 
+  proc checkOsAndModeForPath { path osVarName modeVarName } {
+    if {![info exists ::tcl_platform(os)]} then {
+      return false
+    }
+
+    if {[string length $osVarName] > 0} then {
+      upvar 1 $osVarName os
+    }
+
+    set os $::tcl_platform(os)
+
+    if {[catch {file lstat $path stat}]} then {
+      return false
+    }
+
+    if {![info exists stat(mode)]} then {
+      return false
+    }
+
+    if {[string length $modeVarName] > 0} then {
+      upvar 1 $modeVarName mode
+    }
+
+    set mode $stat(mode)
+
+    if {![string is wideinteger $mode]} then {
+      return false
+    }
+
+    if {[lsearch -exact \
+        [list Linux Darwin] $os] == -1} then {
+      return false
+    }
+
+    return true
+  }
+
+  proc isDirectoryReadable { path } {
+    if {![file isdirectory $path]} then {
+      return false
+    }
+
+    if {![isWindows]} then {
+      if {![checkOsAndModeForPath $path os mode]} then {
+        return false
+      }
+
+      set S_IFDIR 0x4000; # regular directory
+      set S_IFMT 0xF000; # file type mask
+
+      if {($mode & $S_IFMT) != $S_IFDIR} then {
+        return false
+      }
+    }
+
+    return [file readable $path]
+  }
+
+  proc isFileReadable { path } {
+    if {![file isfile $path]} then {
+      return false
+    }
+
+    if {![isWindows]} then {
+      if {![checkOsAndModeForPath $path os mode]} then {
+        return false
+      }
+
+      set S_IFREG 0x8000; # regular file
+      set S_IFMT 0xF000; # file type mask
+
+      if {($mode & $S_IFMT) != $S_IFREG} then {
+        return false
+      }
+    }
+
+    return [file readable $path]
+  }
+
   proc getFiles { directory include {exclude ""} } {
     set result [list]
 
     if {[isEagle]} then {
       if {[file exists $directory] && \
           [file isdirectory $directory]} then {
-        foreach fileName [lsort -dictionary [file list $directory \
-            $include]] {
+        foreach fileName [lsort \
+            -dictionary [file list $directory $include]] {
           if {[string length $exclude] == 0 || \
               ![string match $exclude $fileName]} then {
-            if {[file isfile $fileName] && \
-                [file readable $fileName]} then {
+            if {[isFileReadable $fileName]} then {
               lappend result $fileName
             }
           }
         }
       }
     } else {
-      foreach fileName [lsort -dictionary [glob -directory $directory \
+      foreach fileName [lsort \
+          -dictionary [glob -directory $directory \
           -types {f r} -nocomplain -- $include]] {
         if {[string length $exclude] == 0 || \
             ![string match $exclude $fileName]} then {
@@ -5724,7 +5896,7 @@ namespace eval ::Eagle {
     upvar 1 $varName array
 
     if {[info exists array($varIndex)]} then {
-      set index [lsearch -exact -- $array($varIndex) $value]
+      set index [lsearch -exact $array($varIndex) $value]
 
       if {$enable} then {
         if {$index != -1} then {
@@ -5766,7 +5938,7 @@ namespace eval ::Eagle {
     set allStatistics [getNamesForTestStatistics]
 
     foreach statistic $statistics {
-      if {[lsearch -exact -- $allStatistics $statistic] != -1} then {
+      if {[lsearch -exact $allStatistics $statistic] != -1} then {
         lappend allResults [list $statistic \
             [changeArrayElement array [appendArgs listed, $index] \
             $statistic $enable]]
@@ -8732,7 +8904,8 @@ namespace eval ::Eagle {
       return true
     }
 
-    proc probeForScriptFileName { {excludePatterns ""} {overridePatterns ""} } {
+    proc probeForScriptFileName {
+            {excludePatterns ""} {overridePatterns ""} } {
       if {[llength [info commands object]] > 0 && [catch {
         set locations [object invoke -alias -flags +NonPublic \
             Interpreter.GetActive ScriptLocations]
@@ -8747,13 +8920,13 @@ namespace eval ::Eagle {
 
             if {[string length $locationFileName] > 0} then {
               if {[llength $overridePatterns] > 0 && \
-                  [lsearch -inverse -glob -- \
+                  [lsearch -inverse -glob \
                       $overridePatterns $locationFileName] != -1} then {
                 return $locationFileName
               }
 
               if {[llength $excludePatterns] == 0 || \
-                  [lsearch -inverse -glob -- \
+                  [lsearch -inverse -glob \
                       $excludePatterns $locationFileName] == -1} then {
                 return $locationFileName
               }
@@ -9800,8 +9973,8 @@ namespace eval ::Eagle {
           set options [list]; # options missing?
         }
 
-        if {[lsearch -exact -- $options TEST] == -1 || \
-            [lsearch -exact -- $options NETWORK] == -1} then {
+        if {[lsearch -exact $options TEST] == -1 || \
+            [lsearch -exact $options NETWORK] == -1} then {
           error "library missing TEST and/or NETWORK compile-options"
         }
 
@@ -11009,8 +11182,8 @@ namespace eval ::Eagle {
         set options [list]
       }
 
-      if {[lsearch -exact -- $options SHELL] != -1 && \
-          [lsearch -exact -- $options INTERACTIVE_COMMANDS] != -1} then {
+      if {[lsearch -exact $options SHELL] != -1 && \
+          [lsearch -exact $options INTERACTIVE_COMMANDS] != -1} then {
         catch {uplevel 1 [list object invoke -flags +NonPublic \
             Eagle._Components.Private.HelpOps ClearCache]} result
 
@@ -11868,14 +12041,16 @@ namespace eval ::Eagle {
     #       namespace as well.
     #
     exportAndImportPackageCommands [namespace current] [list \
-        getParameterFromAny getIndexForDirectory maybeAddToAutoPath \
-        haveModernNetFx haveInfinitySymbol private annotateProcedure \
-        createPairs flattenPairs tclLogForTester maybeInvokeForTester \
-        haveCaches resetCaches reportCaches maybeMakeHighPriority \
-        removeTemporarySubDirectories enableInteractiveCommands \
-        getProcedureArguments cloneProcedure getTclMinimumVersion \
-        getTclMaximumVersion tryToLoadZeus loadTetrisViaTclTk breakOnError \
-        getEnvironmentViaComSpec getNameForDebugHook announceForDebugHook \
+        addTestScripts evaluateTestScripts combineTestScriptResults \
+        newPackageId getParameterFromAny getIndexForDirectory \
+        maybeAddToAutoPath haveModernNetFx haveInfinitySymbol private \
+        annotateProcedure createPairs flattenPairs tclLogForTester \
+        maybeInvokeForTester haveCaches resetCaches reportCaches \
+        maybeMakeHighPriority removeTemporarySubDirectories \
+        enableInteractiveCommands getProcedureArguments cloneProcedure \
+        getTclMinimumVersion getTclMaximumVersion tryToLoadZeus \
+        loadTetrisViaTclTk breakOnError getEnvironmentViaComSpec \
+        getNameForDebugHook announceForDebugHook \
         forceInteractiveLoopForDebugHook debugBreakHook skipTestHook \
         noFailTestHook whatIfTestHook errorTestHook failTestHook \
         maybeGetArgv addToArgv removeFromArgv addConstraintToArgv \
@@ -11914,13 +12089,14 @@ namespace eval ::Eagle {
         calculateBogoCops calculateRelativePerformance formatTimeStamp \
         formatElapsedTime sourceIfValid makeUseOfTestDefaults \
         processTestArguments makeUseOfTestArguments getTclShellFileName \
-        getTemporaryPath getTemporaryFileName getFiles getTestFiles \
+        getTemporaryPath getTemporaryFileName checkOsAndModeForPath \
+        isDirectoryReadable isFileReadable getFiles getTestFiles \
         getTestChildren getTestRunId getTestRunBucket isValidGuid \
         getNewTestRunId getDefaultTestLogSubPath getDefaultTestLogPath \
         getTestLogPath getTestLogId getDefaultTestLog newTestLog getTestLog \
-        getLastTestLog getTestSuite getTestSuiteFileName \
-        getTestSuiteFullName getTestSuiteVariantName getTestMachine \
-        getTestPlatform getTestConfiguration getTestNamePrefix getTestSuffix \
+        getLastTestLog getTestSuite getTestSuiteFileName getTestSuiteFullName \
+        getTestSuiteVariantName getTestMachine getTestPlatform \
+        getTestConfiguration getTestNamePrefix getTestSuffix \
         getTestUncountedLeaks getTestListedLeaks getRuntimeAssemblyName \
         getTestAssemblyName canTestExec testExec testClrExec execTestShell \
         isRandomOrder isBreakOnDemand isBreakOnLeak isStopOnFailure \

@@ -262,6 +262,9 @@ using TclThreadPair = System.Collections.Generic.KeyValuePair<
 #endif
 #endif
 
+using PackageAliasTriplet = Eagle._Components.Public.AnyTriplet<
+    string, System.Version, Eagle._Components.Public.PackageFlags?>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -1614,6 +1617,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private PackageIndexDictionary packageIndexes;
+        private PackageAliasDictionary packageAliases;
         private PackageWrapperDictionary packages;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5498,6 +5502,7 @@ namespace Eagle._Components.Public
                 return result;
             }
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -5810,7 +5815,6 @@ namespace Eagle._Components.Public
 
             return result;
         }
-#endif
         #endregion
         #endregion
 
@@ -8707,6 +8711,7 @@ namespace Eagle._Components.Public
         public ReturnCode EvaluateBundleFile(
             string fileName,
             byte[] password,
+            bool errorOnEmpty,
             bool stopOnError,
             ref IClientData clientData,
             ref Result result
@@ -8717,8 +8722,8 @@ namespace Eagle._Components.Public
             int errorLine = 0;
 
             ReturnCode code = EvaluateBundleFile(
-                fileName, password, stopOnError, ref clientData,
-                ref result, ref errorLine);
+                fileName, password, errorOnEmpty, stopOnError,
+                ref clientData, ref result, ref errorLine);
 
             if (errorLine != 0)
                 SetErrorLine(this, errorLine);
@@ -8731,6 +8736,7 @@ namespace Eagle._Components.Public
         public ReturnCode EvaluateBundleFile(
             string fileName,
             byte[] password,
+            bool errorOnEmpty,
             bool stopOnError,
             ref IClientData clientData,
             ref Result result,
@@ -8751,8 +8757,8 @@ namespace Eagle._Components.Public
             }
 
             return EvaluateBundleFile(
-                fileName, password, haveScriptFlags, stopOnError,
-                ref clientData, ref result, ref errorLine);
+                fileName, password, haveScriptFlags, errorOnEmpty,
+                stopOnError, ref clientData, ref result, ref errorLine);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -8761,6 +8767,7 @@ namespace Eagle._Components.Public
             string fileName,                  /* in */
             byte[] password,                  /* in: OPTIONAL */
             IHaveScriptFlags haveScriptFlags, /* in: OPTIONAL */
+            bool errorOnEmpty,                /* in */
             bool stopOnError,                 /* in */
             ref IClientData clientData,       /* in, out: OPTIONAL */
             ref Result result,                /* out */
@@ -8847,7 +8854,7 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            if (scripts.Count == 0)
+            if (errorOnEmpty && (scripts.Count == 0))
             {
                 result = "bundle file has no scripts";
                 return ReturnCode.Error;
@@ -12692,6 +12699,32 @@ namespace Eagle._Components.Public
 
             if (!result)
                 error = "operators not available";
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool PrivateHasPackageAliases()
+        {
+            Result error = null;
+
+            return PrivateHasPackageAliases(ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This method assumes the lock is already held.
+        //
+        private bool PrivateHasPackageAliases(
+            ref Result error /* out */
+            )
+        {
+            bool result = (packageAliases != null);
+
+            if (!result)
+                error = "package aliases not available";
 
             return result;
         }
@@ -23700,6 +23733,87 @@ namespace Eagle._Components.Public
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ReturnCode RemoveCommands(
+            IClientData clientData,
+            CommandFlags? hasFlags,
+            CommandFlags? notHasFlags,
+            bool hasAll,
+            bool notHasAll,
+            ref Result error
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                // if (!IsModifiable(false, ref error))
+                //     return ReturnCode.Error;
+
+                if (!PrivateHasCommands(ref error))
+                    return ReturnCode.Error;
+
+                LongList tokens = null;
+
+                foreach (CommandPair pair in commands)
+                {
+                    ICommand command = pair.Value;
+
+                    if (command == null)
+                        continue;
+
+                    CommandFlags commandFlags = command.Flags;
+
+                    if ((hasFlags != null) && !FlagOps.HasFlags(
+                            commandFlags, (CommandFlags)hasFlags,
+                            hasAll))
+                    {
+                        continue;
+                    }
+
+                    if ((notHasFlags != null) && FlagOps.HasFlags(
+                            commandFlags, (CommandFlags)notHasFlags,
+                            notHasAll))
+                    {
+                        continue;
+                    }
+
+                    if (tokens == null)
+                        tokens = new LongList();
+
+                    tokens.Add(command.Token);
+                }
+
+                if (tokens != null)
+                {
+                    ResultList errors = null;
+
+                    foreach (long token in tokens)
+                    {
+                        string name = null; /* NOT USED */
+                        Result result = null;
+
+                        if (InternalRemoveCommand(
+                                token, clientData, ref name,
+                                ref result) != ReturnCode.Ok)
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(result);
+                        }
+                    }
+
+                    if (errors != null)
+                    {
+                        error = errors;
+                        return ReturnCode.Error;
+                    }
+                }
+
+                return ReturnCode.Ok;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -37855,7 +37969,7 @@ namespace Eagle._Components.Public
         public ReturnCode CreateChildInterpreter(
             string path,
             IClientData clientData,
-            InterpreterSettings interpreterSettings,
+            IInterpreterSettings interpreterSettings,
             bool isolated,
             bool security,
             ref Result result
@@ -41697,6 +41811,11 @@ namespace Eagle._Components.Public
             InitializeFlags initializeFlags /* in */
             )
         {
+#if MAYBE_ENTERPRISE_LOCKDOWN
+            if (IsEnterpriseLockdownEnabled())
+                return false;
+#endif
+
             if (FlagOps.HasFlags(initializeFlags,
                     InitializeFlags.NoTrustedRemote, true))
             {
@@ -48648,6 +48767,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal ReturnCode PkgAliases(
+            string pattern,
+            bool noCase,
+            ref Result result
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!PrivateHasPackageAliases(ref result))
+                    return ReturnCode.Error;
+
+                result = packageAliases.ToString(pattern, noCase);
+                return ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal ReturnCode PkgIndexes(
             string pattern,
             bool noCase,
@@ -49056,6 +49193,89 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal ReturnCode PkgAlias(
+            string alias,           /* in */
+            string name,            /* in: OPTIONAL */
+            Version version,        /* in: OPTIONAL */
+            IClientData clientData, /* in: NOT USED */
+            PackageFlags? flags,    /* in */
+            ref Result result       /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!PrivateHasPackageAliases(ref result)) /* CONSISTENCY */
+                    return ReturnCode.Error;
+
+                if (String.IsNullOrEmpty(alias))
+                {
+                    result = "invalid package alias name";
+                    return ReturnCode.Error;
+                }
+
+                if (name == null)
+                {
+                    PackageAliasTriplet anyTriplet;
+
+                    if (!packageAliases.TryGetValue(
+                            alias, out anyTriplet))
+                    {
+                        result = String.Format(
+                            "package alias {0} does not exist",
+                            FormatOps.DisplayName(alias));
+
+                        return ReturnCode.Error;
+                    }
+
+                    result = (anyTriplet != null) ?
+                        anyTriplet.ToString() : null;
+                }
+                else if (name.Length != 0)
+                {
+                    if (!FlagOps.HasFlags(
+                            flags, PackageFlags.Overwrite, true) &&
+                        packageAliases.ContainsKey(alias))
+                    {
+                        result = String.Format(
+                            "package alias {0} already exists",
+                            FormatOps.DisplayName(alias));
+
+                        return ReturnCode.Error;
+                    }
+
+                    if (flags != null)
+                    {
+                        PackageFlags localFlags = (PackageFlags)flags;
+
+                        localFlags &= PackageFlags.AliasMask;
+
+                        if (localFlags != PackageFlags.None)
+                            flags = localFlags;
+                        else
+                            flags = null;
+                    }
+
+                    packageAliases[alias] = new PackageAliasTriplet(
+                        name, version, flags);
+                }
+                else
+                {
+                    if (!packageAliases.Remove(alias))
+                    {
+                        result = String.Format(
+                            "failed to remove package alias {0}",
+                            FormatOps.DisplayName(alias));
+
+                        return ReturnCode.Error;
+                    }
+                }
+
+                return ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal ReturnCode PkgProvide(
             string name,
             Version version,
@@ -49252,6 +49472,106 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private bool MaybeUsePackageAliases(
+            ref string name,     /* in, out */
+            ref Version version, /* in, out */
+            ref bool exact,      /* in, out */
+            ref Result error     /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if ((name != null) && PrivateHasPackageAliases())
+                {
+                    PackageAliasDictionary found =
+                        new PackageAliasDictionary();
+
+                    string localName = name;
+                    Version localVersion = null;
+                    PackageFlags? localFlags = null;
+
+                    while (true)
+                    {
+                        PackageAliasTriplet anyTriplet;
+
+                        if ((localName == null) ||
+                            !packageAliases.TryGetValue(
+                                localName, out anyTriplet))
+                        {
+                            break;
+                        }
+
+                        if (anyTriplet == null)
+                        {
+                            error = String.Format(
+                                "package alias {0} (via {1}) is unavailable",
+                                FormatOps.DisplayName(name),
+                                FormatOps.DisplayName(localName));
+
+                            return false;
+                        }
+
+                        if (FlagOps.HasFlags(
+                                anyTriplet.Z, PackageFlags.Disabled, true))
+                        {
+                            error = String.Format(
+                                "package alias {0} (via {1}) is disabled",
+                                FormatOps.DisplayName(name),
+                                FormatOps.DisplayName(localName));
+
+                            return false;
+                        }
+
+                        string temporaryName = anyTriplet.X;
+
+                        if (temporaryName == null)
+                        {
+                            error = String.Format(
+                                "package alias {0} (via {1}) has invalid name",
+                                FormatOps.DisplayName(name),
+                                FormatOps.DisplayName(localName));
+
+                            return false;
+                        }
+
+                        if (found.ContainsKey(temporaryName))
+                        {
+                            error = String.Format(
+                                "package alias {0} (via {1}) loop detected",
+                                FormatOps.DisplayName(name),
+                                FormatOps.DisplayName(localName));
+
+                            return false;
+                        }
+
+                        found[localName] = anyTriplet;
+
+                        localName = temporaryName;
+                        localVersion = anyTriplet.Y;
+                        localFlags = anyTriplet.Z;
+                    }
+
+                    if (found.Count > 0)
+                    {
+                        name = localName;
+
+                        if ((version == null) && (localVersion != null))
+                            version = localVersion;
+
+                        if (localFlags != null)
+                        {
+                            exact = FlagOps.HasFlags(
+                                localFlags, PackageFlags.Exact, true);
+                        }
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal ReturnCode PkgRequire(
             string name,
             Version version,
@@ -49265,6 +49585,14 @@ namespace Eagle._Components.Public
             {
                 if (!PrivateHasPackages(ref result))
                     return ReturnCode.Error;
+
+                if (!FlagOps.HasFlags(
+                        packageFlags, PackageFlags.NoAlias, true) &&
+                    !MaybeUsePackageAliases(
+                        ref name, ref version, ref exact, ref result))
+                {
+                    return ReturnCode.Error;
+                }
 
                 IPackage package = null;
 
@@ -49291,10 +49619,7 @@ namespace Eagle._Components.Public
                 Version loaded = package.Loaded;
 
                 if (loaded != null)
-                {
-                    result = loaded;
-                    return ReturnCode.Ok;
-                }
+                    goto loaded;
 
                 //
                 // NOTE: Attempt to load the package using the provided
@@ -49338,6 +49663,8 @@ namespace Eagle._Components.Public
 
                     return ReturnCode.Error;
                 }
+
+            loaded:
 
                 if ((version != null) &&
                     !PackageOps.VersionSatisfies(loaded, version, exact))
@@ -52523,7 +52850,7 @@ namespace Eagle._Components.Public
 
                     if (RuntimeOps.PopulatePluginEntities(
                             interpreter, localPlugin, null, ruleSet,
-                            null, false, false, false, verbose,
+                            null, null, false, false, false, verbose,
                             ref error) != ReturnCode.Ok)
                     {
                         return ReturnCode.Error;
@@ -53165,6 +53492,7 @@ namespace Eagle._Components.Public
             TypeList types,                   /* in */
             IRuleSet ruleSet,                 /* in */
             CommandFlags? commandFlags,       /* in */
+            CommandFlags? notCommandFlags,    /* in */
             bool useBuiltIn,                  /* in */
             bool noCommands,                  /* in */
             bool noPolicies,                  /* in */
@@ -53187,8 +53515,8 @@ namespace Eagle._Components.Public
 
                     code = RuntimeOps.PopulatePluginEntities(
                         this, plugin, types, ruleSet, commandFlags,
-                        useBuiltIn, noCommands, noPolicies, verbose,
-                        ref localResult);
+                        notCommandFlags, useBuiltIn, noCommands,
+                        noPolicies, verbose, ref localResult);
 
                     if (code == ReturnCode.Ok)
                     {
@@ -53265,10 +53593,12 @@ namespace Eagle._Components.Public
 
         private static void SetupCommandFlags(
             CreateFlags createFlags,
-            out CommandFlags? commandFlags
+            out CommandFlags? commandFlags,
+            out CommandFlags? notCommandFlags
             )
         {
             commandFlags = null;
+            notCommandFlags = null;
 
             if (FlagOps.HasFlags(
                     createFlags, CreateFlags.SdkMask, false))
@@ -53297,6 +53627,14 @@ namespace Eagle._Components.Public
 
                 commandFlags = localCommandFlags;
             }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            if (FlagOps.HasFlags(
+                    createFlags, CreateFlags.NoCritical, true))
+            {
+                notCommandFlags = CommandFlags.Critical;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -53305,15 +53643,16 @@ namespace Eagle._Components.Public
         // NOTE: Assumes the interpreter lock is held.
         //
         private ReturnCode SetupPlugins(
-            IRuleSet ruleSet,           /* in */
-            TypeList types,             /* in */
-            CreateFlags createFlags,    /* in */
-            CommandFlags? commandFlags, /* in */
-            bool force,                 /* in */
-            bool useBuiltIn,            /* in */
-            bool noCommands,            /* in */
-            bool verbose,               /* in */
-            ref Result error            /* out */
+            IRuleSet ruleSet,              /* in */
+            TypeList types,                /* in */
+            CreateFlags createFlags,       /* in */
+            CommandFlags? commandFlags,    /* in */
+            CommandFlags? notCommandFlags, /* in */
+            bool force,                    /* in */
+            bool useBuiltIn,               /* in */
+            bool noCommands,               /* in */
+            bool verbose,                  /* in */
+            ref Result error               /* out */
             )
         {
             if (!FlagOps.HasFlags(createFlags, CreateFlags.NoPlugins, true))
@@ -53336,7 +53675,8 @@ namespace Eagle._Components.Public
 
                         if (SetupPlugin(
                                 NewCorePlugin, types, ruleSet,
-                                commandFlags, useBuiltIn, noCommands,
+                                commandFlags, notCommandFlags,
+                                useBuiltIn, noCommands,
                                 true, verbose, ref corePluginToken,
                                 ref pluginName, ref pluginFlags,
                                 ref error) == ReturnCode.Ok)
@@ -53376,7 +53716,8 @@ namespace Eagle._Components.Public
 
                         if (SetupPlugin(
                                 NewObjectPlugin, types, ruleSet,
-                                commandFlags, false, true, true,
+                                commandFlags, notCommandFlags,
+                                false, true, true,
                                 verbose, ref objectPluginToken,
                                 ref pluginName, ref pluginFlags,
                                 ref error) == ReturnCode.Ok)
@@ -53417,7 +53758,8 @@ namespace Eagle._Components.Public
 
                         if (SetupPlugin(
                                 NewMonitorPlugin, types, ruleSet,
-                                commandFlags, false, true, true,
+                                commandFlags, notCommandFlags,
+                                false, true, true,
                                 verbose, ref monitorPluginToken,
                                 ref pluginName, ref pluginFlags,
                                 ref error) == ReturnCode.Ok)
@@ -53458,7 +53800,8 @@ namespace Eagle._Components.Public
 
                         if (SetupPlugin(
                                 NewTestPlugin, types, ruleSet,
-                                commandFlags, false, true, true,
+                                commandFlags, notCommandFlags,
+                                false, true, true,
                                 verbose, ref testPluginToken,
                                 ref pluginName, ref pluginFlags,
                                 ref error) == ReturnCode.Ok)
@@ -53547,7 +53890,7 @@ namespace Eagle._Components.Public
 
                     if ((RuntimeOps.PopulatePluginEntities(
                             this, plugin, null, ruleSet, null,
-                            useBuiltIn, noCommands, noPolicies,
+                            null, useBuiltIn, noCommands, noPolicies,
                             verbose, ref localResult) == ReturnCode.Ok) &&
                         (PrivateAddPlugin(
                             plugin, new PluginClientData(
@@ -53837,8 +54180,8 @@ namespace Eagle._Components.Public
                 Result error = null;
 
                 code = RuntimeOps.PopulatePluginEntities(
-                    null, plugin, null, ruleSet, null, false,
-                    false, false, verbose, ref error);
+                    null, plugin, null, ruleSet, null, null,
+                    false, false, false, verbose, ref error);
 
                 if (code != ReturnCode.Ok)
                 {
@@ -59352,6 +59695,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal SdkType InternalTranslateSdkType()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                SdkType sdkType = SdkType.Default;
+
+                if (FlagOps.HasFlags(createFlags, CreateFlags.SecuritySdk, true))
+                    sdkType |= SdkType.Security;
+
+                if (FlagOps.HasFlags(createFlags, CreateFlags.LicenseSdk, true))
+                    sdkType |= SdkType.License;
+
+                if (FlagOps.HasFlags(createFlags, CreateFlags.NoCritical, true))
+                    sdkType |= SdkType.NonCritical;
+
+                return sdkType;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static bool PrivateIsSecuritySdk(
             CreateFlags createFlags
             )
@@ -59395,6 +59759,9 @@ namespace Eagle._Components.Public
 
             if (FlagOps.HasFlags(sdkType, SdkType.License, true))
                 hasCreateFlags |= CreateFlags.LicenseSdk;
+
+            if (FlagOps.HasFlags(sdkType, SdkType.NonCritical, true))
+                hasCreateFlags |= CreateFlags.NoCritical;
 
             return FlagOps.HasFlags(createFlags, hasCreateFlags, all);
         }
@@ -73573,20 +73940,26 @@ namespace Eagle._Components.Public
                 typeof(Interpreter).Name, TracePriority.StartupDebug);
 
 #if SHELL && !ENTERPRISE_LOCKDOWN
-            code = ShellOps.GetArgumentValue(
-                argv, CommandLineOption.StartupPreInitialize, true, ref text, ref error);
-
-            if ((code == ReturnCode.Ok) && (argv != null) &&
-                FlagOps.HasFlags(originFlags, OptionOriginFlags.Remove, true))
+#if MAYBE_ENTERPRISE_LOCKDOWN
+            if (!IsEnterpriseLockdownEnabled())
+#endif
             {
-                IList<string> list = args as IList<string>;
+                code = ShellOps.GetArgumentValue(
+                    argv, CommandLineOption.StartupPreInitialize, true, ref text,
+                    ref error);
 
-                if (list != null)
+                if ((code == ReturnCode.Ok) && (argv != null) &&
+                    FlagOps.HasFlags(originFlags, OptionOriginFlags.Remove, true))
                 {
-                    list.Clear();
+                    IList<string> list = args as IList<string>;
 
-                    foreach (string arg in argv)
-                        list.Add(arg);
+                    if (list != null)
+                    {
+                        list.Clear();
+
+                        foreach (string arg in argv)
+                            list.Add(arg);
+                    }
                 }
             }
 #endif
@@ -74075,35 +74448,40 @@ namespace Eagle._Components.Public
                         ///////////////////////////////////////////////////////////////////////////////
 
 #if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
-                        if (GlobalConfiguration.DoesValueExist(
-                                EnvVars.ForceTrustedRemote, GlobalConfiguration.GetFlags(
-                                ConfigurationFlags.Interpreter, verbose)))
+#if MAYBE_ENTERPRISE_LOCKDOWN
+                        if (!IsEnterpriseLockdownEnabled())
+#endif
                         {
-                            ConsoleOps.MaybeWritePrompt(
-                                _Constants.Prompt.ForceTrustedRemote,
-                                console, verbose);
-                        }
+                            if (GlobalConfiguration.DoesValueExist(
+                                    EnvVars.ForceTrustedRemote, GlobalConfiguration.GetFlags(
+                                    ConfigurationFlags.Interpreter, verbose)))
+                            {
+                                ConsoleOps.MaybeWritePrompt(
+                                    _Constants.Prompt.ForceTrustedRemote,
+                                    console, verbose);
+                            }
 
-                        ///////////////////////////////////////////////////////////////////////////////
+                            ///////////////////////////////////////////////////////////////////////////
 
-                        if (GlobalConfiguration.DoesValueExist(
-                                EnvVars.NoTrustedRemote, GlobalConfiguration.GetFlags(
-                                ConfigurationFlags.Interpreter, verbose)))
-                        {
-                            ConsoleOps.MaybeWritePrompt(
-                                _Constants.Prompt.NoTrustedRemote,
-                                console, verbose);
-                        }
+                            if (GlobalConfiguration.DoesValueExist(
+                                    EnvVars.NoTrustedRemote, GlobalConfiguration.GetFlags(
+                                    ConfigurationFlags.Interpreter, verbose)))
+                            {
+                                ConsoleOps.MaybeWritePrompt(
+                                    _Constants.Prompt.NoTrustedRemote,
+                                    console, verbose);
+                            }
 
-                        ///////////////////////////////////////////////////////////////////////////////
+                            ///////////////////////////////////////////////////////////////////////////
 
-                        if (GlobalConfiguration.DoesValueExist(
-                                EnvVars.TrustedBundlePassword, GlobalConfiguration.GetFlags(
-                                ConfigurationFlags.Interpreter, verbose)))
-                        {
-                            ConsoleOps.MaybeWritePrompt(
-                                _Constants.Prompt.TrustedBundlePassword,
-                                console, verbose);
+                            if (GlobalConfiguration.DoesValueExist(
+                                    EnvVars.TrustedBundlePassword, GlobalConfiguration.GetFlags(
+                                    ConfigurationFlags.Interpreter, verbose)))
+                            {
+                                ConsoleOps.MaybeWritePrompt(
+                                    _Constants.Prompt.TrustedBundlePassword,
+                                    console, verbose);
+                            }
                         }
 #endif
 
@@ -75173,37 +75551,49 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static void PersistentDisableCreationOrMaybeThrow(
+        private static ReturnCode MaybeTryToLoadStubAssembly(
+            IClientData clientData,    /* in: OPTIONAL */
+            DisableFlags disableFlags, /* in: NOT USED */
+            ref Result error           /* out */
+            )
+        {
+            if (GlobalState.IsStubAssemblyAnywhere())
+                return ReturnCode.Ok;
+
+            return GlobalState.TryToLoadStubAssembly(
+                clientData, true, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void MaybeTryToLoadStubAssemblyOrMaybeThrow(
             IClientData clientData,   /* in: OPTIONAL */
             DisableFlags disableFlags /* in */
             ) /* throw */
         {
-            if (!GlobalState.IsStubAssemblyAnywhere())
+            ReturnCode code;
+            Result error = null;
+
+            code = MaybeTryToLoadStubAssembly(
+                clientData, disableFlags, ref error);
+
+            if (code != ReturnCode.Ok)
             {
-                ReturnCode code;
-                Result error = null;
+                TraceOps.DebugTrace(String.Format(
+                    "MaybeTryToLoadStubAssemblyOrMaybeThrow: " +
+                    "appDomain = {0}, code = {1}, error = {2}",
+                    AppDomainOps.GetCurrentId(), code,
+                    FormatOps.WrapOrNull(error)),
+                    typeof(Interpreter).Name,
+                    TracePriority.SecurityError);
 
-                code = GlobalState.TryToLoadStubAssembly(
-                    clientData, true, ref error);
-
-                if (code != ReturnCode.Ok)
+                if (FlagOps.HasFlags(
+                        disableFlags, DisableFlags.Quiet, true))
                 {
-                    TraceOps.DebugTrace(String.Format(
-                        "PersistentDisableCreationOrMaybeThrow: " +
-                        "appDomain = {0}, code = {1}, error = {2}",
-                        AppDomainOps.GetCurrentId(), code,
-                        FormatOps.WrapOrNull(error)),
-                        typeof(Interpreter).Name,
-                        TracePriority.SecurityError);
-
-                    if (FlagOps.HasFlags(
-                            disableFlags, DisableFlags.Quiet, true))
-                    {
-                        return;
-                    }
-
-                    throw new ScriptException(code, error);
+                    return;
                 }
+
+                throw new ScriptException(code, error);
             }
         }
 
@@ -75251,7 +75641,7 @@ namespace Eagle._Components.Public
                 if (Interlocked.CompareExchange(
                         ref globalStubAssemblyCount, 0, 0) > 0)
                 {
-                    PersistentDisableCreationOrMaybeThrow(null, flags);
+                    MaybeTryToLoadStubAssemblyOrMaybeThrow(null, flags);
                 }
                 else
                 {
@@ -75272,6 +75662,33 @@ namespace Eagle._Components.Public
                 }
             }
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if ENTERPRISE_LOCKDOWN || MAYBE_ENTERPRISE_LOCKDOWN
+        internal static bool IsEnterpriseLockdownEnabled()
+        {
+#if ENTERPRISE_LOCKDOWN
+            return true;
+#else
+            return GlobalState.IsStubAssemblyAnywhere();
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal static ReturnCode EnableEnterpriseLockdown(
+            ref Result error /* out */
+            )
+        {
+#if ENTERPRISE_LOCKDOWN
+            return ReturnCode.Ok;
+#else
+            return MaybeTryToLoadStubAssembly(
+                null, DisableFlags.Default, ref error);
+#endif
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -75530,6 +75947,21 @@ namespace Eagle._Components.Public
             )
         {
             MaybeStaticInitialize();
+
+#if ENTERPRISE_LOCKDOWN || MAYBE_ENTERPRISE_LOCKDOWN
+            if (!IsEnterpriseLockdownEnabled())
+            {
+#if ENTERPRISE_LOCKDOWN
+                if (GlobalState.TryToCacheStubAssembly(
+                        ref result) != ReturnCode.Ok)
+                {
+                    return null;
+                }
+#else
+                GlobalState.TryToCacheStubAssemblyOrTrace();
+#endif
+            }
+#endif
 
             //
             // NOTE: Set the console and verbose (output control flags) to
@@ -76738,7 +77170,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static Interpreter Create( /* InterpreterHelper, etc. */
-            InterpreterSettings interpreterSettings,
+            IInterpreterSettings interpreterSettings,
             bool strict,
             ref Result result
             )
@@ -76778,7 +77210,7 @@ namespace Eagle._Components.Public
 
         public static Interpreter Create(
             ulong? token,
-            InterpreterSettings interpreterSettings,
+            IInterpreterSettings interpreterSettings,
             bool strict,
             ref Result result
             )
@@ -78020,9 +78452,14 @@ namespace Eagle._Components.Public
 
                 this.pluginFlags = pluginFlags;
 
-#if ENTERPRISE_LOCKDOWN
-                EnforceLockdownForPlugins();
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+#if ENTERPRISE_LOCKDOWN || MAYBE_ENTERPRISE_LOCKDOWN
+                if (IsEnterpriseLockdownEnabled())
+                    EnforceLockdownForPlugins();
 #endif
+
+                ///////////////////////////////////////////////////////////////////////////////////////
 
 #if ISOLATED_PLUGINS
                 if (FlagOps.HasFlags(createFlags, CreateFlags.IsolatePlugins, true))
@@ -78031,6 +78468,8 @@ namespace Eagle._Components.Public
                 if (FlagOps.HasFlags(createFlags, CreateFlags.NoPluginPreview, true))
                     DisablePluginPreview();
 #endif
+
+                ///////////////////////////////////////////////////////////////////////////////////////
 
                 this.defaultPluginFlags = Defaults.PluginFlags;
 
@@ -78235,6 +78674,7 @@ namespace Eagle._Components.Public
                 ///////////////////////////////////////////////////////////////////////////////////////
 
                 #region Packages
+                packageAliases = new PackageAliasDictionary();
                 packageIndexes = new PackageIndexDictionary();
                 packages = new PackageWrapperDictionary();
                 #endregion
@@ -79926,12 +80366,14 @@ namespace Eagle._Components.Public
             if (code == ReturnCode.Ok)
             {
                 CommandFlags? commandFlags;
+                CommandFlags? notCommandFlags;
 
-                SetupCommandFlags(createFlags, out commandFlags);
+                SetupCommandFlags(
+                    createFlags, out commandFlags, out notCommandFlags);
 
                 code = SetupPlugins(
-                    ruleSet, types, createFlags, commandFlags, true,
-                    ShouldUseBuiltIns(IdentifierKind.Command), noCommands,
+                    ruleSet, types, createFlags, commandFlags, notCommandFlags,
+                    true, ShouldUseBuiltIns(IdentifierKind.Command), noCommands,
                     verbose, ref result);
             }
 
@@ -80041,7 +80483,7 @@ namespace Eagle._Components.Public
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             if (code == ReturnCode.Ok)
-                code = SetupInteractiveLoop(createFlags, ref result);
+                code = SetupInteractiveLoop(interpreterFlags, ref result);
 
             ///////////////////////////////////////////////////////////////////////////////////////////
             //
@@ -80306,14 +80748,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private ReturnCode SetupInteractiveLoop(
-            CreateFlags createFlags,
+            InterpreterFlags interpreterFlags,
             ref Result error
             )
         {
             try
             {
                 this.InternalInteractive = FlagOps.HasFlags(
-                    createFlags, CreateFlags.Interactive, true);
+                    interpreterFlags, InterpreterFlags.Interactive, true);
 
                 this.ActiveInteractiveLoops = 0;
 
@@ -82671,8 +83113,10 @@ namespace Eagle._Components.Public
                     #region Phase 5: Set Auto-Path & Library Variables
                     if (code == ReturnCode.Ok)
                     {
-                        if (!FlagOps.HasFlags(
-                                localCreateFlags, CreateFlags.NoVariables, true)) /* EXEMPT */
+                        if (!FlagOps.HasFlags( /* EXEMPT */
+                                localCreateFlags, CreateFlags.NoVariables, true) &&
+                            !FlagOps.HasFlags( /* EXEMPT */
+                                localCreateFlags, CreateFlags.NoCritical, true))
                         {
                             code = PrivateInitializeAutoPath(autoPathList, ref error);
 
@@ -82795,6 +83239,21 @@ namespace Eagle._Components.Public
                         MarkAsInitialized(
                             force, debug, true, wasInitialized, didInitialize,
                             ref error);
+                    }
+                    #endregion
+
+                    ///////////////////////////////////////////////////////////////////////////////////
+
+                    #region Phase 12: Optional Remove Critical Commands
+                    if (code == ReturnCode.Ok)
+                    {
+                        if (FlagOps.HasFlags(
+                                localInitializeFlags, InitializeFlags.NoCritical, true))
+                        {
+                            code = RemoveCommands(
+                                _ClientData.Empty, CommandFlags.Critical, null, true,
+                                false, ref error);
+                        }
                     }
                     #endregion
                 }
@@ -82954,6 +83413,27 @@ namespace Eagle._Components.Public
                                 PathOps.TranslatePath(assembly.Location,
                                     PathTranslationType.Default) : null;
                         }
+                    }
+                }
+
+                ///////////////////////////////////////////////////////////////
+                //       OPTIONAL SHELL (COMMAND SYNTAX?) HELP FILE(S)       //
+                ///////////////////////////////////////////////////////////////
+
+                if (FlagOps.HasFlags(
+                        localInitializeFlags, InitializeFlags.SyntaxHelp, true))
+                {
+                    ResultList localErrors = null;
+
+                    code = SyntaxOps.LoadAndCacheDataFrom(
+                        GlobalState.InitializeOrGetBinaryPath(false),
+                        StringOps.GetEncoding(EncodingType.Syntax),
+                        true, false, true, false, false, ref localErrors);
+
+                    if (code != ReturnCode.Ok)
+                    {
+                        error = localErrors;
+                        return code;
                     }
                 }
 
@@ -83473,10 +83953,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         internal ReturnCode PopulateInterpreterSettings(
-            bool recreate,                               /* in */
-            bool full,                                   /* in */
-            ref InterpreterSettings interpreterSettings, /* in, out */
-            ref Result error                             /* out */
+            bool recreate,                                /* in */
+            bool full,                                    /* in */
+            ref IInterpreterSettings interpreterSettings, /* in, out */
+            ref Result error                              /* out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -84353,9 +84833,12 @@ namespace Eagle._Components.Public
                     "The arguments file names are: {0}",
                     FormatOps.DisplayList(argvFileNames)));
 
-#if ENTERPRISE_LOCKDOWN
-                HostOps.WriteLineOrConsole(interactiveHost,
-                    "Enterprise script certificate enforcement is locked.");
+#if ENTERPRISE_LOCKDOWN || MAYBE_ENTERPRISE_LOCKDOWN
+                if (IsEnterpriseLockdownEnabled())
+                {
+                    HostOps.WriteLineOrConsole(interactiveHost,
+                        "Enterprise script certificate enforcement is locked.");
+                }
 #endif
             }
 
@@ -84935,82 +85418,98 @@ namespace Eagle._Components.Public
                 else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.AnyInitialize))
                 {
-                    if (arg1 != null)
-                    {
-                        removeArgv += 2;
-
-                        code = activeInterpreter.MaybeRemoveArguments(
-                            whatIf, ref removeArgv, ref result);
-
-                        if ((code == ReturnCode.Ok) && !whatIf)
-                        {
-                            errorLine = 0;
-
-                            code = activeInterpreter.ShellEvaluateScript(
-                                _ShellCallbackData.GetEvaluateScriptCallback(
-                                    localCallbackData), arg1, ref result,
-                                ref errorLine);
-                        }
-
-                        if (code == ReturnCode.Ok)
-                        {
-                            //
-                            // NOTE: The shell callbacks may have been
-                            //       changed via the evaluated script;
-                            //       therefore, refresh the ones which
-                            //       were not directly supplied by the
-                            //       caller.
-                            //
-                            if (!whatIf)
-                            {
-                                /* NO RESULT */
-                                activeInterpreter.RefreshShellCallbacks();
-                            }
-
-                            //
-                            // NOTE: Must refresh the quiet flag now as
-                            //       it could have been changed by the
-                            //       evaluated script.
-                            //
-                            if (!whatIf && refreshQuiet)
-                                quiet = activeInterpreter.ShouldBeQuiet();
-
-                            if (popArgv)
-                            {
-                                GenericOps<string>.PopFirstArgument(ref argv);
-                                GenericOps<string>.PopFirstArgument(ref argv);
-                                popArgv = false;
-                            }
-
-                            goto retryArgv;
-                        }
-                        else
-                        {
-                            //
-                            // BUGFIX: We may have evaluated some code and
-                            //         the host may have been changed; grab
-                            //         it again.
-                            //
-                            ShellOps.ShellMainCoreError(
-                                activeInterpreter, savedArg0, arg0, code, result,
-                                GetShellErrorLine(activeInterpreter, errorLine),
-                                true, true, whatIf, ref argv,
-                                ref interactiveHost, ref quiet, ref result);
-                        }
-
-                        exitCode = ShellOps.ReturnCodeToExitCode(
-                            activeInterpreter, code, true);
-                    }
-                    else
+#if MAYBE_ENTERPRISE_LOCKDOWN
+                    if (IsEnterpriseLockdownEnabled())
                     {
                         ShellOps.ShellMainCoreError(
                             activeInterpreter, savedArg0, arg0, String.Format(
-                            "wrong # args: should be \"-{0} <script>\"",
-                            CommandLineOption.AnyInitialize), whatIf,
-                            ref argv, ref interactiveHost, ref quiet,
+                            "cannot use command line option {0}: lockdown",
+                            FormatOps.WrapOrNull(CommandLineOption.AnyInitialize)),
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
                             ref result);
 
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                    }
+                    else
+#endif
+                    {
+                        if (arg1 != null)
+                        {
+                            removeArgv += 2;
+
+                            code = activeInterpreter.MaybeRemoveArguments(
+                                whatIf, ref removeArgv, ref result);
+
+                            if ((code == ReturnCode.Ok) && !whatIf)
+                            {
+                                errorLine = 0;
+
+                                code = activeInterpreter.ShellEvaluateScript(
+                                    _ShellCallbackData.GetEvaluateScriptCallback(
+                                        localCallbackData), arg1, ref result,
+                                    ref errorLine);
+                            }
+
+                            if (code == ReturnCode.Ok)
+                            {
+                                //
+                                // NOTE: The shell callbacks may have been
+                                //       changed via the evaluated script;
+                                //       therefore, refresh the ones which
+                                //       were not directly supplied by the
+                                //       caller.
+                                //
+                                if (!whatIf)
+                                {
+                                    /* NO RESULT */
+                                    activeInterpreter.RefreshShellCallbacks();
+                                }
+
+                                //
+                                // NOTE: Must refresh the quiet flag now as
+                                //       it could have been changed by the
+                                //       evaluated script.
+                                //
+                                if (!whatIf && refreshQuiet)
+                                    quiet = activeInterpreter.ShouldBeQuiet();
+
+                                if (popArgv)
+                                {
+                                    GenericOps<string>.PopFirstArgument(ref argv);
+                                    GenericOps<string>.PopFirstArgument(ref argv);
+                                    popArgv = false;
+                                }
+
+                                goto retryArgv;
+                            }
+                            else
+                            {
+                                //
+                                // BUGFIX: We may have evaluated some code and
+                                //         the host may have been changed; grab
+                                //         it again.
+                                //
+                                ShellOps.ShellMainCoreError(
+                                    activeInterpreter, savedArg0, arg0, code, result,
+                                    GetShellErrorLine(activeInterpreter, errorLine),
+                                    true, true, whatIf, ref argv,
+                                    ref interactiveHost, ref quiet, ref result);
+                            }
+
+                            exitCode = ShellOps.ReturnCodeToExitCode(
+                                activeInterpreter, code, true);
+                        }
+                        else
+                        {
+                            ShellOps.ShellMainCoreError(
+                                activeInterpreter, savedArg0, arg0, String.Format(
+                                "wrong # args: should be \"-{0} <script>\"",
+                                CommandLineOption.AnyInitialize), whatIf,
+                                ref argv, ref interactiveHost, ref quiet,
+                                ref result);
+
+                            exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                        }
                     }
                 }
 #endif
@@ -85260,80 +85759,61 @@ namespace Eagle._Components.Public
                 else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Evaluate))
                 {
-                    //
-                    // HACK: Attempt to remove remaining arguments
-                    //       that this method knows about.  If any
-                    //       arguments after those were were added
-                    //       to the "argv" script variable, so be
-                    //       it.
-                    //
-                    removeArgv = argc;
-
-                    code = activeInterpreter.MaybeRemoveArguments(
-                        whatIf, ref removeArgv, ref result);
-
-                    if ((code == ReturnCode.Ok) && !whatIf && initialize)
+#if MAYBE_ENTERPRISE_LOCKDOWN
+                    if (IsEnterpriseLockdownEnabled())
                     {
-                        code = activeInterpreter.PrivateInitialize(
-                            forceInitialize, false, ref result);
+                        ShellOps.ShellMainCoreError(
+                            activeInterpreter, savedArg0, arg0, String.Format(
+                            "cannot use command line option {0}: lockdown",
+                            FormatOps.WrapOrNull(CommandLineOption.Evaluate)),
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
 
-                        activeInterpreter.MaybeIgnoreInitializeError(
-                            ref code, ref result);
+                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                    }
+                    else
+#endif
+                    {
+                        //
+                        // HACK: Attempt to remove remaining arguments
+                        //       that this method knows about.  If any
+                        //       arguments after those were were added
+                        //       to the "argv" script variable, so be
+                        //       it.
+                        //
+                        removeArgv = argc;
+
+                        code = activeInterpreter.MaybeRemoveArguments(
+                            whatIf, ref removeArgv, ref result);
+
+                        if ((code == ReturnCode.Ok) && !whatIf && initialize)
+                        {
+                            code = activeInterpreter.PrivateInitialize(
+                                forceInitialize, false, ref result);
+
+                            activeInterpreter.MaybeIgnoreInitializeError(
+                                ref code, ref result);
+
+                            if (code == ReturnCode.Ok)
+                            {
+                                //
+                                // NOTE: The shell callbacks may have been
+                                //       changed via the evaluated script;
+                                //       therefore, refresh the ones which
+                                //       were not directly supplied by the
+                                //       caller.
+                                //
+                                /* NO RESULT */
+                                activeInterpreter.RefreshShellCallbacks();
+                            }
+                        }
 
                         if (code == ReturnCode.Ok)
                         {
-                            //
-                            // NOTE: The shell callbacks may have been
-                            //       changed via the evaluated script;
-                            //       therefore, refresh the ones which
-                            //       were not directly supplied by the
-                            //       caller.
-                            //
-                            /* NO RESULT */
-                            activeInterpreter.RefreshShellCallbacks();
-                        }
-                    }
-
-                    if (code == ReturnCode.Ok)
-                    {
-                        if (argv != null)
-                        {
-                            IList<string> localArgv = new StringList(argv);
-                            int localArgc = localArgv.Count;
-
-                            for (int localArgIndex = 1;
-                                    localArgIndex < localArgc;
-                                    localArgIndex++)
+                            if (argv != null)
                             {
-                                string text;
-
-                                if (!ShellOps.MaybeGetArgument(
-                                        localArgv, localArgIndex, noTrim,
-                                        out text))
-                                {
-                                    break;
-                                }
-
-                                code = ShellOps.PreviewArgument(
-                                    activeInterpreter, interactiveHost, clientData,
-                                    localCallbackData, ArgumentPhase.Phase1,
-                                    whatIf, ref localArgIndex, ref text,
-                                    ref localArgv, ref result);
-
-                                if (code != ReturnCode.Ok)
-                                    break;
-
-                                if (!ShellOps.MaybeSetArgument(
-                                        localArgv, localArgIndex, text,
-                                        ref localArgc))
-                                {
-                                    break;
-                                }
-                            }
-
-                            if ((code == ReturnCode.Ok) && (localArgv != null))
-                            {
-                                localArgc = localArgv.Count;
+                                IList<string> localArgv = new StringList(argv);
+                                int localArgc = localArgv.Count;
 
                                 for (int localArgIndex = 1;
                                         localArgIndex < localArgc;
@@ -85348,143 +85828,144 @@ namespace Eagle._Components.Public
                                         break;
                                     }
 
-                                    if (!whatIf)
+                                    code = ShellOps.PreviewArgument(
+                                        activeInterpreter, interactiveHost, clientData,
+                                        localCallbackData, ArgumentPhase.Phase1,
+                                        whatIf, ref localArgIndex, ref text,
+                                        ref localArgv, ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        break;
+
+                                    if (!ShellOps.MaybeSetArgument(
+                                            localArgv, localArgIndex, text,
+                                            ref localArgc))
                                     {
-                                        errorLine = 0;
+                                        break;
+                                    }
+                                }
 
-                                        code = activeInterpreter.ShellEvaluateScript(
-                                            _ShellCallbackData.GetEvaluateScriptCallback(
-                                                localCallbackData), text, ref result,
-                                            ref errorLine);
+                                if ((code == ReturnCode.Ok) && (localArgv != null))
+                                {
+                                    localArgc = localArgv.Count;
 
-                                        if (code != ReturnCode.Ok)
+                                    for (int localArgIndex = 1;
+                                            localArgIndex < localArgc;
+                                            localArgIndex++)
+                                    {
+                                        string text;
+
+                                        if (!ShellOps.MaybeGetArgument(
+                                                localArgv, localArgIndex, noTrim,
+                                                out text))
+                                        {
                                             break;
+                                        }
+
+                                        if (!whatIf)
+                                        {
+                                            errorLine = 0;
+
+                                            code = activeInterpreter.ShellEvaluateScript(
+                                                _ShellCallbackData.GetEvaluateScriptCallback(
+                                                    localCallbackData), text, ref result,
+                                                ref errorLine);
+
+                                            if (code != ReturnCode.Ok)
+                                                break;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    if (code != ReturnCode.Ok)
-                    {
+                        if (code != ReturnCode.Ok)
+                        {
+                            //
+                            // BUGFIX: We may have evaluated some code and
+                            //         the host may have been changed; grab
+                            //         it again.
+                            //
+                            ShellOps.ShellMainCoreError(
+                                activeInterpreter, savedArg0, arg0, code, result,
+                                GetShellErrorLine(activeInterpreter, errorLine),
+                                true, true, whatIf, ref argv,
+                                ref interactiveHost, ref quiet, ref result);
+                        }
+
                         //
-                        // BUGFIX: We may have evaluated some code and
-                        //         the host may have been changed; grab
-                        //         it again.
+                        // BUGFIX: All remaining command line arguments have (now)
+                        //         been consumed, so clear them out.
                         //
-                        ShellOps.ShellMainCoreError(
-                            activeInterpreter, savedArg0, arg0, code, result,
-                            GetShellErrorLine(activeInterpreter, errorLine),
-                            true, true, whatIf, ref argv,
-                            ref interactiveHost, ref quiet, ref result);
+                        argv = null;
+
+                        //
+                        // NOTE: If the exit code for the interpreter is successful,
+                        //       use the return code to figure out what this method
+                        //       should return (i.e. just in case of a failure to
+                        //       initialize, evaluate a script, etc).
+                        //
+                        ShellOps.GetExitCode(activeInterpreter, code, out exitCode);
                     }
-
-                    //
-                    // BUGFIX: All remaining command line arguments have (now)
-                    //         been consumed, so clear them out.
-                    //
-                    argv = null;
-
-                    //
-                    // NOTE: If the exit code for the interpreter is successful,
-                    //       use the return code to figure out what this method
-                    //       should return (i.e. just in case of a failure to
-                    //       initialize, evaluate a script, etc).
-                    //
-                    ShellOps.GetExitCode(activeInterpreter, code, out exitCode);
                 }
                 else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.EvaluateEncoded))
                 {
-                    //
-                    // HACK: Attempt to remove remaining arguments
-                    //       that this method knows about.  If any
-                    //       arguments after those were were added
-                    //       to the "argv" script variable, so be
-                    //       it.
-                    //
-                    removeArgv = argc;
-
-                    code = activeInterpreter.MaybeRemoveArguments(
-                        whatIf, ref removeArgv, ref result);
-
-                    if ((code == ReturnCode.Ok) && !whatIf && initialize)
+#if MAYBE_ENTERPRISE_LOCKDOWN
+                    if (IsEnterpriseLockdownEnabled())
                     {
-                        code = activeInterpreter.PrivateInitialize(
-                            forceInitialize, false, ref result);
+                        ShellOps.ShellMainCoreError(
+                            activeInterpreter, savedArg0, arg0, String.Format(
+                            "cannot use command line option {0}: lockdown",
+                            FormatOps.WrapOrNull(CommandLineOption.EvaluateEncoded)),
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
 
-                        activeInterpreter.MaybeIgnoreInitializeError(
-                            ref code, ref result);
+                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                    }
+                    else
+#endif
+                    {
+                        //
+                        // HACK: Attempt to remove remaining arguments
+                        //       that this method knows about.  If any
+                        //       arguments after those were were added
+                        //       to the "argv" script variable, so be
+                        //       it.
+                        //
+                        removeArgv = argc;
+
+                        code = activeInterpreter.MaybeRemoveArguments(
+                            whatIf, ref removeArgv, ref result);
+
+                        if ((code == ReturnCode.Ok) && !whatIf && initialize)
+                        {
+                            code = activeInterpreter.PrivateInitialize(
+                                forceInitialize, false, ref result);
+
+                            activeInterpreter.MaybeIgnoreInitializeError(
+                                ref code, ref result);
+
+                            if (code == ReturnCode.Ok)
+                            {
+                                //
+                                // NOTE: The shell callbacks may have been
+                                //       changed via the evaluated script;
+                                //       therefore, refresh the ones which
+                                //       were not directly supplied by the
+                                //       caller.
+                                //
+                                /* NO RESULT */
+                                activeInterpreter.RefreshShellCallbacks();
+                            }
+                        }
 
                         if (code == ReturnCode.Ok)
                         {
-                            //
-                            // NOTE: The shell callbacks may have been
-                            //       changed via the evaluated script;
-                            //       therefore, refresh the ones which
-                            //       were not directly supplied by the
-                            //       caller.
-                            //
-                            /* NO RESULT */
-                            activeInterpreter.RefreshShellCallbacks();
-                        }
-                    }
-
-                    if (code == ReturnCode.Ok)
-                    {
-                        if (argv != null)
-                        {
-                            IList<string> localArgv = new StringList(argv);
-                            int localArgc = localArgv.Count;
-
-                            for (int localArgIndex = 1;
-                                    localArgIndex < localArgc;
-                                    localArgIndex++)
+                            if (argv != null)
                             {
-                                string text;
-
-                                if (!ShellOps.MaybeGetArgument(
-                                        localArgv, localArgIndex, noTrim,
-                                        out text))
-                                {
-                                    break;
-                                }
-
-                                code = ShellOps.PreviewArgument(
-                                    activeInterpreter, interactiveHost, clientData,
-                                    localCallbackData, ArgumentPhase.Phase1,
-                                    whatIf, ref localArgIndex, ref text,
-                                    ref localArgv, ref result);
-
-                                if (code == ReturnCode.Ok)
-                                {
-                                    try
-                                    {
-                                        code = StringOps.GetString(encoding,
-                                            Convert.FromBase64String(text),
-                                            EncodingType.Base64, ref text,
-                                            ref result);
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        result = e;
-                                        code = ReturnCode.Error;
-                                    }
-                                }
-
-                                if (code != ReturnCode.Ok)
-                                    break;
-
-                                if (!ShellOps.MaybeGetArgumentCount(
-                                        localArgv, ref localArgc))
-                                {
-                                    break;
-                                }
-                            }
-
-                            if ((code == ReturnCode.Ok) && (localArgv != null))
-                            {
-                                localArgc = localArgv.Count;
+                                IList<string> localArgv = new StringList(argv);
+                                int localArgc = localArgv.Count;
 
                                 for (int localArgIndex = 1;
                                         localArgIndex < localArgc;
@@ -85499,50 +85980,100 @@ namespace Eagle._Components.Public
                                         break;
                                     }
 
-                                    if (!whatIf)
+                                    code = ShellOps.PreviewArgument(
+                                        activeInterpreter, interactiveHost, clientData,
+                                        localCallbackData, ArgumentPhase.Phase1,
+                                        whatIf, ref localArgIndex, ref text,
+                                        ref localArgv, ref result);
+
+                                    if (code == ReturnCode.Ok)
                                     {
-                                        errorLine = 0;
+                                        try
+                                        {
+                                            code = StringOps.GetString(encoding,
+                                                Convert.FromBase64String(text),
+                                                EncodingType.Base64, ref text,
+                                                ref result);
+                                        }
+                                        catch (Exception e)
+                                        {
+                                            result = e;
+                                            code = ReturnCode.Error;
+                                        }
+                                    }
 
-                                        code = activeInterpreter.ShellEvaluateScript(
-                                            _ShellCallbackData.GetEvaluateScriptCallback(
-                                                localCallbackData), text, ref result,
-                                            ref errorLine);
+                                    if (code != ReturnCode.Ok)
+                                        break;
 
-                                        if (code != ReturnCode.Ok)
+                                    if (!ShellOps.MaybeGetArgumentCount(
+                                            localArgv, ref localArgc))
+                                    {
+                                        break;
+                                    }
+                                }
+
+                                if ((code == ReturnCode.Ok) && (localArgv != null))
+                                {
+                                    localArgc = localArgv.Count;
+
+                                    for (int localArgIndex = 1;
+                                            localArgIndex < localArgc;
+                                            localArgIndex++)
+                                    {
+                                        string text;
+
+                                        if (!ShellOps.MaybeGetArgument(
+                                                localArgv, localArgIndex, noTrim,
+                                                out text))
+                                        {
                                             break;
+                                        }
+
+                                        if (!whatIf)
+                                        {
+                                            errorLine = 0;
+
+                                            code = activeInterpreter.ShellEvaluateScript(
+                                                _ShellCallbackData.GetEvaluateScriptCallback(
+                                                    localCallbackData), text, ref result,
+                                                ref errorLine);
+
+                                            if (code != ReturnCode.Ok)
+                                                break;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    if (code != ReturnCode.Ok)
-                    {
+                        if (code != ReturnCode.Ok)
+                        {
+                            //
+                            // BUGFIX: We may have evaluated some code and
+                            //         the host may have been changed; grab
+                            //         it again.
+                            //
+                            ShellOps.ShellMainCoreError(
+                                activeInterpreter, savedArg0, arg0, code, result,
+                                GetShellErrorLine(activeInterpreter, errorLine),
+                                true, true, whatIf, ref argv,
+                                ref interactiveHost, ref quiet, ref result);
+                        }
+
                         //
-                        // BUGFIX: We may have evaluated some code and
-                        //         the host may have been changed; grab
-                        //         it again.
+                        // BUGFIX: All remaining command line arguments have (now)
+                        //         been consumed, so clear them out.
                         //
-                        ShellOps.ShellMainCoreError(
-                            activeInterpreter, savedArg0, arg0, code, result,
-                            GetShellErrorLine(activeInterpreter, errorLine),
-                            true, true, whatIf, ref argv,
-                            ref interactiveHost, ref quiet, ref result);
+                        argv = null;
+
+                        //
+                        // NOTE: If the exit code for the interpreter is successful,
+                        //       use the return code to figure out what this method
+                        //       should return (i.e. just in case of a failure to
+                        //       initialize, evaluate a script, etc).
+                        //
+                        ShellOps.GetExitCode(activeInterpreter, code, out exitCode);
                     }
-
-                    //
-                    // BUGFIX: All remaining command line arguments have (now)
-                    //         been consumed, so clear them out.
-                    //
-                    argv = null;
-
-                    //
-                    // NOTE: If the exit code for the interpreter is successful,
-                    //       use the return code to figure out what this method
-                    //       should return (i.e. just in case of a failure to
-                    //       initialize, evaluate a script, etc).
-                    //
-                    ShellOps.GetExitCode(activeInterpreter, code, out exitCode);
                 }
 #endif
                 else if ((switchCount > 0) &&
@@ -85663,7 +86194,7 @@ namespace Eagle._Components.Public
                         //
                         // BUGFIX: All remaining command line arguments have (now)
                         //         been consumed, so clear them out.  Technically,
-                        //         this is superflous for this particular command
+                        //         this is superfluous for this particular command
                         //         line option because even if the -noExit option
                         //         is active, these arguments will be cleared out
                         //         first.
@@ -86450,95 +86981,111 @@ namespace Eagle._Components.Public
                 else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.PostInitialize))
                 {
-                    if (arg1 != null)
+#if MAYBE_ENTERPRISE_LOCKDOWN
+                    if (IsEnterpriseLockdownEnabled())
                     {
-                        if (whatIf || activeInterpreter.PrivateInitialized)
+                        ShellOps.ShellMainCoreError(
+                            activeInterpreter, savedArg0, arg0, String.Format(
+                            "cannot use command line option {0}: lockdown",
+                            FormatOps.WrapOrNull(CommandLineOption.PostInitialize)),
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
+
+                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                    }
+                    else
+#endif
+                    {
+                        if (arg1 != null)
                         {
-                            removeArgv += 2;
-
-                            code = activeInterpreter.MaybeRemoveArguments(
-                                whatIf, ref removeArgv, ref result);
-
-                            if ((code == ReturnCode.Ok) && !whatIf)
+                            if (whatIf || activeInterpreter.PrivateInitialized)
                             {
-                                errorLine = 0;
+                                removeArgv += 2;
 
-                                code = activeInterpreter.ShellEvaluateScript(
-                                    _ShellCallbackData.GetEvaluateScriptCallback(
-                                        localCallbackData), arg1, ref result,
-                                    ref errorLine);
-                            }
+                                code = activeInterpreter.MaybeRemoveArguments(
+                                    whatIf, ref removeArgv, ref result);
 
-                            if (code == ReturnCode.Ok)
-                            {
-                                //
-                                // NOTE: The shell callbacks may have been
-                                //       changed via the evaluated script;
-                                //       therefore, refresh the ones which
-                                //       were not directly supplied by the
-                                //       caller.
-                                //
-                                if (!whatIf)
+                                if ((code == ReturnCode.Ok) && !whatIf)
                                 {
-                                    /* NO RESULT */
-                                    activeInterpreter.RefreshShellCallbacks();
+                                    errorLine = 0;
+
+                                    code = activeInterpreter.ShellEvaluateScript(
+                                        _ShellCallbackData.GetEvaluateScriptCallback(
+                                            localCallbackData), arg1, ref result,
+                                        ref errorLine);
                                 }
 
-                                //
-                                // NOTE: Must refresh the quiet flag now as
-                                //       it could have been changed by the
-                                //       evaluated script.
-                                //
-                                if (!whatIf && refreshQuiet)
-                                    quiet = activeInterpreter.ShouldBeQuiet();
-
-                                if (popArgv)
+                                if (code == ReturnCode.Ok)
                                 {
-                                    GenericOps<string>.PopFirstArgument(ref argv);
-                                    GenericOps<string>.PopFirstArgument(ref argv);
-                                    popArgv = false;
+                                    //
+                                    // NOTE: The shell callbacks may have been
+                                    //       changed via the evaluated script;
+                                    //       therefore, refresh the ones which
+                                    //       were not directly supplied by the
+                                    //       caller.
+                                    //
+                                    if (!whatIf)
+                                    {
+                                        /* NO RESULT */
+                                        activeInterpreter.RefreshShellCallbacks();
+                                    }
+
+                                    //
+                                    // NOTE: Must refresh the quiet flag now as
+                                    //       it could have been changed by the
+                                    //       evaluated script.
+                                    //
+                                    if (!whatIf && refreshQuiet)
+                                        quiet = activeInterpreter.ShouldBeQuiet();
+
+                                    if (popArgv)
+                                    {
+                                        GenericOps<string>.PopFirstArgument(ref argv);
+                                        GenericOps<string>.PopFirstArgument(ref argv);
+                                        popArgv = false;
+                                    }
+
+                                    goto retryArgv;
+                                }
+                                else
+                                {
+                                    //
+                                    // BUGFIX: We may have evaluated some code and
+                                    //         the host may have been changed; grab
+                                    //         it again.
+                                    //
+                                    ShellOps.ShellMainCoreError(
+                                        activeInterpreter, savedArg0, arg0, code, result,
+                                        GetShellErrorLine(activeInterpreter, errorLine),
+                                        true, true, whatIf, ref argv,
+                                        ref interactiveHost, ref quiet, ref result);
                                 }
 
-                                goto retryArgv;
+                                exitCode = ShellOps.ReturnCodeToExitCode(
+                                    activeInterpreter, code, true);
                             }
                             else
                             {
-                                //
-                                // BUGFIX: We may have evaluated some code and
-                                //         the host may have been changed; grab
-                                //         it again.
-                                //
                                 ShellOps.ShellMainCoreError(
-                                    activeInterpreter, savedArg0, arg0, code, result,
-                                    GetShellErrorLine(activeInterpreter, errorLine),
-                                    true, true, whatIf, ref argv,
-                                    ref interactiveHost, ref quiet, ref result);
-                            }
+                                    activeInterpreter, savedArg0, arg0,
+                                    "script library is not initialized", whatIf,
+                                    ref argv, ref interactiveHost, ref quiet,
+                                    ref result);
 
-                            exitCode = ShellOps.ReturnCodeToExitCode(
-                                activeInterpreter, code, true);
+                                exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                            }
                         }
                         else
                         {
                             ShellOps.ShellMainCoreError(
-                                activeInterpreter, savedArg0, arg0,
-                                "script library is not initialized", whatIf,
+                                activeInterpreter, savedArg0, arg0, String.Format(
+                                "wrong # args: should be \"-{0} <script>\"",
+                                CommandLineOption.PostInitialize), whatIf,
                                 ref argv, ref interactiveHost, ref quiet,
                                 ref result);
 
                             exitCode = ShellOps.FailureExitCode(activeInterpreter);
                         }
-                    }
-                    else
-                    {
-                        ShellOps.ShellMainCoreError(
-                            activeInterpreter, savedArg0, arg0, String.Format(
-                            "wrong # args: should be \"-{0} <script>\"",
-                            CommandLineOption.PostInitialize), whatIf,
-                            ref argv, ref interactiveHost, ref quiet,
-                            ref result);
-
-                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
 #endif
@@ -86638,95 +87185,111 @@ namespace Eagle._Components.Public
                 else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.PreInitialize))
                 {
-                    if (arg1 != null)
+#if MAYBE_ENTERPRISE_LOCKDOWN
+                    if (IsEnterpriseLockdownEnabled())
                     {
-                        if (whatIf || !activeInterpreter.PrivateInitialized)
+                        ShellOps.ShellMainCoreError(
+                            activeInterpreter, savedArg0, arg0, String.Format(
+                            "cannot use command line option {0}: lockdown",
+                            FormatOps.WrapOrNull(CommandLineOption.PreInitialize)),
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
+
+                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                    }
+                    else
+#endif
+                    {
+                        if (arg1 != null)
                         {
-                            removeArgv += 2;
-
-                            code = activeInterpreter.MaybeRemoveArguments(
-                                whatIf, ref removeArgv, ref result);
-
-                            if ((code == ReturnCode.Ok) && !whatIf)
+                            if (whatIf || !activeInterpreter.PrivateInitialized)
                             {
-                                errorLine = 0;
+                                removeArgv += 2;
 
-                                code = activeInterpreter.ShellEvaluateScript(
-                                    _ShellCallbackData.GetEvaluateScriptCallback(
-                                        localCallbackData), arg1, ref result,
-                                    ref errorLine);
-                            }
+                                code = activeInterpreter.MaybeRemoveArguments(
+                                    whatIf, ref removeArgv, ref result);
 
-                            if (code == ReturnCode.Ok)
-                            {
-                                //
-                                // NOTE: The shell callbacks may have been
-                                //       changed via the evaluated script;
-                                //       therefore, refresh the ones which
-                                //       were not directly supplied by the
-                                //       caller.
-                                //
-                                if (!whatIf)
+                                if ((code == ReturnCode.Ok) && !whatIf)
                                 {
-                                    /* NO RESULT */
-                                    activeInterpreter.RefreshShellCallbacks();
+                                    errorLine = 0;
+
+                                    code = activeInterpreter.ShellEvaluateScript(
+                                        _ShellCallbackData.GetEvaluateScriptCallback(
+                                            localCallbackData), arg1, ref result,
+                                        ref errorLine);
                                 }
 
-                                //
-                                // NOTE: Must refresh the quiet flag now as
-                                //       it could have been changed by the
-                                //       evaluated script.
-                                //
-                                if (!whatIf && refreshQuiet)
-                                    quiet = activeInterpreter.ShouldBeQuiet();
-
-                                if (popArgv)
+                                if (code == ReturnCode.Ok)
                                 {
-                                    GenericOps<string>.PopFirstArgument(ref argv);
-                                    GenericOps<string>.PopFirstArgument(ref argv);
-                                    popArgv = false;
+                                    //
+                                    // NOTE: The shell callbacks may have been
+                                    //       changed via the evaluated script;
+                                    //       therefore, refresh the ones which
+                                    //       were not directly supplied by the
+                                    //       caller.
+                                    //
+                                    if (!whatIf)
+                                    {
+                                        /* NO RESULT */
+                                        activeInterpreter.RefreshShellCallbacks();
+                                    }
+
+                                    //
+                                    // NOTE: Must refresh the quiet flag now as
+                                    //       it could have been changed by the
+                                    //       evaluated script.
+                                    //
+                                    if (!whatIf && refreshQuiet)
+                                        quiet = activeInterpreter.ShouldBeQuiet();
+
+                                    if (popArgv)
+                                    {
+                                        GenericOps<string>.PopFirstArgument(ref argv);
+                                        GenericOps<string>.PopFirstArgument(ref argv);
+                                        popArgv = false;
+                                    }
+
+                                    goto retryArgv;
+                                }
+                                else
+                                {
+                                    //
+                                    // BUGFIX: We may have evaluated some code and
+                                    //         the host may have been changed; grab
+                                    //         it again.
+                                    //
+                                    ShellOps.ShellMainCoreError(
+                                        activeInterpreter, savedArg0, arg0, code, result,
+                                        GetShellErrorLine(activeInterpreter, errorLine),
+                                        true, true, whatIf, ref argv,
+                                        ref interactiveHost, ref quiet, ref result);
                                 }
 
-                                goto retryArgv;
+                                exitCode = ShellOps.ReturnCodeToExitCode(
+                                    activeInterpreter, code, true);
                             }
                             else
                             {
-                                //
-                                // BUGFIX: We may have evaluated some code and
-                                //         the host may have been changed; grab
-                                //         it again.
-                                //
                                 ShellOps.ShellMainCoreError(
-                                    activeInterpreter, savedArg0, arg0, code, result,
-                                    GetShellErrorLine(activeInterpreter, errorLine),
-                                    true, true, whatIf, ref argv,
-                                    ref interactiveHost, ref quiet, ref result);
-                            }
+                                    activeInterpreter, savedArg0, arg0,
+                                    "script library is already initialized",
+                                    whatIf, ref argv, ref interactiveHost,
+                                    ref quiet, ref result);
 
-                            exitCode = ShellOps.ReturnCodeToExitCode(
-                                activeInterpreter, code, true);
+                                exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                            }
                         }
                         else
                         {
                             ShellOps.ShellMainCoreError(
-                                activeInterpreter, savedArg0, arg0,
-                                "script library is already initialized",
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                activeInterpreter, savedArg0, arg0, String.Format(
+                                "wrong # args: should be \"-{0} <script>\"",
+                                CommandLineOption.PreInitialize), whatIf,
+                                ref argv, ref interactiveHost, ref quiet,
+                                ref result);
 
                             exitCode = ShellOps.FailureExitCode(activeInterpreter);
                         }
-                    }
-                    else
-                    {
-                        ShellOps.ShellMainCoreError(
-                            activeInterpreter, savedArg0, arg0, String.Format(
-                            "wrong # args: should be \"-{0} <script>\"",
-                            CommandLineOption.PreInitialize), whatIf,
-                            ref argv, ref interactiveHost, ref quiet,
-                            ref result);
-
-                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
 #endif
@@ -86874,7 +87437,7 @@ namespace Eagle._Components.Public
                                 bool wasIsolated;
                                 bool wasSecurity;
 
-                                InterpreterSettings interpreterSettings = null;
+                                IInterpreterSettings interpreterSettings = null;
 
                                 if (activeInterpreter != null)
                                 {
@@ -87127,7 +87690,7 @@ namespace Eagle._Components.Public
                             bool wasIsolated;
                             bool wasSecurity;
 
-                            InterpreterSettings interpreterSettings = null;
+                            IInterpreterSettings interpreterSettings = null;
 
                             if (activeInterpreter != null)
                             {
@@ -87973,29 +88536,45 @@ namespace Eagle._Components.Public
                 else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.StartupPreInitialize))
                 {
-                    //
-                    // NOTE: Actually, this argument should have already been
-                    //       processed by the GetStartupPreInitializeText()
-                    //       method; therefore, just skip over it.  However,
-                    //       first issue a warning to make sure that the user
-                    //       knows about this.
-                    //
-                    if (!whatIf && !quiet)
+#if MAYBE_ENTERPRISE_LOCKDOWN
+                    if (IsEnterpriseLockdownEnabled())
                     {
-                        ShellOps.WritePrompt(interactiveHost,
-                            _Constants.Prompt.PreInitializeText);
-                    }
+                        ShellOps.ShellMainCoreError(
+                            activeInterpreter, savedArg0, arg0, String.Format(
+                            "cannot use command line option {0}: lockdown",
+                            FormatOps.WrapOrNull(CommandLineOption.StartupPreInitialize)),
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
 
-                    if (popArgv)
+                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                    }
+                    else
+#endif
                     {
-                        GenericOps<string>.PopFirstArgument(ref argv);
-                        GenericOps<string>.PopFirstArgument(ref argv);
-                        popArgv = false;
+                        //
+                        // NOTE: Actually, this argument should have already been
+                        //       processed by the GetStartupPreInitializeText()
+                        //       method; therefore, just skip over it.  However,
+                        //       first issue a warning to make sure that the user
+                        //       knows about this.
+                        //
+                        if (!whatIf && !quiet)
+                        {
+                            ShellOps.WritePrompt(interactiveHost,
+                                _Constants.Prompt.PreInitializeText);
+                        }
+
+                        if (popArgv)
+                        {
+                            GenericOps<string>.PopFirstArgument(ref argv);
+                            GenericOps<string>.PopFirstArgument(ref argv);
+                            popArgv = false;
+                        }
+
+                        removeArgv += 2;
+
+                        goto retryArgv;
                     }
-
-                    removeArgv += 2;
-
-                    goto retryArgv;
                 }
 #endif
                 else if ((switchCount > 0) &&
@@ -88865,7 +89444,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ExitCode PrivateShellMain(
-            InterpreterSettings interpreterSettings,
+            IInterpreterSettings interpreterSettings,
             IEnumerable<string> args,
             OptionOriginFlags originFlags
             )
@@ -88910,7 +89489,7 @@ namespace Eagle._Components.Public
                 //       file and allow the settings to be overridden from
                 //       it.
                 //
-                InterpreterSettings localInterpreterSettings;
+                IInterpreterSettings localInterpreterSettings;
                 CreateFlags createFlags = CreateFlags.None;
 
                 if (interpreterSettings != null)
@@ -89131,7 +89710,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static ExitCode ShellMain(
-            InterpreterSettings interpreterSettings,
+            IInterpreterSettings interpreterSettings,
             IEnumerable<string> args
             ) /* ENTRY-POINT, THREAD-SAFE, RE-ENTRANT */
         {
@@ -106366,8 +106945,9 @@ namespace Eagle._Components.Public
                 {
                     pluginFlags = value;
 
-#if ENTERPRISE_LOCKDOWN
-                    EnforceLockdownForPlugins();
+#if ENTERPRISE_LOCKDOWN || MAYBE_ENTERPRISE_LOCKDOWN
+                    if (IsEnterpriseLockdownEnabled())
+                        EnforceLockdownForPlugins();
 #endif
                 }
             }
@@ -106409,17 +106989,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-#if ENTERPRISE_LOCKDOWN
+#if ENTERPRISE_LOCKDOWN || MAYBE_ENTERPRISE_LOCKDOWN
         private void EnforceLockdownForPlugins()
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                if (!FlagOps.HasFlags(pluginFlags,
-                        PluginFlags.VerifiedAndTrustedOnlyMask, true))
+                PluginFlags newPluginFlags;
+
+#if DEBUG
+                //
+                // HACK: Debug builds of Eagle are never signed with an
+                //       Authenticode certificate, except for "private"
+                //       testing.  Debug builds of Eagle are also never
+                //       shipped.
+                //
+                newPluginFlags = PluginFlags.VerifiedOnly;
+#else
+                newPluginFlags = PluginFlags.VerifiedAndTrustedOnlyMask;
+#endif
+
+                if (!FlagOps.HasFlags(pluginFlags, newPluginFlags, true))
                 {
                     PluginFlags oldPluginFlags = pluginFlags;
 
-                    pluginFlags |= PluginFlags.VerifiedAndTrustedOnlyMask;
+                    pluginFlags |= newPluginFlags;
 
                     TraceOps.DebugTrace(String.Format(
                         "EnforceLockdownForPlugins: forced from {0} to {1}",
@@ -107822,6 +108415,10 @@ namespace Eagle._Components.Public
                 if (empty || ((packageIndexes != null) && (packageIndexes.Count > 0)))
                     list.Add("PackageIndexes", (packageIndexes != null) ?
                         packageIndexes.Count.ToString() : FormatOps.DisplayNull);
+
+                if (empty || ((packageAliases != null) && (packageAliases.Count > 0)))
+                    list.Add("PackageAliases", (packageAliases != null) ?
+                        packageAliases.Count.ToString() : FormatOps.DisplayNull);
 
 #if APPDOMAINS
                 if (empty || ((appDomains != null) && (appDomains.Count > 0)))
@@ -114076,8 +114673,8 @@ namespace Eagle._Components.Public
                 Result error = null;
 
                 code = GlobalState.GetInterpreter(
-                    LookupFlags.Interpreter, null, ref interpreter,
-                    ref error);
+                    LookupFlags.Interpreter, null,
+                    ref interpreter, ref error);
 
                 if (code != ReturnCode.Ok)
                 {
@@ -119897,6 +120494,14 @@ namespace Eagle._Components.Public
 
                 if (reset)
                     packageIndexes = null;
+            }
+
+            if (packageAliases != null)
+            {
+                packageAliases.Clear();
+
+                if (reset)
+                    packageAliases = null;
             }
         }
 

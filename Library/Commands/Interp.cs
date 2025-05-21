@@ -251,7 +251,8 @@ namespace Eagle._Commands
                                                                             //       hard-coded to false here.  Rethink?
                                                                             //
                                                                             code = RuntimeOps.PopulatePluginEntities(
-                                                                                childInterpreter, plugin, null, ruleSet, null,
+                                                                                childInterpreter, plugin, null, ruleSet,
+                                                                                null, null,
                                                                                 Interpreter.IsVerbose(childInterpreter),
                                                                                 useBuiltIn, false, false, ref result);
                                                                         }
@@ -919,10 +920,18 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-safe"))
                                                             safe = true;
 
-                                                        SdkType sdkType = SdkType.Default;
+                                                        //
+                                                        // HACK: Do not allow the "-sdk" option to be used
+                                                        //       if the current (parent) interpreter has a
+                                                        //       non-default SDK setting.
+                                                        //
+                                                        SdkType sdkType = interpreter.InternalTranslateSdkType();
 
-                                                        if (options.IsPresent("-sdk", ref value))
+                                                        if ((sdkType == SdkType.Default) &&
+                                                            options.IsPresent("-sdk", ref value))
+                                                        {
                                                             sdkType = (SdkType)value.Value;
+                                                        }
 
                                                         bool noHidden = false;
 
@@ -1169,6 +1178,9 @@ namespace Eagle._Commands
 
                                                         if (FlagOps.HasFlags(sdkType, SdkType.License, true))
                                                             createFlags |= CreateFlags.LicenseSdk;
+
+                                                        if (FlagOps.HasFlags(sdkType, SdkType.NonCritical, true))
+                                                            createFlags |= CreateFlags.NoCritical;
 
                                                         if (noCommands || FlagOps.HasFlags(
                                                                 createFlags, CreateFlags.SdkMask, false))

@@ -1254,6 +1254,28 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        private static DateTime StartOfDay(
+            DateTime dateTime
+            )
+        {
+            return new DateTime(
+                dateTime.Year, dateTime.Month, dateTime.Day,
+                0, 0, 0, dateTime.Kind);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static DateTime EndOfDay(
+            DateTime dateTime
+            )
+        {
+            return new DateTime(
+                dateTime.Year, dateTime.Month, dateTime.Day,
+                23, 59, 59, dateTime.Kind);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static DateTime StartOfMonth(
             DateTime dateTime
             )

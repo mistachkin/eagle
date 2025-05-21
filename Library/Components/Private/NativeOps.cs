@@ -1023,14 +1023,35 @@ namespace Eagle._Components.Private
 
             #region Unix System Logging Methods
             /* NOTE: Always Ansi on Unix. */
-            [DllImport(DllName.LibC, CallingConvention = CallingConvention.Cdecl,
-                CharSet = CharSet.Ansi, BestFitMapping = false, ThrowOnUnmappableChar = true)]
-            internal static extern void syslog(int priority, string outputString, string argument);
+            [DllImport(DllName.LibC,
+                CallingConvention = CallingConvention.Cdecl,
+                CharSet = CharSet.Ansi, BestFitMapping = false,
+                ThrowOnUnmappableChar = true)]
+            internal static extern void bare_syslog(
+                int priority,  /* in */
+                string message /* in */
+            );
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            [DllImport(DllName.LibC, CallingConvention = CallingConvention.Cdecl)]
-            internal static extern IntPtr strerror(int error);
+            /* NOTE: Always Ansi on Unix. */
+            [DllImport(DllName.LibC,
+                CallingConvention = CallingConvention.Cdecl,
+                CharSet = CharSet.Ansi, BestFitMapping = false,
+                ThrowOnUnmappableChar = true)]
+            internal static extern void string_syslog(
+                int priority,    /* in */
+                string message,  /* in */
+                string argument1 /* in */
+            );
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.LibC,
+                CallingConvention = CallingConvention.Cdecl)]
+            internal static extern IntPtr strerror(
+                int error /* in */
+            );
             #endregion
 #endif
         }
@@ -1065,6 +1086,15 @@ namespace Eagle._Components.Private
         private static string MonoMemoryCategoryName = "Mono Memory";
         private static string MonoTotalPhysicalMemoryCounterName = "Total Physical Memory";
         private static string MonoAvailablePhysicalMemoryCounterName = "Available Physical Memory";
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if UNIX
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool NoMacintoshOutputDebugMessage = false;
 #endif
         #endregion
 
@@ -3290,6 +3320,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static bool MacintoshOutputDebugMessage(
+            string message /* in */
+            )
+        {
+            EscapePrintfStyleFormatting(ref message);
+
+            if (message != null)
+            {
+                try
+                {
+                    UnsafeNativeMethods.bare_syslog(
+                        UnsafeNativeMethods.LOG_DEBUG,
+                        message);
+
+                    return true;
+                }
+                catch
+                {
+                    // do nothing.
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static bool UnixOutputDebugMessage(
             string message /* in */
             )
@@ -3298,7 +3355,7 @@ namespace Eagle._Components.Private
             {
                 try
                 {
-                    UnsafeNativeMethods.syslog(
+                    UnsafeNativeMethods.string_syslog(
                         UnsafeNativeMethods.LOG_DEBUG,
                         FormatOps.StringInputFormat, message);
 
@@ -3686,6 +3743,24 @@ namespace Eagle._Components.Private
 
             error = "not supported on this operating system";
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static int EscapePrintfStyleFormatting(
+            ref string message /* in, out */
+            )
+        {
+            int length;
+
+            if (StringOps.IsNullOrEmpty(message, out length))
+                return Count.Invalid;
+
+            message = message.Replace(
+                Characters.SinglePercentSignString,
+                Characters.DoublePercentSignString);
+
+            return (message.Length - length);
         }
         #endregion
 
@@ -4241,6 +4316,13 @@ namespace Eagle._Components.Private
 #endif
 
 #if UNIX
+            if (!NoMacintoshOutputDebugMessage &&
+                PlatformOps.IsMacintoshOperatingSystem() &&
+                !PlatformOps.IsIntelProcessorArchitecture())
+            {
+                return MacintoshOutputDebugMessage(message);
+            }
+
             if (PlatformOps.IsUnixOperatingSystem())
                 return UnixOutputDebugMessage(message);
 #endif

@@ -1048,7 +1048,7 @@ namespace Eagle._Commands
                                                                     }
                                                                 case IsolationLevel.Process:
                                                                     {
-#if SHELL
+#if SHELL && !ENTERPRISE_LOCKDOWN
                                                                         testInterpreter = interpreter;
                                                                         wasHandled = true; /* NOTE: Locally. */
 

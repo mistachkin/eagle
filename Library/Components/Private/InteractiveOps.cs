@@ -5253,12 +5253,52 @@ namespace Eagle._Components.Private
                 ref Result localResult
                 )
             {
-                //
-                // NOTE: Invoke (interactive) command help using exactly the
-                //       specified arguments.
-                //
-                localCode = HelpOps.WriteInteractiveHelp(
-                    interpreter, debugArguments, ref localResult);
+                int stable = 0;
+
+                if ((debugArguments.Count >= 2) &&
+                    !String.IsNullOrEmpty(debugArguments[1]) &&
+                    (Value.GetInteger2(
+                        debugArguments[1], ValueFlags.AnyInteger,
+                        interpreter.InternalCultureInfo,
+                        ref stable) == ReturnCode.Ok))
+                {
+                    string suffix = null;
+
+                    if ((debugArguments.Count >= 3) &&
+                        !String.IsNullOrEmpty(debugArguments[2]))
+                    {
+                        suffix = debugArguments[2];
+                    }
+
+                    if ((stable > 0) && (stable < 2))
+                    {
+                        string localValue = RuntimeOps.GetUpdatePathAndQuery(
+                            GlobalState.GetAssemblyUpdateVersion(), null,
+                            suffix);
+
+                        localCode = interpreter.SetVariableValue2(
+                            VariableFlags.GlobalOnly, Vars.Platform.Name,
+                            Vars.Platform.UpdatePathAndQueryName, localValue,
+                            ref localResult);
+
+                        if (localCode == ReturnCode.Ok)
+                            localResult = String.Empty;
+                    }
+                    else
+                    {
+                        localResult = "invalid, unstable argument";
+                        localCode = ReturnCode.Error;
+                    }
+                }
+                else
+                {
+                    //
+                    // NOTE: Invoke (interactive) command help using
+                    //       exactly the specified arguments.
+                    //
+                    localCode = HelpOps.WriteInteractiveHelp(
+                        interpreter, debugArguments, ref localResult);
+                }
             }
 
             ///////////////////////////////////////////////////////////////////////
@@ -7811,8 +7851,8 @@ namespace Eagle._Components.Private
                 )
             {
                 if (HelpOps.WriteBanner(
-                        interpreter, false, false, false, false, false, true,
-                        true, true, true) &&
+                        interpreter, false, false, false, false,
+                        false, true, false, false, false, true) &&
                     (interactiveHost != null) && interactiveHost.WriteLine() &&
                     HelpOps.WriteLegalese(interpreter, false))
                 {
@@ -7822,12 +7862,13 @@ namespace Eagle._Components.Private
                         ReturnCode localCommandCode;
                         Result localCommandResult = null;
 
-                        bool stable = false;
+                        int stable = 0;
 
-                        localCommandCode = Value.GetBoolean2(
-                            debugArguments[1], ValueFlags.AnyBoolean,
-                            interpreter.InternalCultureInfo, ref stable,
-                            ref localCommandResult);
+                        localCommandCode = Value.GetInteger2(
+                            (IGetValue)debugArguments[1],
+                            ValueFlags.AnyInteger,
+                            interpreter.InternalCultureInfo,
+                            ref stable, ref localCommandResult);
 
                         string suffix = null;
 
@@ -7837,7 +7878,8 @@ namespace Eagle._Components.Private
                             suffix = debugArguments[2];
                         }
 
-                        if ((localCommandCode == ReturnCode.Ok) && stable)
+                        if ((localCommandCode == ReturnCode.Ok) &&
+                            (stable > 0) && (stable < 2))
                         {
                             string localValue = RuntimeOps.GetUpdatePathAndQuery(
                                 GlobalState.GetAssemblyUpdateVersion(), null,

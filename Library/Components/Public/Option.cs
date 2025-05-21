@@ -64,12 +64,12 @@ namespace Eagle._Components.Public
 
         #region Public Constructors
         public Option(
-            Type type,
-            OptionFlags flags,
-            int groupIndex,
-            int index,
-            string name,
-            IVariant value
+            Type type,         /* in */
+            OptionFlags flags, /* in */
+            int groupIndex,    /* in */
+            int index,         /* in */
+            string name,       /* in */
+            IVariant value     /* in */
             )
         {
             this.kind = IdentifierKind.Option;
@@ -81,6 +81,7 @@ namespace Eagle._Components.Public
             this.groupIndex = groupIndex;
             this.index = index;
             this.value = value;
+            this.defaultValue = (value != null) ? new Variant(value) : null;
         }
         #endregion
 
@@ -216,9 +217,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private IVariant defaultValue;
+        public IVariant DefaultValue
+        {
+            get { return defaultValue; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public object DefaultInnerValue
+        {
+            get { return (defaultValue != null) ? defaultValue.Value : null; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public bool HasFlags(
-            OptionFlags flags,
-            bool all
+            OptionFlags flags, /* in */
+            bool all           /* in */
             )
         {
             return FlagOps.HasFlags(this.flags, flags, all);
@@ -227,7 +243,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool IsStrict(
-            OptionDictionary options /* NOT USED */
+            OptionDictionary options /* in: NOT USED */
             )
         {
             return HasFlags(OptionFlags.Strict, true);
@@ -236,7 +252,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool IsNoCase(
-            OptionDictionary options /* NOT USED */
+            OptionDictionary options /* in: NOT USED */
             )
         {
             return HasFlags(OptionFlags.NoCase, true);
@@ -245,7 +261,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool IsUnsafe(
-            OptionDictionary options /* NOT USED */
+            OptionDictionary options /* in: NOT USED */
             )
         {
             return HasFlags(OptionFlags.Unsafe, true);
@@ -254,7 +270,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool IsRestricted(
-            OptionDictionary options /* NOT USED */
+            OptionDictionary options /* in: NOT USED */
             )
         {
             return HasFlags(OptionFlags.Restricted, true);
@@ -263,7 +279,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool IsAllowInteger(
-            OptionDictionary options /* NOT USED */
+            OptionDictionary options /* in: NOT USED */
             )
         {
             return HasFlags(OptionFlags.AllowInteger, true);
@@ -272,7 +288,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool IsIgnored(
-            OptionDictionary options /* NOT USED */
+            OptionDictionary options /* in: NOT USED */
             )
         {
             return HasFlags(OptionFlags.Ignored, true);
@@ -281,7 +297,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool MustHaveValue(
-            OptionDictionary options /* NOT USED */
+            OptionDictionary options /* in: NOT USED */
             )
         {
             return HasFlags(OptionFlags.MustHaveValue, true);
@@ -290,8 +306,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool CanBePresent(
-            OptionDictionary options, /* NOT USED */
-            ref Result error
+            OptionDictionary options, /* in: NOT USED */
+            ref Result error          /* out */
             )
         {
             if (HasFlags(OptionFlags.Unsupported, true))
@@ -318,7 +334,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool IsPresent(
-            OptionDictionary options /* NOT USED */
+            OptionDictionary options /* in: NOT USED */
             )
         {
             return HasFlags(OptionFlags.Present, true);
@@ -327,9 +343,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool IsPresent(
-            OptionDictionary options, /* NOT USED */
-            ref int nameIndex,
-            ref int valueIndex
+            OptionDictionary options, /* in: NOT USED */
+            ref int nameIndex,        /* out */
+            ref int valueIndex        /* out */
             )
         {
             if (HasFlags(OptionFlags.Present, true))
@@ -348,8 +364,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool IsPresent(
-            OptionDictionary options, /* NOT USED */
-            ref IVariant value
+            OptionDictionary options, /* in: NOT USED */
+            ref IVariant value        /* out */
             )
         {
             if (HasFlags(OptionFlags.Present, true))
@@ -366,10 +382,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public void SetPresent(
-            OptionDictionary options,
-            bool present,
-            int index,
-            IVariant value
+            OptionDictionary options, /* in */
+            bool present,             /* in */
+            int index,                /* in */
+            IVariant value            /* in */
             )
         {
             if (present)
@@ -411,7 +427,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public string ToString(
-            OptionFlags flags
+            OptionFlags flags /* in */
             )
         {
             string result;
@@ -662,7 +678,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public StringList ToList(
-            IOption option
+            IOption option /* in */
             )
         {
             StringList list = new StringList();
@@ -689,7 +705,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public string ToString(
-            IOption option
+            IOption option /* in */
             )
         {
             return ParserOps<string>.ListToString(
@@ -704,10 +720,10 @@ namespace Eagle._Components.Public
         #region Private Static Methods
         #region Static "Factory" Methods
         private static IOption Create(
-            Type type,
-            OptionFlags flags,
-            string name,
-            IVariant value
+            Type type,         /* in */
+            OptionFlags flags, /* in */
+            string name,       /* in */
+            IVariant value     /* in */
             )
         {
             return new Option(
@@ -731,9 +747,9 @@ namespace Eagle._Components.Public
         #region Public Static Methods
         #region Static "Factory" Methods
         public static IOption Create(
-            OptionFlags flags,
-            string name,
-            IVariant value
+            OptionFlags flags, /* in */
+            string name,       /* in */
+            IVariant value     /* in */
             )
         {
             return Create(null, flags, name, value);
@@ -742,7 +758,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static IOption CreateSimple(
-            string name
+            string name /* in */
             )
         {
             return Create(null, OptionFlags.None, name, null);
@@ -751,8 +767,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static IOption CreateString(
-            string name,
-            string value
+            string name, /* in */
+            string value /* in */
             )
         {
             return Create(null,
@@ -763,10 +779,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static IOption CreateEnum(
-            Type type,
-            string name,
-            Enum value,
-            bool list
+            Type type,   /* in */
+            string name, /* in */
+            Enum value,  /* in */
+            bool list    /* in */
             )
         {
             return Create(
@@ -786,7 +802,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsEndOfOptions(
-            string text
+            string text /* in */
             )
         {
             return !String.IsNullOrEmpty(text) &&
@@ -798,7 +814,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsListOfOptions(
-            string text
+            string text /* in */
             )
         {
             return !String.IsNullOrEmpty(text) &&
@@ -810,7 +826,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static bool LooksLikeOption(
-            string text
+            string text /* in */
             )
         {
             return !String.IsNullOrEmpty(text) &&
@@ -820,8 +836,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static string FormatOption(
-            string name,
-            bool prefix
+            string name, /* in */
+            bool prefix  /* in */
             )
         {
             if (String.IsNullOrEmpty(name))
@@ -834,15 +850,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static IOption FromString( /* COMPAT: Eagle beta. */
-            Interpreter interpreter,
-            string text,
-            AppDomain appDomain,
-            bool allowInteger,
-            bool strict,
-            bool verbose,
-            bool noCase,
-            CultureInfo cultureInfo,
-            ref Result error
+            Interpreter interpreter, /* in */
+            string text,             /* in */
+            AppDomain appDomain,     /* in */
+            bool allowInteger,       /* in */
+            bool strict,             /* in */
+            bool verbose,            /* in */
+            bool noCase,             /* in */
+            CultureInfo cultureInfo, /* in */
+            ref Result error         /* out */
             )
         {
             StringList list = null;
@@ -931,12 +947,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static IOption FromString(
-            Interpreter interpreter,
-            string text,
-            AppDomain appDomain,
-            ValueFlags valueFlags,
-            CultureInfo cultureInfo,
-            ref Result error
+            Interpreter interpreter, /* in */
+            string text,             /* in */
+            AppDomain appDomain,     /* in */
+            ValueFlags valueFlags,   /* in */
+            CultureInfo cultureInfo, /* in */
+            ref Result error         /* out */
             )
         {
             StringList list = null;

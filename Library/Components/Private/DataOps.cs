@@ -985,8 +985,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void GetBundleConnectionTypes(
-            out DbConnectionType dbConnectionType1,
-            out DbConnectionType dbConnectionType2
+            out DbConnectionType dbConnectionType1, /* out */
+            out DbConnectionType dbConnectionType2  /* out */
             )
         {
             dbConnectionType1 = DbConnectionType.SQLiteEnterprise;

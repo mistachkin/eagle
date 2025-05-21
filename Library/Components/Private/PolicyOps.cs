@@ -143,7 +143,8 @@ namespace Eagle._Components.Private
         //
         internal static readonly StringDictionary DisallowedPackageSubCommandNames =
             new StringDictionary(new string[] {
-            "indexes", "relativefilename", "reset", "scan", "vloaded"
+            "alias", "aliases", "indexes", "relativefilename", "reset",
+            "scan", "vloaded"
         }, true, false);
 
         ///////////////////////////////////////////////////////////////////////

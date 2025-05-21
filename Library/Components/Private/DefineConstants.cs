@@ -328,6 +328,10 @@ namespace Eagle._Constants
             "LIST_CACHE",
 #endif
 
+#if MAYBE_ENTERPRISE_LOCKDOWN
+            "MAYBE_ENTERPRISE_LOCKDOWN",
+#endif
+
 #if MAYBE_TRACE
             "MAYBE_TRACE",
 #endif

@@ -71,7 +71,9 @@
 /*****************************************************************************/
 
 #define LIBRARY_VERSION_LENGTH			(256)
-#define LIBRARY_VERSION_FORMAT			L"%ls v%ls [%ls %ls]%ls%ls%d%ls%ls%ls\0"
+
+#define LIBRARY_VERSION_FORMAT			\
+	UNICODIFY("%ls v%ls [%ls %ls]%ls%ls%d%ls%ls%ls\0")
 
 /*****************************************************************************/
 

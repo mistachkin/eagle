@@ -254,7 +254,7 @@ namespace Eagle._Containers.Private
                 if ((maximumAccessCount >= 0) &&
                     (accessCount > maximumAccessCount))
                 {
-                    return true;
+                    return false;
                 }
 
                 if ((minimumAccessCount >= 0) &&
@@ -899,9 +899,12 @@ namespace Eagle._Containers.Private
             TKey key
             )
         {
-            UpdateAccessedAndCount(key, Now, 1, false);
+            bool result = base.ContainsKey(key); /* throw */
 
-            return base.ContainsKey(key); /* throw */
+            if (result)
+                UpdateAccessedAndCount(key, Now, 1, false);
+
+            return result;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -923,9 +926,12 @@ namespace Eagle._Containers.Private
             out TValue value
             )
         {
-            UpdateAccessedAndCount(key, Now, 1, false);
+            bool result = base.TryGetValue(key, out value); /* throw */
 
-            return base.TryGetValue(key, out value); /* throw */
+            if (result)
+                UpdateAccessedAndCount(key, Now, 1, false);
+
+            return result;
         }
         #endregion
 
@@ -972,9 +978,12 @@ namespace Eagle._Containers.Private
             TKey key
             )
         {
-            UpdateAccessedAndCount(key, Now, 1, false);
+            bool result = base.ContainsKey(key); /* throw */
 
-            return base.ContainsKey(key); /* throw */
+            if (result)
+                UpdateAccessedAndCount(key, Now, 1, false);
+
+            return result;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -996,9 +1005,12 @@ namespace Eagle._Containers.Private
             out TValue value
             )
         {
-            UpdateAccessedAndCount(key, Now, 1, false);
+            bool result = base.TryGetValue(key, out value); /* throw */
 
-            return base.TryGetValue(key, out value); /* throw */
+            if (result)
+                UpdateAccessedAndCount(key, Now, 1, false);
+
+            return result;
         }
         #endregion
 
@@ -1007,10 +1019,12 @@ namespace Eagle._Containers.Private
         #region Dictionary<TKey, TValue> Overrides
         public virtual new void Clear()
         {
-            ClearAccessed(false);
+            ClearAccessed(true);
             ResetStatistics();
 
             base.Clear();
+
+            InitializeAccessed();
         }
         #endregion
 

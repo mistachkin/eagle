@@ -2413,7 +2413,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-#if SHELL
+#if SHELL && !ENTERPRISE_LOCKDOWN
         private static ReturnCode GetIsolatedExecutableFirstArguments(
             Interpreter interpreter,       /* in */
             string fileName,               /* in */

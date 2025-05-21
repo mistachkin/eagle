@@ -2958,6 +2958,9 @@ namespace Eagle._Components.Private
         {
             return new OptionDictionary(
                 new IOption[] {
+                new Option(null, OptionFlags.MustHaveEncodingValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-encoding", null),
                 new Option(null, OptionFlags.Unsafe, Index.Invalid,
                     Index.Invalid, "-useobject", null),
                 new Option(null, OptionFlags.None, Index.Invalid,

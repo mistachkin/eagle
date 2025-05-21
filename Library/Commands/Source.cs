@@ -88,6 +88,8 @@ namespace Eagle._Commands
                     OptionFlags.Nullable, Index.Invalid, Index.Invalid,
                     "-bundle", null),
                 new Option(null, OptionFlags.MustHaveBooleanValue,
+                    Index.Invalid, Index.Invalid, "-erroronempty", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue,
                     Index.Invalid, Index.Invalid, "-stoponerror", null),
                 Option.CreateEndOfOptions()
             });
@@ -156,6 +158,11 @@ namespace Eagle._Commands
 
             if (options.IsPresent("-bundle", ref value))
                 bundle = (bool?)value.Value;
+
+            bool errorOnEmpty = false;
+
+            if (options.IsPresent("-erroronempty", ref value))
+                errorOnEmpty = (bool)value.Value;
 
             bool stopOnError = false;
 
@@ -244,8 +251,9 @@ namespace Eagle._Commands
                                     if ((bool)bundle)
                                     {
                                         code = interpreter.EvaluateBundleFile(
-                                            fileName, password, stopOnError,
-                                            ref clientData, ref result);
+                                            fileName, password, errorOnEmpty,
+                                            stopOnError, ref clientData,
+                                            ref result);
                                     }
                                     else
                                     {

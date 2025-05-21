@@ -59,9 +59,15 @@ namespace Eagle._Commands
                     {
                         OptionDictionary options = new OptionDictionary(
                             new IOption[] {
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-usecount", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-useobject", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nonewline", null)
+                            new Option(null, OptionFlags.MustHaveEncodingValue |
+                                OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                                "-encoding", null),
+                            new Option(null, OptionFlags.Unsafe, Index.Invalid,
+                                Index.Invalid, "-usecount", null),
+                            new Option(null, OptionFlags.Unsafe, Index.Invalid,
+                                Index.Invalid, "-useobject", null),
+                            new Option(null, OptionFlags.None, Index.Invalid,
+                                Index.Invalid, "-nonewline", null)
                         });
 
                         int argumentIndex = Index.Invalid;
@@ -87,6 +93,12 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-nonewline"))
                                     newLine = false;
 
+                                IVariant value = null;
+                                Encoding encoding = null;
+
+                                if (options.IsPresent("-encoding", ref value))
+                                    encoding = (Encoding)value.Value;
+
                                 string channelId = Channel.StdOut;
 
                                 if ((argumentIndex + 1) < argumentCount)
@@ -96,25 +108,30 @@ namespace Eagle._Commands
 
                                 if (channel != null)
                                 {
-                                    Encoding encoding = channel.GetEncoding();
+                                    if (encoding == null)
+                                        encoding = channel.GetEncoding();
 
                                     if (channel.NullEncoding || (encoding != null))
                                     {
                                         StringBuilder builder; /* REUSED */
                                         int outputIndex = argumentCount - 1;
                                         Argument outputArgument = arguments[outputIndex];
-                                        int outputLength = outputArgument.Length;
                                         string outputString;
 
                                         if (newLine)
                                         {
                                             if (useCount)
                                             {
-                                                builder = StringBuilderFactory.Create(
-                                                    Count.PrefixSize + outputLength);
+                                                builder = null;
 
-                                                builder.AppendFormat("{0:X8}", outputLength);
-                                                builder.Append(Characters.Space);
+                                                code = StringOps.AppendCount(
+                                                    encoding, null, outputArgument,
+                                                    EncodingType.Text, ref builder,
+                                                    ref result);
+
+                                                if (code != ReturnCode.Ok)
+                                                    goto done;
+
                                                 builder.Append(outputArgument);
                                             }
                                             else
@@ -133,11 +150,16 @@ namespace Eagle._Commands
                                         {
                                             if (useCount)
                                             {
-                                                builder = StringBuilderFactory.Create(
-                                                    Count.PrefixSize + outputLength);
+                                                builder = null;
 
-                                                builder.AppendFormat("{0:X8}", outputLength);
-                                                builder.Append(Characters.Space);
+                                                code = StringOps.AppendCount(
+                                                    encoding, null, outputArgument,
+                                                    EncodingType.Text, ref builder,
+                                                    ref result);
+
+                                                if (code != ReturnCode.Ok)
+                                                    goto done;
+
                                                 builder.Append(outputArgument);
 
                                                 outputString = StringBuilderCache.GetStringAndRelease(
@@ -318,6 +340,8 @@ namespace Eagle._Commands
                 result = "invalid interpreter";
                 code = ReturnCode.Error;
             }
+
+        done:
 
             return code;
         }

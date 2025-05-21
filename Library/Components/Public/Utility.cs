@@ -91,6 +91,9 @@ using CidrDictionary = System.Collections.Generic.Dictionary<
     string, Eagle._Containers.Public.StringList>;
 #endif
 
+using SyntaxData = System.Collections.Generic.Dictionary<
+    string, Eagle._Containers.Public.StringList>;
+
 using ActiveInterpreterPair = Eagle._Interfaces.Public.IAnyPair<
     Eagle._Components.Public.Interpreter, Eagle._Interfaces.Public.IClientData>;
 
@@ -708,6 +711,24 @@ namespace Eagle._Components.Public
             }
         }
 
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if ENTERPRISE_LOCKDOWN || MAYBE_ENTERPRISE_LOCKDOWN
+        public static bool IsEnterpriseLockdownEnabled()
+        {
+            return Interpreter.IsEnterpriseLockdownEnabled();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode EnableEnterpriseLockdown(
+            ref Result error
+            )
+        {
+            return Interpreter.EnableEnterpriseLockdown(ref error);
+        }
+#endif
+
         ///////////////////////////////////////////////////////////////////////
 
         public static void EnableStubAssembly(
@@ -1085,6 +1106,17 @@ namespace Eagle._Components.Public
             )
         {
             return StringOps.MatchSwitch(text, @switch);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            TracePriority flags,
+            TracePriority hasFlags,
+            bool all
+            )
+        {
+            return FlagOps.HasFlags(flags, hasFlags, all);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3081,6 +3113,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static Result MaybeCombineResults(
+            params Result[] results
+            )
+        {
+            return ResultOps.MaybeCombine(results);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string FormatResult(
             ReturnCode code,
             Result result
@@ -4268,6 +4309,7 @@ namespace Eagle._Components.Public
             TypeList types,
             IRuleSet ruleSet,
             CommandFlags? commandFlags,
+            CommandFlags? notCommandFlags,
             bool noCommands,
             bool noPolicies,
             bool verbose,
@@ -4276,7 +4318,8 @@ namespace Eagle._Components.Public
         {
             return _RuntimeOps.PopulatePluginEntities(
                 interpreter, plugin, types, ruleSet, commandFlags,
-                false, noCommands, noPolicies, verbose, ref error);
+                notCommandFlags, false, noCommands, noPolicies,
+                verbose, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6430,6 +6473,92 @@ namespace Eagle._Components.Public
             )
         {
             return TimeOps.MaybeTruncate(value, seconds);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetSavedLogFileName()
+        {
+            return AppDomainOps.GetSavedLogFileName();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SetSavedLogFileName(
+            string fileName
+            )
+        {
+            return AppDomainOps.SetSavedLogFileName(fileName);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int ClearCachedSyntaxData()
+        {
+            return SyntaxOps.ClearCache();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadAndCacheSyntaxData(
+            string text,
+            bool unique,
+            bool listValues,
+            ref Result error
+            )
+        {
+            return SyntaxOps.LoadAndCacheData(
+                text, unique, listValues, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadSyntaxData(
+            string text,
+            bool unique,
+            bool listValues,
+            ref SyntaxData data,
+            ref Result error
+            )
+        {
+            return SyntaxOps.LoadData(
+                text, unique, listValues, ref data, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadSyntaxDataFrom(
+            string fileName,
+            Encoding encoding,
+            bool unique,
+            bool listValues,
+            ref SyntaxData data,
+            ref Result error
+            )
+        {
+            return SyntaxOps.LoadDataFrom(
+                fileName, encoding, unique, listValues, ref data,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadSyntaxDataFrom(
+            string directory,
+            Encoding encoding,
+            bool recursive,
+            bool errorOnEmpty,
+            bool stopOnError,
+            bool unique,
+            bool listValues,
+            ref SyntaxData data,
+            ref ResultList errors
+            )
+        {
+            return SyntaxOps.LoadDataFrom(
+                directory, encoding, recursive, errorOnEmpty,
+                stopOnError, unique, listValues, ref data,
+                ref errors);
         }
 
         ///////////////////////////////////////////////////////////////////////

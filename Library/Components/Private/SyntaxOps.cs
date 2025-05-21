@@ -40,6 +40,7 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        private static string ResourcePattern = "syntax*.tsv";
         private static string CoreResourceName = "syntax.tsv";
         private static string PluginResourceName = "syntax.tsv";
 
@@ -678,8 +679,10 @@ namespace Eagle._Components.Private
             ref string type          /* out */
             )
         {
-            StringList values = null;
+            StringList values; /* REUSED */
             Result error = null;
+
+            values = null;
 
             if (!GetValues(interpreter, name, ref values, ref error))
                 return @default;
@@ -707,10 +710,19 @@ namespace Eagle._Components.Private
 
             if (name != null)
             {
-                if (name.IndexOf(Characters.Space) == Index.Invalid)
-                    type = "command";
-                else
-                    type = "sub-command";
+#if SHELL && INTERACTIVE_COMMANDS
+                values = null;
+
+                if ((ParserOps<string>.SplitList(
+                        null, name, 0, Length.Invalid, true,
+                        ref values) != ReturnCode.Ok) ||
+                    (HelpOps.GetIExecuteViaResolvers(
+                        interpreter, values,
+                        ref type) != ReturnCode.Ok))
+#endif
+                {
+                    type = "help";
+                }
             }
 
             return GetFormatted(values);
@@ -913,6 +925,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode LoadAndCacheData(
+            string text,     /* in */
+            bool unique,     /* in */
+            bool listValues, /* in */
+            ref Result error /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return LoadData(
+                    text, unique, listValues, ref cache, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // HACK: This method was originally private.  It is now public so it
         //       can be used to support loading lists of well-known mappings
@@ -1039,6 +1067,13 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
+                    //
+                    // HACK: Allow escape codes for the various space
+                    //       characters that we wish to allow in the
+                    //       help text.
+                    //
+                    StringOps.UnescapeWhiteSpace(ref value);
+
                     if (localData.TryGetValue(name, out newValues))
                     {
                         if (newValues != null)
@@ -1071,6 +1106,153 @@ namespace Eagle._Components.Private
 
             data = localData;
             return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadDataFrom(
+            string fileName,     /* in */
+            Encoding encoding,   /* in */
+            bool unique,         /* in */
+            bool listValues,     /* in */
+            ref SyntaxData data, /* in, out */
+            ref Result error     /* out */
+            )
+        {
+            string text;
+
+            try
+            {
+                if (encoding != null)
+                    text = File.ReadAllText(fileName, encoding);
+                else
+                    text = File.ReadAllText(fileName);
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
+
+            return LoadData(
+                text, unique, listValues, ref data, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadDataFrom(
+            string directory,     /* in */
+            Encoding encoding,    /* in */
+            bool recursive,       /* in */
+            bool errorOnEmpty,    /* in */
+            bool stopOnError,     /* in */
+            bool unique,          /* in */
+            bool listValues,      /* in */
+            ref SyntaxData data,  /* in, out */
+            ref ResultList errors /* out */
+            )
+        {
+            if (String.IsNullOrEmpty(directory))
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid directory");
+                return ReturnCode.Error;
+            }
+
+            if (!Directory.Exists(directory))
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("directory does not exist");
+                return ReturnCode.Error;
+            }
+
+            string[] fileNames;
+
+            try
+            {
+                fileNames = Directory.GetFiles(
+                    directory, ResourcePattern,
+                    FileOps.GetSearchOption(recursive));
+            }
+            catch (Exception e)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(e);
+                return ReturnCode.Error;
+            }
+
+            if ((fileNames == null) || (fileNames.Length == 0))
+            {
+                if (errorOnEmpty)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add("no syntax data files found");
+                    return ReturnCode.Error;
+                }
+                else
+                {
+                    return ReturnCode.Ok;
+                }
+            }
+
+            int errorCount = 0;
+
+            foreach (string fileName in fileNames)
+            {
+                if (String.IsNullOrEmpty(fileName))
+                    continue;
+
+                Result error = null;
+
+                if (LoadDataFrom(
+                        fileName, encoding, unique,
+                        listValues, ref data,
+                        ref error) != ReturnCode.Ok)
+                {
+                    errorCount++;
+
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(error);
+
+                    if (stopOnError)
+                        return ReturnCode.Error;
+                }
+            }
+
+            return (errorCount > 0) ?
+                ReturnCode.Error : ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadAndCacheDataFrom(
+            string directory,     /* in */
+            Encoding encoding,    /* in */
+            bool recursive,       /* in */
+            bool errorOnEmpty,    /* in */
+            bool stopOnError,     /* in */
+            bool unique,          /* in */
+            bool listValues,      /* in */
+            ref ResultList errors /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return LoadDataFrom(
+                    directory, encoding, recursive, errorOnEmpty,
+                    stopOnError, unique, listValues, ref cache,
+                    ref errors);
+            }
         }
         #endregion
     }

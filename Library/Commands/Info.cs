@@ -843,6 +843,9 @@ namespace Eagle._Commands
                                                         if (listHidden)
                                                             notHasFlags &= ~CommandFlags.Hidden;
 
+                                                        if (FlagOps.HasFlags(sdkType, SdkType.NonCritical, true))
+                                                            notHasFlags |= CommandFlags.Critical;
+
                                                         if ((code == ReturnCode.Ok) && !hiddenOnly)
                                                         {
                                                             code = localInterpreter.ListCommands(
@@ -1929,26 +1932,59 @@ namespace Eagle._Commands
                                     }
                                 case "exists":
                                     {
-                                        if (arguments.Count == 3)
+                                        if ((arguments.Count == 3) || (arguments.Count == 4))
                                         {
-                                            result = ConversionOps.ToInt(interpreter.DoesVariableExist(
-                                                VariableFlags.NoUsable, arguments[2]) == ReturnCode.Ok);
+                                            string nameVarName = arguments[2];
+                                            string valueVarName = null;
 
-#if false
-                                            TraceOps.DebugTrace(String.Format(
-                                                "Execute: interpreter = {0}, " +
-                                                "subCommand = {1}, varName = {2}, " +
-                                                "result = {3}",
-                                                FormatOps.InterpreterNoThrow(interpreter),
-                                                FormatOps.WrapOrNull(subCommand),
-                                                FormatOps.WrapOrNull(arguments[2]),
-                                                FormatOps.WrapOrNull(result)),
-                                                typeof(Info).Name, TracePriority.Command);
-#endif
+                                            if (arguments.Count == 4)
+                                                valueVarName = arguments[3];
+
+                                            if (valueVarName != null)
+                                            {
+                                                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                                {
+                                                    Result value = null;
+                                                    Result error = null; /* NOT USED */
+
+                                                    if (interpreter.GetVariableValue(
+                                                            nameVarName, ref value,
+                                                            ref error) == ReturnCode.Ok)
+                                                    {
+                                                        if (interpreter.SetVariableValue(
+                                                                valueVarName, value,
+                                                                ref error) == ReturnCode.Ok)
+                                                        {
+                                                            result = 1.ToString();
+                                                        }
+                                                        else
+                                                        {
+                                                            result = 0.ToString();
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        result = 0.ToString();
+                                                    }
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if (interpreter.DoesVariableExist(
+                                                        VariableFlags.NoUsable,
+                                                        nameVarName) == ReturnCode.Ok)
+                                                {
+                                                    result = 1.ToString();
+                                                }
+                                                else
+                                                {
+                                                    result = 0.ToString();
+                                                }
+                                            }
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"info exists varName\"";
+                                            result = "wrong # args: should be \"info exists nameVarName ?valueVarName?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

@@ -23,9 +23,15 @@ namespace Eagle._Interfaces.Public
         OptionFlags Flags { get; set; }
         int GroupIndex { get; set; }
         int Index { get; set; }
+
         IVariant Value { get; set; }
         object InnerValue { get; }
+
+        IVariant DefaultValue { get; }
+        object DefaultInnerValue { get; }
+
         bool HasFlags(OptionFlags flags, bool all);
+
         bool IsStrict(OptionDictionary options);
         bool IsNoCase(OptionDictionary options);
         bool IsUnsafe(OptionDictionary options);
@@ -33,12 +39,15 @@ namespace Eagle._Interfaces.Public
         bool IsAllowInteger(OptionDictionary options);
         bool IsIgnored(OptionDictionary options);
         bool MustHaveValue(OptionDictionary options);
+
         bool CanBePresent(OptionDictionary options, ref Result error);
         bool IsPresent(OptionDictionary options);
         bool IsPresent(OptionDictionary options, ref int nameIndex, ref int valueIndex);
         bool IsPresent(OptionDictionary options, ref IVariant value);
         void SetPresent(OptionDictionary options, bool present, int index, IVariant value);
+
         StringList ToList(IOption option);
+
         string FlagsToString();
         string ToString(IOption option);
         string ToString(OptionFlags flags);

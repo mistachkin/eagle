@@ -478,6 +478,7 @@
     <Compile Include="Containers\Private\ObjectList.cs" />
     <Compile Include="Containers\Private\ObjectWrapperDictionary.cs" />
     <Compile Include="Containers\Private\OperatorWrapperDictionary.cs" />
+    <Compile Include="Containers\Private\PackageAliasDictionary.cs" />
     <Compile Include="Containers\Private\PackageIndexDictionary.cs" />
     <Compile Include="Containers\Private\PackageWrapperDictionary.cs" />
     <Compile Include="Containers\Private\PairList.cs" />
@@ -721,6 +722,8 @@
     <Compile Include="Interfaces\Public\InteractiveManager.cs" />
     <Compile Include="Interfaces\Public\Interpreter.cs" />
     <Compile Include="Interfaces\Public\InterpreterManager.cs" />
+    <Compile Include="Interfaces\Public\InterpreterSettings.cs" />
+    <Compile Include="Interfaces\Public\InterpreterSettingsData.cs" />
     <Compile Include="Interfaces\Public\Levels.cs" />
     <Compile Include="Interfaces\Public\Math.cs" />
     <Compile Include="Interfaces\Public\MaybeDisposed.cs" />
@@ -1424,6 +1427,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(EagleEnterpriseLockdown)' != '' And '$(EagleEnterpriseLockdown)' != 'false'">
     <DefineConstants>$(DefineConstants);ENTERPRISE_LOCKDOWN</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleMaybeEnterpriseLockdown)' != '' And '$(EagleMaybeEnterpriseLockdown)' != 'false'">
+    <DefineConstants>$(DefineConstants);MAYBE_ENTERPRISE_LOCKDOWN</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ExtraDiagnostics)' != '' And '$(ExtraDiagnostics)' != 'false'">
     <DefineConstants>$(DefineConstants);EXTRA_DIAGNOSTICS</DefineConstants>

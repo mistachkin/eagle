@@ -54,6 +54,8 @@ namespace Eagle._Components.Private
         //
         private static double DoubleEpsilon = 0.00001;
         private static decimal DecimalEpsilon = 0.00001m;
+        private static decimal DecimalPi = 3.1415926535897932384626433833m;
+        private static bool UseDecimalForPi = false; // COMPAT: Eagle beta.
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -227,6 +229,16 @@ namespace Eagle._Components.Private
                 return double.IsPositiveInfinity(X) && double.IsPositiveInfinity(Y);
 
             return Math.Abs(X - Y) < epsilon;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static Argument Pi()
+        {
+            if (UseDecimalForPi)
+                return DecimalPi;
+            else
+                return Math.PI;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

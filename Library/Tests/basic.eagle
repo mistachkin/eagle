@@ -223,6 +223,7 @@ runTest {test basic-1.16 {alias renaming and introspection} -body {
   list [interp alias {} a] [interp alias {} ::a]
 } -cleanup {
   catch {interp alias {} a {}}
+  catch {interp alias {} ::a {}}
 } -constraints {tcl85Feature} -result {b {b {foo bar} baz}}}
 
 ###############################################################################
@@ -640,7 +641,7 @@ runTest {test basic-1.31 {delegate execution} -setup {
       set execute null; set error null
       set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
           Interpreter.GetActive InternalGetIExecuteViaResolvers UseAllMask \
-          clock null Default execute error]
+          clock null {Default NoCache} execute error]
 
       if {$code ne "Ok"} then {
         error [getStringFromObjectHandle $error]
@@ -803,7 +804,7 @@ runTest {test basic-1.32 {static delegate command execution} -setup {
       set execute null; set error null
       set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
           Interpreter.GetActive InternalGetIExecuteViaResolvers UseAllMask \
-          clock null Default execute error]
+          clock null {Default NoCache} execute error]
 
       if {$code ne "Ok"} then {
         error [getStringFromObjectHandle $error]
@@ -980,7 +981,7 @@ runTest {test basic-1.33 {dynamic delegate command execution} -setup {
       set execute null; set error null
       set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
           Interpreter.GetActive InternalGetIExecuteViaResolvers UseAllMask \
-          clock null Default execute error]
+          clock null {Default NoCache} execute error]
 
       if {$code ne "Ok"} then {
         error [getStringFromObjectHandle $error]
@@ -1088,7 +1089,7 @@ runTest {test basic-1.34 {external command execution} -body {
   set execute null; set error null
   set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
       Interpreter.GetActive InternalGetIExecuteViaResolvers UseAllMask eval \
-      null Default execute error]
+      null {Default NoCache} execute error]
 
   if {$code ne "Ok"} then {
     error [getStringFromObjectHandle $error]
@@ -1558,6 +1559,11 @@ runTest {test basic-1.48 {invoke command} -setup {
 
 ###############################################################################
 
+#
+# HACK: This test cannot run on the .NET 9 runtime because the underlying
+#       legacy (binary serialization) functionality has been removed, see:
+#       https://aka.ms/binaryformatter
+#
 runTest {test basic-1.49 {serialization of ScriptException} -body {
   set serializer [object create -alias \
       System.Runtime.Serialization.Formatters.Binary.BinaryFormatter]
@@ -1579,8 +1585,9 @@ runTest {test basic-1.49 {serialization of ScriptException} -body {
       [expr {[$exception(1) Message] eq [$exception(2) Message]}]
 } -cleanup {
   unset -nocomplain exception stream serializer
-} -constraints {eagle command.object monoBug30 compile.SERIALIZATION} \
--result {Break {this is a test} Break {this is a test} True True}}
+} -constraints [fixConstraints \
+{eagle command.object monoBug30 compile.SERIALIZATION !dotNetCore90}] -result \
+{Break {this is a test} Break {this is a test} True True}}
 
 ###############################################################################
 
@@ -3116,8 +3123,8 @@ runTest {test basic-1.106 {asynchronous evaluation context counts} -setup {
 } -cleanup {
   unset -nocomplain z y x w2 w1 interp
 } -constraints [fixConstraints {eagle command.object compile.THREADING\
-compile.TEST Eagle._Tests.Default.TestEvaluateAsync !monoDebugger}] \
--match regexp -result {^Ok 2 [1-4] 0$}}
+compile.TEST Eagle._Tests.Default.TestEvaluateAsync !security.enabled\
+!monoDebugger}] -match regexp -result {^Ok 2 [1-4] 0$}}
 
 ###############################################################################
 

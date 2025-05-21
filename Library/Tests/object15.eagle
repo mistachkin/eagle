@@ -291,7 +291,7 @@ runTest {test object-15.6 {Interpreter public static member signatures} -body {
 callingConvention Standard returnType EComP.Interpreter parameterTypes\
 EComP.Result&} {memberType Method memberName Create methodType Method\
 methodName Create callingConvention Standard returnType EComP.Interpreter\
-parameterTypes {EComP.InterpreterSettings System.Boolean EComP.Result&}}\
+parameterTypes {EIP.IInterpreterSettings System.Boolean EComP.Result&}}\
 {memberType Method memberName Create methodType Method methodName Create\
 callingConvention Standard returnType EComP.Interpreter parameterTypes\
 {{System.Collections.Generic.IEnumerable`1[System.String]} EComP.CreateFlags\
@@ -323,10 +323,10 @@ methodName Create callingConvention Standard returnType EComP.Interpreter\
 parameterTypes {{System.Collections.Generic.IEnumerable`1[System.String]}\
 EComP.Result&}} {memberType Method memberName Create methodType Method\
 methodName Create callingConvention Standard returnType EComP.Interpreter\
-parameterTypes {{System.Nullable`1[System.UInt64]} EComP.InterpreterSettings\
-System.Boolean EComP.Result&}} {memberType Method memberName Create methodType\
-Method methodName Create callingConvention Standard returnType\
-EComP.Interpreter parameterTypes {{System.Nullable`1[System.UInt64]}\
+parameterTypes {{System.Nullable`1[System.UInt64]} EComP.Result&}} {memberType\
+Method memberName Create methodType Method methodName Create callingConvention\
+Standard returnType EComP.Interpreter parameterTypes\
+{{System.Nullable`1[System.UInt64]} EIP.IInterpreterSettings System.Boolean\
 EComP.Result&}} {memberType Method memberName Create methodType Method\
 methodName Create callingConvention Standard returnType EComP.Interpreter\
 parameterTypes {{System.Nullable`1[System.UInt64]}\
@@ -429,7 +429,7 @@ ReferenceEquals methodType Method methodName ReferenceEquals callingConvention\
 Standard returnType System.Boolean parameterTypes {System.Object\
 System.Object}} {memberType Method memberName ShellMain methodType Method\
 methodName ShellMain callingConvention Standard returnType EComP.ExitCode\
-parameterTypes {EComP.InterpreterSettings\
+parameterTypes {EIP.IInterpreterSettings\
 {System.Collections.Generic.IEnumerable`1[System.String]}}} {memberType Method\
 memberName ShellMain methodType Method methodName ShellMain callingConvention\
 Standard returnType EComP.ExitCode parameterTypes\

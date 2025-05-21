@@ -20,6 +20,40 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 #       Mono.
 ###############################################################################
 
+proc getResolveVerbForTypeLoadException {} {
+  if {[isEagle] && ([haveConstraint dotNetCore80] || \
+      [haveConstraint dotNetCore90])} then {
+    return resolve
+  } else {
+    return load
+  }
+}
+
+###############################################################################
+
+proc getLoadVerbForTypeLoadException {} {
+  return load
+}
+
+###############################################################################
+
+proc getInPrepositionForTypeLoadException {} {
+  if {[isEagle] && ([haveConstraint dotNetCore80] || \
+      [haveConstraint dotNetCore90])} then {
+    return in
+  } else {
+    return from
+  }
+}
+
+###############################################################################
+
+proc getFromPrepositionForTypeLoadException {} {
+  return from
+}
+
+###############################################################################
+
 proc getErrors { test x verbose } {
   set result [list $test]
 
@@ -127,24 +161,29 @@ runTest {test object-11.6 {search semantics for missing types, verbose} -body {
   unset -nocomplain msg
 } -constraints \
 {eagle command.object dotNetCoreOrShell dotNetOrDotNetCore monoMatchFramework} \
--match glob -result [string map [list %testAsm% [getTestAssemblyName]] \
-{{No Asm, No Ns} {System.TypeLoadException: Could not load type 'FooBar' from\
+-match glob -result [string map [list %testAsm% [getTestAssemblyName] \
+%testResolve% [getResolveVerbForTypeLoadException] %testLoad% \
+[getLoadVerbForTypeLoadException] %testIn% \
+[getInPrepositionForTypeLoadException] %testFrom% \
+[getFromPrepositionForTypeLoadException]] {{No Asm, No Ns}\
+{System.TypeLoadException: Could not %testResolve% type 'FooBar' %testIn%\
 assembly '%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}\
-{System.TypeLoadException: Could not load type\
-'Eagle._Components.Public.FooBar' from assembly '%testAsm%, Version=1.0.*,\
-Culture=neutral, PublicKeyToken=*'.} {System.TypeLoadException: Could not load\
-type 'Eagle._Containers.Public.FooBar' from assembly '%testAsm%,\
+{System.TypeLoadException: Could not %testResolve% type\
+'Eagle._Components.Public.FooBar' %testIn% assembly '%testAsm%, Version=1.0.*,\
+Culture=neutral, PublicKeyToken=*'.} {System.TypeLoadException: Could not\
+%testResolve% type 'Eagle._Containers.Public.FooBar' %testIn% assembly\
+'%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}\
+{System.TypeLoadException: Could not %testResolve% type 'System.FooBar'\
+%testIn% assembly '%testAsm%, Version=1.0.*, Culture=neutral,\
+PublicKeyToken=*'.} {System.TypeLoadException: Could not %testLoad% type\
+'FooBar' %testFrom% assembly '%testAsm%, Version=1.0.*, Culture=neutral,\
+PublicKeyToken=*'.} {System.TypeLoadException: Could not %testLoad% type\
+'Eagle._Components.Public.FooBar' %testFrom% assembly '%testAsm%,\
 Version=1.0.*, Culture=neutral, PublicKeyToken=*'.} {System.TypeLoadException:\
-Could not load type 'System.FooBar' from assembly '%testAsm%, Version=1.0.*,\
-Culture=neutral, PublicKeyToken=*'.} *{System.TypeLoadException: Could not load\
-type 'FooBar' from assembly '%testAsm%, Version=1.0.*, Culture=neutral,\
-PublicKeyToken=*'.} {System.TypeLoadException: Could not load type\
-'Eagle._Components.Public.FooBar' from assembly '%testAsm%, Version=1.0.*,\
-Culture=neutral, PublicKeyToken=*'.} {System.TypeLoadException: Could not load\
-type 'Eagle._Containers.Public.FooBar' from assembly '%testAsm%,\
-Version=1.0.*, Culture=neutral, PublicKeyToken=*'.} {System.TypeLoadException:\
-Could not load type 'System.FooBar' from assembly '%testAsm%, Version=1.0.*,\
-Culture=neutral, PublicKeyToken=*'.}*}]}
+Could not %testLoad% type 'Eagle._Containers.Public.FooBar' %testFrom% assembly\
+'%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}\
+{System.TypeLoadException: Could not %testLoad% type 'System.FooBar' %testFrom%\
+assembly '%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}*}]}
 
 ###############################################################################
 
@@ -157,11 +196,15 @@ runTest {test object-11.7 {search semantics for missing types, verbose} -body {
   unset -nocomplain msg
 } -constraints \
 {eagle command.object dotNetCoreOrShell dotNetOrDotNetCore monoMatchFramework} \
--match glob -result [string map [list %testAsm% [getTestAssemblyName]] \
-{{No Asm, Good Ns} {System.TypeLoadException: Could not load type\
-'System.FooBar' from assembly '%testAsm%, Version=1.0.*, Culture=neutral,\
-PublicKeyToken=*'.} *{System.TypeLoadException: Could not load type\
-'System.FooBar' from assembly '%testAsm%, Version=1.0.*, Culture=neutral,\
+-match glob -result [string map [list %testAsm% [getTestAssemblyName] \
+%testResolve% [getResolveVerbForTypeLoadException] %testLoad% \
+[getLoadVerbForTypeLoadException] %testIn% \
+[getInPrepositionForTypeLoadException] %testFrom% \
+[getFromPrepositionForTypeLoadException]] {{No Asm, Good Ns}\
+{System.TypeLoadException: Could not %testResolve% type 'System.FooBar'\
+%testIn% assembly '%testAsm%, Version=1.0.*, Culture=neutral,\
+PublicKeyToken=*'.} {System.TypeLoadException: Could not %testLoad% type\
+'System.FooBar' %testFrom% assembly '%testAsm%, Version=1.0.*, Culture=neutral,\
 PublicKeyToken=*'.}*}]}
 
 ###############################################################################
@@ -175,11 +218,15 @@ runTest {test object-11.8 {search semantics for missing types, verbose} -body {
   unset -nocomplain msg
 } -constraints \
 {eagle command.object dotNetCoreOrShell dotNetOrDotNetCore monoMatchFramework} \
--match glob -result [string map [list %testAsm% [getTestAssemblyName]] \
-{{No Asm, Bad Ns} {System.TypeLoadException: Could not load type 'Splog.FooBar'\
-from assembly '%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}\
-*{System.TypeLoadException: Could not load type 'Splog.FooBar' from assembly\
-'%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}*}]}
+-match glob -result [string map [list %testAsm% [getTestAssemblyName] \
+%testResolve% [getResolveVerbForTypeLoadException] %testLoad% \
+[getLoadVerbForTypeLoadException] %testIn% \
+[getInPrepositionForTypeLoadException] %testFrom% \
+[getFromPrepositionForTypeLoadException]] {{No Asm, Bad Ns}\
+{System.TypeLoadException: Could not %testResolve% type 'Splog.FooBar' %testIn%\
+assembly '%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}\
+{System.TypeLoadException: Could not %testLoad% type 'Splog.FooBar' %testFrom%\
+assembly '%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}*}]}
 
 ###############################################################################
 
@@ -349,6 +396,16 @@ runTest {test object-11.12 {type namespace use and detection} -body {
   unset -nocomplain msg
 } -constraints {eagle command.object} -result \
 {1 {} 0 {System.Collections.Generic.IEnumerable`1[System.String]}}}
+
+###############################################################################
+
+rename getFromPrepositionForTypeLoadException ""
+rename getInPrepositionForTypeLoadException ""
+
+###############################################################################
+
+rename getLoadVerbForTypeLoadException ""
+rename getResolveVerbForTypeLoadException ""
 
 ###############################################################################
 

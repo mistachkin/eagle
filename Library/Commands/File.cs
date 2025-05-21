@@ -177,6 +177,7 @@ namespace Eagle._Commands
                                             {
                                                 string callbackName = FormatOps.QualifiedName(
                                                     FileOps.GetFileType(arguments[2]), subCommand);
+
                                                 long clockValue = 0;
                                                 DateTime dateTime = DateTime.MinValue;
 
@@ -192,7 +193,8 @@ namespace Eagle._Commands
                                                         {
                                                             SetDateTimeCallback callback;
 
-                                                            if (SetTimeCallbacks.TryGetValue(callbackName, out callback))
+                                                            if ((SetTimeCallbacks != null) &&
+                                                                SetTimeCallbacks.TryGetValue(callbackName, out callback))
                                                             {
                                                                 code = FileOps.SetFileTime(arguments[2], callback, dateTime, ref result);
 
@@ -221,7 +223,8 @@ namespace Eagle._Commands
                                                 {
                                                     GetDateTimeCallback callback;
 
-                                                    if (GetTimeCallbacks.TryGetValue(callbackName, out callback))
+                                                    if ((GetTimeCallbacks != null) &&
+                                                        GetTimeCallbacks.TryGetValue(callbackName, out callback))
                                                     {
                                                         code = FileOps.GetFileTime(arguments[2], callback, ref dateTime, ref result);
 
@@ -275,7 +278,7 @@ namespace Eagle._Commands
                                         {
                                             if (PathOps.PathExists(arguments[2]))
                                             {
-                                                FileAttributes attributes = FileAttributes.Normal;
+                                                FileAttributes attributes = (FileAttributes)0;
 
                                                 code = FileOps.GetFileAttributes(arguments[2], ref attributes, ref result);
 
@@ -388,6 +391,13 @@ namespace Eagle._Commands
                                                         {
                                                             FileAttributes value =
                                                                 (FileAttributes)Enum.Parse(typeof(FileAttributes), name);
+
+                                                            //
+                                                            // HACK: Apparently, "None" exists on the .NET 8 runtime
+                                                            //       and later?
+                                                            //
+                                                            if (value == (FileAttributes)0)
+                                                                continue;
 
                                                             list.Add(Characters.MinusSign + name.ToLower());
                                                             list.Add(((attributes & value) == value).ToString());
@@ -1293,7 +1303,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 4)
                                         {
-#if NATIVE && WINDOWS
+#if NATIVE && (WINDOWS || UNIX)
                                             StringList list = null;
 
                                             code = PathOps.GetStatus(
@@ -2177,7 +2187,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 4)
                                         {
-#if NATIVE && WINDOWS
+#if NATIVE && (WINDOWS || UNIX)
                                             StringList list = null;
 
                                             code = PathOps.GetStatus(

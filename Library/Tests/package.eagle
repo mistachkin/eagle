@@ -572,4 +572,162 @@ find package "Some.Package 1.0"} 1 {can't find package "Other.Package 1.0"} 0\
 
 ###############################################################################
 
+runTest {test package-5.17 {package aliases / package alias} -setup {
+  set interp [interp create]
+} -body {
+  addTestScripts script {
+    package aliases
+  } {
+    package alias -overwrite Alias1 Package1
+    package alias Alias1
+  } {
+    package alias -overwrite Alias1 Package1 1.0
+    package alias Alias1
+  } {
+    package alias -overwrite Alias1
+    package alias Alias1
+  } {
+    package alias -disabled Alias2 Package2
+    package alias Alias2
+  } {
+    package alias -disabled Alias2
+    package alias Alias2
+  } {
+    package alias -disabled Alias2 Package2 1.0
+    package alias Alias2
+  } {
+    package alias -exact Alias3
+    package alias Alias3
+  } {
+    package alias -exact Alias3 Package3
+    package alias Alias3
+  } {
+    package alias -exact Alias3 Package3 1.0
+    package alias Alias3
+  } {
+    package alias Something
+  } {
+    package alias Something Else
+    package alias Something
+  } {
+    package alias Something Else 1.0
+  } {
+    package alias -overwrite Something Else 1.0
+    package alias Something
+  } {
+    package alias Something ""
+    package alias Something
+  } {
+    package alias Something Else
+    package alias Else More
+    package alias More Else
+    package require More
+  } {
+    catch {package alias StableTcl ""}
+    package alias StableTcl Tcl
+    package require StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias StableTcl Tcl
+    package require -exact StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias -exact StableTcl Tcl
+    package require StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias -exact StableTcl Tcl
+    package require -exact StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias StableTcl Tcl $tcl_platform(version)
+    package require StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias StableTcl Tcl $tcl_platform(version)
+    package require -exact StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias -exact StableTcl Tcl $tcl_platform(version)
+    package require StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias -exact StableTcl Tcl $tcl_platform(version)
+    package require -exact StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias StableTcl Tcl [info patchlevel]
+    package require StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias StableTcl Tcl [info patchlevel]
+    package require -exact StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias -exact StableTcl Tcl [info patchlevel]
+    package require StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias -exact StableTcl Tcl [info patchlevel]
+    package require -exact StableTcl
+  } {
+    catch {package alias StableTcl ""}
+    package alias StableTcl Tcl [info patchlevel]
+    package require StableTcl $tcl_platform(version)
+  } {
+    catch {package alias StableTcl ""}
+    package alias StableTcl Tcl [info patchlevel]
+    package require -exact StableTcl $tcl_platform(version)
+  } {
+    catch {package alias StableTcl ""}
+    package alias -exact StableTcl Tcl [info patchlevel]
+    package require StableTcl $tcl_platform(version)
+  } {
+    catch {package alias StableTcl ""}
+    package alias -exact StableTcl Tcl [info patchlevel]
+    package require -exact StableTcl $tcl_platform(version)
+  } {
+    catch {package alias StableTcl ""}
+  }
+
+  list [evaluateTestScripts $interp script code result] [string map \
+      [list "{Disabled}" Disabled "{Exact}" Exact] [string map [list \
+      {Default, } "" {, Default} "" [info patchlevel] <patchLevel> \
+      $tcl_platform(version) <version>] [combineTestScriptResults \
+      script code result]]]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain interp script result code
+} -constraints {eagle} -result {0 {{index 1 code 0 result {}} {index 2 code 0\
+result {Package1 {} {}}} {index 3 code 0 result {Package1 1.0 {}}} {index 4\
+code 1 result {must specify name with -overwrite}} {index 5 code 0 result\
+{Package2 {} Disabled}} {index 6 code 1 result {must specify name with\
+-disabled}} {index 7 code 1 result {cannot specify version with -disabled}}\
+{index 8 code 1 result {must specify name and version with -exact}} {index 9\
+code 1 result {must specify name and version with -exact}} {index 10 code 0\
+result {Package3 1.0 Exact}} {index 11 code 1 result {package alias\
+"Something" does not exist}} {index 12 code 0 result {Else {} {}}} {index 13\
+code 1 result {package alias "Something" already exists}} {index 14 code 0\
+result {Else 1.0 {}}} {index 15 code 1 result {package alias "Something" does\
+not exist}} {index 16 code 1 result {package alias "More" (via "Else") loop\
+detected}} {index 17 code 0 result <patchLevel>} {index 18 code 0 result\
+<patchLevel>} {index 19 code 1 result {must specify name and version with\
+-exact}} {index 20 code 1 result {must specify name and version with -exact}}\
+{index 21 code 0 result <patchLevel>} {index 22 code 1 result {attempt to\
+provide package "Tcl <version>" failed: package "Tcl <patchLevel>" provided\
+instead}} {index 23 code 1 result {attempt to provide package "Tcl <version>"\
+failed: package "Tcl <patchLevel>" provided instead}} {index 24 code 1 result\
+{attempt to provide package "Tcl <version>" failed: package "Tcl <patchLevel>"\
+provided instead}} {index 25 code 0 result <patchLevel>} {index 26 code 0\
+result <patchLevel>} {index 27 code 0 result <patchLevel>} {index 28 code 0\
+result <patchLevel>} {index 29 code 0 result <patchLevel>} {index 30 code 1\
+result {attempt to provide package "Tcl <version>" failed: package "Tcl\
+<patchLevel>" provided instead}} {index 31 code 1 result {attempt to provide\
+package "Tcl <version>" failed: package "Tcl <patchLevel>" provided instead}}\
+{index 32 code 1 result {attempt to provide package "Tcl <version>" failed:\
+package "Tcl <patchLevel>" provided instead}} {index 33 code 0 result 0}}}}
+
+###############################################################################
+
 source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

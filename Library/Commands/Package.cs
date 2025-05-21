@@ -49,12 +49,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
-        private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] { 
-            "absent", "forget", "ifneeded", "indexes", "info", "loaded",
-            "names", "pending", "present", "provide", "relativefilename",
-            "require", "reset", "scan", "unknown", "vcompare",
-            "versions", "vloaded", "vsatisfies", "vsort",
-            "withdraw"
+        private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
+            "absent", "alias", "aliases", "forget", "ifneeded", "indexes", "info",
+            "loaded", "names", "pending", "present", "provide", "relativefilename",
+            "require", "reset", "scan", "unknown", "vcompare", "versions", "vloaded",
+            "vsatisfies", "vsort", "withdraw"
         });
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -173,6 +172,165 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"package absent ?-exact? package ?version?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "alias":
+                                    {
+                                        if (arguments.Count >= 3)
+                                        {
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] {
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-overwrite", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-disabled", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-exact", null),
+                                                Option.CreateEndOfOptions()
+                                            });
+
+                                            int argumentIndex = Index.Invalid;
+
+                                            code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, false, ref argumentIndex, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                if ((argumentIndex != Index.Invalid) &&
+                                                    ((argumentIndex + 1) <= arguments.Count) &&
+                                                    ((argumentIndex + 3) >= arguments.Count))
+                                                {
+                                                    bool overwrite = false;
+
+                                                    if (options.IsPresent("-overwrite"))
+                                                        overwrite = true;
+
+                                                    bool disabled = false;
+
+                                                    if (options.IsPresent("-disabled"))
+                                                        disabled = true;
+
+                                                    bool exact = false;
+
+                                                    if (options.IsPresent("-exact"))
+                                                        exact = true;
+
+                                                    string aliasName = arguments[argumentIndex];
+                                                    string packageName = null;
+
+                                                    if ((argumentIndex + 1) < arguments.Count)
+                                                        packageName = arguments[argumentIndex + 1];
+
+                                                    Version version = null;
+
+                                                    if ((argumentIndex + 2) < arguments.Count)
+                                                    {
+                                                        code = Value.GetVersion(
+                                                            arguments[argumentIndex + 2],
+                                                            interpreter.InternalCultureInfo,
+                                                            ref version, ref result);
+                                                    }
+
+                                                    if (code == ReturnCode.Ok)
+                                                    {
+                                                        PackageFlags? flags = null;
+
+                                                        if (overwrite || disabled || exact)
+                                                        {
+                                                            PackageFlags localFlags = PackageFlags.None;
+
+                                                            if (overwrite)
+                                                            {
+                                                                if (String.IsNullOrEmpty(packageName))
+                                                                {
+                                                                    result = "must specify name with -overwrite";
+                                                                    code = ReturnCode.Error;
+                                                                    goto done;
+                                                                }
+
+                                                                localFlags |= PackageFlags.Overwrite;
+                                                            }
+
+                                                            if (disabled)
+                                                            {
+                                                                if (String.IsNullOrEmpty(packageName))
+                                                                {
+                                                                    result = "must specify name with -disabled";
+                                                                    code = ReturnCode.Error;
+                                                                    goto done;
+                                                                }
+
+                                                                if (version != null)
+                                                                {
+                                                                    result = "cannot specify version with -disabled";
+                                                                    code = ReturnCode.Error;
+                                                                    goto done;
+                                                                }
+
+                                                                localFlags |= PackageFlags.Disabled;
+                                                            }
+
+                                                            if (exact)
+                                                            {
+                                                                if (String.IsNullOrEmpty(packageName) ||
+                                                                    (version == null))
+                                                                {
+                                                                    result = "must specify name and version with -exact";
+                                                                    code = ReturnCode.Error;
+                                                                    goto done;
+                                                                }
+
+                                                                localFlags |= PackageFlags.Exact;
+                                                            }
+
+                                                            flags = localFlags;
+                                                        }
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            code = interpreter.PkgAlias(
+                                                                aliasName, packageName, version,
+                                                                clientData, flags, ref result);
+                                                        }
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        Option.LooksLikeOption(arguments[argumentIndex]))
+                                                    {
+                                                        result = OptionDictionary.BadOption(
+                                                            options, arguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "wrong # args: should be \"package alias ?options? name ?package? ?version?\"";
+                                                    }
+
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"package alias ?options? name ?package? ?version?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "aliases":
+                                    {
+                                        if ((arguments.Count == 2) || (arguments.Count == 3))
+                                        {
+                                            string pattern = null;
+
+                                            if (arguments.Count == 3)
+                                                pattern = arguments[2];
+
+                                            code = interpreter.PkgAliases(
+                                                pattern, false, ref result);
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"package aliases ?pattern?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -1224,6 +1382,8 @@ namespace Eagle._Commands
                 result = "invalid interpreter";
                 code = ReturnCode.Error;
             }
+
+        done:
 
             return code;
         }

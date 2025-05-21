@@ -1651,6 +1651,7 @@
               Edition plugins (i.e. "Harpy" and "Badge") to be available.
     -->
     <EagleEnterpriseLockdown Condition="'$(EagleEnterpriseLockdown)' == ''">false</EagleEnterpriseLockdown>
+    <EagleMaybeEnterpriseLockdown Condition="'$(EagleMaybeEnterpriseLockdown)' == ''">false</EagleMaybeEnterpriseLockdown>
   </PropertyGroup>
 
   <!--

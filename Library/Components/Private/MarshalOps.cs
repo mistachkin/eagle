@@ -9589,7 +9589,7 @@ namespace Eagle._Components.Private
                 }
             }
 #endif
-            else if (value is InterpreterSettings)
+            else if (value is IInterpreterSettings)
             {
                 //
                 // NOTE: Set the flags that indicate that we know this is an

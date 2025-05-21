@@ -226,7 +226,7 @@ runTest {test namespace-97.9 {object load -namespace} -setup {
 ###############################################################################
 
 runTest {test namespace-97.10 {namespace rename (no cmds/vars)} -setup {
-  set i [interp create -namespaces -noinitialize -novariables]
+  set i [interp create -namespaces -noinitialize -novariables -nosecurity]
 
   interp eval $i {
     catch {namespace delete ::tcl}

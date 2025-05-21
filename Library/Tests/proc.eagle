@@ -329,7 +329,7 @@ compile.DEBUGGER_BREAKPOINTS Eagle._Tests.Default.TestSetQuiet} -match regexp \
 ###############################################################################
 
 runTest {test proc-3.1 {locked procedures} -setup {
-  set interp [interp create -safe -noloader]
+  set interp [interp create -safe -noloader -nosecurity]
 } -body {
   list [catch {interp eval $interp {isEagle}} error] $error [catch {interp \
       invokehidden $interp debug readonly procedure true isEagle} error] \

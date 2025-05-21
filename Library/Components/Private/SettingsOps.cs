@@ -1117,12 +1117,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode LoadForInterpreter(
-            StringDictionary dictionary,                 /* in */
-            CultureInfo cultureInfo,                     /* in: OPTIONAL */
-            bool merge,                                  /* in */
-            bool expand,                                 /* in */
-            ref InterpreterSettings interpreterSettings, /* in, out */
-            ref Result error                             /* out */
+            StringDictionary dictionary,                  /* in */
+            CultureInfo cultureInfo,                      /* in: OPTIONAL */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* in, out */
+            ref Result error                              /* out */
             )
         {
             if (dictionary == null)
@@ -1137,8 +1137,8 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            InterpreterSettings profileInterpreterSettings =
-                new InterpreterSettings();
+            IInterpreterSettings profileInterpreterSettings =
+                InterpreterSettings.Create();
 
             BindingFlags bindingFlags = ObjectOps.GetBindingFlags(
                 MetaBindingFlags.InterpreterSettings, true);
@@ -1191,12 +1191,12 @@ namespace Eagle._Components.Private
             if (expand)
                 InterpreterSettings.Expand(profileInterpreterSettings);
 
-            InterpreterSettings newInterpreterSettings;
+            IInterpreterSettings newInterpreterSettings;
 
             if (merge && (interpreterSettings != null))
                 newInterpreterSettings = interpreterSettings;
             else
-                newInterpreterSettings = new InterpreterSettings();
+                newInterpreterSettings = InterpreterSettings.Create();
 
             StringList merged = InterpreterSettings.Copy(
                 profileInterpreterSettings, newInterpreterSettings,
@@ -1451,14 +1451,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadForInterpreter(
-            Encoding encoding,                           /* in: OPTIONAL */
-            string fileName,                             /* in: OPTIONAL */
-            Stream stream,                               /* in */
-            CultureInfo cultureInfo,                     /* in: OPTIONAL */
-            bool merge,                                  /* in */
-            bool expand,                                 /* in */
-            ref InterpreterSettings interpreterSettings, /* in, out */
-            ref Result error                             /* out */
+            Encoding encoding,                            /* in: OPTIONAL */
+            string fileName,                              /* in: OPTIONAL */
+            Stream stream,                                /* in */
+            CultureInfo cultureInfo,                      /* in: OPTIONAL */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* in, out */
+            ref Result error                              /* out */
             )
         {
             StringDictionary dictionary = null;
@@ -1478,13 +1478,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadForInterpreter(
-            Encoding encoding,                           /* in: OPTIONAL */
-            string fileName,                             /* in */
-            CultureInfo cultureInfo,                     /* in: OPTIONAL */
-            bool merge,                                  /* in */
-            bool expand,                                 /* in */
-            ref InterpreterSettings interpreterSettings, /* in, out */
-            ref Result error                             /* out */
+            Encoding encoding,                            /* in: OPTIONAL */
+            string fileName,                              /* in */
+            CultureInfo cultureInfo,                      /* in: OPTIONAL */
+            bool merge,                                   /* in */
+            bool expand,                                  /* in */
+            ref IInterpreterSettings interpreterSettings, /* in, out */
+            ref Result error                              /* out */
             )
         {
             StringDictionary dictionary = null;
@@ -1504,11 +1504,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode SaveForInterpreter(
-            Encoding encoding,                       /* in: OPTIONAL */
-            string fileName,                         /* in */
-            bool expand,                             /* in */
-            InterpreterSettings interpreterSettings, /* in: OPTIONAL */
-            ref Result error                         /* out */
+            Encoding encoding,                        /* in: OPTIONAL */
+            string fileName,                          /* in */
+            bool expand,                              /* in */
+            IInterpreterSettings interpreterSettings, /* in: OPTIONAL */
+            ref Result error                          /* out */
             )
         {
             if (interpreterSettings == null)

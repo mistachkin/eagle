@@ -185,6 +185,20 @@ namespace Eagle._Components.Private
 
         private const string StubOkResultFormat = "ok:{0}";
         private const string StubErrorResult = "invalid interpreter";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        // NOTE: This value was determined by looking at the stub assembly
+        //       file sizes from the latest release (as of May 2025) -AND-
+        //       coming up with a reasonable margin-of-error for a minimum
+        //       file size based on those values.
+        //
+        // TODO: Verify and/or update this value for each release.
+        //
+        private static long minimumStubAssemblyFileSize = 50000;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -672,6 +686,12 @@ namespace Eagle._Components.Private
         //       external caller.
         //
         private static StringList trustedHashes = null;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Stub Assembly Data
+        private static byte[] stubAssemblyBytes = null;
         #endregion
         #endregion
 
@@ -3034,8 +3054,9 @@ namespace Eagle._Components.Private
             if (activeInterpreters == null)
                 activeInterpreters = new InterpreterStackList();
 
-            activeInterpreters.Push(new AnyPair<Interpreter, IClientData>(
-                interpreter, clientData));
+            activeInterpreters.Push(
+                new MutableAnyPair<Interpreter, IClientData>(
+                    true, interpreter, clientData));
 
             /* IGNORED */
             Interlocked.Increment(ref pushed);
@@ -4316,7 +4337,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static string GetStubAssemblyFileName()
+        public static string GetStubAssemblyFileName()
         {
             return Path.Combine(
                 GetStubAssemblyPath(), GetStubAssemblyFileNameOnly());
@@ -4555,7 +4576,7 @@ namespace Eagle._Components.Private
                 }
                 finally
                 {
-                    ObjectOps.DisposeOrComplain<IExecute>(
+                    ObjectOps.DisposeOrTrace<IExecute>(
                         null, ref stub);
 
                     stub = null;
@@ -4645,13 +4666,190 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static void TryToCacheStubAssemblyOrTrace()
+        {
+            ReturnCode code;
+            Result error = null;
+
+            code = TryToCacheStubAssembly(ref error);
+
+            if (code != ReturnCode.Ok)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "TryToCacheStubAssemblyOrTrace: {0}",
+                    FormatOps.WrapOrNull(error)),
+                    typeof(GlobalState).Name,
+                    TracePriority.SecurityError);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TryToCacheStubAssembly(
+            ref Result error /* out */
+            )
+        {
+            string fileName = GetStubAssemblyFileName();
+
+            if (String.IsNullOrEmpty(fileName))
+            {
+                error = "stub assembly file name is invalid";
+                return ReturnCode.Error;
+            }
+
+            if (!File.Exists(fileName))
+            {
+                error = "stub assembly file name does not exist";
+                return ReturnCode.Error;
+            }
+
+            bool locked = false;
+
+            try
+            {
+                HardTryLock(ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    byte[] bytes; /* REUSED */
+                    int length; /* REUSED */
+
+                    bytes = stubAssemblyBytes;
+
+                    if (bytes != null)
+                    {
+                        length = bytes.Length;
+
+                        if (length >= minimumStubAssemblyFileSize)
+                            return ReturnCode.Ok;
+                    }
+
+                    bytes = File.ReadAllBytes(fileName); /* throw */
+
+                    if (bytes == null)
+                    {
+                        error = "could not read stub assembly file";
+                        return ReturnCode.Error;
+                    }
+
+                    length = bytes.Length;
+
+                    if (length < minimumStubAssemblyFileSize)
+                    {
+                        error = "stub assembly file is too small";
+                        return ReturnCode.Error;
+                    }
+
+                    stubAssemblyBytes = bytes;
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "TryToCacheStubAssembly",
+                        typeof(GlobalState).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+            finally
+            {
+                ExitLock(ref locked); /* TRANSACTIONAL */
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode TryToWriteCachedStubAssembly(
+            string fileName, /* in */
+            bool clearCache, /* in */
+            ref Result error /* out */
+            )
+        {
+            bool locked = false;
+
+            try
+            {
+                HardTryLock(ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    byte[] bytes = stubAssemblyBytes;
+
+                    if (bytes == null)
+                    {
+                        error = "missing cached stub assembly bytes";
+                        return ReturnCode.Error;
+                    }
+
+                    int length = bytes.Length;
+
+                    if (length < minimumStubAssemblyFileSize)
+                    {
+                        error = "not enough stub assembly bytes";
+                        return ReturnCode.Error;
+                    }
+
+                    File.WriteAllBytes(fileName, bytes); /* throw */
+
+                    if (clearCache)
+                        stubAssemblyBytes = null;
+
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "TryToWriteStubAssembly",
+                        typeof(GlobalState).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+            finally
+            {
+                ExitLock(ref locked); /* TRANSACTIONAL */
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode TryToLoadStubAssembly(
             IClientData clientData, /* in: NOT USED */
             bool useDefault,        /* in */
             ref Result error        /* out */
             )
         {
+            //
+            // HACK: If the stub assembly file is not present for
+            //       some reason, e.g. it was deleted (?), try to
+            //       write it from the cached bytes, if possible.
+            //       This is being done as a convenience, not for
+            //       security.  If it is missing and there are no
+            //       cached bytes, this will fail, which is fine,
+            //       as loading would fail (just below) anyhow.
+            //
             string fileName = GetStubAssemblyFileName();
+
+            if (!File.Exists(fileName) &&
+                (TryToWriteCachedStubAssembly(
+                    fileName, true, ref error) != ReturnCode.Ok))
+            {
+                return ReturnCode.Error;
+            }
+
             byte[] publicKeyToken = GetAssemblyPublicKeyToken();
 
             if (AssemblyOps.VerifyFromFile(
@@ -4735,7 +4933,7 @@ namespace Eagle._Components.Private
 #if !NET_STANDARD_20 && REMOTING && NATIVE && WINDOWS
             finally
             {
-                ObjectOps.DisposeOrComplain<IExecute>(
+                ObjectOps.DisposeOrTrace<IExecute>(
                     null, ref stub);
 
                 stub = null;

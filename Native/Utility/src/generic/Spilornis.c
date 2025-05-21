@@ -460,12 +460,12 @@ EagleIsSpace(
     WCHAR c)		/* The character to check. */
 {
     switch (c) {
-	case L' ':
-	case L'\f':
-	case L'\n':
-	case L'\r':
-	case L'\t':
-	case L'\v':
+	case UNICODIFY(' '):
+	case UNICODIFY('\f'):
+	case UNICODIFY('\n'):
+	case UNICODIFY('\r'):
+	case UNICODIFY('\t'):
+	case UNICODIFY('\v'):
 	    return TRUE;
     }
     return FALSE;
@@ -496,7 +496,7 @@ static BOOL
 EagleIsBinDigit(
     WCHAR c)		/* The character to check. */
 {
-    return ((c >= L'0') && (c <= L'1'));
+    return ((c >= UNICODIFY('0')) && (c <= UNICODIFY('1')));
 }
 
 /*
@@ -524,7 +524,7 @@ static BOOL
 EagleIsOctDigit(
     WCHAR c)		/* The character to check. */
 {
-    return ((c >= L'0') && (c <= L'7'));
+    return ((c >= UNICODIFY('0')) && (c <= UNICODIFY('7')));
 }
 
 /*
@@ -552,7 +552,7 @@ static BOOL
 EagleIsDecDigit(
     WCHAR c)		/* The character to check. */
 {
-    return ((c >= L'0') && (c <= L'9'));
+    return ((c >= UNICODIFY('0')) && (c <= UNICODIFY('9')));
 }
 
 /*
@@ -580,8 +580,9 @@ static BOOL
 EagleIsHexDigit(
     WCHAR c)		/* The character to check. */
 {
-    return (((c >= L'0') && (c <= L'9')) || ((c >= L'A') && (c <= L'F')) ||
-	((c >= L'a') && (c <= L'f')));
+    return (((c >= UNICODIFY('0')) && (c <= UNICODIFY('9'))) ||
+	((c >= UNICODIFY('A')) && (c <= UNICODIFY('F'))) ||
+	((c >= UNICODIFY('a')) && (c <= UNICODIFY('f'))));
 }
 
 /*
@@ -676,7 +677,7 @@ EagleParseBin(
 	p++;
 
 	result <<= 1;
-	result |= (digit - L'0');
+	result |= (digit - UNICODIFY('0'));
     }
 
     *dst = result;
@@ -729,7 +730,7 @@ EagleParseOct(
 	p++;
 
 	result <<= 3;
-	result |= (digit - L'0');
+	result |= (digit - UNICODIFY('0'));
     }
 
     *dst = result;
@@ -782,7 +783,7 @@ EagleParseDec(
 	p++;
 
 	result *= 10;
-	result += (digit - L'0');
+	result += (digit - UNICODIFY('0'));
     }
 
     *dst = result;
@@ -836,12 +837,12 @@ EagleParseHex(
 	p++;
 	result <<= 4;
 
-	if (digit >= L'a') {
-	    result |= (10 + digit - L'a');
-	} else if (digit >= L'A') {
-	    result |= (10 + digit - L'A');
+	if (digit >= UNICODIFY('a')) {
+	    result |= (10 + digit - UNICODIFY('a'));
+	} else if (digit >= UNICODIFY('A')) {
+	    result |= (10 + digit - UNICODIFY('A'));
 	} else {
-	    result |= (digit - L'0');
+	    result |= (digit - UNICODIFY('0'));
 	}
     }
 
@@ -910,131 +911,132 @@ EagleParseBackslash(
 
     if (numChars == 1) {
 	/* Can only scan the backslash.  Return it. */
-	result = L'\\';
+	result = UNICODIFY('\\');
 	count = 1;
 	goto done;
     }
 
     count = 2;
     switch (*p) {
-	case L'\0':
-	    result = L'\\';
+	case UNICODIFY('\0'):
+	    result = UNICODIFY('\\');
 	    count = 1;
 	    break;
-	case L'a':
-	    result = L'\a';
+	case UNICODIFY('a'):
+	    result = UNICODIFY('\a');
 	    break;
-	case L'b':
-	    result = L'\b';
+	case UNICODIFY('b'):
+	    result = UNICODIFY('\b');
 	    break;
-	case L'f':
-	    result = L'\f';
+	case UNICODIFY('f'):
+	    result = UNICODIFY('\f');
 	    break;
-	case L'n':
-	    result = L'\n';
+	case UNICODIFY('n'):
+	    result = UNICODIFY('\n');
 	    break;
-	case L'r':
-	    result = L'\r';
+	case UNICODIFY('r'):
+	    result = UNICODIFY('\r');
 	    break;
-	case L't':
-	    result = L'\t';
+	case UNICODIFY('t'):
+	    result = UNICODIFY('\t');
 	    break;
-	case L'v':
-	    result = L'\v';
+	case UNICODIFY('v'):
+	    result = UNICODIFY('\v');
 	    break;
-	case L'\\': /* COMPAT: Eagle only. */
-	    result = L'\\';
+	case UNICODIFY('\\'): /* COMPAT: Eagle only. */
+	    result = UNICODIFY('\\');
 	    break;
-	case L'B':  /* COMPAT: Eagle only. */
+	case UNICODIFY('B'):  /* COMPAT: Eagle only. */
 	    count += EagleParseBin(p + 1, numChars - 2, &result);
 	    if (count == 2) {
 		/* No digits -> This is just "B". */
-		result = L'B';
+		result = UNICODIFY('B');
 	    } else {
 		/* Keep only the last byte (8 bin digits) */
 		result = (BYTE)result;
 	    }
 	    break;
-	case L'o': /* COMPAT: Eagle only. */
+	case UNICODIFY('o'): /* COMPAT: Eagle only. */
 	    count += EagleParseOct(p + 1, numChars - 2, &result);
 	    if (count == 2) {
 		/* No digits -> This is just "o". */
-		result = L'o';
+		result = UNICODIFY('o');
 	    } else {
 		/* Keep only the last byte (3 oct digits) */
 		result = (BYTE)result;
 	    }
 	    break;
-	case L'd': /* COMPAT: Eagle only. */
+	case UNICODIFY('d'): /* COMPAT: Eagle only. */
 	    count += EagleParseDec(p + 1, numChars - 2, &result);
 	    if (count == 2) {
 		/* No digits -> This is just "d". */
-		result = L'd';
+		result = UNICODIFY('d');
 	    } else {
 		/* Keep only the last byte (~3 dec digits) */
 		result = (BYTE)result;
 	    }
 	    break;
-	case L'x':
+	case UNICODIFY('x'):
 	    count += EagleParseHex(p + 1, numChars - 2, &result);
 	    if (count == 2) {
 		/* No digits -> This is just "x". */
-		result = L'x';
+		result = UNICODIFY('x');
 	    } else {
 		/* Keep only the last byte (2 hex digits) */
 		result = (BYTE)result;
 	    }
 	    break;
-	case L'X': /* COMPAT: Eagle only. */
+	case UNICODIFY('X'): /* COMPAT: Eagle only. */
 	    count += EagleParseHex(p + 1, numChars - 2, &result);
 	    if (count == 2) {
 		/* No digits -> This is just "X". */
-		result = L'X';
+		result = UNICODIFY('X');
 	    }
 	    break;
-	case L'u':
+	case UNICODIFY('u'):
 	    count += EagleParseHex(
 		    p + 1, (numChars > 5) ? 4 : numChars - 2, &result);
 	    if (count == 2) {
 		/* No digits -> This is just "u". */
-		result = L'u';
+		result = UNICODIFY('u');
 	    }
 	    break;
-	case L'U': /* COMPAT: Tcl only. */
+	case UNICODIFY('U'): /* COMPAT: Tcl only. */
 	    count += EagleParseHex(
 		    p + 1, (numChars > 9) ? 8 : numChars - 2, &result);
 	    if (count == 2) {
 		/* No digits -> This is just "U". */
-		result = L'U';
+		result = UNICODIFY('U');
 	    }
 	    break;
-	case L'\n':
+	case UNICODIFY('\n'):
 	    count--;
 	    do {
 		p++; count++;
-	    } while ((count < numChars) && ((*p == L' ') || (*p == L'\t')));
-	    result = L' ';
+	    } while ((count < numChars) && ((*p == UNICODIFY(' ')) ||
+		    (*p == UNICODIFY('\t'))));
+	    result = UNICODIFY(' ');
 	    break;
 	default:
 	    /*
 	     * Check for an octal number \oo?o?
 	     */
-	    if (iswdigit(*p) && (*p < L'8')) { /* INTL: digit */
-		result = (WCHAR)(*p - L'0');
+	    if (iswdigit(*p) && (*p < UNICODIFY('8'))) { /* INTL: digit */
+		result = (WCHAR)(*p - UNICODIFY('0'));
 		p++;
 		if ((numChars == 2) || !iswdigit(*p) /* INTL: digit */
-			|| (*p >= L'8')) {
+			|| (*p >= UNICODIFY('8'))) {
 		    break;
 		}
 		count = 3;
-		result = (WCHAR)((result << 3) + (*p - L'0'));
+		result = (WCHAR)((result << 3) + (*p - UNICODIFY('0')));
 		p++;
 		if ((numChars == 3) || !iswdigit(*p) /* INTL: digit */
-			|| (*p >= L'8')) {
+			|| (*p >= UNICODIFY('8'))) {
 		    break;
 		}
 		count = 4;
-		result = (WCHAR)((result << 3) + (*p - L'0'));
+		result = (WCHAR)((result << 3) + (*p - UNICODIFY('0')));
 		break;
 	    }
 	    result = *p;
@@ -1087,7 +1089,7 @@ EagleCopyAndCollapse(
 
     while (count > 0) {
 	WCHAR c = *src;
-	if (c == L'\\') {
+	if (c == UNICODIFY('\\')) {
 	    SIZE_T numRead;
 	    SIZE_T numWrite = EagleParseBackslash(src, count, &numRead, dst);
 
@@ -1187,39 +1189,40 @@ EagleScanCountedElement(
     nestingLevel = 0;
     flags = 0;
     if (string == NULL) {
-	string = L"";
+	string = UNICODIFY("");
     }
     if (length == (SIZE_T)-1) {
 	length = (SIZE_T)wcslen(string);
     }
     lastChar = string + length;
     p = string;
-    if ((p == lastChar) || (*p == L'{') || (*p == L'"')) {
+    if ((p == lastChar) || (*p == UNICODIFY('{')) ||
+	    (*p == UNICODIFY('"'))) {
 	flags |= EAGLE_USE_BRACES;
     }
     for (; p < lastChar; p++) {
 	switch (*p) {
-	    case L'{':
+	    case UNICODIFY('{'):
 		nestingLevel++;
 		break;
-	    case L'}':
+	    case UNICODIFY('}'):
 		nestingLevel--;
 		if (nestingLevel < 0) {
 		    flags |= EAGLE_DONT_USE_BRACES | EAGLE_BRACES_UNMATCHED;
 		}
 		break;
-	    case L'[':
-	    case L'$':
-	    case L';':
-	    case L' ':
-	    case L'\f':
-	    case L'\n':
-	    case L'\r':
-	    case L'\t':
-	    case L'\v':
+	    case UNICODIFY('['):
+	    case UNICODIFY('$'):
+	    case UNICODIFY(';'):
+	    case UNICODIFY(' '):
+	    case UNICODIFY('\f'):
+	    case UNICODIFY('\n'):
+	    case UNICODIFY('\r'):
+	    case UNICODIFY('\t'):
+	    case UNICODIFY('\v'):
 		flags |= EAGLE_USE_BRACES;
 		break;
-	    case L'\\':
+	    case UNICODIFY('\\'):
 		/*
 		 * The first portion of this check used to compare "p + 1"
 		 * against "lastChar" with the "==" operator; however, the
@@ -1238,7 +1241,7 @@ EagleScanCountedElement(
 		 * it should then assert "(p + 1) < lastChar" at the point
 		 * where "p[1]" is used).
 		 */
-		if (((p + 1) >= lastChar) || (p[1] == L'\n')) {
+		if (((p + 1) >= lastChar) || (p[1] == UNICODIFY('\n'))) {
 		    flags = EAGLE_DONT_USE_BRACES | EAGLE_BRACES_UNMATCHED;
 		} else {
 		    SIZE_T size;
@@ -1308,24 +1311,24 @@ EagleConvertCountedElement(
 	length = (SIZE_T)wcslen(src);
     }
     if ((src == NULL) || (length == 0)) {
-	p[0] = L'{';
-	p[1] = L'}';
+	p[0] = UNICODIFY('{');
+	p[1] = UNICODIFY('}');
 	return 2;
     }
     lastChar = src + length;
-    if ((*src == L'#') && !(flags & EAGLE_DONT_QUOTE_HASH)) {
+    if ((*src == UNICODIFY('#')) && !(flags & EAGLE_DONT_QUOTE_HASH)) {
 	flags |= EAGLE_USE_BRACES;
     }
     if ((flags & EAGLE_USE_BRACES) && !(flags & EAGLE_DONT_USE_BRACES)) {
-	*p = L'{';
+	*p = UNICODIFY('{');
 	p++;
 	for (; src != lastChar; src++, p++) {
 	    *p = *src;
 	}
-	*p = L'}';
+	*p = UNICODIFY('}');
 	p++;
     } else {
-	if (*src == L'{') {
+	if (*src == UNICODIFY('{')) {
 	    /*
 	     * Can't have a leading brace unless the whole element is
 	     * enclosed in braces.  Add a backslash before the brace.
@@ -1333,37 +1336,38 @@ EagleConvertCountedElement(
 	     * and close braces, so set EAGLE_BRACES_UNMATCHED.
 	     */
 
-	    p[0] = L'\\';
-	    p[1] = L'{';
+	    p[0] = UNICODIFY('\\');
+	    p[1] = UNICODIFY('{');
 	    p += 2;
 	    src++;
 	    flags |= EAGLE_BRACES_UNMATCHED;
-	} else if ((*src == L'#') && !(flags & EAGLE_DONT_QUOTE_HASH)) {
+	} else if ((*src == UNICODIFY('#')) &&
+		!(flags & EAGLE_DONT_QUOTE_HASH)) {
 	    /*
 	     * Leading '#' could be seen by [eval] as the start of
 	     * a comment, if on the first element of a list, so
 	     * quote it.
 	     */
 
-	    p[0] = L'\\';
-	    p[1] = L'#';
+	    p[0] = UNICODIFY('\\');
+	    p[1] = UNICODIFY('#');
 	    p += 2;
 	    src++;
 	}
 	for (; src != lastChar; src++) {
 	    switch (*src) {
-		case L']':
-		case L'[':
-		case L'$':
-		case L';':
-		case L' ':
-		case L'\\':
-		case L'"':
-		    *p = L'\\';
+		case UNICODIFY(']'):
+		case UNICODIFY('['):
+		case UNICODIFY('$'):
+		case UNICODIFY(';'):
+		case UNICODIFY(' '):
+		case UNICODIFY('\\'):
+		case UNICODIFY('"'):
+		    *p = UNICODIFY('\\');
 		    p++;
 		    break;
-		case L'{':
-		case L'}':
+		case UNICODIFY('{'):
+		case UNICODIFY('}'):
 		    /*
 		     * It may not seem necessary to backslash braces, but
 		     * it is.  The reason for this is that the resulting
@@ -1374,38 +1378,38 @@ EagleConvertCountedElement(
 		     */
 
 		    if (flags & EAGLE_BRACES_UNMATCHED) {
-			*p = L'\\';
+			*p = UNICODIFY('\\');
 			p++;
 		    }
 		    break;
-		case L'\f':
-		    *p = L'\\';
+		case UNICODIFY('\f'):
+		    *p = UNICODIFY('\\');
 		    p++;
-		    *p = L'f';
-		    p++;
-		    continue;
-		case L'\n':
-		    *p = L'\\';
-		    p++;
-		    *p = L'n';
+		    *p = UNICODIFY('f');
 		    p++;
 		    continue;
-		case L'\r':
-		    *p = L'\\';
+		case UNICODIFY('\n'):
+		    *p = UNICODIFY('\\');
 		    p++;
-		    *p = L'r';
-		    p++;
-		    continue;
-		case L'\t':
-		    *p = L'\\';
-		    p++;
-		    *p = L't';
+		    *p = UNICODIFY('n');
 		    p++;
 		    continue;
-		case L'\v':
-		    *p = L'\\';
+		case UNICODIFY('\r'):
+		    *p = UNICODIFY('\\');
 		    p++;
-		    *p = L'v';
+		    *p = UNICODIFY('r');
+		    p++;
+		    continue;
+		case UNICODIFY('\t'):
+		    *p = UNICODIFY('\\');
+		    p++;
+		    *p = UNICODIFY('t');
+		    p++;
+		    continue;
+		case UNICODIFY('\v'):
+		    *p = UNICODIFY('\\');
+		    p++;
+		    *p = UNICODIFY('v');
 		    p++;
 		    continue;
 	    }
@@ -1497,10 +1501,10 @@ EagleFindElement(
 	goto done;
     }
 
-    if (*p == L'{') {
+    if (*p == UNICODIFY('{')) {
 	openBraces++;
 	p++;
-    } else if (*p == L'"') {
+    } else if (*p == UNICODIFY('"')) {
 	inQuotes = TRUE;
 	p++;
     }
@@ -1518,7 +1522,7 @@ EagleFindElement(
 	     * braces. In this case, keep a nesting count.
 	     */
 
-	    case L'{':
+	    case UNICODIFY('{'):
 		if (openBraces != 0) {
 		    openBraces++;
 		}
@@ -1529,7 +1533,7 @@ EagleFindElement(
 	     * quit when the last close brace is seen.
 	     */
 
-	    case L'}':
+	    case UNICODIFY('}'):
 		if (openBraces > 1) {
 		    openBraces--;
 		} else if (openBraces == 1) {
@@ -1552,9 +1556,9 @@ EagleFindElement(
 			    p2++;
 			}
 			*errorPtr = EaglePrintf(0,
-				L"list element in braces followed by "
-				L"\"%.*ls\" %ls", (int)(p2 - p), p,
-				L"instead of space");
+				UNICODIFY("list element in braces followed by ")
+				UNICODIFY("\"%.*ls\" %ls"), (int)(p2 - p), p,
+				UNICODIFY("instead of space"));
 		    }
 		    return EAGLE_ERROR;
 		}
@@ -1565,7 +1569,7 @@ EagleFindElement(
 	     * backslash sequence.
 	     */
 
-	    case L'\\': {
+	    case UNICODIFY('\\'): {
 		EagleParseBackslash(p, (SIZE_T)(limit - p), &numChars, NULL);
 		p += (numChars - 1);
 		break;
@@ -1576,12 +1580,12 @@ EagleFindElement(
 	     * terminate element.
 	     */
 
-	    case L' ':
-	    case L'\f':
-	    case L'\n':
-	    case L'\r':
-	    case L'\t':
-	    case L'\v':
+	    case UNICODIFY(' '):
+	    case UNICODIFY('\f'):
+	    case UNICODIFY('\n'):
+	    case UNICODIFY('\r'):
+	    case UNICODIFY('\t'):
+	    case UNICODIFY('\v'):
 		if ((openBraces == 0) && !inQuotes) {
 		    size = (SIZE_T)(p - elemStart);
 		    goto done;
@@ -1592,7 +1596,7 @@ EagleFindElement(
 	     * Double-quote: if element is in quotes then terminate it.
 	     */
 
-	    case L'"':
+	    case UNICODIFY('"'):
 		if (inQuotes) {
 		    size = (SIZE_T)(p - elemStart);
 		    p++;
@@ -1613,9 +1617,9 @@ EagleFindElement(
 			    p2++;
 			}
 			*errorPtr = EaglePrintf(0,
-				L"list element in quotes followed by "
-				L"\"%.*ls\" %ls", (int)(p2 - p), p,
-				L"instead of space");
+				UNICODIFY("list element in quotes followed by ")
+				UNICODIFY("\"%.*ls\" %ls"), (int)(p2 - p), p,
+				UNICODIFY("instead of space"));
 		    }
 		    return EAGLE_ERROR;
 		}
@@ -1631,12 +1635,14 @@ EagleFindElement(
     if (p == limit) {
 	if (openBraces != 0) {
 	    if (errorPtr != NULL) {
-		*errorPtr = EaglePrintf(0, L"unmatched open brace in list");
+		*errorPtr = EaglePrintf(0,
+		    UNICODIFY("unmatched open brace in list"));
 	    }
 	    return EAGLE_ERROR;
 	} else if (inQuotes) {
 	    if (errorPtr != NULL) {
-		*errorPtr = EaglePrintf(0, L"unmatched open quote in list");
+		*errorPtr = EaglePrintf(0,
+		    UNICODIFY("unmatched open quote in list"));
 	    }
 	    return EAGLE_ERROR;
 	}
@@ -1692,25 +1698,25 @@ Eagle_GetVersion(VOID)
 	LIBRARY_UNICODE_NAME, LIBRARY_UNICODE_PATCH_LEVEL,
 	LIBRARY_UNICODE_SOURCE_ID, LIBRARY_UNICODE_SOURCE_TIMESTAMP,
 #if defined(_DEBUG)
-	L" DEBUG",
+	UNICODIFY(" DEBUG"),
 #else
-	L" RELEASE",
+	UNICODIFY(" RELEASE"),
 #endif
-	L" SIZE_OF_WCHAR_T=", (int)sizeof(WCHAR),
+	UNICODIFY(" SIZE_OF_WCHAR_T="), (int)sizeof(WCHAR),
 #if defined(USE_32BIT_SIZE_T)
-	L" USE_32BIT_SIZE_T=" UNICODIFY(STRINGIFY(USE_32BIT_SIZE_T)),
+	UNICODIFY(" USE_32BIT_SIZE_T=") UNICODIFY(STRINGIFY(USE_32BIT_SIZE_T)),
 #else
-	L"",
+	UNICODIFY(""),
 #endif
 #if defined(USE_SYSSTRINGLEN)
-	L" USE_SYSSTRINGLEN=" UNICODIFY(STRINGIFY(USE_SYSSTRINGLEN)),
+	UNICODIFY(" USE_SYSSTRINGLEN=") UNICODIFY(STRINGIFY(USE_SYSSTRINGLEN)),
 #else
-	L"",
+	UNICODIFY(""),
 #endif
 #if defined(USE_HEAPAPI)
-	L" USE_HEAPAPI=" UNICODIFY(STRINGIFY(USE_HEAPAPI))
+	UNICODIFY(" USE_HEAPAPI=") UNICODIFY(STRINGIFY(USE_HEAPAPI))
 #else
-	L""
+	UNICODIFY("")
 #endif
     );
 
@@ -1987,7 +1993,7 @@ Eagle_SplitList(
     if (argc == NULL) {
 	if (ppError != NULL) {
 	    *ppError = EaglePrintf(0,
-		L"out of memory for list element lengths (%d)",
+		UNICODIFY("out of memory for list element lengths (%d)"),
 		(int)allocSize);
 	}
 	return EAGLE_ERROR;
@@ -1999,7 +2005,7 @@ Eagle_SplitList(
     if (argv == NULL) {
 	if (ppError != NULL) {
 	    *ppError = EaglePrintf(0,
-		L"out of memory for list element pointers (%d)",
+		UNICODIFY("out of memory for list element pointers (%d)"),
 		(int)allocSize);
 	}
 	Eagle_FreeMemory(argc);
@@ -2023,7 +2029,8 @@ Eagle_SplitList(
 	}
 	if (i >= size) {
 	    if (ppError != NULL) {
-		*ppError = EaglePrintf(0, L"wrong estimated list size");
+		*ppError = EaglePrintf(0,
+		    UNICODIFY("wrong estimated list size"));
 	    }
 	    Eagle_FreeMemory(argc);
 	    Eagle_FreeMemory(argv);
@@ -2055,8 +2062,8 @@ Eagle_SplitList(
  * Eagle_JoinList --
  *
  *	Given a collection of strings, merge them together into a single
- *	string that has proper Tcl list structure (i.e. Eagle_SplitList may
- *	be used to retrieve strings equal to the original elements).
+ *	string that has proper Tcl list structure (i.e. Eagle_SplitList
+ *	may be used to retrieve strings equal to the original elements).
  *
  * Results:
  *	A standard Eagle return code.
@@ -2108,7 +2115,7 @@ Eagle_JoinList(
 	if (flagPtr == NULL) {
 	    if (ppError != NULL) {
 		*ppError = EaglePrintf(0,
-		    L"out of memory for list element flags (%d)",
+		    UNICODIFY("out of memory for list element flags (%d)"),
 		    (int)allocSize);
 	    }
 	    return EAGLE_ERROR;
@@ -2141,7 +2148,7 @@ Eagle_JoinList(
     if (result == NULL) {
 	if (ppError != NULL) {
 	    *ppError = EaglePrintf(0,
-		L"out of memory for list element text (%d)",
+		UNICODIFY("out of memory for list element text (%d)"),
 		(int)allocSize);
 	}
 	if (flagPtr != localFlags) {
@@ -2160,7 +2167,7 @@ Eagle_JoinList(
 	 */
 
 	if (i > 0) {
-	    *dst = L' ';
+	    *dst = UNICODIFY(' ');
 	    eleChars++;
 	    dst++;
 	}

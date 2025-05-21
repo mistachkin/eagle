@@ -264,8 +264,9 @@ runTest {test socket-4.51 {custom WebClient creation failure} -setup {
 } -constraints {eagle command.object compile.NETWORK internet_eagle.to\
 fossil_repository_url variable_test_repository_url compile.TEST\
 Eagle._Tests.Default.TestHasErrorNewWebClientCallback\
-Eagle._Tests.Default.TestSetScriptNewWebClientCallback} -time true -result {1\
-{{Retried web request 0 time(s).} {web client use has been disabled}}}}
+Eagle._Tests.Default.TestSetScriptNewWebClientCallback} -time true -match \
+regexp -result {^1 \{\{Retried web request \d+ time\(s\)\.\} \{web client use\
+has been disabled\}\}$}}
 
 ###############################################################################
 
@@ -319,9 +320,10 @@ runTest {test socket-5.50 {custom WebClient creation failure} -setup {
 } -constraints {eagle command.object compile.NETWORK internet_eagle.to\
 fossil_repository_url variable_test_repository_url compile.TEST\
 Eagle._Tests.Default.TestHasErrorNewWebClientCallback\
-Eagle._Tests.Default.TestSetScriptNewWebClientCallback} -time true -result {1\
-{{Retried web request 0 time(s).} {creation of web client forbidden}} 1\
-{{Retried web request 0 time(s).} {creation of web client forbidden}}}}
+Eagle._Tests.Default.TestSetScriptNewWebClientCallback} -time true -match \
+regexp -result {^1 \{\{Retried web request \d+ time\(s\)\.\} \{creation of web\
+client forbidden\}\} 1 \{\{Retried web request \d+ time\(s\)\.\} \{creation of\
+web client forbidden\}\}$}}
 
 ###############################################################################
 

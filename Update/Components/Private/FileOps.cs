@@ -1425,7 +1425,7 @@ namespace Eagle._Components.Private
                 else
                 {
                     fileAttributes = File.Exists(fileName) ?
-                        File.GetAttributes(fileName) : FileAttributes.Normal;
+                        File.GetAttributes(fileName) : (FileAttributes)0;
                 }
 
                 readOnly = ((fileAttributes & FileAttributes.ReadOnly) ==
@@ -1484,7 +1484,7 @@ namespace Eagle._Components.Private
                 else
                 {
                     fileAttributes = File.Exists(fileName) ?
-                        File.GetAttributes(fileName) : FileAttributes.Normal;
+                        File.GetAttributes(fileName) : (FileAttributes)0;
                 }
 
                 if (readOnly)

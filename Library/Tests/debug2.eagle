@@ -41,7 +41,7 @@ runTest {test debug-2.35 {IScriptLocation stack balance} -setup {
     }
   }
 
-  set i [interp create]
+  set i [interp create -nosecurity]
 } -body {
   interp eval $i [list source $fileName]
 } -cleanup {

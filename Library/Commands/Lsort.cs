@@ -67,7 +67,8 @@ namespace Eagle._Commands
                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-unique", null),
                             new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-command", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-index", null) // NOTE: Of sub-lists, not list.
+                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-index", null), // NOTE: Of sub-lists, not list.
+                            Option.CreateEndOfOptions()
                         });
 
                         int argumentIndex = Index.Invalid;

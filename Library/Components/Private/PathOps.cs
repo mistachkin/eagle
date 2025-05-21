@@ -63,6 +63,14 @@ using UnderDictionary = Eagle._Containers.Public.PathDictionary<
     System.Collections.Generic.List<Eagle._Components.Public.AnyPair<
         Eagle._Components.Public.PathType, string>>>;
 
+#if NATIVE
+using UNM = Eagle._Components.Private.PathOps.UnsafeNativeMethods;
+
+#if WINDOWS || UNIX
+using FSM = Eagle._Components.Public.FileStatusModes;
+#endif
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -200,7 +208,7 @@ namespace Eagle._Components.Private
             /* WARNING: Non-portable, select versions of Linux only? */
             [StructLayout(LayoutKind.Explicit)]
             [ObjectId("3f01d0eb-ba6b-4b5a-b15b-68488418a11b")]
-            internal struct stat /* monophile: Ubuntu 16.04.7 LTS */
+            internal struct linux_stat /* monophile: Ubuntu 16.04.7 LTS */
             {
                 [FieldOffset(0)]
                 public ulong /* dev_t */ st_dev; /* 0 */
@@ -238,12 +246,86 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /* WARNING: Non-portable, select versions of macOS only? */
+            [StructLayout(LayoutKind.Explicit)]
+            [ObjectId("6904da5b-3efb-4a92-8f4c-3f30c0adc5fb")]
+            internal struct macos_stat_buf
+            {
+                [FieldOffset(0)]
+                public uint /* dev_t */ st_dev; /* 0 */
+                [FieldOffset(4)]
+                public ushort /* mode_t */ st_mode; /* 4 */
+                [FieldOffset(6)]
+                public ushort /* nlink_t */ st_nlink; /* 6 */
+                [FieldOffset(8)]
+                public ulong /* ino_t */ st_ino; /* 8 */
+                [FieldOffset(16)]
+                public uint /* uid_t */ st_uid; /* 16 */
+                [FieldOffset(20)]
+                public uint /* gid_t */ st_gid; /* 20 */
+                [FieldOffset(24)]
+                public ulong /* dev_t */ st_rdev; /* 24 */
+                [FieldOffset(28)]
+                private uint __pad; /* 28 */
+                [FieldOffset(32)]
+                public /* struct */ timespec st_atimespec; /* 32 */
+                [FieldOffset(48)]
+                public /* struct */ timespec st_mtimespec; /* 48 */
+                [FieldOffset(64)]
+                public /* struct */ timespec st_ctimespec; /* 64 */
+                [FieldOffset(80)]
+                public /* struct */ timespec st_birthtimespec; /* 80 */
+                [FieldOffset(96)]
+                public ulong /* off_t */ st_size; /* 96 */
+                [FieldOffset(104)]
+                public ulong /* blkcnt_t */ st_blocks; /* 104 */
+                [FieldOffset(112)]
+                public uint /* blksize_t */ st_blksize; /* 112 */
+                [FieldOffset(116)]
+                public uint /* uint32_t */ st_flags; /* 116 */
+                [FieldOffset(120)]
+                public uint /* uint32_t */ st_gen; /* 120 */
+                [FieldOffset(124)]
+                public int /* int32_t */ st_lspare; /* 124 */
+                [FieldOffset(128)]
+                public long /* int64_t */ st_qspare0; /* 128 */
+                [FieldOffset(136)]
+                public long /* int64_t */ st_qspare1; /* 136 */
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             /* WARNING: Non-portable, select versions of Linux only? */
             [DllImport(DllName.LibC, EntryPoint = "__xstat",
                 CallingConvention = CallingConvention.Cdecl,
                 CharSet = CharSet.Ansi, BestFitMapping = false,
                 ThrowOnUnmappableChar = true, SetLastError = true)]
-            internal static extern int libc_xstat(int ver, string path, out stat buf);
+            internal static extern int linux_xstat(int ver, string path, out linux_stat buf);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            /* WARNING: Non-portable, select versions of Linux only? */
+            [DllImport(DllName.LibC, EntryPoint = "__lxstat",
+                CallingConvention = CallingConvention.Cdecl,
+                CharSet = CharSet.Ansi, BestFitMapping = false,
+                ThrowOnUnmappableChar = true, SetLastError = true)]
+            internal static extern int linux_lxstat(int ver, string path, out linux_stat buf);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Internal, EntryPoint = "stat",
+                CallingConvention = CallingConvention.Cdecl,
+                CharSet = CharSet.Ansi, BestFitMapping = false,
+                ThrowOnUnmappableChar = true, SetLastError = true)]
+            internal static extern int macos_stat(string path, out macos_stat_buf buf);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Internal, EntryPoint = "lstat",
+                CallingConvention = CallingConvention.Cdecl,
+                CharSet = CharSet.Ansi, BestFitMapping = false,
+                ThrowOnUnmappableChar = true, SetLastError = true)]
+            internal static extern int macos_lstat(string path, out macos_stat_buf buf);
 #endif
         }
         #endregion
@@ -939,15 +1021,15 @@ namespace Eagle._Components.Private
 
 #if NATIVE && WINDOWS
         private static void InitializeFileInformation(
-            out UnsafeNativeMethods.BY_HANDLE_FILE_INFORMATION fileInformation /* out */
+            out UNM.BY_HANDLE_FILE_INFORMATION fileInformation /* out */
             )
         {
             fileInformation.dwFileAttributes =
                 FileFlagsAndAttributes.FILE_ATTRIBUTE_NONE;
 
-            fileInformation.ftCreationTime = new UnsafeNativeMethods.FILETIME();
-            fileInformation.ftLastAccessTime = new UnsafeNativeMethods.FILETIME();
-            fileInformation.ftLastWriteTime = new UnsafeNativeMethods.FILETIME();
+            fileInformation.ftCreationTime = new UNM.FILETIME();
+            fileInformation.ftLastAccessTime = new UNM.FILETIME();
+            fileInformation.ftLastWriteTime = new UNM.FILETIME();
 
             fileInformation.dwVolumeSerialNumber = 0;
 
@@ -963,11 +1045,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ReturnCode GetPathInformation(
-            string fileName,                                                    /* in */
-            bool directory,                                                     /* in */
-            bool reparse,                                                       /* in */
-            ref UnsafeNativeMethods.BY_HANDLE_FILE_INFORMATION fileInformation, /* out */
-            ref Result error                                                    /* out */
+            string fileName,                                    /* in */
+            bool directory,                                     /* in */
+            bool reparse,                                       /* in */
+            ref UNM.BY_HANDLE_FILE_INFORMATION fileInformation, /* out */
+            ref Result error                                    /* out */
             )
         {
             if (PlatformOps.IsWindowsOperatingSystem())
@@ -989,7 +1071,7 @@ namespace Eagle._Components.Private
                             fileFlagsAndAttributes |=
                                 FileFlagsAndAttributes.FILE_FLAG_OPEN_REPARSE_POINT;
 
-                        handle = UnsafeNativeMethods.CreateFile(
+                        handle = UNM.CreateFile(
                             fileName, FileAccessMask.FILE_NONE,
                             FileShareMode.FILE_SHARE_NONE, IntPtr.Zero,
                             FileCreationDisposition.OPEN_EXISTING,
@@ -997,7 +1079,7 @@ namespace Eagle._Components.Private
 
                         if (NativeOps.IsValidHandle(handle))
                         {
-                            if (UnsafeNativeMethods.GetFileInformationByHandle(
+                            if (UNM.GetFileInformationByHandle(
                                     handle, ref fileInformation))
                             {
                                 return ReturnCode.Ok;
@@ -1055,7 +1137,7 @@ namespace Eagle._Components.Private
         {
             if (PlatformOps.IsWindowsOperatingSystem())
             {
-                UnsafeNativeMethods.BY_HANDLE_FILE_INFORMATION fileInformation;
+                UNM.BY_HANDLE_FILE_INFORMATION fileInformation;
 
                 InitializeFileInformation(out fileInformation);
 
@@ -1117,7 +1199,7 @@ namespace Eagle._Components.Private
         {
             if (PlatformOps.IsWindowsOperatingSystem())
             {
-                UnsafeNativeMethods.BY_HANDLE_FILE_INFORMATION fileInformation;
+                UNM.BY_HANDLE_FILE_INFORMATION fileInformation;
 
                 InitializeFileInformation(out fileInformation);
 
@@ -1147,7 +1229,7 @@ namespace Eagle._Components.Private
         //       source code and modified to work in C#.
         //
         private static ulong ToTimeT(
-            UnsafeNativeMethods.FILETIME fileTime /* in */
+            UNM.FILETIME fileTime /* in */
             )
         {
             ulong converted = ConversionOps.ToULong(
@@ -1162,48 +1244,45 @@ namespace Eagle._Components.Private
         // NOTE: This algorithm was stolen directly from the Tcl 8.6
         //       source code and modified to work in C#.
         //
-        private static FileStatusModes GetMode(
+        private static FSM GetMode(
             FileFlagsAndAttributes flagsAndAttributes, /* in */
             bool checkLinks,                           /* in */
             bool isExecutable,                         /* in */
             bool userOnly                              /* in */
             )
         {
-            FileStatusModes mode = FileStatusModes.S_INONE;
+            FSM mode = FSM.S_INONE;
 
             if (checkLinks && FlagOps.HasFlags(flagsAndAttributes,
                     FileFlagsAndAttributes.FILE_ATTRIBUTE_REPARSE_POINT, true))
             {
-                mode |= FileStatusModes.S_IFLNK;
+                mode |= FSM.S_IFLNK;
             }
             else if (FlagOps.HasFlags(flagsAndAttributes,
                     FileFlagsAndAttributes.FILE_ATTRIBUTE_DIRECTORY, true))
             {
-                mode |= FileStatusModes.S_IFDIR | FileStatusModes.S_IEXEC;
+                mode |= FSM.S_IFDIR | FSM.S_IEXEC;
             }
             else
             {
-                mode |= FileStatusModes.S_IFREG;
+                mode |= FSM.S_IFREG;
             }
 
             if (FlagOps.HasFlags(flagsAndAttributes,
                     FileFlagsAndAttributes.FILE_ATTRIBUTE_READONLY, true))
             {
-                mode |= FileStatusModes.S_IREAD;
+                mode |= FSM.S_IREAD;
             }
             else
             {
-                mode |= FileStatusModes.S_IREAD | FileStatusModes.S_IWRITE;
+                mode |= FSM.S_IREAD | FSM.S_IWRITE;
             }
 
             if (isExecutable)
-                mode |= FileStatusModes.S_IEXEC;
+                mode |= FSM.S_IEXEC;
 
             if (!userOnly)
-            {
-                mode |= (FileStatusModes)((int)(mode & FileStatusModes.S_IRWX) >> 3); /* group */
-                mode |= (FileStatusModes)((int)(mode & FileStatusModes.S_IRWX) >> 6); /* other */
-            }
+                AdjustPermissions(true, ref mode);
 
             return mode;
         }
@@ -1220,7 +1299,7 @@ namespace Eagle._Components.Private
                     return false;
 
                 if (PlatformOps.IsWindowsOperatingSystem() &&
-                    UnsafeNativeMethods.PathIsExe(path)) /* throw */
+                    UNM.PathIsExe(path)) /* throw */
                 {
                     return true;
                 }
@@ -1289,112 +1368,14 @@ namespace Eagle._Components.Private
         }
 #endif
 
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        //
-        // NOTE: This is used directly by the [file lstat] and [file stat]
-        //       sub-commands.
-        //
-        public static ReturnCode GetStatus(
-            string path,         /* in */
-            bool checkLinks,     /* in */
-            bool reparse,        /* in */
-            ref StringList list, /* in, out */
-            ref Result error     /* out */
-            )
-        {
-            if (PlatformOps.IsWindowsOperatingSystem())
-            {
-                string uid = Value.ZeroString;
-                string gid = Value.ZeroString;
-
-#if !NET_STANDARD_20 && !MONO
-                IdentityReference ownerUser = null;
-                IdentityReference ownerGroup = null;
-
-                if (GetOwner(
-                        path, ref ownerUser, ref ownerGroup,
-                        ref error) == ReturnCode.Ok)
-#endif
-                {
-#if !NET_STANDARD_20 && !MONO
-                    uid = ownerUser.ToString();
-                    gid = ownerGroup.ToString();
-#endif
-
-                    UnsafeNativeMethods.BY_HANDLE_FILE_INFORMATION fileInformation;
-
-                    InitializeFileInformation(out fileInformation);
-
-                    if (GetPathInformation(
-                            path, Directory.Exists(path), reparse,
-                            ref fileInformation, ref error) == ReturnCode.Ok)
-                    {
-                        int device = 0;
-
-                        if (!String.IsNullOrEmpty(path) && Char.IsLetter(path[0]))
-                            device = Char.ToLower(path[0]) - Characters.a;
-
-                        int mode = (int)GetMode(
-                            fileInformation.dwFileAttributes, checkLinks,
-                            MightBeExecutable(path), false);
-
-                        if (list == null)
-                            list = new StringList();
-
-                        list.Add(
-                            "dev",
-                            device.ToString(),
-                            "ino",
-                            ConversionOps.ToULong(
-                                fileInformation.nFileIndexLow,
-                                fileInformation.nFileIndexHigh).ToString(),
-                            "mode",
-                            mode.ToString(),
-                            "nlink",
-                            fileInformation.nNumberOfLinks.ToString(),
-                            "uid",
-                            uid,
-                            "gid",
-                            gid,
-                            "rdev",
-                            fileInformation.dwVolumeSerialNumber.ToString(),
-                            "size",
-                            ConversionOps.ToULong(
-                                fileInformation.nFileSizeLow,
-                                fileInformation.nFileSizeHigh).ToString(),
-                            "atime",
-                            ToTimeT(
-                                fileInformation.ftLastAccessTime).ToString(),
-                            "mtime",
-                            ToTimeT(
-                                fileInformation.ftLastWriteTime).ToString(),
-                            "ctime",
-                            ToTimeT(
-                                fileInformation.ftCreationTime).ToString(),
-                            "type",
-                            FileOps.GetFileType(path));
-
-                        return ReturnCode.Ok;
-                    }
-                }
-            }
-            else
-            {
-                error = "not supported on this operating system";
-            }
-
-            return ReturnCode.Error;
-        }
-
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ReturnCode GetObjectId(
-            string fileName,                                           /* in */
-            bool directory,                                            /* in */
-            bool create,                                               /* in */
-            ref UnsafeNativeMethods.FILE_OBJECTID_BUFFER fileObjectId, /* out */
-            ref Result error                                           /* out */
+            string fileName,                           /* in */
+            bool directory,                            /* in */
+            bool create,                               /* in */
+            ref UNM.FILE_OBJECTID_BUFFER fileObjectId, /* out */
+            ref Result error                           /* out */
             )
         {
             if (PlatformOps.IsWindowsOperatingSystem())
@@ -1412,8 +1393,8 @@ namespace Eagle._Components.Private
                             fileFlagsAndAttributes |=
                                 FileFlagsAndAttributes.FILE_FLAG_BACKUP_SEMANTICS;
 
-                        handle = UnsafeNativeMethods.CreateFile(fileName,
-                            FileAccessMask.FILE_NONE,
+                        handle = UNM.CreateFile(
+                            fileName, FileAccessMask.FILE_NONE,
                             FileShareMode.FILE_SHARE_READ_WRITE, IntPtr.Zero,
                             FileCreationDisposition.OPEN_EXISTING,
                             fileFlagsAndAttributes, IntPtr.Zero);
@@ -1425,7 +1406,7 @@ namespace Eagle._Components.Private
                             try
                             {
                                 int outBufferSize = Marshal.SizeOf(typeof(
-                                    UnsafeNativeMethods.FILE_OBJECTID_BUFFER));
+                                    UNM.FILE_OBJECTID_BUFFER));
 
                                 outBuffer = Marshal.AllocCoTaskMem(
                                     outBufferSize);
@@ -1434,16 +1415,16 @@ namespace Eagle._Components.Private
                                 {
                                     uint bytesReturned = 0;
 
-                                    if (UnsafeNativeMethods.DeviceIoControl(
+                                    if (UNM.DeviceIoControl(
                                             handle, create ?
-                                                UnsafeNativeMethods.FSCTL_CREATE_OR_GET_OBJECT_ID :
-                                                UnsafeNativeMethods.FSCTL_GET_OBJECT_ID,
+                                                UNM.FSCTL_CREATE_OR_GET_OBJECT_ID :
+                                                UNM.FSCTL_GET_OBJECT_ID,
                                             IntPtr.Zero, 0, outBuffer, (uint)outBufferSize,
                                             ref bytesReturned, IntPtr.Zero))
                                     {
-                                        fileObjectId = (UnsafeNativeMethods.FILE_OBJECTID_BUFFER)
+                                        fileObjectId = (UNM.FILE_OBJECTID_BUFFER)
                                             Marshal.PtrToStructure(outBuffer,
-                                                typeof(UnsafeNativeMethods.FILE_OBJECTID_BUFFER));
+                                                typeof(UNM.FILE_OBJECTID_BUFFER));
 
                                         return ReturnCode.Ok;
                                     }
@@ -1514,8 +1495,8 @@ namespace Eagle._Components.Private
         {
             if (PlatformOps.IsWindowsOperatingSystem())
             {
-                UnsafeNativeMethods.FILE_OBJECTID_BUFFER fileObjectId =
-                    new UnsafeNativeMethods.FILE_OBJECTID_BUFFER();
+                UNM.FILE_OBJECTID_BUFFER fileObjectId =
+                    new UNM.FILE_OBJECTID_BUFFER();
 
                 if (GetObjectId(
                         path, directory, create,
@@ -1551,6 +1532,422 @@ namespace Eagle._Components.Private
             return ReturnCode.Error;
         }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if NATIVE && (WINDOWS || UNIX)
+        private static void AdjustPermissions(
+            bool addFromUser, /* in */
+            ref FSM mode      /* in, out */
+            )
+        {
+            FSM groupModes = (FSM)((uint)(mode & FSM.S_IRWX) >> 3);
+            FSM otherModes = (FSM)((uint)(mode & FSM.S_IRWX) >> 6);
+
+            if (addFromUser)
+            {
+                mode |= groupModes;
+                mode |= otherModes;
+            }
+            else
+            {
+                mode &= ~otherModes;
+                mode &= ~groupModes;
+                mode &= ~FSM.S_IRWX;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetMode(
+            string path,     /* in */
+            bool checkLinks, /* in */
+            ref FSM mode,    /* out */
+            ref Result error /* out */
+            )
+        {
+            if (PlatformOps.IsWindowsOperatingSystem())
+            {
+#if WINDOWS
+                UNM.BY_HANDLE_FILE_INFORMATION fileInformation;
+
+                InitializeFileInformation(out fileInformation);
+
+                mode = GetMode(
+                    fileInformation.dwFileAttributes, checkLinks,
+                    MightBeExecutable(path), false);
+
+                return ReturnCode.Ok;
+#else
+                error = "not implemented on this operating system";
+#endif
+            }
+            else if (PlatformOps.IsLinuxOperatingSystem())
+            {
+#if UNIX
+                try
+                {
+                    UNM.linux_stat buf;
+
+                    if ((!checkLinks &&
+                        (UNM.linux_xstat(0, path, out buf) == 0)) ||
+                        (checkLinks &&
+                        (UNM.linux_lxstat(0, path, out buf) == 0)))
+                    {
+                        mode = (FSM)buf.st_mode;
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        error = NativeOps.GetErrorMessage();
+                    }
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+#else
+                error = "not implemented on this operating system";
+#endif
+            }
+            else if (PlatformOps.IsMacintoshOperatingSystem())
+            {
+#if UNIX
+                try
+                {
+                    UNM.macos_stat_buf buf;
+
+                    if ((!checkLinks &&
+                        (UNM.macos_stat(path, out buf) == 0)) ||
+                        (checkLinks &&
+                        (UNM.macos_lstat(path, out buf) == 0)))
+                    {
+                        mode = (FSM)buf.st_mode;
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        error = NativeOps.GetErrorMessage();
+                    }
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+#else
+                error = "not implemented on this operating system";
+#endif
+            }
+            else
+            {
+                error = "not supported on this operating system";
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This method is used directly by both the [file lstat]
+        //       and [file stat] sub-commands.
+        //
+        public static ReturnCode GetStatus(
+            string path,         /* in */
+            bool checkLinks,     /* in */
+            bool reparse,        /* in */
+            ref StringList list, /* in, out */
+            ref Result error     /* out */
+            )
+        {
+            if (PlatformOps.IsWindowsOperatingSystem())
+            {
+#if WINDOWS
+                string uid = Value.ZeroString;
+                string gid = Value.ZeroString;
+
+#if !NET_STANDARD_20 && !MONO
+                IdentityReference ownerUser = null;
+                IdentityReference ownerGroup = null;
+
+                if (GetOwner(
+                        path, ref ownerUser, ref ownerGroup,
+                        ref error) == ReturnCode.Ok)
+#endif
+                {
+#if !NET_STANDARD_20 && !MONO
+                    uid = ownerUser.ToString();
+                    gid = ownerGroup.ToString();
+#endif
+
+                    UNM.BY_HANDLE_FILE_INFORMATION fileInformation;
+
+                    InitializeFileInformation(out fileInformation);
+
+                    if (GetPathInformation(
+                            path, Directory.Exists(path), reparse,
+                            ref fileInformation, ref error) == ReturnCode.Ok)
+                    {
+                        int device = 0;
+
+                        if (!String.IsNullOrEmpty(path) && Char.IsLetter(path[0]))
+                            device = Char.ToLower(path[0]) - Characters.a;
+
+                        uint mode = (uint)GetMode(
+                            fileInformation.dwFileAttributes, checkLinks,
+                            MightBeExecutable(path), false);
+
+                        if (list == null)
+                            list = new StringList();
+
+                        list.Add(
+                            "dev",
+                            device.ToString(),
+                            "ino",
+                            ConversionOps.ToULong(
+                                fileInformation.nFileIndexLow,
+                                fileInformation.nFileIndexHigh).ToString(),
+                            "mode",
+                            mode.ToString(),
+                            "nlink",
+                            fileInformation.nNumberOfLinks.ToString(),
+                            "uid",
+                            uid,
+                            "gid",
+                            gid,
+                            "rdev",
+                            fileInformation.dwVolumeSerialNumber.ToString(),
+                            "size",
+                            ConversionOps.ToULong(
+                                fileInformation.nFileSizeLow,
+                                fileInformation.nFileSizeHigh).ToString(),
+                            "atime",
+                            ToTimeT(
+                                fileInformation.ftLastAccessTime).ToString(),
+                            "mtime",
+                            ToTimeT(
+                                fileInformation.ftLastWriteTime).ToString(),
+                            "ctime",
+                            ToTimeT(
+                                fileInformation.ftCreationTime).ToString(),
+                            "type",
+                            FileOps.GetFileType(path));
+
+                        return ReturnCode.Ok;
+                    }
+                }
+#else
+                error = "not implemented on this operating system";
+#endif
+            }
+            else if (PlatformOps.IsLinuxOperatingSystem())
+            {
+#if UNIX
+                try
+                {
+                    UNM.linux_stat buf;
+
+                    if ((!checkLinks &&
+                        (UNM.linux_xstat(0, path, out buf) == 0)) ||
+                        (checkLinks &&
+                        (UNM.linux_lxstat(0, path, out buf) == 0)))
+                    {
+                        if (list == null)
+                            list = new StringList();
+
+                        list.Add(
+                            "dev",
+                            buf.st_dev.ToString(),
+                            "ino",
+                            buf.st_ino.ToString(),
+                            "mode",
+                            buf.st_mode.ToString(),
+                            "nlink",
+                            buf.st_nlink.ToString(),
+                            "uid",
+                            buf.st_uid.ToString(),
+                            "gid",
+                            buf.st_gid.ToString(),
+                            "rdev",
+                            buf.st_rdev.ToString(),
+                            "size",
+                            buf.st_size.ToString(),
+                            "atime",
+                            StringList.MakeList(
+                                buf.st_atim.tv_sec,
+                                buf.st_atim.tv_nsec),
+                            "mtime",
+                            StringList.MakeList(
+                                buf.st_mtim.tv_sec,
+                                buf.st_mtim.tv_nsec),
+                            "ctime",
+                            StringList.MakeList(
+                                buf.st_ctim.tv_sec,
+                                buf.st_ctim.tv_nsec),
+                            "type",
+                            FileOps.GetFileType(path));
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        error = NativeOps.GetErrorMessage();
+                    }
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+#else
+                error = "not implemented on this operating system";
+#endif
+            }
+            else if (PlatformOps.IsMacintoshOperatingSystem())
+            {
+#if UNIX
+                try
+                {
+                    UNM.macos_stat_buf buf;
+
+                    if ((!checkLinks &&
+                        (UNM.macos_stat(path, out buf) == 0)) ||
+                        (checkLinks &&
+                        (UNM.macos_lstat(path, out buf) == 0)))
+                    {
+                        if (list == null)
+                            list = new StringList();
+
+                        list.Add(
+                            "dev",
+                            buf.st_dev.ToString(),
+                            "ino",
+                            buf.st_ino.ToString(),
+                            "mode",
+                            buf.st_mode.ToString(),
+                            "nlink",
+                            buf.st_nlink.ToString(),
+                            "uid",
+                            buf.st_uid.ToString(),
+                            "gid",
+                            buf.st_gid.ToString(),
+                            "rdev",
+                            buf.st_rdev.ToString(),
+                            "size",
+                            buf.st_size.ToString(),
+                            "atime",
+                            StringList.MakeList(
+                                buf.st_atimespec.tv_sec,
+                                buf.st_atimespec.tv_nsec),
+                            "mtime",
+                            StringList.MakeList(
+                                buf.st_mtimespec.tv_sec,
+                                buf.st_mtimespec.tv_nsec),
+                            "ctime",
+                            StringList.MakeList(
+                                buf.st_ctimespec.tv_sec,
+                                buf.st_ctimespec.tv_nsec),
+                            "type",
+                            FileOps.GetFileType(path));
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        error = NativeOps.GetErrorMessage();
+                    }
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+#else
+                error = "not implemented on this operating system";
+#endif
+            }
+            else
+            {
+                error = "not supported on this operating system";
+            }
+
+            return ReturnCode.Error;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsNormal(
+            string path,      /* in */
+            bool? mustBeFile, /* in: OPTIONAL */
+            bool? checkLinks  /* in: OPTIONAL */
+            )
+        {
+            if (!CheckForValid(
+                    null, path, false, false, true,
+                    PlatformOps.IsWindowsOperatingSystem()))
+            {
+                return false;
+            }
+
+            if (mustBeFile != null)
+            {
+                if ((bool)mustBeFile)
+                {
+                    if (!File.Exists(path))
+                        return false;
+                }
+                else
+                {
+                    if (!Directory.Exists(path) &&
+                        !File.Exists(path))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+#if NATIVE && (WINDOWS || UNIX)
+            if (checkLinks != null)
+            {
+                FSM mode = FSM.S_INONE;
+                Result error = null;
+
+                if (GetMode(
+                        path, (bool)checkLinks, ref mode,
+                        ref error) != ReturnCode.Ok)
+                {
+                    DebugOps.Complain(ReturnCode.Error, error);
+                    return false;
+                }
+
+                if (mustBeFile != null)
+                {
+                    mode &= FSM.S_IFMT;
+
+                    if ((bool)mustBeFile)
+                    {
+                        if (mode != FSM.S_IFREG)
+                            return false;
+                    }
+                    else
+                    {
+                        if (mode != FSM.S_IFDIR)
+                            return false;
+                    }
+                }
+                else
+                {
+                    mode &= ~FSM.S_IFNRML;
+
+                    AdjustPermissions(false, ref mode);
+
+                    if (mode != FSM.S_INONE)
+                        return false;
+                }
+            }
+#endif
+
+            return true;
+        }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -7532,13 +7929,14 @@ namespace Eagle._Components.Private
         {
             try
             {
-                UnsafeNativeMethods.BY_HANDLE_FILE_INFORMATION fileInformation;
+                UNM.BY_HANDLE_FILE_INFORMATION fileInformation;
 
                 InitializeFileInformation(out fileInformation);
 
                 if (GetPathInformation(
-                        path, Directory.Exists(path), false,
-                        ref fileInformation, ref error) == ReturnCode.Ok)
+                        path, Directory.Exists(path),
+                        false, ref fileInformation,
+                        ref error) == ReturnCode.Ok)
                 {
                     UlongList list = new UlongList();
 
@@ -7583,9 +7981,9 @@ namespace Eagle._Components.Private
         {
             try
             {
-                UnsafeNativeMethods.stat buf;
+                UNM.linux_stat buf;
 
-                if (UnsafeNativeMethods.libc_xstat(0, path, out buf) == 0)
+                if (UNM.linux_xstat(0, path, out buf) == 0)
                 {
                     //
                     // TODO: Possibly revisit this algorithm in the future.
@@ -7667,8 +8065,8 @@ namespace Eagle._Components.Private
         {
             try
             {
-                UnsafeNativeMethods.BY_HANDLE_FILE_INFORMATION fileInformation1;
-                UnsafeNativeMethods.BY_HANDLE_FILE_INFORMATION fileInformation2;
+                UNM.BY_HANDLE_FILE_INFORMATION fileInformation1;
+                UNM.BY_HANDLE_FILE_INFORMATION fileInformation2;
 
                 InitializeFileInformation(out fileInformation1);
                 InitializeFileInformation(out fileInformation2);
@@ -7719,13 +8117,54 @@ namespace Eagle._Components.Private
         {
             try
             {
-                UnsafeNativeMethods.stat buf1;
-                UnsafeNativeMethods.stat buf2;
+                UNM.linux_stat buf1;
+                UNM.linux_stat buf2;
 
-                if ((UnsafeNativeMethods.libc_xstat(
-                        0, path1, out buf1) == 0) &&
-                    (UnsafeNativeMethods.libc_xstat(
-                        0, path2, out buf2) == 0))
+                if ((UNM.linux_xstat(0, path1, out buf1) == 0) &&
+                    (UNM.linux_xstat(0, path2, out buf2) == 0))
+                {
+                    if ((buf1.st_dev == buf2.st_dev) &&
+                        (buf1.st_ino == buf2.st_ino))
+                    {
+                        match = true;
+                    }
+                    else
+                    {
+                        match = false;
+                    }
+
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    error = NativeOps.GetErrorMessage();
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode MacintoshIsSameFile(
+            Interpreter interpreter, /* in: NOT USED */
+            string path1,            /* in */
+            string path2,            /* in */
+            ref bool match,          /* out */
+            ref Result error         /* out */
+            )
+        {
+            try
+            {
+                UNM.macos_stat_buf buf1;
+                UNM.macos_stat_buf buf2;
+
+                if ((UNM.macos_lstat(path1, out buf1) == 0) &&
+                    (UNM.macos_lstat(path2, out buf2) == 0))
                 {
                     if ((buf1.st_dev == buf2.st_dev) &&
                         (buf1.st_ino == buf2.st_ino))
@@ -7992,6 +8431,32 @@ namespace Eagle._Components.Private
                 {
                     TraceOps.DebugTrace(String.Format(
                         "IsSameFile: Linux error = {0}",
+                        FormatOps.WrapOrNull(error)),
+                        typeof(PathOps).Name,
+                        TracePriority.PathError);
+                }
+            }
+#endif
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if NATIVE && UNIX
+            if (!noNative &&
+                PlatformOps.IsMacintoshOperatingSystem())
+            {
+                match = false;
+                error = null;
+
+                if (MacintoshIsSameFile(
+                        interpreter, path1, path2, ref match,
+                        ref error) == ReturnCode.Ok)
+                {
+                    return match;
+                }
+                else
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "IsSameFile: macOS error = {0}",
                         FormatOps.WrapOrNull(error)),
                         typeof(PathOps).Name,
                         TracePriority.PathError);
@@ -8298,6 +8763,26 @@ namespace Eagle._Components.Private
                     {
                         return false;
                     }
+                }
+            }
+
+            //
+            // HACK: The target path MUST be a normal file, not any
+            //       kind of socket, etc.  This is required for use
+            //       on a non-Windows operating systems, e.g. Linux,
+            //       macOS, etc.  When on Windows, this is generally
+            //       not required.
+            //
+            if (!PlatformOps.IsWindowsOperatingSystem())
+            {
+                FileAttributes fileAttributes = (FileAttributes)0;
+
+                if ((FileOps.GetFileAttributes(
+                        path, ref fileAttributes) != ReturnCode.Ok) ||
+                    !FlagOps.HasFlags(
+                        fileAttributes, FileAttributes.Normal, true))
+                {
+                    return false;
                 }
             }
 

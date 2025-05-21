@@ -105,6 +105,12 @@ namespace Eagle._Commands
                 return ReturnCode.Error;
             }
 
+            IVariant value = null;
+            Encoding encoding = null;
+
+            if (options.IsPresent("-encoding", ref value))
+                encoding = (Encoding)value.Value;
+
             bool newLine = true;
 
             if (options.IsPresent("-nonewline"))
@@ -146,7 +152,8 @@ namespace Eagle._Commands
             if (channel == null)
                 return ReturnCode.Error;
 
-            Encoding encoding = channel.GetEncoding();
+            if (encoding == null)
+                encoding = channel.GetEncoding();
 
             if (!channel.NullEncoding && (encoding == null))
             {

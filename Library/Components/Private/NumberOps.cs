@@ -160,6 +160,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HaveTypeCode(
+            Type type /* in */
+            )
+        {
+            TypeCode typeCode = TypeCode.Empty;
+
+            return HaveTypeCode(type, ref typeCode);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HaveTypeCode(
             Type type,            /* in */
             ref TypeCode typeCode /* out */
             )
@@ -172,6 +183,9 @@ namespace Eagle._Components.Private
                 if (type == null)
                     return false;
 
+                if (type.IsEnum)
+                    type = typeof(Enum);
+
                 TypeCode localTypeCode;
 
                 if (types.TryGetValue(type, out localTypeCode))
@@ -182,6 +196,35 @@ namespace Eagle._Components.Private
 
                 return false;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HaveTypeCode(
+            object value /* in */
+            )
+        {
+            TypeCode typeCode = TypeCode.Empty;
+
+            return HaveTypeCode(value, ref typeCode);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HaveTypeCode(
+            object value,         /* in */
+            ref TypeCode typeCode /* out */
+            )
+        {
+            if (value == null)
+                return false;
+
+            Type type = AppDomainOps.MaybeGetTypeOrObject(value);
+
+            if (type == null)
+                return false;
+
+            return HaveTypeCode(type, ref typeCode);
         }
 
         ///////////////////////////////////////////////////////////////////////

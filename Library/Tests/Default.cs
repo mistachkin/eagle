@@ -3485,9 +3485,33 @@ namespace Eagle._Tests
             }
             else
             {
-                return WebOps.CreateClient(
-                    interpreter, argument, null, WebOps.GetTimeout(
-                    interpreter, TimeoutType.Network), ref error);
+                if (interpreter == null)
+                {
+                    error = "invalid interpreter";
+                    return null;
+                }
+
+                NewWebClientCallback savedCallback =
+                    interpreter.NewWebClientCallback;
+
+                try
+                {
+                    //
+                    // BUGFIX: Avoid infinite (mutual) recursion here by
+                    //         making sure this method is NOT the current
+                    //         new web client callback before attempting
+                    //         to create a "default" WebClient instance.
+                    //
+                    interpreter.NewWebClientCallback = null;
+
+                    return WebOps.CreateClient(
+                        interpreter, argument, null, WebOps.GetTimeout(
+                        interpreter, TimeoutType.Network), ref error);
+                }
+                finally
+                {
+                    interpreter.NewWebClientCallback = savedCallback;
+                }
             }
         }
 
@@ -4235,12 +4259,12 @@ namespace Eagle._Tests
 
         #region Methods for Easy Integration
         public static Interpreter TestCreateInterpreterWithCommands(
-            InterpreterSettings interpreterSettings, /* in: OPTIONAL */
-            IClientData clientData,                  /* in: OPTIONAL */
-            IPlugin plugin,                          /* in: OPTIONAL */
-            IEnumerable<Type> commandTypes,          /* in: OPTIONAL */
-            CommandFlags commandFlags,               /* in */
-            ref Result error                         /* out */
+            IInterpreterSettings interpreterSettings, /* in: OPTIONAL */
+            IClientData clientData,                   /* in: OPTIONAL */
+            IPlugin plugin,                           /* in: OPTIONAL */
+            IEnumerable<Type> commandTypes,           /* in: OPTIONAL */
+            CommandFlags commandFlags,                /* in */
+            ref Result error                          /* out */
             )
         {
             ICollection<CommandTriplet> commands =
@@ -9644,7 +9668,7 @@ namespace Eagle._Tests
 
             if (_RuntimeOps.PopulatePluginEntities(
                     interpreter, plugin, null, ruleSet, null,
-                    false, false, true, Interpreter.IsVerbose(
+                    null, false, false, true, Interpreter.IsVerbose(
                     interpreter), ref error) != ReturnCode.Ok)
             {
                 if (error != null)
@@ -9665,7 +9689,7 @@ namespace Eagle._Tests
 
             if (_RuntimeOps.PopulatePluginEntities(
                     interpreter, plugin, null, ruleSet, null,
-                    true, false, true, Interpreter.IsVerbose(
+                    null, true, false, true, Interpreter.IsVerbose(
                     interpreter), ref error) != ReturnCode.Ok)
             {
                 if (error != null)
@@ -10554,7 +10578,7 @@ namespace Eagle._Tests
                 out ruleSet, out isolated, out safe,
                 out security, out namespaces);
 
-            InterpreterSettings interpreterSettings =
+            IInterpreterSettings interpreterSettings =
                 InterpreterSettings.CreateDefault();
 
             interpreterSettings.RuleSet = ruleSet;
@@ -17986,8 +18010,8 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static object TestCreateInstance(
-            Type type,
-            bool nonPublic
+            Type type,     /* in */
+            bool nonPublic /* in */
             )
         {
             if (type == null)
@@ -18007,7 +18031,17 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static string TestFormatArgs(
-            object[] args
+            object[] args /* in: OPTIONAL */
+            )
+        {
+            return TestFormatArgs(false, args);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string TestFormatArgs(
+            bool toString, /* in */
+            object[] args  /* in: OPTIONAL */
             )
         {
             if (args == null)
@@ -18018,7 +18052,31 @@ namespace Eagle._Tests
             if (length == 0)
                 return FormatOps.DisplayEmpty;
 
-            return String.Format("object[{0}]", length);
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            builder.AppendFormat("object[{0}]", length);
+
+            if (toString)
+            {
+                for (int index = 0; index < length; index++)
+                {
+                    if (index == 0)
+                    {
+                        builder.Append(
+                            "{0}{1}{0}", Characters.Space,
+                            Characters.EqualSign);
+                    }
+
+                    object arg = args[index];
+
+                    builder.AppendFormat("{0}{1}{2}",
+                        Characters.Comma, Characters.Space,
+                        FormatOps.WrapOrNull(
+                            StringOps.GetStringFromObject(arg)));
+                }
+            }
+
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -21363,12 +21421,12 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             public static Interpreter CreateInterpreterWithCommands(
-                InterpreterSettings interpreterSettings, /* in: OPTIONAL */
-                IEnumerable<CommandTriplet> commands,    /* in: OPTIONAL */
-                IClientData clientData,                  /* in: OPTIONAL */
-                IPlugin plugin,                          /* in: OPTIONAL */
-                CommandFlags commandFlags,               /* in */
-                ref Result error                         /* out */
+                IInterpreterSettings interpreterSettings, /* in: OPTIONAL */
+                IEnumerable<CommandTriplet> commands,     /* in: OPTIONAL */
+                IClientData clientData,                   /* in: OPTIONAL */
+                IPlugin plugin,                           /* in: OPTIONAL */
+                CommandFlags commandFlags,                /* in */
+                ref Result error                          /* out */
                 )
             {
                 Interpreter interpreter;
@@ -24767,10 +24825,10 @@ namespace Eagle._Tests
 
             #region Private Constructors
             private ScriptWebClient(
-                Interpreter interpreter,
-                string text,
-                string argument,
-                bool? throwOnError
+                Interpreter interpreter, /* in */
+                string text,             /* in */
+                string argument,         /* in */
+                bool? throwOnError       /* in */
                 )
             {
                 this.interpreter = interpreter;
@@ -24784,11 +24842,11 @@ namespace Eagle._Tests
 
             #region Static "Factory" Methods
             public static WebClient Create(
-                Interpreter interpreter,
-                string text,
-                string argument,
-                bool? throwOnError,
-                ref Result error /* NOT USED */
+                Interpreter interpreter, /* in */
+                string text,             /* in */
+                string argument,         /* in */
+                bool? throwOnError,      /* in */
+                ref Result error         /* out: NOT USED */
                 )
             {
                 return new ScriptWebClient(
@@ -24855,31 +24913,39 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region Protected Methods
-            protected virtual void Complain(
-                Interpreter interpreter,
-                ReturnCode code,
-                Result result
+            #region Private Methods
+            private bool ShouldThrowOnError(
+                Interpreter interpreter /* in: OPTIONAL */
                 )
             {
-                bool localThrowOnError;
-
                 if (throwOnError != null)
                 {
-                    localThrowOnError = (bool)throwOnError;
+                    return (bool)throwOnError;
                 }
                 else if (interpreter != null)
                 {
-                    localThrowOnError = interpreter.ThrowOnErrorForScriptWebClient();
+                    return interpreter.ThrowOnErrorForScriptWebClient();
                 }
                 else
                 {
-                    localThrowOnError = DefaultThrowOnError;
+                    return DefaultThrowOnError;
                 }
+            }
+            #endregion
 
-                if (localThrowOnError)
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Protected Methods
+            protected virtual void Complain(
+                Interpreter interpreter, /* in: OPTIONAL */
+                ReturnCode code,         /* in */
+                Result result            /* in */
+                )
+            {
+                if (ShouldThrowOnError(interpreter))
                     throw new ScriptException(code, result);
 
+                /* NO RESULT */
                 DebugOps.Complain(interpreter, code, result);
             }
             #endregion
@@ -24888,7 +24954,7 @@ namespace Eagle._Tests
 
             #region System.Net.WebClient Overrides
             protected override WebRequest GetWebRequest(
-                Uri address
+                Uri address /* in */
                 )
             {
                 WebRequest webRequest = base.GetWebRequest(address);
@@ -24918,7 +24984,7 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             protected override WebResponse GetWebResponse(
-                WebRequest request
+                WebRequest request /* in */
                 )
             {
                 WebResponse webResponse = base.GetWebResponse(request);
@@ -24948,8 +25014,8 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             protected override WebResponse GetWebResponse(
-                WebRequest request,
-                IAsyncResult result
+                WebRequest request, /* in */
+                IAsyncResult result /* in */
                 )
             {
                 WebResponse webResponse = base.GetWebResponse(request);
@@ -24996,7 +25062,7 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             protected override void Dispose(
-                bool disposing
+                bool disposing /* in */
                 )
             {
                 try
@@ -37478,8 +37544,8 @@ namespace Eagle._Tests
 
 #if APPDOMAINS && ISOLATED_INTERPRETERS
             internal CreateFlags GetIsolatedCreateFlags(
-                Interpreter interpreter,                /* in */
-                InterpreterSettings interpreterSettings /* in */
+                Interpreter interpreter,                 /* in */
+                IInterpreterSettings interpreterSettings /* in */
                 )
             {
                 CreateFlags createFlags = CreateFlags.None;

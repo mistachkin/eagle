@@ -566,7 +566,7 @@ namespace Eagle._Components.Private
             ExecutionPolicy localFlags = (flags != null) ?
                 (ExecutionPolicy)flags : ExecutionPolicy.None;
 
-            return FlagOps.HasFlags(localFlags, hasFlags, all);
+            return HasFlags(localFlags, hasFlags, all);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1060,7 +1060,7 @@ namespace Eagle._Components.Private
             LogFlags localFlags = (flags != null) ?
                 (LogFlags)flags : LogFlags.None;
 
-            return FlagOps.HasFlags(localFlags, hasFlags, all);
+            return HasFlags(localFlags, hasFlags, all);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1359,6 +1359,20 @@ namespace Eagle._Components.Private
                 return ((flags & hasFlags) == hasFlags);
             else
                 return ((flags & hasFlags) != PackageFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            PackageFlags? flags,
+            PackageFlags hasFlags,
+            bool all
+            )
+        {
+            PackageFlags localFlags = (flags != null) ?
+                (PackageFlags)flags : PackageFlags.None;
+
+            return HasFlags(localFlags, hasFlags, all);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1740,7 +1754,7 @@ namespace Eagle._Components.Private
             SecretDataFlags localFlags = (flags != null) ?
                 (SecretDataFlags)flags : SecretDataFlags.None;
 
-            return FlagOps.HasFlags(localFlags, hasFlags, all);
+            return HasFlags(localFlags, hasFlags, all);
         }
 
         ///////////////////////////////////////////////////////////////////////

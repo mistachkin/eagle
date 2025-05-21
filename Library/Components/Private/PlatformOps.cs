@@ -754,6 +754,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool IsIntelProcessorArchitecture()
+        {
+            switch (GetProcessorArchitecture())
+            {
+                case ProcessorArchitecture.Intel:
+                case ProcessorArchitecture.IA32_on_Win64:
+                case ProcessorArchitecture.AMD64:
+                    {
+                        return true;
+                    }
+                default:
+                    {
+                        return false;
+                    }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string QueryProcessorArchitecture()
         {
             //

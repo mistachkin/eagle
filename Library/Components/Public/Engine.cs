@@ -14714,7 +14714,7 @@ namespace Eagle._Components.Public
                                     return ReturnCode.Error;
                                 }
 
-                                InterpreterSettings interpreterSettings =
+                                IInterpreterSettings interpreterSettings =
                                     InterpreterSettings.Create(
                                         ruleSet, null, securityLevel,
                                         ref result);
