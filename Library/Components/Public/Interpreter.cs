@@ -75669,6 +75669,11 @@ namespace Eagle._Components.Public
         internal static bool IsEnterpriseLockdownEnabled()
         {
 #if ENTERPRISE_LOCKDOWN
+            //
+            // HACK: When compiled with ENTERPRISE_LOCKDOWN,
+            //       this mode is always enabled -AND- cannot
+            //       be enabled or disabled programmatically.
+            //
             return true;
 #else
             return GlobalState.IsStubAssemblyAnywhere();
@@ -75682,6 +75687,11 @@ namespace Eagle._Components.Public
             )
         {
 #if ENTERPRISE_LOCKDOWN
+            //
+            // HACK: When compiled with ENTERPRISE_LOCKDOWN,
+            //       this mode is always enabled -AND- cannot
+            //       be enabled or disabled programmatically.
+            //
             return ReturnCode.Ok;
 #else
             return MaybeTryToLoadStubAssembly(
@@ -83230,21 +83240,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 11: Set Library Initialized Flag
-                    //
-                    // NOTE: Has everything succeeded?
-                    //
-                    if (code == ReturnCode.Ok)
-                    {
-                        MarkAsInitialized(
-                            force, debug, true, wasInitialized, didInitialize,
-                            ref error);
-                    }
-                    #endregion
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-                    #region Phase 12: Optional Remove Critical Commands
+                    #region Phase 11: Optional Remove Critical Commands
                     if (code == ReturnCode.Ok)
                     {
                         if (FlagOps.HasFlags(
@@ -83255,6 +83251,20 @@ namespace Eagle._Components.Public
                                 false, ref error);
                         }
                     }
+
+                    ///////////////////////////////////////////////////////////////////////////////////
+
+                    #region Phase 12: Set Library Initialized Flag
+                    //
+                    // NOTE: Has everything succeeded?
+                    //
+                    if (code == ReturnCode.Ok)
+                    {
+                        MarkAsInitialized(
+                            force, debug, true, wasInitialized, didInitialize,
+                            ref error);
+                    }
+                    #endregion
                     #endregion
                 }
                 #region Restore Saved Engine Flags

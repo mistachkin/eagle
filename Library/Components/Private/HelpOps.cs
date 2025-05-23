@@ -6132,7 +6132,7 @@ namespace Eagle._Components.Private
             }
 
             string pattern;
-            string prefix; /* NOTE: Value UNUSED after line #6008. */
+            string prefix; /* NOTE: Value UNUSED after line #6146. */
             string helpType;
 
             pattern = MaybeAdjustHelpItemTopic(

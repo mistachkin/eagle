@@ -1250,16 +1250,16 @@ namespace Eagle._Commands
                                                                             case "entier":
                                                                                 {
 #if NET_40
-                                                                                BigInteger bigIntegerValue = BigInteger.Zero;
+                                                                                    BigInteger bigIntegerValue = BigInteger.Zero;
 
-                                                                                if (Value.GetBigInteger(
-                                                                                        @string, ValueFlags.AnyInteger,
-                                                                                        interpreter.InternalCultureInfo,
-                                                                                        ref bigIntegerValue) == ReturnCode.Ok)
-                                                                                {
-                                                                                    valid = !not;
-                                                                                }
-                                                                                else
+                                                                                    if (Value.GetBigInteger(
+                                                                                            @string, ValueFlags.AnyInteger,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref bigIntegerValue) == ReturnCode.Ok)
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
 #endif
                                                                                     {
                                                                                         valid = not;

@@ -1573,11 +1573,16 @@ namespace Eagle._Components.Private
 
                 InitializeFileInformation(out fileInformation);
 
-                mode = GetMode(
-                    fileInformation.dwFileAttributes, checkLinks,
-                    MightBeExecutable(path), false);
+                if (GetPathInformation(
+                        path, Directory.Exists(path), false,
+                        ref fileInformation, ref error) == ReturnCode.Ok)
+                {
+                    mode = GetMode(
+                        fileInformation.dwFileAttributes, checkLinks,
+                        MightBeExecutable(path), false);
 
-                return ReturnCode.Ok;
+                    return ReturnCode.Ok;
+                }
 #else
                 error = "not implemented on this operating system";
 #endif
@@ -8777,12 +8782,14 @@ namespace Eagle._Components.Private
             {
                 FileAttributes fileAttributes = (FileAttributes)0;
 
-                if ((FileOps.GetFileAttributes(
-                        path, ref fileAttributes) != ReturnCode.Ok) ||
-                    !FlagOps.HasFlags(
-                        fileAttributes, FileAttributes.Normal, true))
+                if (FileOps.GetFileAttributes(
+                        path, ref fileAttributes) != ReturnCode.Ok)
                 {
-                    return false;
+                    if ((fileAttributes != FileAttributes.Normal) &&
+                        (fileAttributes != FileAttributes.ReadOnly))
+                    {
+                        return false;
+                    }
                 }
             }
 
