@@ -5072,6 +5072,8 @@ namespace Eagle._Components.Private
                 FormatOps.WrapOrNull(subParts)),
                 typeof(PathOps).Name, TracePriority.PathDebug);
 
+            string subDirectory = null;
+
             if (String.IsNullOrEmpty(directory) ||
                 !Directory.Exists(directory))
             {
@@ -5080,8 +5082,6 @@ namespace Eagle._Components.Private
 
             if ((searchPatterns == null) || (searchPatterns.Count == 0))
                 goto done;
-
-            string subDirectory;
 
             if ((subParts != null) && (subParts.Count > 0))
             {
@@ -5157,7 +5157,7 @@ namespace Eagle._Components.Private
                                         fileNames, 0, limit);
 
                                     if (count >= limit)
-                                        break;
+                                        goto done;
                                 }
                             }
                         }
@@ -5191,9 +5191,13 @@ namespace Eagle._Components.Private
         done:
 
             TraceOps.DebugTrace(String.Format(
-                "SearchParents: found {0} matches out of {1}: {2}",
-                count, (paths != null) ? paths.Count : 0,
-                FormatOps.WrapOrNull(paths)), typeof(PathOps).Name,
+                "SearchParents: found {0} matches out " +
+                "of {1} in {2} ({3}): {4}", count,
+                (paths != null) ? paths.Count : 0,
+                FormatOps.WrapOrNull(directory),
+                FormatOps.WrapOrNull(subDirectory),
+                FormatOps.WrapOrNull(paths)),
+                typeof(PathOps).Name,
                 TracePriority.PathDebug);
 
             return count;

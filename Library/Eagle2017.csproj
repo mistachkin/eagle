@@ -1697,7 +1697,6 @@
     <None Include="Tools\data\dialogs.tsv" />
     <None Include="Tools\data\Dockerfile-release" />
     <None Include="Tools\data\Dockerfile-trunk" />
-    <None Include="Tools\data\Eagle.FxCop" />
     <None Include="Tools\data\Eagle.kpf" />
     <None Include="Tools\data\Eagle.Dark.uew" />
     <None Include="Tools\data\Eagle.Light.uew" />

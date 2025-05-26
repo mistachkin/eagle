@@ -632,12 +632,19 @@ namespace Eagle._Containers.Public
             InvalidateCachedString(false);
 #endif
 
-            int minimumCount = Math.Min(list.Count, count);
+            //
+            // TODO: Why does this look wrong?
+            //
+            int listCount = list.Count;
+            int stopIndex = startIndex + count;
 
-            for (int index = startIndex; index < minimumCount; index++)
+            if (stopIndex > (listCount - 1))
+                stopIndex = listCount - 1;
+
+            for (int index = startIndex; index <= stopIndex; index++)
                 base.Add(list[index]);
 
-            return minimumCount;
+            return count;
         }
 
         ///////////////////////////////////////////////////////////////////////
