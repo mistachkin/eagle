@@ -6449,7 +6449,7 @@ namespace Eagle._Tests
 
                 if (fileSystemHost.GetData(
                         name, HostOps.CombineDataFlags(
-                            interpreter, DataFlags.Script),
+                            interpreter, name, DataFlags.Script),
                         ref scriptFlags, ref clientData,
                         ref result) == ReturnCode.Ok)
                 {

@@ -83240,7 +83240,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 11: Optional Remove Critical Commands
+                    #region Phase 11: Optional Remove "Critical" Commands
                     if (code == ReturnCode.Ok)
                     {
                         if (FlagOps.HasFlags(
@@ -83251,20 +83251,34 @@ namespace Eagle._Components.Public
                                 false, ref error);
                         }
                     }
+                    #endregion
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 12: Set Library Initialized Flag
+                    #region Phase 12: Optional Remove "Unsafe" Commands
+                    if (code == ReturnCode.Ok)
+                    {
+                        if (FlagOps.HasFlags(
+                                localInitializeFlags, InitializeFlags.NoUnsafe, true))
+                        {
+                            code = RemoveCommands(
+                                _ClientData.Empty, CommandFlags.Unsafe, null, true,
+                                false, ref error);
+                        }
+                    }
+                    #endregion
+
+                    ///////////////////////////////////////////////////////////////////////////////////
+
+                    #region Phase 13: Set Library Initialized Flag
                     //
                     // NOTE: Has everything succeeded?
                     //
                     if (code == ReturnCode.Ok)
                     {
                         MarkAsInitialized(
-                            force, debug, true, wasInitialized, didInitialize,
-                            ref error);
+                            force, debug, true, wasInitialized, didInitialize, ref error);
                     }
-                    #endregion
                     #endregion
                 }
                 #region Restore Saved Engine Flags
@@ -83705,7 +83719,37 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 3: Set Shell Library Variable
+                    #region Phase 3: Optional Remove "Critical" Commands
+                    if (code == ReturnCode.Ok)
+                    {
+                        if (FlagOps.HasFlags(
+                                localInitializeFlags, InitializeFlags.ShellNoCritical, true))
+                        {
+                            code = RemoveCommands(
+                                _ClientData.Empty, CommandFlags.Critical, null, true,
+                                false, ref error);
+                        }
+                    }
+                    #endregion
+
+                    ///////////////////////////////////////////////////////////////////////////////////
+
+                    #region Phase 4: Optional Remove "Unsafe" Commands
+                    if (code == ReturnCode.Ok)
+                    {
+                        if (FlagOps.HasFlags(
+                                localInitializeFlags, InitializeFlags.ShellNoUnsafe, true))
+                        {
+                            code = RemoveCommands(
+                                _ClientData.Empty, CommandFlags.Unsafe, null, true,
+                                false, ref error);
+                        }
+                    }
+                    #endregion
+
+                    ///////////////////////////////////////////////////////////////////////////////////
+
+                    #region Phase 5: Set Shell Library Variable
                     if (code == ReturnCode.Ok)
                     {
                         if (!FlagOps.HasFlags(
@@ -83720,12 +83764,11 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 4: Set Shell Initialized Flag
+                    #region Phase 6: Set Shell Initialized Flag
                     if (code == ReturnCode.Ok)
                     {
                         MarkAsShellInitialized(
-                            force, debug, true, wasInitialized, didInitialize,
-                            ref error);
+                            force, debug, true, wasInitialized, didInitialize, ref error);
                     }
                     #endregion
                 }

@@ -622,6 +622,26 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public int Add(
+            IList<string> list,
+            int startIndex,
+            int count
+            )
+        {
+#if CACHE_STRINGLIST_TOSTRING
+            InvalidateCachedString(false);
+#endif
+
+            int minimumCount = Math.Min(list.Count, count);
+
+            for (int index = startIndex; index < minimumCount; index++)
+                base.Add(list[index]);
+
+            return minimumCount;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public void Add(
             IEnumerable<string> collection
             )

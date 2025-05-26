@@ -18,6 +18,7 @@ namespace Eagle._Interfaces.Public
     public interface IResult : IValue, IValueData, IError
     {
         ResultFlags Flags { get; set; }
+
         void Reset(ResultFlags flags);
         IResult Copy(ResultFlags flags);
 

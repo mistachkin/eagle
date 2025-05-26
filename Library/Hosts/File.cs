@@ -1616,6 +1616,35 @@ namespace Eagle._Hosts
 
             counts[index] += count;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        protected virtual StringList GetDataSubParts(
+            ref string name /* in, out */
+            )
+        {
+            if (String.IsNullOrEmpty(name))
+                return null;
+
+            //
+            // HACK: Break the data name into parts and remove the
+            //       file name portion; otherwise, just return null.
+            //
+            StringList subParts = PathOps.SplitPath(null, name);
+
+            if (subParts == null)
+                return null;
+
+            int count = subParts.Count;
+
+            if (count <= 1)
+                return null;
+
+            name = subParts[count - 1]; /* GRAB FILE NAME ONLY */
+            subParts.RemoveAt(count - 1); /* REMOVE FILE NAME */
+
+            return subParts;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1723,11 +1752,14 @@ namespace Eagle._Hosts
             if (isolated)
                 fileSearchFlags |= FileSearchFlags.Isolated;
 
+            int count; /* REUSED */
+            string value; /* REUSED */
+
             IncrementGetDataCount(counts, 4, 1);
 
-            int count = 0;
+            count = 0;
 
-            string value = PathOps.Search(
+            value = PathOps.Search(
                 interpreter, name, fileSearchFlags, ref count);
 
             IncrementGetDataCount(counts, 4, -1); /* UNDO */
@@ -1740,6 +1772,35 @@ namespace Eagle._Hosts
                 result = value;
 
                 return ReturnCode.Ok;
+            }
+
+            if (FlagOps.HasFlags(
+                    dataFlags, DataFlags.SearchParents, true))
+            {
+                string nameOnly = name;
+
+                StringList subParts = GetDataSubParts(ref nameOnly);
+                StringList patterns = new StringList(nameOnly);
+                StringList paths = null;
+
+                IncrementGetDataCount(counts, 4, 1);
+
+                count = PathOps.SearchParents(interpreter,
+                    GlobalState.InitializeOrGetBinaryPath(false),
+                    subParts, patterns, 1, null, ref paths);
+
+                IncrementGetDataCount(counts, 4, -1); /* UNDO */
+                IncrementGetDataCount(counts, 4, count);
+                IncrementGetDataCount(counts, 5, count);
+
+                if ((count > 0) &&
+                    (paths != null) && (paths.Count > 0))
+                {
+                    scriptFlags |= ScriptFlags.File;
+                    result = paths[0];
+
+                    return ReturnCode.Ok;
+                }
             }
 
             return ReturnCode.Continue;

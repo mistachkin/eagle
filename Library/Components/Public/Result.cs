@@ -897,18 +897,30 @@ namespace Eagle._Components.Public
 
         #region Stack Trace Helpers
         [DebuggerStepThrough()]
+        private void PrivatePopulateStackTrace()
+        {
+            stackTrace = DebugOps.GetStackTraceString();
+            SetFlags(ResultFlags.StackTrace);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        private void PrivateResetStackTrace()
+        {
+            stackTrace = null;
+            UnsetFlags(ResultFlags.StackTrace);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
         private void MaybePopulateStackTrace()
         {
             if (ShouldPopulateStackTrace())
-            {
-                stackTrace = DebugOps.GetStackTraceString();
-                SetFlags(ResultFlags.StackTrace);
-            }
+                PrivatePopulateStackTrace();
             else
-            {
-                stackTrace = null;
-                UnsetFlags(ResultFlags.StackTrace);
-            }
+                PrivateResetStackTrace();
         }
 
         ///////////////////////////////////////////////////////////////////////

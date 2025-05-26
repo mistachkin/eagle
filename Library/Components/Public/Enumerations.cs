@@ -5911,6 +5911,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         NoCritical = 0x4000000000000,
+        NoUnsafe = 0x8000000000000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ShellNoCritical = 0x10000000000000,
+        ShellNoUnsafe = 0x20000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -5978,7 +5984,7 @@ namespace Eagle._Components.Public
         Library = Loader | Initialization | Safe | Test |
                   Embedding | Vendor | Startup | Worker,
 
-        ShellLibrary = Shell| SyntaxHelp | ShellWorker | Startup | Worker,
+        ShellLibrary = Shell | SyntaxHelp | ShellWorker | Startup | Worker,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -7600,6 +7606,8 @@ namespace Eagle._Components.Public
 
         NoPluginStream = 0x100000,
         NoPluginString = 0x200000,
+
+        SearchParents = 0x400000,
 
         NoResourceManagerStream = 0x10000000,
         NoResourceManagerString = 0x20000000,

@@ -274,6 +274,13 @@ namespace Eagle._Hosts
                         //
                         flags |= PromptFlags.Partial;
                     }
+                    else if (code == ReturnCode.Continue)
+                    {
+                        //
+                        // NOTE: Just do nothing.  This will result in the normal
+                        //       shell prompt being displayed.
+                        //
+                    }
                     else
                     {
                         //

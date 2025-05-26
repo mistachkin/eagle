@@ -3981,6 +3981,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static string CombinePath(
+            bool? unix,        /* in */
+            IList<string> list /* in */
+            )
+        {
+            return CombinePath(
+                unix, list, Index.Invalid, Index.Invalid);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string CombinePath(
+            bool? unix,         /* in */
+            IList<string> list, /* in */
+            int startIndex,     /* in */
+            int stopIndex       /* in */
+            )
+        {
+            return CombinePath(
+                unix, list as IList, startIndex, stopIndex);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string CombinePath(
             bool? unix, /* in */
             IList list  /* in */
@@ -5025,6 +5049,154 @@ namespace Eagle._Components.Private
 
             count++;
             return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static int SearchParents(
+            Interpreter interpreter,      /* in: OPTIONAL */
+            string directory,             /* in */
+            IList<string> subParts,       /* in: OPTIONAL */
+            IList<string> searchPatterns, /* in */
+            int limit,                    /* in */
+            bool? unix,                   /* in: OPTIONAL */
+            ref StringList paths          /* in, out */
+            )
+        {
+            int count = 0;
+
+            TraceOps.DebugTrace(String.Format(
+                "SearchParents: searching for {0} from {1} ({2})...",
+                FormatOps.WrapOrNull(searchPatterns),
+                FormatOps.WrapOrNull(directory),
+                FormatOps.WrapOrNull(subParts)),
+                typeof(PathOps).Name, TracePriority.PathDebug);
+
+            if (String.IsNullOrEmpty(directory) ||
+                !Directory.Exists(directory))
+            {
+                goto done;
+            }
+
+            if ((searchPatterns == null) || (searchPatterns.Count == 0))
+                goto done;
+
+            string subDirectory;
+
+            if ((subParts != null) && (subParts.Count > 0))
+            {
+                foreach (string subPart in subParts)
+                {
+                    if (!CheckForValid(
+                            unix, subPart, true, false, false, false))
+                    {
+                        goto done;
+                    }
+                }
+
+                subDirectory = CombinePath(unix, subParts);
+            }
+            else
+            {
+                subDirectory = null;
+            }
+
+            while (true)
+            {
+                string path;
+
+                if (subDirectory != null)
+                    path = CombinePath(unix, directory, subDirectory);
+                else
+                    path = directory;
+
+                if (Directory.Exists(path))
+                {
+                    foreach (string searchPattern in searchPatterns)
+                    {
+                        if (String.IsNullOrEmpty(searchPattern))
+                            continue;
+
+                        if (HasDirectory(searchPattern))
+                            continue;
+
+                        string[] fileNames;
+
+                        try
+                        {
+                            fileNames = Directory.GetFiles(
+                                path, searchPattern,
+                                SearchOption.TopDirectoryOnly);
+                        }
+                        catch (Exception e)
+                        {
+                            TraceOps.DebugTrace(
+                                e, typeof(PathOps).Name,
+                                TracePriority.FileSystemError);
+
+                            continue;
+                        }
+
+                        if (fileNames != null)
+                        {
+                            int length = fileNames.Length;
+
+                            if (length > 0)
+                            {
+                                if (paths == null)
+                                    paths = new StringList();
+
+                                if (limit < 0)
+                                {
+                                    paths.AddRange(fileNames);
+                                    count += length;
+                                }
+                                else
+                                {
+                                    count += paths.Add(
+                                        fileNames, 0, limit);
+
+                                    if (count >= limit)
+                                        break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                try
+                {
+                    string newDirectory = Path.GetDirectoryName(
+                        directory);
+
+                    if (String.IsNullOrEmpty(newDirectory) ||
+                        SharedStringOps.SystemEquals(
+                            newDirectory, directory, NoCase))
+                    {
+                        break;
+                    }
+
+                    directory = newDirectory;
+                }
+                catch (Exception e)
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(PathOps).Name,
+                        TracePriority.FileSystemError);
+
+                    break;
+                }
+            }
+
+        done:
+
+            TraceOps.DebugTrace(String.Format(
+                "SearchParents: found {0} matches out of {1}: {2}",
+                count, (paths != null) ? paths.Count : 0,
+                FormatOps.WrapOrNull(paths)), typeof(PathOps).Name,
+                TracePriority.PathDebug);
+
+            return count;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

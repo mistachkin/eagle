@@ -9182,6 +9182,35 @@ namespace eval ::Eagle {
       }
     }
 
+    proc eagle_getUnsafePromptCommands {} {
+      return [list pwd file info]
+    }
+
+    proc eagle_probeForCommands { names } {
+      foreach name $names {
+        if {[catch $name error] == 0} then {
+          continue
+        }
+
+        if {$error ne [string map [list %name% $name] \
+            "invalid command name \"%name%\""]} then {
+          continue
+        }
+
+        return false
+      }
+
+      return true
+    }
+
+    proc eagle_probeForPromptCommands { {names ""} } {
+      if {[llength $names] == 0} then {
+        set names [eagle_getUnsafePromptCommands]
+      }
+
+      return [eagle_probeForCommands $names]
+    }
+
     proc eagle_getShellPromptScript {} {
       #
       # NOTE: Thanks go to Kyle.  Enhance the default interactive shell
@@ -9190,43 +9219,46 @@ namespace eval ::Eagle {
       #
       return {
         apply [list [list] {
-          set pwd [file nativename [file normalize [pwd]]]
-          set dateTimeFormat ""
+          if {[eagle_probeForPromptCommands]} then {
+            set pwd [file nativename [file normalize [pwd]]]
+            set dateTimeFormat ""
 
-          if {![info exists ::no(NoTclPrompt1Date)] && \
-              ![info exists ::env(NoTclPrompt1Date)]} then {
-            if {[string length $dateTimeFormat] > 0} then {
-              append dateTimeFormat " "
+            if {![info exists ::no(NoTclPrompt1Date)] && \
+                ![info exists ::env(NoTclPrompt1Date)]} then {
+              if {[string length $dateTimeFormat] > 0} then {
+                append dateTimeFormat " "
+              }
+
+              append dateTimeFormat MM-dd-yyyy
             }
 
-            append dateTimeFormat MM-dd-yyyy
-          }
+            if {![info exists ::no(NoTclPrompt1Time)] && \
+                ![info exists ::env(NoTclPrompt1Time)]} then {
+              if {[string length $dateTimeFormat] > 0} then {
+                append dateTimeFormat " @ "
+              }
 
-          if {![info exists ::no(NoTclPrompt1Time)] && \
-              ![info exists ::env(NoTclPrompt1Time)]} then {
-            if {[string length $dateTimeFormat] > 0} then {
-              append dateTimeFormat " @ "
+              append dateTimeFormat "hh:mm tt"
             }
 
-            append dateTimeFormat "hh:mm tt"
+            if {[string length $dateTimeFormat] > 0} then {
+              host result Return \[
+
+              host result Ok [clock format \
+                  [clock seconds] -format $dateTimeFormat]
+
+              host result Return \]
+              host result Ok " "
+            }
+
+            host result Error <
+            host result Ok $pwd
+            host result Error "> "
           }
-
-          if {[string length $dateTimeFormat] > 0} then {
-            host result Return \[
-
-            host result Ok [clock format \
-                [clock seconds] -format $dateTimeFormat]
-
-            host result Return \]
-            host result Ok " "
-          }
-
-          host result Error <
-          host result Ok $pwd
-          host result Error "> "
         }]
 
-        if {[isStableEagleRelease 56]} then {
+        if {![eagle_probeForPromptCommands] || \
+            [isStableEagleRelease 56]} then {
           return -code return
         }
       }

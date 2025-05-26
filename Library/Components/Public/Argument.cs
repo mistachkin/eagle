@@ -290,6 +290,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Methods
+        #region Dead Code
+#if DEAD_CODE
+        [DebuggerStepThrough()]
+        private void SetFlags(
+            ArgumentFlags flags
+            )
+        {
+            this.flags |= flags;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        private void UnsetFlags(
+            ArgumentFlags flags
+            )
+        {
+            this.flags &= ~flags;
+        }
+#endif
+        #endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Reset Helper Methods
         [DebuggerStepThrough()]
         internal void ResetValue(
@@ -507,6 +533,16 @@ namespace Eagle._Components.Public
         [DebuggerStepThrough()]
         private static Argument PrivateCreate(
             Argument value
+            )
+        {
+            return new Argument(value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        private static Argument PrivateCreate(
+            Interpreter value
             )
         {
             return new Argument(value);
@@ -1039,7 +1075,7 @@ namespace Eagle._Components.Public
             Interpreter value
             )
         {
-            return InternalCreate(value);
+            return PrivateCreate(value);
         }
 
         ///////////////////////////////////////////////////////////////////////

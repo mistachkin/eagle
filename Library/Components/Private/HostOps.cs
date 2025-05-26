@@ -23,6 +23,7 @@ using Eagle._Components.Public.Delegates;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 using ResourcePair = Eagle._Components.Public.AnyPair<
     string, System.Resources.ResourceManager>;
@@ -1978,7 +1979,7 @@ namespace Eagle._Components.Private
                                     uniqueResourceNames.Add(name, null);
 
                                     DataFlags dataFlags = CombineDataFlags(
-                                        interpreter, DataFlags.Script);
+                                        interpreter, name, DataFlags.Script);
 
                                     EngineFlags engineFlags =
                                         fileHost.GetEngineFlagsForReadScriptStream(
@@ -2033,7 +2034,7 @@ namespace Eagle._Components.Private
 
                                 if (isolatedFileSystemHost.GetData( /* throw */
                                         name, CombineDataFlags(interpreter,
-                                        DataFlags.Script), ref localScriptFlags,
+                                        name, DataFlags.Script), ref localScriptFlags,
                                         ref clientData, ref result) == ReturnCode.Ok)
                                 {
                                     scriptFlags = localScriptFlags;
@@ -2053,7 +2054,7 @@ namespace Eagle._Components.Private
 
                         if (fileSystemHost.GetData( /* throw */
                                 name, CombineDataFlags(interpreter,
-                                DataFlags.Script), ref localScriptFlags,
+                                name, DataFlags.Script), ref localScriptFlags,
                                 ref clientData, ref result) == ReturnCode.Ok)
                         {
                             scriptFlags = localScriptFlags;
@@ -2244,6 +2245,7 @@ namespace Eagle._Components.Private
 
         public static DataFlags CombineDataFlags(
             Interpreter interpreter, /* in */
+            string name,             /* in */
             DataFlags dataFlags      /* in */
             )
         {
@@ -2254,6 +2256,23 @@ namespace Eagle._Components.Private
                 lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                 {
                     result |= interpreter.DataFlagsNoLock;
+                }
+            }
+
+            if (name != null)
+            {
+                //
+                // HACK: For the "lib/Eagle1.0/vendor.eagle" core script library
+                //       file, attempt to search all parent directories until it
+                //       is found.  The search may still fail to locate the file;
+                //       however, this gives "vendors" the ability to more easily
+                //       customize its location, while still being "relative" to
+                //       the application directory.
+                //
+                if (SharedStringOps.SystemEquals(name, FileName.Vendor) ||
+                    SharedStringOps.SystemEquals(name, FileNameOnly.Vendor))
+                {
+                    result |= DataFlags.SearchParents;
                 }
             }
 
