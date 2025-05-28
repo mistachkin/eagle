@@ -5054,13 +5054,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static int SearchParents(
-            Interpreter interpreter,      /* in: OPTIONAL */
-            string directory,             /* in */
-            IList<string> subParts,       /* in: OPTIONAL */
-            IList<string> searchPatterns, /* in */
-            int limit,                    /* in */
-            bool? unix,                   /* in: OPTIONAL */
-            ref StringList paths          /* in, out */
+            Interpreter interpreter,   /* in: NOT USED */
+            string directory,          /* in */
+            StringList subParts,       /* in: OPTIONAL */
+            StringList searchPatterns, /* in */
+            int limit,                 /* in */
+            bool? unix,                /* in: OPTIONAL */
+            ref StringList paths       /* in, out */
             )
         {
             int count = 0;
@@ -5094,7 +5094,7 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                subDirectory = CombinePath(unix, subParts);
+                subDirectory = CombinePath(unix, (IList<string>)subParts);
             }
             else
             {

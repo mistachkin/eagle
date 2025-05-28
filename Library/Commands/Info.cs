@@ -3324,15 +3324,25 @@ namespace Eagle._Commands
                                     }
                                 case "previouspid":
                                     {
-                                        if ((arguments.Count == 2) || (arguments.Count == 3))
+                                        if ((arguments.Count >= 2) && (arguments.Count <= 4))
                                         {
                                             bool reset = false;
 
-                                            if (arguments.Count == 3)
+                                            if (arguments.Count >= 3)
                                             {
                                                 code = Value.GetBoolean2(
                                                     arguments[2], ValueFlags.AnyBoolean,
                                                     interpreter.InternalCultureInfo, ref reset,
+                                                    ref result);
+                                            }
+
+                                            long newPreviousId = 0;
+
+                                            if (arguments.Count >= 4)
+                                            {
+                                                code = Value.GetWideInteger2(
+                                                    (IGetValue)arguments[3], ValueFlags.AnyInteger,
+                                                    interpreter.InternalCultureInfo, ref newPreviousId,
                                                     ref result);
                                             }
 
@@ -3344,18 +3354,21 @@ namespace Eagle._Commands
                                                     // NOTE: Return the Id of the previously [exec]'d
                                                     //       process and then optionally reset it.
                                                     //
-                                                    long processId = interpreter.PreviousProcessId;
+                                                    long oldPreviousId = interpreter.PreviousProcessId;
 
                                                     if (reset)
                                                         interpreter.ResetPreviousProcessId();
 
-                                                    result = processId;
+                                                    if (newPreviousId != 0)
+                                                        interpreter.SetPreviousProcessId(newPreviousId);
+
+                                                    result = oldPreviousId;
                                                 }
                                             }
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"info previouspid ?reset?\"";
+                                            result = "wrong # args: should be \"info previouspid ?reset? ?newId?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

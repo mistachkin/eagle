@@ -7608,6 +7608,7 @@ namespace Eagle._Components.Public
         NoPluginString = 0x200000,
 
         SearchParents = 0x400000,
+        NoSearchParents = 0x800000,
 
         NoResourceManagerStream = 0x10000000,
         NoResourceManagerString = 0x20000000,

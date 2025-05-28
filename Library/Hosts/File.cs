@@ -1774,7 +1774,9 @@ namespace Eagle._Hosts
                 return ReturnCode.Ok;
             }
 
-            if (FlagOps.HasFlags(
+            if (!FlagOps.HasFlags(
+                    dataFlags, DataFlags.NoSearchParents, true) &&
+                FlagOps.HasFlags(
                     dataFlags, DataFlags.SearchParents, true))
             {
                 string nameOnly = name;

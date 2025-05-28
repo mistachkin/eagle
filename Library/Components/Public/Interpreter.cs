@@ -102547,6 +102547,15 @@ namespace Eagle._Components.Public
         {
             PreviousProcessId = 0;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal void SetPreviousProcessId(
+            long processId /* in */
+            )
+        {
+            PreviousProcessId = processId;
+        }
         #endregion
         #endregion
         #endregion

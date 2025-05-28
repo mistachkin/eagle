@@ -334,7 +334,7 @@ info plugin	info plugin name
 info pluginflags	info pluginflags name
 info policies	info policies ?pattern?
 info ppid	info ppid
-info previouspid	info previouspid ?reset?
+info previouspid	info previouspid ?reset? ?newId?
 info processors	info processors
 info procs	info procs ?pattern?
 info programextension	info programextension

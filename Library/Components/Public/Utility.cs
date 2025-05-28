@@ -984,6 +984,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static int SearchParentsForPath(
+            Interpreter interpreter,
+            string directory,
+            StringList subParts,
+            StringList searchPatterns,
+            int limit,
+            bool? unix,
+            ref StringList paths
+            )
+        {
+            return PathOps.SearchParents(
+                interpreter, directory, subParts, searchPatterns, limit,
+                unix, ref paths);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if SHELL && INTERACTIVE_COMMANDS
         public static StringList GetInteractiveCommandNames(
             Interpreter interpreter,
