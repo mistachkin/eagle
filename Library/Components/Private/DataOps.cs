@@ -1057,6 +1057,9 @@ namespace Eagle._Components.Private
             out byte[] signature                   /* out */
             )
         {
+            //
+            // TODO: Are these hard-coded "defaults" reasonable?
+            //
             id = Guid.Empty;
             language = null;
             sequence = 0;
@@ -1064,7 +1067,7 @@ namespace Eagle._Components.Private
             hashAlgorithmName = null;
             isolationLevel = _IsolationLevel.None;
             securityLevel = SecurityLevel.None;
-            securityFlags = ScriptSecurityFlags.None;
+            securityFlags = ScriptSecurityFlags.BundleMask;
             ruleSet = null;
             blockType = XmlBlockType.None;
             fullName = null;
@@ -1391,10 +1394,6 @@ namespace Eagle._Components.Private
             }
 
             ///////////////////////////////////////////////////////////////////
-            //
-            // TODO: Is this hard-coded "default" reasonable?
-            //
-            isolationLevel = _IsolationLevel.None;
 
             if (!record.IsDBNull((int)BundleField.IsolationLevel))
             {
@@ -1443,10 +1442,6 @@ namespace Eagle._Components.Private
             }
 
             ///////////////////////////////////////////////////////////////////
-            //
-            // TODO: Is this hard-coded "default" reasonable?
-            //
-            securityLevel = SecurityLevel.None;
 
             if (!record.IsDBNull((int)BundleField.SecurityLevel))
             {
@@ -1495,10 +1490,6 @@ namespace Eagle._Components.Private
             }
 
             ///////////////////////////////////////////////////////////////////
-            //
-            // TODO: Is this hard-coded "default" reasonable?
-            //
-            securityFlags = ScriptSecurityFlags.BundleMask;
 
             if (!record.IsDBNull((int)BundleField.SecurityFlags))
             {
@@ -1532,8 +1523,6 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
-            ruleSet = null;
-
             if (!record.IsDBNull((int)BundleField.RuleSet))
             {
                 localError = null;
@@ -1560,10 +1549,6 @@ namespace Eagle._Components.Private
             }
 
             ///////////////////////////////////////////////////////////////////
-            //
-            // TODO: Is this hard-coded "default" reasonable?
-            //
-            blockType = XmlBlockType.None;
 
             if (!record.IsDBNull((int)BundleField.BlockType))
             {

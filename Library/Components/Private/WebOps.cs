@@ -950,27 +950,38 @@ namespace Eagle._Components.Private
             ContextIdType type       /* in */
             )
         {
+            string format;
             long id;
 
             switch (type & ContextIdType.TypeMask)
             {
+                case ContextIdType.Global:
+                    {
+                        format = EnvVars.WebClientTagFormat2;
+                        id = 0; /* NOT USED (?) */
+                        break;
+                    }
                 case ContextIdType.ParentProcess:
                     {
+                        format = EnvVars.WebClientTagFormat1;
                         id = ProcessOps.GetParentId();
                         break;
                     }
                 case ContextIdType.Process:
                     {
+                        format = EnvVars.WebClientTagFormat1;
                         id = ProcessOps.GetId();
                         break;
                     }
                 case ContextIdType.AppDomain:
                     {
+                        format = EnvVars.WebClientTagFormat1;
                         id = AppDomainOps.GetCurrentId();
                         break;
                     }
                 case ContextIdType.Thread:
                     {
+                        format = EnvVars.WebClientTagFormat1;
                         id = GlobalState.GetCurrentSystemThreadId();
                         break;
                     }
@@ -978,6 +989,7 @@ namespace Eagle._Components.Private
                     {
                         if (interpreter != null)
                         {
+                            format = EnvVars.WebClientTagFormat1;
                             id = interpreter.IdNoThrow;
                             break;
                         }
@@ -992,6 +1004,7 @@ namespace Eagle._Components.Private
                             if (interpreter.InternalGetContext(
                                     ref context) == ReturnCode.Ok)
                             {
+                                format = EnvVars.WebClientTagFormat1;
                                 id = (long)context.Value;
                                 break;
                             }
@@ -1004,7 +1017,7 @@ namespace Eagle._Components.Private
                     }
             }
 
-            return String.Format(EnvVars.WebClientTagFormat, id);
+            return String.Format(format, id);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1032,7 +1045,9 @@ namespace Eagle._Components.Private
                     GetTagEnvVarName(
                         interpreter, ContextIdType.Process),
                     GetTagEnvVarName(
-                        interpreter, ContextIdType.ParentProcess)
+                        interpreter, ContextIdType.ParentProcess),
+                    GetTagEnvVarName(
+                        interpreter, ContextIdType.Global)
                 })
             {
                 string tag = CommonOps.Environment.GetVariable(

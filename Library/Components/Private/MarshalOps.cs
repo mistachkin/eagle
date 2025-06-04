@@ -5443,7 +5443,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static void AjustTypeDepthForStringTypes(
+        private static void AdjustTypeDepthForStringTypes(
             Type type,
             int stringDepth, /* -1 <= x <= 1 */
             bool output,
@@ -5473,7 +5473,7 @@ namespace Eagle._Components.Private
 
             while (type != null)
             {
-                AjustTypeDepthForStringTypes(
+                AdjustTypeDepthForStringTypes(
                     type, stringDepth, output, ref totalDepth);
 
                 //
@@ -5509,7 +5509,7 @@ namespace Eagle._Components.Private
 
                         type = subType;
 
-                        AjustTypeDepthForStringTypes(
+                        AdjustTypeDepthForStringTypes(
                             type, stringDepth, output, ref totalDepth);
                     }
                 }

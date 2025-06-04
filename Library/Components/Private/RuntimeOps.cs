@@ -3530,7 +3530,8 @@ namespace Eagle._Components.Private
 
             if (fileSystemHost.GetData( /* EXEMPT */
                     resourceName, HostOps.CombineDataFlags(
-                        interpreter, resourceName, DataFlags.Plugin),
+                        interpreter, resourceName, scriptFlags,
+                        DataFlags.Plugin),
                     ref scriptFlags, ref localClientData,
                     ref localResult) != ReturnCode.Ok)
             {
@@ -3558,8 +3559,10 @@ namespace Eagle._Components.Private
             fileSystemHost.GetData( /* EXEMPT */
                 String.Format(SymbolsFormat, resourceName),
                 HostOps.CombineDataFlags(
-                    interpreter, resourceName, DataFlags.Plugin),
-                ref scriptFlags, ref localClientData, ref localResult);
+                    interpreter, resourceName, scriptFlags,
+                    DataFlags.Plugin),
+                ref scriptFlags, ref localClientData,
+                ref localResult);
 
             byte[] symbolBytes = (localResult != null) ?
                 localResult.Value as byte[] : null;

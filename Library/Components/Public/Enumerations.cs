@@ -192,6 +192,8 @@ namespace Eagle._Components.Public
         None = 0x0,
         Invalid = 0x1,
 
+        Global = 0x100,
+
         ParentProcess = 0x1000,
         Process = 0x2000,
 
@@ -207,8 +209,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        TypeMask = ParentProcess | Process | AppDomain |
-                   Thread | Interpreter | Context,
+        TypeMask = Global | ParentProcess | Process |
+                   AppDomain | Thread | Interpreter |
+                   Context,
 
         FlagMask = MaybeUnset,
 

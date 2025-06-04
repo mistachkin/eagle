@@ -679,10 +679,8 @@ namespace Eagle._Components.Private
             ref string type          /* out */
             )
         {
-            StringList values; /* REUSED */
+            StringList values = null;
             Result error = null;
-
-            values = null;
 
             if (!GetValues(interpreter, name, ref values, ref error))
                 return @default;
@@ -711,13 +709,13 @@ namespace Eagle._Components.Private
             if (name != null)
             {
 #if SHELL && INTERACTIVE_COMMANDS
-                values = null;
+                StringList names = null;
 
                 if ((ParserOps<string>.SplitList(
                         null, name, 0, Length.Invalid, true,
-                        ref values) != ReturnCode.Ok) ||
+                        ref names) != ReturnCode.Ok) ||
                     (HelpOps.GetIExecuteViaResolvers(
-                        interpreter, values,
+                        interpreter, names,
                         ref type) != ReturnCode.Ok))
 #endif
                 {

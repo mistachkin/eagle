@@ -3647,6 +3647,30 @@ namespace eval ::Eagle {
     }
   }
 
+  proc augmentTestArguments { varName value } {
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName args
+    }
+
+    set result false
+
+    if {[isEagle]} then {
+      if {[string is list -strict $value]} then {
+        set result true
+      }
+    } else {
+      if {[catch {llength $value}] == 0} then {
+        set result true
+      }
+    }
+
+    if {$result} then {
+      eval lappend args $value
+    }
+
+    return $result
+  }
+
   proc processTestArguments { varName strict args } {
     #
     # NOTE: Initially, there are no unknown (i.e. unprocessed) arguments.
@@ -3678,6 +3702,29 @@ namespace eval ::Eagle {
         -stopOnLeak -suffix -suite -tclsh -threshold -uncountedLeaks \
         -verbose]
 
+    #
+    # NOTE: Unless explicitly forbidden, add all available test argument
+    #       values from environment variables, if any.
+    #
+    if {![info exists ::no(augmentTestArguments)]} then {
+      foreach name [list \
+          TEST_ARGV TEST_SYSTEM_ARGV TEST_USER_ARGV] {
+        if {[info exists ::env($name)]} then {
+          set value $::env($name)
+
+          if {![augmentTestArguments args $value]} then {
+            tqputs $channel [appendArgs \
+                "---- bad arguments from \"" $name \
+                "\", must be a proper list: " $value \n]
+          }
+        }
+      }
+    }
+
+    #
+    # NOTE: Next, attempt to (recognize and) process each supported test
+    #       option, in order.
+    #
     set length [llength $args]
 
     for {set index 0} {$index < $length} {incr index} {
@@ -12120,22 +12167,22 @@ namespace eval ::Eagle {
         testResultGet testValueGet getValueOrDefault getFirstLineOfError \
         calculateBogoCops calculateRelativePerformance formatTimeStamp \
         formatElapsedTime sourceIfValid makeUseOfTestDefaults \
-        processTestArguments makeUseOfTestArguments getTclShellFileName \
-        getTemporaryPath getTemporaryFileName checkOsAndModeForPath \
-        isDirectoryReadable isFileReadable getFiles getTestFiles \
-        getTestChildren getTestRunId getTestRunBucket isValidGuid \
-        getNewTestRunId getDefaultTestLogSubPath getDefaultTestLogPath \
-        getTestLogPath getTestLogId getDefaultTestLog newTestLog getTestLog \
-        getLastTestLog getTestSuite getTestSuiteFileName getTestSuiteFullName \
-        getTestSuiteVariantName getTestMachine getTestPlatform \
-        getTestConfiguration getTestNamePrefix getTestSuffix \
-        getTestUncountedLeaks getTestListedLeaks getRuntimeAssemblyName \
-        getTestAssemblyName canTestExec testExec testClrExec execTestShell \
-        isRandomOrder isBreakOnDemand isBreakOnLeak isStopOnFailure \
-        isStopOnLeak isExitOnComplete returnInfoScript runTestPrologue \
-        runTestEpilogue hookPuts unhookPuts getTestFile getTestName runTest \
-        testShim tsource getKnownEagleVersions isStableEagleRelease \
-        changeArrayElement enableTestStatisticsLists \
+        augmentTestArguments processTestArguments makeUseOfTestArguments \
+        getTclShellFileName getTemporaryPath getTemporaryFileName \
+        checkOsAndModeForPath isDirectoryReadable isFileReadable getFiles \
+        getTestFiles getTestChildren getTestRunId getTestRunBucket \
+        isValidGuid getNewTestRunId getDefaultTestLogSubPath \
+        getDefaultTestLogPath getTestLogPath getTestLogId getDefaultTestLog \
+        newTestLog getTestLog getLastTestLog getTestSuite \
+        getTestSuiteFileName getTestSuiteFullName getTestSuiteVariantName \
+        getTestMachine getTestPlatform getTestConfiguration getTestNamePrefix \
+        getTestSuffix getTestUncountedLeaks getTestListedLeaks \
+        getRuntimeAssemblyName getTestAssemblyName canTestExec testExec \
+        testClrExec execTestShell isRandomOrder isBreakOnDemand isBreakOnLeak \
+        isStopOnFailure isStopOnLeak isExitOnComplete returnInfoScript \
+        runTestPrologue runTestEpilogue hookPuts unhookPuts getTestFile \
+        getTestName runTest testShim tsource getKnownEagleVersions \
+        isStableEagleRelease changeArrayElement enableTestStatisticsLists \
         maybeRecordTestStatistics maybeReportTestStatistics \
         recordTestStatistics getNamesForTestStatistics reportTestStatistics \
         formatList formatListAsDict pathToRegexp assemblyNameToRegexp \

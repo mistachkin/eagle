@@ -1979,7 +1979,8 @@ namespace Eagle._Components.Private
                                     uniqueResourceNames.Add(name, null);
 
                                     DataFlags dataFlags = CombineDataFlags(
-                                        interpreter, name, DataFlags.Script);
+                                        interpreter, name, scriptFlags,
+                                        DataFlags.Script);
 
                                     EngineFlags engineFlags =
                                         fileHost.GetEngineFlagsForReadScriptStream(
@@ -2033,9 +2034,11 @@ namespace Eagle._Components.Private
                                 localScriptFlags = scriptFlags;
 
                                 if (isolatedFileSystemHost.GetData( /* throw */
-                                        name, CombineDataFlags(interpreter,
-                                        name, DataFlags.Script), ref localScriptFlags,
-                                        ref clientData, ref result) == ReturnCode.Ok)
+                                        name, CombineDataFlags(
+                                            interpreter, name, localScriptFlags,
+                                            DataFlags.Script),
+                                        ref localScriptFlags, ref clientData,
+                                        ref result) == ReturnCode.Ok)
                                 {
                                     scriptFlags = localScriptFlags;
                                     return ReturnCode.Ok;
@@ -2053,9 +2056,11 @@ namespace Eagle._Components.Private
                         localScriptFlags = scriptFlags;
 
                         if (fileSystemHost.GetData( /* throw */
-                                name, CombineDataFlags(interpreter,
-                                name, DataFlags.Script), ref localScriptFlags,
-                                ref clientData, ref result) == ReturnCode.Ok)
+                                name, CombineDataFlags(
+                                    interpreter, name, localScriptFlags,
+                                    DataFlags.Script),
+                                ref localScriptFlags, ref clientData,
+                                ref result) == ReturnCode.Ok)
                         {
                             scriptFlags = localScriptFlags;
                             return ReturnCode.Ok;
@@ -2246,6 +2251,7 @@ namespace Eagle._Components.Private
         public static DataFlags CombineDataFlags(
             Interpreter interpreter, /* in */
             string name,             /* in */
+            ScriptFlags scriptFlags, /* in */
             DataFlags dataFlags      /* in */
             )
         {
@@ -2259,22 +2265,21 @@ namespace Eagle._Components.Private
                 }
             }
 
-            if (name != null)
-            {
-                //
-                // HACK: For the "lib/Eagle1.0/vendor.eagle" core script library
-                //       file, attempt to search all parent directories until it
-                //       is found.  The search may still fail to locate the file;
-                //       however, this gives "vendors" the ability to more easily
-                //       customize its location, while still being "relative" to
-                //       the application directory.
-                //
-                if (SharedStringOps.SystemEquals(name, FileName.Vendor) ||
-                    SharedStringOps.SystemEquals(name, FileNameOnly.Vendor))
-                {
-                    result |= DataFlags.SearchParents;
-                }
-            }
+            //
+            // HACK: For the "lib/Eagle1.0/vendor.eagle" core script library
+            //       file, attempt to search all parent directories until it
+            //       is found.  The search may still fail to locate the file;
+            //       however, this gives "vendors" the ability to more easily
+            //       customize its location, while still being "relative" to
+            //       the application directory.
+            //
+            // NOTE: Removed the special case file name handling here and now
+            //       rely ONLY upon the script flags.  This should provide a
+            //       robust pre-check without "hard-coding" a set of expected
+            //       "vendor" file names.
+            //
+            if (FlagOps.HasFlags(scriptFlags, ScriptFlags.Vendor, true))
+                result |= DataFlags.SearchParents;
 
             return result;
         }

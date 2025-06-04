@@ -5198,12 +5198,15 @@ namespace Eagle._Components.Private
                             displayHost.WriteLine();
 #if NETWORK
                             displayHost.WriteLine(String.Format(
-                                "{0}If the \"{1}\" -OR- \"{2}\" environment\n" +
-                                "{0}variables are set [to anything], the first value will be included\n" +
-                                "{0}within library created HTTP/1.0 \"User-Agent\" header values.",
-                                Characters.HorizontalTab, String.Format(EnvVars.WebClientTagFormat,
-                                GlobalState.GetCurrentSystemThreadId()), String.Format(
-                                EnvVars.WebClientTagFormat, ProcessOps.GetId())));
+                                "{0}If the \"{1}\", \"{2}\", or \"{3}\"\n" +
+                                "{0}environment variables are set [to anything], the first value detected\n" +
+                                "{0}will be included within library created HTTP/1.0 \"User-Agent\" header\n" +
+                                "{0}values.",
+                                Characters.HorizontalTab, String.Format(
+                                    EnvVars.WebClientTagFormat1, GlobalState.GetCurrentSystemThreadId()),
+                                String.Format(
+                                    EnvVars.WebClientTagFormat1, ProcessOps.GetId()),
+                                EnvVars.WebClientTagFormat2));
                             displayHost.WriteLine();
 #endif
                         }

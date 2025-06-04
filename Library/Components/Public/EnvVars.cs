@@ -157,7 +157,8 @@ namespace Eagle._Components.Public
         public static readonly string StrictBasePath = "StrictBasePath";
 
 #if NETWORK
-        public static readonly string WebClientTagFormat = "WebClientTag_{0}";
+        public static readonly string WebClientTagFormat1 = "WebClientTag_{0}";
+        public static readonly string WebClientTagFormat2 = "WebClientTag";
         public static readonly string NetworkTimeout = "NetworkTimeout";
 #endif
 
