@@ -649,7 +649,8 @@ unset -nocomplain newLine
 for {set k 1} {$k <= 3} {incr k} {
   runTest {test [appendArgs \
       infoExists-1.3. $k] [appendArgs {vwaitLocked stress } $k] -setup {
-    unset -nocomplain -purge pass d u s x y t i j m locked_var savedGcc
+    unset -nocomplain -purge pass d u s x y t j i m
+    unset -nocomplain locked_var savedGcc currentGcc
 
     proc threadStart { arg } {
       set a [getStringFromObjectHandle $arg]
@@ -717,18 +718,23 @@ for {set k 1} {$k <= 3} {incr k} {
       }
     }
 
+    set currentGcc [object invoke -flags +NonPublic \
+        Eagle._Components.Private.DebugOps globalComplainCount]
+
+    tputs $test_channel [appendArgs \
+        "---- checked global complaint count, saved " \
+        $savedGcc " versus current " $currentGcc \n]
+
     list $pass [expr {$x >= $m}] \
-        [expr {$k == 2 ? $y > 0 : $y == 0}] [expr {
-      [object invoke -flags +NonPublic \
-          Eagle._Components.Private.DebugOps \
-          globalComplainCount] > $savedGcc
-    }]
+        [expr {$k == 2 ? $y > 0 : $y == 0}] \
+        [expr {$currentGcc > $savedGcc}]
   } -cleanup {
     for {set i 1} {$i <= $m} {incr i} {
       cleanupThread $t($i)
     }
 
-    unset -nocomplain pass d u s x y t i j m locked_var savedGcc
+    unset -nocomplain pass d u s x y t j i m
+    unset -nocomplain locked_var savedGcc currentGcc
 
     catch {object removecallback threadStart}
 
@@ -851,7 +857,8 @@ unset -nocomplain k
 ###############################################################################
 
 runTest {test tqlog-1.1 {tqlog stress} -setup {
-  unset -nocomplain -purge pass d u s t i j m savedGcc
+  unset -nocomplain -purge pass d u s t j i m
+  unset -nocomplain savedGcc currentGcc
 
   proc threadStart { arg } {
     set a [getStringFromObjectHandle $arg]
@@ -915,11 +922,14 @@ runTest {test tqlog-1.1 {tqlog stress} -setup {
     }
   }
 
-  list $pass [expr {
-    [object invoke -flags +NonPublic \
-        Eagle._Components.Private.DebugOps \
-        globalComplainCount] > $savedGcc
-  }]
+  set currentGcc [object invoke -flags +NonPublic \
+      Eagle._Components.Private.DebugOps globalComplainCount]
+
+  tputs $test_channel [appendArgs \
+      "---- checked global complaint count, saved " \
+      $savedGcc " versus current " $currentGcc \n]
+
+  list $pass [expr {$currentGcc > $savedGcc}]
 } -cleanup {
   catch {vwaitLocked ::test_log_queue true {unset ::test_log_queue}}
 
@@ -927,7 +937,8 @@ runTest {test tqlog-1.1 {tqlog stress} -setup {
     cleanupThread $t($i)
   }
 
-  unset -nocomplain pass d u s t i j m savedGcc
+  unset -nocomplain pass d u s t j i m
+  unset -nocomplain savedGcc currentGcc
 
   catch {object removecallback threadStart}
 

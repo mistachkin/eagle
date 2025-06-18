@@ -198,14 +198,91 @@ namespace eval ::Eagle {
   # NOTE: This procedure attempts to add the specified directory to the
   #       package auto-path if it is not already present.
   #
-  proc maybeAddToAutoPath { directory } {
+  proc maybeAddToAutoPath { directory {strict false} } {
     global auto_path
 
-    if {![info exists auto_path] || \
+    set exists [info exists auto_path]
+    if {$strict && !$exists} then {return false}
+
+    if {!$exists || \
         [getIndexForDirectory $auto_path $directory] == -1} then {
       lappend auto_path $directory; return true
     } else {
       return false
+    }
+  }
+
+  proc maybeScanAutoPath { {directories ""} {strict false} {quiet false} } {
+    if {[isEagle]} then {
+      if {[string is list -strict $directories]} then {
+        if {[llength $directories] > 0} then {
+          set paths [object create -alias StringList]
+
+          foreach directory $directories {
+            $paths Add $directory
+          }
+        } else {
+          set paths null
+        }
+
+        if {[invokePackageScanCommand $paths $strict]} then {
+          if {!$quiet} then {
+            set indexes [lsort [package indexes]]
+
+            if {[llength $indexes] == 0} then {
+              set indexes <none>
+            }
+
+            tputs [getTestChannelOrDefault] [appendArgs \
+                "---- success scanning package indexes: " \
+                [formatList $indexes] \n]
+          }
+
+          return true
+        } else {
+          return false
+        }
+      } elseif {$strict} then {
+        error "invalid directory list"
+      } else {
+        return false
+      }
+    } else {
+      if {[catch {llength $directories} length] == 0} then {
+        global auto_path
+
+        if {[catch {
+          if {$length > 0} then {
+            eval lappend auto_path $directories
+          } else {
+            set auto_path $auto_path
+          }
+
+          forceScanOfPackages; # pkgt.eagle
+        } error] == 0} then {
+          if {!$quiet} then {
+            set names [lsort [package names]]
+
+            if {[llength $names] == 0} then {
+              set names <none>
+            }
+
+            tputs [getTestChannelOrDefault] [appendArgs \
+                "---- success scanning package indexes: " \
+                [formatList $names] \n]
+          }
+
+          return true
+        } elseif {$strict} then {
+          error [appendArgs "scan auto-path failed: " $error]
+        } else {
+          return false
+        }
+      } elseif {$strict} then {
+        error [appendArgs "invalid directory list: " $length]
+      } else {
+        return false
+      }
     }
   }
 
@@ -4437,7 +4514,8 @@ namespace eval ::Eagle {
     return [file readable $path]
   }
 
-  proc getFiles { directory include {exclude ""} } {
+  proc getFiles {
+          directory include {exclude ""} {forceReadable false} } {
     set result [list]
 
     if {[isEagle]} then {
@@ -4447,7 +4525,8 @@ namespace eval ::Eagle {
             -dictionary [file list $directory $include]] {
           if {[string length $exclude] == 0 || \
               ![string match $exclude $fileName]} then {
-            if {[isFileReadable $fileName]} then {
+            if {$forceReadable || \
+                [isFileReadable $fileName]} then {
               lappend result $fileName
             }
           }
@@ -6130,7 +6209,8 @@ namespace eval ::Eagle {
 
     if {![info exists ::no(query,files)]} then {
       if {[info exists ::test_path]} then {
-        set list [getFiles $::test_path *]
+        set list [getFiles $::test_path * "" \
+            [info exists ::no(query,files,readable)]]
       } else {
         set list [list]; # NOTE: Information not available.
       }
@@ -6149,7 +6229,8 @@ namespace eval ::Eagle {
 
     if {![info exists ::no(query,binaryFiles)]} then {
       if {[info exists ::bin_path]} then {
-        set list [getFiles $::bin_path *]
+        set list [getFiles $::bin_path * "" \
+            [info exists ::no(query,binaryFiles,readable)]]
       } else {
         set list [list]; # NOTE: Information not available.
       }
@@ -6176,7 +6257,8 @@ namespace eval ::Eagle {
     }
 
     if {![info exists ::no(query,temporaryFiles)]} then {
-      set list [getFiles [getTemporaryPath] * $excludeTemporaryFiles]
+      set list [getFiles [getTemporaryPath] * $excludeTemporaryFiles \
+          [info exists ::no(query,temporaryFiles,readable)]]
     } else {
       set list [list]
     }
@@ -8332,25 +8414,51 @@ namespace eval ::Eagle {
         set start [clock now -gmt true]
       }
 
+      set ok false
+
       try {
-        return [string trim \
-            [uri upload -timeouttype network -inline -retries 0 \
+        set result [string trim [uri upload \
+            -timeouttype network -inline -retries 0 \
             -data $query -- $uri]]
+
+        if {[regexp -- {^OK \d+$} $result]} then {; # VERIFY OK
+          set ok true
+        } else {
+          set message [appendArgs \
+              "logRemoteMessage: BAD RESULT: " $result]
+
+          host result Exception [appendArgs "---- " $message \n]
+
+          #
+          # TODO: By default, an error will be raised here unless
+          #       we are forbidden from doing so.  Maybe consider
+          #       changing this default?
+          #
+          if {$raiseError || \
+              ![info exists ::no(NoErrorRemoteMessage)]} then {
+            error $message; # FAIL-SAFE
+          }
+        }
+
+        return $result
       } finally {
         catch {
           if {[info exists start]} then {
             set stop [clock now -gmt true]
+            set prefix [expr {$ok ? "SUCCESS" : "FAILURE"}]
 
             if {$stop >= $start} then {
               set elapsed [object invoke -create -alias \
                   TimeSpan FromTicks [expr {$stop - $start}]]
 
               host result Continue [appendArgs \
-                  "---- logRemoteMessage: POST took " [$elapsed ToString] \n]
+                  "---- logRemoteMessage: " $prefix \
+                  ", POST took " [$elapsed ToString] \n]
             } else {
               host result Continue [appendArgs \
-                  "---- logRemoteMessage: BACKWARD time travel from " \
-                  $start " to " $stop \n]
+                  "---- logRemoteMessage: " $prefix \
+                  ", BACKWARD time travel from " $start \
+                  " to " $stop \n]
             }
           }
         }
@@ -8922,6 +9030,28 @@ namespace eval ::Eagle {
                 "---- removed \"testConstraint\" alias\n"
           }
         }
+      }
+    }
+
+    proc invokePackageScanCommand { {paths null} {strict false} } {
+      if {[catch {
+        set error null
+
+        set command [object invoke \
+            -create Utility GetPackageScanCommand "" null \
+            $paths error]
+
+        if {[isNonNullObjectHandle $command]} then {
+          uplevel #0 [getStringFromObjectHandle $command]
+        } else {
+          error [getStringFromObjectHandle $error]
+        }
+      } result] == 0} then {
+        return true
+      } elseif {$strict} then {
+        error [appendArgs "scan auto-path failed: " $result]
+      } else {
+        return false
       }
     }
 
@@ -11230,30 +11360,22 @@ namespace eval ::Eagle {
       }
     }
 
-    proc purgeAndCleanup { channel name } {
-      catch {uplevel 1 [list debug purge]} result
-
-      tputs $channel [appendArgs \
-          "---- purge \"" $name "\" results: " $result \n]
-
-      catch {uplevel 1 [list debug cleanup {
-        Default -Miscellaneous
-      }]} result
-
-      tputs $channel [appendArgs \
-          "---- cleanup \"" $name "\" results: " $result \n]
-
+    proc purgeAndCleanup { channel name {quiet false} } {
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.ProcessOps Cleanup]} result
 
-      tputs $channel [appendArgs \
-          "---- ProcessOps cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- ProcessOps cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.EnumOps ClearCache]} result
 
-      tputs $channel [appendArgs \
-          "---- EnumOps cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- EnumOps cleanup results: " $result \n]
+      }
 
       if {[info exists ::eagle_platform(compileOptions)]} then {
         set options $::eagle_platform(compileOptions)
@@ -11266,81 +11388,123 @@ namespace eval ::Eagle {
         catch {uplevel 1 [list object invoke -flags +NonPublic \
             Eagle._Components.Private.HelpOps ClearCache]} result
 
-        tputs $channel [appendArgs \
-            "---- HelpOps cleanup results: " $result \n]
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- HelpOps cleanup results: " $result \n]
+        }
       }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.StringOps ClearPreambleEncodings]} result
 
-      tputs $channel [appendArgs \
-          "---- StringOps cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- StringOps cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Comparers.StringFileName ClearCache]} result
 
-      tputs $channel [appendArgs \
-          "---- Comparers.StringFileName cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- Comparers.StringFileName cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.HashOps Cleanup]} result
 
-      tputs $channel [appendArgs \
-          "---- HashOps cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- HashOps cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.FactoryOps Cleanup]} result
 
-      tputs $channel [appendArgs \
-          "---- FactoryOps cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- FactoryOps cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.ScriptOps ClearInterpreterCache]} result
 
-      tputs $channel [appendArgs \
-          "---- ScriptOps cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- ScriptOps cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.SyntaxOps ClearCache]} result
 
-      tputs $channel [appendArgs \
-          "---- SyntaxOps cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- SyntaxOps cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.ConfigurationOps Cleanup false]} result
 
-      tputs $channel [appendArgs \
-          "---- ConfigurationOps cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- ConfigurationOps cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.TraceLimits Cleanup]} result
 
-      tputs $channel [appendArgs \
-          "---- TraceLimits cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- TraceLimits cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.MarshalOps+ToStringCache Clear]} result
 
-      tputs $channel [appendArgs \
-          "---- ToStringCache cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- ToStringCache cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.CertificateOps ClearCache]} result
 
-      tputs $channel [appendArgs \
-          "---- CertificateOps cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- CertificateOps cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.RuntimeOps ClearCache]} result
 
-      tputs $channel [appendArgs \
-          "---- RuntimeOps cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- RuntimeOps cleanup results: " $result \n]
+      }
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.StringBuilderCache Clear]} result
 
-      tputs $channel [appendArgs \
-          "---- StringBuilderCache cleanup results: " $result \n]
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- StringBuilderCache cleanup results: " $result \n]
+      }
+
+      catch {uplevel 1 [list debug purge]} result
+
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- purge \"" $name "\" results: " $result \n]
+      }
+
+      catch {uplevel 1 [list debug cleanup {
+        Default -Miscellaneous
+      }]} result
+
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- cleanup \"" $name "\" results: " $result \n]
+      }
     }
 
     proc evalWithTimeout { script {milliseconds 2000} {resultVarName ""} } {
@@ -12122,14 +12286,14 @@ namespace eval ::Eagle {
     exportAndImportPackageCommands [namespace current] [list \
         addTestScripts evaluateTestScripts combineTestScriptResults \
         newPackageId getParameterFromAny getIndexForDirectory \
-        maybeAddToAutoPath haveModernNetFx haveInfinitySymbol private \
-        annotateProcedure createPairs flattenPairs tclLogForTester \
-        maybeInvokeForTester haveCaches resetCaches reportCaches \
-        maybeMakeHighPriority removeTemporarySubDirectories \
-        enableInteractiveCommands getProcedureArguments cloneProcedure \
-        getTclMinimumVersion getTclMaximumVersion tryToLoadZeus \
-        loadTetrisViaTclTk breakOnError getEnvironmentViaComSpec \
-        getNameForDebugHook announceForDebugHook \
+        maybeAddToAutoPath maybeScanAutoPath haveModernNetFx \
+        haveInfinitySymbol private annotateProcedure createPairs \
+        flattenPairs tclLogForTester maybeInvokeForTester haveCaches \
+        resetCaches reportCaches maybeMakeHighPriority \
+        removeTemporarySubDirectories enableInteractiveCommands \
+        getProcedureArguments cloneProcedure getTclMinimumVersion \
+        getTclMaximumVersion tryToLoadZeus loadTetrisViaTclTk breakOnError \
+        getEnvironmentViaComSpec getNameForDebugHook announceForDebugHook \
         forceInteractiveLoopForDebugHook debugBreakHook skipTestHook \
         noFailTestHook whatIfTestHook errorTestHook failTestHook \
         maybeGetArgv addToArgv removeFromArgv addConstraintToArgv \

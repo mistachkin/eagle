@@ -316,6 +316,46 @@ namespace eval ::Eagle {
   }
 
   #
+  # NOTE: This procedure builds a package name that should never exist, that
+  #       should be used in order to force package indexes to be refreshed.
+  #
+  proc getBogusPackageName {} {
+    return [appendArgs bogus_package_ [string trim [clock seconds] -]]
+  }
+
+  #
+  # NOTE: This procedure attempts to forcibly trigger a re-scan of all the
+  #       available package indexes.
+  #
+  proc forceScanOfPackages {} {
+    #
+    # NOTE: Build an obviously (?) bogus package name that will be used
+    #       in order to force the package indexes to be refreshed.
+    #
+    set packageName [getBogusPackageName]
+
+    if {[isEagle]} then {
+      #
+      # NOTE: Force Eagle to find *ALL* available package index files.
+      #       This must be done in the global scope so that the special
+      #       global variable 'dir' set by the package index loading
+      #       subsystem can be accessed.  Use [catch] here just in case
+      #       a package index file raises a script error.
+      #
+      catch {::tclPkgUnknown $packageName}
+    } else {
+      #
+      # HACK: Force Tcl to find *ALL* available package index files.
+      #       Without this, checking for the available versions of a
+      #       package using [package versions] likely will not succeed
+      #       unless the package is already loaded.  Use [catch] here
+      #       just in case a package index file raises a script error.
+      #
+      catch {package require $packageName}
+    }
+  }
+
+  #
   # NOTE: This procedure attempts to load (via [package require]) the package
   #       client toolset.  It is designed to be used in conjunction with the
   #       [downloadAndExtractPackageClientToolset] procedure, above.  Support
@@ -352,31 +392,10 @@ namespace eval ::Eagle {
       set needDirectory true
 
       #
-      # NOTE: Build an obviously (?) bogus package name that will be used
-      #       in order to force the package indexes to be refreshed.
+      # NOTE: Force re-scan of all available package indexes, just-in-case
+      #       that is required.
       #
-      set bogusPackageName [appendArgs \
-          bogus_package_ [string trim [clock seconds] -]]
-
-      if {[isEagle]} then {
-        #
-        # NOTE: Force Eagle to find *ALL* available package index files.
-        #       This must be done in the global scope so that the special
-        #       global variable 'dir' set by the package index loading
-        #       subsystem can be accessed.  Use [catch] here just in case
-        #       a package index file raises a script error.
-        #
-        catch {::tclPkgUnknown $bogusPackageName}
-      } else {
-        #
-        # HACK: Force Tcl to find *ALL* available package index files.
-        #       Without this, checking for the available versions of a
-        #       package using [package versions] likely will not succeed
-        #       unless the package is already loaded.  Use [catch] here
-        #       just in case a package index file raises a script error.
-        #
-        catch {package require $bogusPackageName}
-      }
+      forceScanOfPackages
 
       #
       # NOTE: Check and see if the package repository client is a known

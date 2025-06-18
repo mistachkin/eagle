@@ -97,7 +97,11 @@ using RuleDictionary = System.Collections.Generic.Dictionary<
     string, Eagle._Interfaces.Public.IRule>;
 
 using MessageCountDictionary = System.Collections.Generic.Dictionary<string, long>;
+
+#if DATA
 using IsolationLevel = System.Data.IsolationLevel;
+#endif
+
 using CommandTriplet = Eagle._Components.Public.MutableAnyTriplet<string, System.Type, long>;
 
 using TimeoutTriplet = Eagle._Components.Public.AnyTriplet<
@@ -34525,6 +34529,7 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region DatabaseTraceListener Test Class
+#if DATA
         [ObjectId("513e5392-29d9-4a84-a7c2-2407122b5eac")]
         public class DatabaseTraceListener : TraceListener, IBufferedTraceListener
         {
@@ -35755,6 +35760,7 @@ namespace Eagle._Tests
             }
             #endregion
         }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

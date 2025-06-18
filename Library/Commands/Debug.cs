@@ -348,6 +348,7 @@ namespace Eagle._Commands
                                     {
                                         if ((newArguments.Count >= 3) && (newArguments.Count <= 5))
                                         {
+#if DATA
                                             byte[] password = null;
 
                                             if ((newArguments.Count >= 4) &&
@@ -408,6 +409,10 @@ namespace Eagle._Commands
                                                     }
                                                 }
                                             }
+#else
+                                            result = "not implemented";
+                                            code = ReturnCode.Error;
+#endif
                                         }
                                         else
                                         {
@@ -2587,6 +2592,7 @@ namespace Eagle._Commands
                                     {
                                         if ((newArguments.Count == 3) || (newArguments.Count == 4))
                                         {
+#if DATA
                                             byte[] password = null;
 
                                             if ((newArguments.Count == 4) &&
@@ -2620,6 +2626,10 @@ namespace Eagle._Commands
                                                     code = ReturnCode.Error;
                                                 }
                                             }
+#else
+                                            result = "not implemented";
+                                            code = ReturnCode.Error;
+#endif
                                         }
                                         else
                                         {
@@ -2632,6 +2642,7 @@ namespace Eagle._Commands
                                     {
                                         if ((newArguments.Count == 2) || (newArguments.Count == 3))
                                         {
+#if DATA
                                             string pattern = null;
 
                                             if (newArguments.Count == 3)
@@ -2650,6 +2661,10 @@ namespace Eagle._Commands
                                                 result = "bundle manager unavailable";
                                                 code = ReturnCode.Error;
                                             }
+#else
+                                            result = "not implemented";
+                                            code = ReturnCode.Error;
+#endif
                                         }
                                         else
                                         {
@@ -5767,6 +5782,7 @@ namespace Eagle._Commands
                                     {
                                         if (newArguments.Count == 3)
                                         {
+#if DATA
                                             IBundleManager bundleManager = interpreter.BundleManager;
 
                                             if (bundleManager != null)
@@ -5780,6 +5796,10 @@ namespace Eagle._Commands
                                                 result = "bundle manager unavailable";
                                                 code = ReturnCode.Error;
                                             }
+#else
+                                            result = "not implemented";
+                                            code = ReturnCode.Error;
+#endif
                                         }
                                         else
                                         {

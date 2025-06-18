@@ -567,11 +567,42 @@ namespace eval ::Eagle {
     # <create>
     proc tclPkgUnknown { name args } {
       #
+      # NOTE: Grab the current compilation options for the core library,
+      #       if available.
+      #
+      if {[info exists ::eagle_platform(compileOptions)]} then {
+        set options $::eagle_platform(compileOptions)
+      } else {
+        set options [list]
+      }
+
+      #
+      # NOTE: Start building the [package scan] sub-command that will be
+      #       used to force the package indexes to be re-scanned.
+      #
+      set command [list package scan -host -bundle]
+
+      #
+      # NOTE: If needed (see "PackageOps.cs"), also include the "-plugin"
+      #       option in the [package scan] sub-command.
+      #
+      if {[lsearch -exact -- $options APPDOMAINS] != -1 || \
+          [lsearch -exact -- $options ISOLATED_INTERPRETERS] != -1 || \
+          [lsearch -exact -- $options ISOLATED_PLUGINS] != -1} then {
+        if {[catch {
+          object invoke -flags +NonPublic Interpreter.GetActive \
+              HasProbePlugins
+        } result] == 0 && $result} then {
+          lappend command -plugins
+        }
+      }
+
+      #
       # NOTE: Force a rescan of "pkgIndex" files.  This must be done in
       #       the global scope so that the special global variable 'dir'
       #       set by the package index loading subsystem can be accessed.
       #
-      uplevel #0 [list package scan -host -normal -primary -tagged -refresh]
+      lappend command -normal -primary -tagged -refresh; uplevel #0 $command
     }
 
     #
@@ -649,7 +680,8 @@ namespace eval ::Eagle {
           findFilesRecursive copyFilesRecursive \
           exportAndImportPackageCommands setupUnzipVars unzipMustBeInstalled \
           extractZipArchive hasRuntimeOption listRuntimeOptions \
-          addRuntimeOption removeRuntimeOption toggleRuntimeOption] false false
+          addRuntimeOption removeRuntimeOption toggleRuntimeOption \
+          getBogusPackageName forceScanOfPackages] false false
     }
 
     ###########################################################################

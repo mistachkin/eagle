@@ -145,7 +145,9 @@ namespace Eagle._Interfaces.Public
         DataFlags DataFlags { get; set; }
         ScriptFlags ScriptFlags { get; set; }
 
+#if DATA
         IBundleManager BundleManager { get; set; }
+#endif
 
         //
         // NOTE: The host could be almost anything, minimally it must be an

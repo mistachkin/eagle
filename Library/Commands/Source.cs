@@ -84,9 +84,15 @@ namespace Eagle._Commands
                     Index.Invalid, Index.Invalid, "-password", null),
                 new Option(null, OptionFlags.MustHaveBooleanValue,
                     Index.Invalid, Index.Invalid, "-library", null),
+#if DATA
                 new Option(null, OptionFlags.MustHaveBooleanValue |
                     OptionFlags.Nullable, Index.Invalid, Index.Invalid,
                     "-bundle", null),
+#else
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Nullable | OptionFlags.Unsupported,
+                    Index.Invalid, Index.Invalid, "-bundle", null),
+#endif
                 new Option(null, OptionFlags.MustHaveBooleanValue,
                     Index.Invalid, Index.Invalid, "-erroronempty", null),
                 new Option(null, OptionFlags.MustHaveBooleanValue,
@@ -154,10 +160,12 @@ namespace Eagle._Commands
             if (options.IsPresent("-library", ref value))
                 library = (bool)value.Value;
 
+#if DATA
             bool? bundle = null;
 
             if (options.IsPresent("-bundle", ref value))
                 bundle = (bool?)value.Value;
+#endif
 
             bool errorOnEmpty = false;
 
@@ -233,20 +241,9 @@ namespace Eagle._Commands
                                     if (profiler != null)
                                         profiler.Start();
 
+#if DATA
                                     if (bundle == null)
-                                    {
-                                        if (SharedStringOps.Equals(
-                                                PathOps.GetExtension(fileName),
-                                                FileExtension.Database,
-                                                PathOps.ComparisonType))
-                                        {
-                                            bundle = true;
-                                        }
-                                        else
-                                        {
-                                            bundle = false;
-                                        }
-                                    }
+                                        bundle = PathOps.MightBeBundleFile(fileName);
 
                                     if ((bool)bundle)
                                     {
@@ -256,6 +253,7 @@ namespace Eagle._Commands
                                             ref result);
                                     }
                                     else
+#endif
                                     {
                                         code = interpreter.EvaluateFile(
                                             encoding, fileName, ref result);

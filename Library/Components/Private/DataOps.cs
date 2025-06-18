@@ -130,7 +130,7 @@ namespace Eagle._Components.Private
         //
         private static Regex bundleFullNameRegEx = RegExOps.Create(
             String.Format("^\\/(?:[A-Z_][0-9A-Z_]*\\/)*" +
-            "(?:[A-Z_][0-9A-Z_]*)(?:{0}|{0}{2}|{1}|{1}{2}|{3}|{3}{2})$",
+            "(?:[A-Z_][0-9A-Z_\\-]*)(?:{0}|{0}{2}|{1}|{1}{2}|{3}|{3}{2})$",
             String.Format(
                 "{0}{1}", Characters.Backslash, FileExtension.Library),
             String.Format(
@@ -1599,7 +1599,6 @@ namespace Eagle._Components.Private
                     localErrors = new ResultList();
 
                 localErrors.Add(localError);
-                return ReturnCode.Error;
             }
 
             ///////////////////////////////////////////////////////////////////

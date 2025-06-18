@@ -354,6 +354,17 @@ namespace Eagle._Components.Private
 
             public static readonly string UserLocalLibData =
                 UserLocal + "/" + LibData;
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // TODO: Are any other Homebrew paths needed here, e.g.
+            //       "/opt/homebrew/Cellar/tcl-tk@8/<version>/lib/",
+            //       etc?
+            //
+            /* NOTE: macOS only. */
+            public static readonly string OptionalHomebrewLibFormat =
+                "/opt/homebrew/opt/tcl-tk@{0}/lib";
 #endif
             #endregion
         }

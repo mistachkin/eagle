@@ -6409,59 +6409,60 @@ namespace Eagle._Components.Public
 #if UNIX
         LibraryPath = 0x40000,
         LocalLibraryPath = 0x80000,
+        HomebrewLibraryPath = 0x100000,
 #endif
 
-        EvaluateScript = 0x100000,
+        EvaluateScript = 0x200000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        NoOperatingSystem = 0x200000,
-        FindArchitecture = 0x400000,
-        GetArchitecture = 0x800000,
-        MatchArchitecture = 0x1000000,
-        RecursivePaths = 0x2000000,
-        ZeroComponents = 0x4000000,
-        RefreshAutoPath = 0x8000000,
-        OverwriteBuilds = 0x10000000,
-        TrustedOnly = 0x20000000,
-        Trusted = 0x40000000,
-        FileVersion = 0x80000000,
-        AlternateName = 0x100000000,
-        RefreshEvaluateScript = 0x200000000,
+        NoOperatingSystem = 0x400000,
+        FindArchitecture = 0x800000,
+        GetArchitecture = 0x1000000,
+        MatchArchitecture = 0x2000000,
+        RecursivePaths = 0x4000000,
+        ZeroComponents = 0x8000000,
+        RefreshAutoPath = 0x10000000,
+        OverwriteBuilds = 0x20000000,
+        TrustedOnly = 0x40000000,
+        Trusted = 0x80000000,
+        FileVersion = 0x100000000,
+        AlternateName = 0x200000000,
+        RefreshEvaluateScript = 0x400000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ExtraNamePatternList = 0x400000000,
-        PrimaryNamePatternList = 0x800000000,
-        SecondaryNamePatternList = 0x1000000000,
-        OtherNamePatternList = 0x2000000000,
+        ExtraNamePatternList = 0x800000000,
+        PrimaryNamePatternList = 0x1000000000,
+        SecondaryNamePatternList = 0x2000000000,
+        OtherNamePatternList = 0x4000000000,
 
-        ExtraVersionPatternList = 0x4000000000,
-        PrimaryVersionPatternList = 0x8000000000,
-        SecondaryVersionPatternList = 0x10000000000, /* NOT USED? */
-        OtherVersionPatternList = 0x20000000000, /* NOT USED? */
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        Part0 = 0x40000000000,
-        Part1 = 0x80000000000,
-        Part2 = 0x100000000000,
-        Part3 = 0x200000000000,
-        Part4 = 0x400000000000,
-        Part5 = 0x800000000000,
-        Part6 = 0x1000000000000,
-        Part7 = 0x2000000000000,
-        Part8 = 0x4000000000000,
-        Part9 = 0x8000000000000,
-        PartX = 0x10000000000000,
+        ExtraVersionPatternList = 0x8000000000,
+        PrimaryVersionPatternList = 0x10000000000,
+        SecondaryVersionPatternList = 0x20000000000, /* NOT USED? */
+        OtherVersionPatternList = 0x40000000000, /* NOT USED? */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        VerboseLooksLike = 0x20000000000000,
-        VerboseExtractBuild = 0x40000000000000,
-        VerboseRegistry = 0x80000000000000,
-        VerboseSelect = 0x100000000000000,
-        VerbosePath = 0x200000000000000,
+        Part0 = 0x80000000000,
+        Part1 = 0x100000000000,
+        Part2 = 0x200000000000,
+        Part3 = 0x400000000000,
+        Part4 = 0x800000000000,
+        Part5 = 0x1000000000000,
+        Part6 = 0x2000000000000,
+        Part7 = 0x4000000000000,
+        Part8 = 0x8000000000000,
+        Part9 = 0x10000000000000,
+        PartX = 0x20000000000000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        VerboseLooksLike = 0x40000000000000,
+        VerboseExtractBuild = 0x80000000000000,
+        VerboseRegistry = 0x100000000000000,
+        VerboseSelect = 0x200000000000000,
+        VerbosePath = 0x400000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -6471,7 +6472,7 @@ namespace Eagle._Components.Public
                        EntryAssembly | ExecutingAssembly | BinaryPath |
                        Registry | SearchPath | ExternalsPath | PeerPath |
 #if UNIX
-                       LibraryPath | LocalLibraryPath |
+                       LibraryPath | LocalLibraryPath | HomebrewLibraryPath |
 #endif
                        EvaluateScript,
 

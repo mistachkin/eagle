@@ -2587,6 +2587,7 @@ namespace Eagle._Hosts
 
                 if (count != Count.Invalid)
                 {
+                    DateTime now = TimeOps.GetNow();
                     string prefix;
                     string suffix;
 
@@ -2598,7 +2599,8 @@ namespace Eagle._Hosts
                             !String.IsNullOrEmpty(value) ?
                             " for" : String.Empty);
 
-                        suffix = " ===>";
+                        suffix = String.Format(" @ {0} ===>",
+                            FormatOps.TraceDateTime(now, true));
                     }
                     else if (FlagOps.HasFlags(breakpointType,
                             BreakpointType.AfterInteractiveLoop, true))
@@ -2608,7 +2610,8 @@ namespace Eagle._Hosts
                             !String.IsNullOrEmpty(value) ?
                             " for" : String.Empty);
 
-                        suffix = null;
+                        suffix = String.Format(" @ {0}",
+                            FormatOps.TraceDateTime(now, true));
                     }
                     else
                     {

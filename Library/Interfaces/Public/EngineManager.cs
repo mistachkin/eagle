@@ -168,6 +168,7 @@ namespace Eagle._Interfaces.Public
             ref int errorLine
             );
 
+#if DATA
         ReturnCode EvaluateBundleFile(
             string fileName,
             byte[] password,
@@ -197,6 +198,7 @@ namespace Eagle._Interfaces.Public
             ref Result result,
             ref int errorLine
             );
+#endif
 
         ReturnCode EvaluateGlobalFile(
             string fileName,

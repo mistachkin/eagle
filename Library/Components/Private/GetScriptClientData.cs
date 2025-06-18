@@ -44,6 +44,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+#if DATA
         public GetScriptClientData(
             object data,                  /* in */
             string scriptFileName,        /* in */
@@ -61,6 +62,7 @@ namespace Eagle._Components.Private
         {
             this.bundleManager = bundleManager;
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -128,12 +130,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+#if DATA
         private IBundleManager bundleManager;
         public IBundleManager BundleManager
         {
             get { return bundleManager; }
             set { bundleManager = value; }
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -206,11 +210,13 @@ namespace Eagle._Components.Private
         {
             IStringList list = base.ToList();
 
+#if DATA
             if (bundleManager != null)
             {
                 list.Add("BundleManager",
                     bundleManager.ToString());
             }
+#endif
 
             if (resourcePluginData != null)
             {

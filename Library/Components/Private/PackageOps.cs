@@ -23,8 +23,11 @@ using Eagle._Constants;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+
+#if DATA
 using BundlePair = System.Collections.Generic.KeyValuePair<string, byte[]>;
 using BundleDictionary = System.Collections.Generic.Dictionary<string, byte[]>;
+#endif
 
 using PathList = System.Collections.Generic.IEnumerable<string>;
 using SearchDictionary = Eagle._Containers.Public.PathDictionary<object>;
@@ -101,11 +104,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if DATA
         //
         // NOTE: This pattern ends up being "*/pkgIndex.eagle".  This is
         //       specifically designed for use with bundled scripts.
         //
         private static readonly string BundleFileNamePattern = "*/{0}";
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
 
         //
         // NOTE: This pattern ends up being "pkgIndex_*.eagle".  This is
@@ -1301,7 +1308,7 @@ namespace Eagle._Components.Private
             string path,                             /* in */
             string fileName,                         /* in */
             string tag,                              /* in */
-            PackageType type,                        /* in */
+            PackageType packageType,                 /* in */
             PackageIndexFlags initialFlags,          /* in */
             PackageIndexDictionary packageIndexes,   /* in */
             PackageContextClientData packageContext, /* in */
@@ -1360,7 +1367,7 @@ namespace Eagle._Components.Private
 
                         if (callback(
                                 interpreter, path, fileName, tag,
-                                type, ref flags, ref clientData,
+                                packageType, ref flags, ref clientData,
                                 ref result) != ReturnCode.Ok)
                         {
                             error = result;
@@ -2619,6 +2626,7 @@ namespace Eagle._Components.Private
 
             if (interpreter != null)
             {
+#if DATA
                 if (FlagOps.HasFlags(
                         packageIndexFlags, PackageIndexFlags.Bundle, true))
                 {
@@ -2674,6 +2682,7 @@ namespace Eagle._Components.Private
                         }
                     }
                 }
+#endif
 
                 ScriptFlags scriptFlags = ScriptOps.GetFlags(
                     interpreter, IndexScriptFlags, PackageType.Host,
@@ -3873,7 +3882,7 @@ namespace Eagle._Components.Private
             string path,                 /* in */
             string fileName,             /* in */
             string tag,                  /* in */
-            PackageType type,            /* in */
+            PackageType packageType,     /* in */
             ref PackageIndexFlags flags, /* in, out */
             ref IClientData clientData,  /* in, out */
             ref Result result            /* out */
@@ -3935,8 +3944,8 @@ namespace Eagle._Components.Private
                     //       index file provided by the host.
                     //
                     ScriptFlags scriptFlags = ScriptOps.GetFlags(
-                        interpreter, IndexScriptFlags, type, false,
-                        noNormal);
+                        interpreter, IndexScriptFlags, packageType,
+                        false, noNormal);
 
                     //
                     // BUGFIX: This should not be hard-coded to use the

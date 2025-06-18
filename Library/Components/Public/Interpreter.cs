@@ -495,6 +495,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Global Script Bundle Data -- Private
+#if DATA
         //
         // HACK: These are purposely not read-only.
         //
@@ -507,6 +508,7 @@ namespace Eagle._Components.Public
         private static string mergeBundleKeyRingFileName = "keyRing.one.eagle";
         private static string mergeBundleCommandName = "keyring";
         private static string mergeBundleSubCommandName = "merge";
+#endif
         #endregion
         #endregion
 
@@ -1373,7 +1375,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Integration Data
+#if DATA
         private IBundleManager bundleManager;
+#endif
 
 #if ISOLATED_PLUGINS
         private IHost isolatedHost;
@@ -8708,6 +8712,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if DATA
         public ReturnCode EvaluateBundleFile(
             string fileName,
             byte[] password,
@@ -8957,6 +8962,7 @@ namespace Eagle._Components.Public
                     this, ref savedFileName);
             }
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -43060,6 +43066,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if DATA
         public IBundleManager BundleManager
         {
             get
@@ -43081,6 +43088,7 @@ namespace Eagle._Components.Public
                 }
             }
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -69943,7 +69951,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal ReturnCode SetVariableValue2( /* PRIMARY */
+        internal ReturnCode SetVariableValue2(
             VariableFlags flags,
             ICallFrame frame,
             string name,
@@ -70905,8 +70913,8 @@ namespace Eagle._Components.Public
                     //
                     // BUGBUG: This may need revision; we do need some way to remove
                     //         "stale" undefined variables from the call frame even
-                    //         though the only way to officially create one is via the
-                    //         global or upvar commands and those get cleaned up
+                    //         though the only way to officially create one is via a
+                    //         [global] or [upvar] commands and those get cleaned up
                     //         automatically upon procedure exit.
                     //
                     bool haveVariable = (variable != null);
@@ -78395,7 +78403,9 @@ namespace Eagle._Components.Public
                 ///////////////////////////////////////////////////////////////////////////////////////
 
                 #region Script Bundles
+#if DATA
                 bundleManager = new BundleManager();
+#endif
                 #endregion
 
                 ///////////////////////////////////////////////////////////////////////////////////////
@@ -82484,7 +82494,7 @@ namespace Eagle._Components.Public
 
                 ///////////////////////////////////////////////////////////////
 
-#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+#if NETWORK && DATA && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
                 //
                 // NOTE: Currently, the trusted remote script bundle is only
                 //       evaluated if the interpreter has a "token" that was
@@ -84585,8 +84595,22 @@ namespace Eagle._Components.Public
             {
                 if (evaluateFileCallback == null)
                 {
-                    return EvaluateFile(
-                        fileName, ref result, ref errorLine);
+#if DATA
+                    if (PathOps.MightBeBundleFile(fileName))
+                    {
+                        IClientData clientData = null;
+
+                        return EvaluateBundleFile(
+                            fileName, null, false, false,
+                            ref clientData, ref result,
+                            ref errorLine);
+                    }
+                    else
+#endif
+                    {
+                        return EvaluateFile(
+                            fileName, ref result, ref errorLine);
+                    }
                 }
 
                 return evaluateFileCallback(
@@ -107973,9 +107997,11 @@ namespace Eagle._Components.Public
 
                 bool empty = HostOps.HasEmptyContent(detailFlags);
 
+#if DATA
                 if (empty || (bundleManager != null))
                     list.Add("BundleManager", (bundleManager != null) ?
                         bundleManager.ToString() : FormatOps.DisplayNull);
+#endif
 
                 if (empty || (host != null))
                     list.Add("Host", (host != null) ?
@@ -119165,6 +119191,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Child Interpreter Disposal
+#if DATA
         private void DisposeBundleManager()
         {
             if (bundleManager == null)
@@ -119191,6 +119218,7 @@ namespace Eagle._Components.Public
             if (code != ReturnCode.Ok)
                 DebugOps.Complain(this, code, result);
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -119447,11 +119475,10 @@ namespace Eagle._Components.Public
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            //
-            // NOTE: Dispose any nested interpreters first.
-            //
+#if DATA
             if (FlagOps.HasFlags(phase, DisposalPhase.Interpreter, true))
                 DisposeBundleManager();
+#endif
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 

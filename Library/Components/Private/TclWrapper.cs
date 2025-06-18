@@ -31,6 +31,7 @@ using Eagle._Containers.Private.Tcl;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Private.Tcl;
 using Eagle._Interfaces.Public;
+using MajorsDictionary = System.Collections.Generic.Dictionary<int, object>;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -6718,6 +6719,33 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static IEnumerable<int> GetMajors(
+            IEnumerable<IPair<int>> rangeRequired /* in */
+            )
+        {
+            if (rangeRequired == null)
+                return null;
+
+            MajorsDictionary majors = new MajorsDictionary();
+
+            foreach (IPair<int> pair in rangeRequired)
+            {
+                if (pair == null)
+                    continue;
+
+                int major = pair.X;
+
+                if (majors.ContainsKey(major))
+                    continue;
+
+                majors.Add(major, null);
+            }
+
+            return majors.Keys;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode GetVersionRange(
             FindFlags flags,          /* in */
             Version minimumRequired,  /* in */
@@ -6727,6 +6755,49 @@ namespace Eagle._Components.Private.Tcl
             int? intermediateMinimum, /* in */
             int? intermediateMaximum, /* in */
             ref Result result         /* out */
+            )
+        {
+            IEnumerable<IPair<int>> rangeRequired = null;
+
+            if (GetVersionRange(
+                    flags, minimumRequired, maximumRequired, majorIncrement,
+                    minorIncrement, intermediateMinimum, intermediateMaximum,
+                    ref rangeRequired, ref result) == ReturnCode.Ok)
+            {
+                if (rangeRequired != null)
+                {
+                    StringList list = new StringList();
+
+                    foreach (IPair<int> pair in rangeRequired)
+                    {
+                        list.Add(GlobalState.GetTwoPartVersion(
+                            pair.X, pair.Y).ToString());
+                    }
+
+                    result = list;
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    result = "invalid version range";
+                }
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetVersionRange(
+            FindFlags flags,                           /* in */
+            Version minimumRequired,                   /* in */
+            Version maximumRequired,                   /* in */
+            int? majorIncrement,                       /* in */
+            int? minorIncrement,                       /* in */
+            int? intermediateMinimum,                  /* in */
+            int? intermediateMaximum,                  /* in */
+            ref IEnumerable<IPair<int>> rangeRequired, /* out */
+            ref Result error                           /* out */
             )
         {
             if (minimumRequired == null)
@@ -6749,24 +6820,24 @@ namespace Eagle._Components.Private.Tcl
 
             if (minimumRequired == null)
             {
-                result = "invalid minimum required version";
+                error = "invalid minimum required version";
                 return ReturnCode.Error;
             }
 
             if (maximumRequired == null)
             {
-                result = "invalid maximum required version";
+                error = "invalid maximum required version";
                 return ReturnCode.Error;
             }
 
             if (PackageOps.VersionCompare(minimumRequired, maximumRequired) > 0)
             {
-                result = "minimum required version cannot be greater than maximum required version";
+                error = "minimum required version cannot be greater than maximum required version";
                 return ReturnCode.Error;
             }
 
             bool sameMajor = (minimumRequired.Major == maximumRequired.Major);
-            StringList list = new StringList();
+            List<IPair<int>> localRangeRequired = new List<IPair<int>>();
 
             for (int major = minimumRequired.Major;
                     major <= maximumRequired.Major;
@@ -6803,12 +6874,12 @@ namespace Eagle._Components.Private.Tcl
                         minor <= minorMaximum;
                         minor += (int)minorIncrement)
                 {
-                    list.Add(GlobalState.GetTwoPartVersion(
-                        major, minor).ToString());
+                    localRangeRequired.Add(
+                        new Pair<int>(major, minor));
                 }
             }
 
-            result = list;
+            rangeRequired = localRangeRequired;
             return ReturnCode.Ok;
         }
 
@@ -7276,6 +7347,59 @@ namespace Eagle._Components.Private.Tcl
                 {
                     MaybeAddAnError(ref errors,
                         "find Tcl library builds via library path failed");
+                }
+            }
+
+            if (FlagOps.HasFlags(flags, FindFlags.HomebrewLibraryPath, true))
+            {
+                Version rangeMinimumRequired = minimumRequired;
+                Version rangeMaximumRequired = maximumRequired;
+
+                if ((rangeMaximumRequired == null) &&
+                    (rangeMinimumRequired != null))
+                {
+                    rangeMaximumRequired = rangeMinimumRequired;
+                }
+
+                IEnumerable<IPair<int>> rangeRequired = null;
+                Result localResult = null;
+
+                if (GetVersionRange(flags,
+                        rangeMinimumRequired, rangeMaximumRequired,
+                        null, null, null, null, ref rangeRequired,
+                        ref localResult) == ReturnCode.Ok)
+                {
+                    IEnumerable<int> majors = GetMajors(rangeRequired);
+
+                    if (majors != null)
+                    {
+                        foreach (int major in majors)
+                        {
+                            string path = String.Format(
+                                TclVars.Path.OptionalHomebrewLibFormat,
+                                major);
+
+                            if (FindViaPath(interpreter,
+                                    FindFlags.HomebrewLibraryPath, flags,
+                                    path, unknown, clientData, ref builds,
+                                    ref errors) != ReturnCode.Ok)
+                            {
+                                MaybeAddAnError(ref errors, String.Format(
+                                    "find Tcl v{0}.x library builds via " +
+                                    "optional Homebrew library path failed",
+                                    major));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        MaybeAddAnError(ref errors,
+                            "invalid majors from version range");
+                    }
+                }
+                else
+                {
+                    MaybeAddAnError(ref errors, localResult);
                 }
             }
 #endif

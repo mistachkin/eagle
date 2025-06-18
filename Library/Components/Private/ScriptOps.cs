@@ -9965,7 +9965,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trusted Remote Script Library Initialization Support Methods
-#if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
+#if NETWORK && DATA && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
         private static void SetupTracePrioritiesForTrustedRemote(
             out TracePriority debugPriority, /* out */
             out TracePriority errorPriority  /* out */
@@ -10200,7 +10200,8 @@ namespace Eagle._Components.Private
         public static byte[] GetPasswordForTrustedRemoteUri()
         {
             string value = GlobalConfiguration.GetValue(
-                EnvVars.TrustedBundlePassword, ConfigurationFlags.Interpreter);
+                EnvVars.TrustedBundlePassword,
+                ConfigurationFlags.Interpreter);
 
             if (value == null)
                 return null;

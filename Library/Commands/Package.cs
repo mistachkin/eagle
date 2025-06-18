@@ -708,7 +708,7 @@ namespace Eagle._Commands
                                                         if (code != ReturnCode.Ok)
                                                         {
                                                             TraceOps.DebugTrace(String.Format(
-                                                                "Execute: REQUIRE FAILED, interpreter = {0}, " +
+                                                                "Execute: REQUIRE FAILURE, interpreter = {0}, " +
                                                                 "packageName = {1}, version = {2}, exact = {3}, " +
                                                                 "code = {4}, result = {5}",
                                                                 FormatOps.InterpreterNoThrow(interpreter),
@@ -1149,13 +1149,27 @@ namespace Eagle._Commands
                                                                 }
                                                             }
 
-                                                            if (code != ReturnCode.Ok)
+                                                            if (code == ReturnCode.Ok)
                                                             {
                                                                 TraceOps.DebugTrace(String.Format(
-                                                                    "Execute: SCAN FAILED, interpreter = {0}, " +
-                                                                    "whatIf = {1}, code = {2}, result = {3}",
+                                                                    "Execute: SCAN SUCCESS, interpreter = {0}, " +
+                                                                    "arguments = {1}, whatIf = {2}, code = {3}, " +
+                                                                    "result = {4}",
                                                                     FormatOps.InterpreterNoThrow(interpreter),
-                                                                    whatIf, code, FormatOps.WrapOrNull(result)),
+                                                                    FormatOps.WrapOrNull(arguments), whatIf,
+                                                                    code, FormatOps.WrapOrNull(result)),
+                                                                    typeof(Package).Name,
+                                                                    TracePriority.PackageDebug5);
+                                                            }
+                                                            else
+                                                            {
+                                                                TraceOps.DebugTrace(String.Format(
+                                                                    "Execute: SCAN FAILURE, interpreter = {0}, " +
+                                                                    "arguments = {1}, whatIf = {2}, code = {3}, " +
+                                                                    "result = {4}",
+                                                                    FormatOps.InterpreterNoThrow(interpreter),
+                                                                    FormatOps.WrapOrNull(arguments), whatIf,
+                                                                    code, FormatOps.WrapOrNull(result)),
                                                                     typeof(Package).Name,
                                                                     TracePriority.PackageError3);
                                                             }

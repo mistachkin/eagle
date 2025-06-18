@@ -4312,6 +4312,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static bool MightBeBundleFile(
+            string fileName /* in */
+            )
+        {
+            if (SharedStringOps.Equals(
+                    GetExtension(fileName), FileExtension.Database,
+                    ComparisonType))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static bool HasExtension(
             string path /* in */
             )

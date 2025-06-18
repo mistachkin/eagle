@@ -675,7 +675,8 @@ namespace Eagle._Hosts
                     new StringList(resourceNames) : null;
 
                 int[] counts = {
-                    Count.Invalid, Count.Invalid, Count.Invalid
+                    Count.Invalid, Count.Invalid, Count.Invalid,
+                    Count.Invalid, Count.Invalid
                 };
 
                 if (list != null)
@@ -1828,6 +1829,7 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if DATA
         protected virtual ReturnCode GetDataViaBundleManager(
             Interpreter interpreter,     /* in */
             string name,                 /* in */
@@ -1875,19 +1877,18 @@ namespace Eagle._Hosts
                 out failOnError, out ignoreCanRetry);
 
             string path = null; /* REUSED */
-            Result error = null; /* REUSED */
+            Result error; /* REUSED */
             string fileName = bundleManager.FileName;
+            string fullName; /* REUSED */
 
             if (fileName == null)
             {
-                string fullName; /* NOT USED */
-
                 path = name; /* NOTE: Database qualified? */
                 error = null;
 
                 if (!DataOps.VerifyBundlePath(
-                        path, true, out fileName, out fullName,
-                        ref error) ||
+                        path, true, out fileName,
+                        out fullName, ref error) ||
                     (bundleManager.Mount(
                         interpreter, fileName, null, false,
                         ref error) != ReturnCode.Ok))
@@ -1908,6 +1909,25 @@ namespace Eagle._Hosts
 
             if (path == null)
             {
+                //
+                // HACK: If a script name being requested
+                //       happens to be database qualified,
+                //       ignore the mounted database file
+                //       name.
+                //
+                string newFileName;
+
+                path = name; /* NOTE: Database qualified? */
+                error = null;
+
+                if (DataOps.VerifyBundlePath(
+                        path, true, out newFileName,
+                        out fullName, ref error))
+                {
+                    fileName = newFileName;
+                    name = fullName;
+                }
+
                 error = null;
 
                 path = DataOps.BuildBundlePath(
@@ -2016,6 +2036,7 @@ namespace Eagle._Hosts
             IncrementGetDataCount(counts, 1, 1);
             return ReturnCode.Continue;
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3783,6 +3804,7 @@ namespace Eagle._Hosts
 
             ///////////////////////////////////////////////////////////////////
 
+#if DATA
             //
             // HACK: *SECURITY* Always check via IBundleManager interface
             //       first.  Also, this behavior CANNOT be disabled.
@@ -3808,6 +3830,7 @@ namespace Eagle._Hosts
                     return code;
                 }
             }
+#endif
 
             ///////////////////////////////////////////////////////////////////
 

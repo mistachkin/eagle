@@ -111,6 +111,7 @@ namespace Eagle._Components.Public
     public static class Utility /* FOR EXTERNAL USE ONLY */
     {
         #region External Use Only Helper Methods
+#if DATA
         public static string FormatDatabaseConnectionName(
             object @object,                    /* in */
             DbConnectionType dbConnectionType, /* in */
@@ -132,6 +133,7 @@ namespace Eagle._Components.Public
             return FormatOps.DatabaseTransactionName(
                 @object, interpreter);
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 

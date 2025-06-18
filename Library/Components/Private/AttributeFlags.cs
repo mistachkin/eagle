@@ -23,7 +23,7 @@ namespace Eagle._Components.Private
     internal static class AttributeFlags
     {
         #region Private Constants
-        private static readonly char NameSepatator = Characters.Colon;
+        private static readonly char NameSeparator = Characters.Colon;
         private static readonly int NameLength = 16; // (i.e. hexadecimal 64-bit integer)
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -424,7 +424,7 @@ namespace Eagle._Components.Private
             IDictionary<long, IDictionary<char, long>> perKeyFlags =
                 new Dictionary<long, IDictionary<char, long>>();
 
-            bool nameSepatatorOk = true;
+            bool nameSeparatorOk = true;
             bool haveName = false;
             bool open = false;
             long nonComplexKey = DefaultKey;
@@ -558,7 +558,7 @@ namespace Eagle._Components.Private
 
                             value.Length = 0;
 
-                            nameSepatatorOk = true;
+                            nameSeparatorOk = true;
                             haveName = false;
                             open = false;
                             break;
@@ -570,7 +570,7 @@ namespace Eagle._Components.Private
                                 if (space && Parser.IsWhiteSpace(character))
                                     continue;
 
-                                if (character == NameSepatator)
+                                if (character == NameSeparator)
                                 {
                                     if (!complex)
                                     {
@@ -581,7 +581,7 @@ namespace Eagle._Components.Private
                                         return null;
                                     }
 
-                                    if (!nameSepatatorOk)
+                                    if (!nameSeparatorOk)
                                     {
                                         error = String.Format(
                                             "unexpected name separator at index {0}, already seen?",
@@ -608,7 +608,7 @@ namespace Eagle._Components.Private
                                         return null;
                                     }
 
-                                    nameSepatatorOk = false;
+                                    nameSeparatorOk = false;
                                     continue;
                                 }
 
@@ -628,7 +628,7 @@ namespace Eagle._Components.Private
                                 if (space && Parser.IsWhiteSpace(character))
                                     continue;
 
-                                if (character == NameSepatator)
+                                if (character == NameSeparator)
                                 {
                                     if (!complex)
                                     {
@@ -642,7 +642,7 @@ namespace Eagle._Components.Private
                                         return null;
                                     }
 
-                                    if (!nameSepatatorOk)
+                                    if (!nameSeparatorOk)
                                     {
                                         //
                                         // NOTE: This code cannot be reached.
@@ -663,7 +663,7 @@ namespace Eagle._Components.Private
                                         return null;
                                     }
 
-                                    nameSepatatorOk = false;
+                                    nameSeparatorOk = false;
                                     haveName = true;
                                     continue;
                                 }

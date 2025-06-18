@@ -617,7 +617,6 @@
     <Compile Include="Components\Private\BinderClientData.cs" />
     <Compile Include="Components\Private\BuiltIns.cs" />
     <Compile Include="Components\Private\BundleData.cs" />
-    <Compile Include="Components\Private\BundleManager.cs" />
     <Compile Include="Components\Private\CallFrameOps.cs" />
     <Compile Include="Components\Private\CertificateOps.cs" />
     <Compile Include="Components\Private\Channel.cs" />
@@ -1003,7 +1002,6 @@
     <Compile Include="Interfaces\Public\Binder.cs" />
     <Compile Include="Interfaces\Public\BoxHost.cs" />
     <Compile Include="Interfaces\Public\BundleData.cs" />
-    <Compile Include="Interfaces\Public\BundleManager.cs" />
     <Compile Include="Interfaces\Public\CacheManager.cs" />
     <Compile Include="Interfaces\Public\Callback.cs" />
     <Compile Include="Interfaces\Public\CallbackData.cs" />
@@ -1855,12 +1853,14 @@
   </ItemGroup>
   <ItemGroup Condition="'$(EagleData)' != 'false'">
     <Compile Include="Commands\Sql.cs" />
+    <Compile Include="Components\Private\BundleManager.cs" />
     <Compile Include="Components\Private\DataOps.cs" />
     <Compile Include="Components\Private\DataRecord.cs" />
     <Compile Include="Components\Public\DatabaseVariable.cs" />
     <Compile Include="Containers\Private\DbConnectionDictionary.cs" />
     <Compile Include="Containers\Private\DbConnectionTypeDictionary.cs" />
     <Compile Include="Containers\Private\DbTransactionDictionary.cs" />
+    <Compile Include="Interfaces\Public\BundleManager.cs" />
     <Compile Include="Interfaces\Public\DbConnectionParameters.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleWindows)' != 'false' And
