@@ -82743,6 +82743,53 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private ReturnCode GetAutoPathList(
+            ref StringList autoPathList, /* out */
+            bool skipTrace,              /* in */
+            bool ignoreError             /* in */
+            )
+        {
+            Result error = null;
+
+            return GetAutoPathList(
+                ref autoPathList, skipTrace, ignoreError,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ReturnCode GetAutoPathList(
+            ref StringList autoPathList, /* out */
+            bool skipTrace,              /* in */
+            bool ignoreError,            /* in */
+            ref Result error             /* out */
+            )
+        {
+            VariableFlags variableFlags;
+
+            if (skipTrace)
+                variableFlags = VariableFlags.SkipTrace;
+            else
+                variableFlags = VariableFlags.None;
+
+            ReturnCode code = GetListVariableValue(
+                variableFlags, TclVars.Core.AutoPath, false,
+                false, false, false, ref autoPathList, ref error);
+
+            TraceOps.DebugTrace(String.Format(
+                "GetAutoPathList: autoPathList = {0}, code = {1}, " +
+                "error = {2}", FormatOps.WrapOrNull(autoPathList),
+                FormatOps.WrapOrNull(code), FormatOps.WrapOrNull(error)),
+                typeof(Interpreter).Name, TracePriority.ScriptDebug);
+
+            if ((code != ReturnCode.Ok) && ignoreError)
+                code = ReturnCode.Ok;
+
+            return code;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal ReturnCode SetAutoPathList(
             StringList autoPathList,
             bool skipTrace,
@@ -82787,8 +82834,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private ReturnCode PrivateMergeAutoPath(
+            StringList oldAutoPathList,  /* in: OPTIONAL */
+            ref StringList autoPathList, /* out */
+            ref Result error             /* out */
+            )
+        {
+            StringList newAutoPathList = null;
+
+            if (GetAutoPathList(
+                    ref newAutoPathList, true, false) != ReturnCode.Ok)
+            {
+                autoPathList = oldAutoPathList;
+                return ReturnCode.Ok;
+            }
+
+            StringList localAutoPathList = new StringList();
+
+            if (oldAutoPathList != null)
+                localAutoPathList.AddRange(oldAutoPathList);
+
+            if (newAutoPathList != null)
+                localAutoPathList.AddRange(newAutoPathList);
+
+            autoPathList = localAutoPathList;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private ReturnCode PrivateInitializeAutoPath(
             StringList autoPathList, /* in: OPTIONAL */
+            bool noGlobalAutoPath,   /* in */
             ref Result error         /* out */
             )
         {
@@ -82809,6 +82886,18 @@ namespace Eagle._Components.Public
             if (FlagOps.HasFlags(localInitializeFlags,
                     InitializeFlags.SetAutoPath, true))
             {
+                bool mergeAutoPath = FlagOps.HasFlags(
+                    localInitializeFlags, InitializeFlags.MergeAutoPath,
+                    true);
+
+                bool skipTrace = FlagOps.HasFlags(
+                    localInitializeFlags, InitializeFlags.NoTraceAutoPath,
+                    true);
+
+                bool ignoreError = FlagOps.HasFlags(
+                    localInitializeFlags, InitializeFlags.IgnoreError,
+                    true);
+
                 //
                 // WARNING: Do not "optimize" this code by not
                 //          calling GlobalState.GetAutoPathList
@@ -82828,24 +82917,54 @@ namespace Eagle._Components.Public
                     //       giving us the global auto-path and
                     //       it should be used verbatim.
                     //
-                    localAutoPathList = autoPathList;
+                    if (mergeAutoPath)
+                    {
+                        localAutoPathList = null;
+
+                        if (PrivateMergeAutoPath(
+                                autoPathList, ref localAutoPathList,
+                                ref error) != ReturnCode.Ok)
+                        {
+                            return ReturnCode.Error;
+                        }
+                    }
+                    else
+                    {
+                        localAutoPathList = autoPathList;
+                    }
                 }
-                else if (FlagOps.HasFlags(localInitializeFlags,
+                else if (!noGlobalAutoPath &&
+                    FlagOps.HasFlags(localInitializeFlags,
                         InitializeFlags.GlobalAutoPath, true))
                 {
                     localAutoPathList = GlobalState.GetAutoPathList(
                         this, false);
+
+                    if (mergeAutoPath && (PrivateMergeAutoPath(
+                            localAutoPathList, ref localAutoPathList,
+                            ref error) != ReturnCode.Ok))
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+                else if (mergeAutoPath)
+                {
+                    localAutoPathList = null;
+
+                    if (GetAutoPathList(
+                            ref localAutoPathList, skipTrace,
+                            ignoreError, ref error) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
                 }
                 else
                 {
                     localAutoPathList = null;
                 }
 
-                return SetAutoPathList(localAutoPathList,
-                    FlagOps.HasFlags(localInitializeFlags,
-                    InitializeFlags.NoTraceAutoPath, true),
-                    FlagOps.HasFlags(localInitializeFlags,
-                    InitializeFlags.IgnoreError, true),
+                return SetAutoPathList(
+                    localAutoPathList, skipTrace, ignoreError,
                     ref error);
             }
             else
@@ -83084,7 +83203,22 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 4: Initialize Library
+                    #region Phase 4: Pre-Set Auto-Path Variable
+                    if (code == ReturnCode.Ok)
+                    {
+                        if (!FlagOps.HasFlags( /* EXEMPT */
+                                localCreateFlags, CreateFlags.NoVariables, true) &&
+                            !FlagOps.HasFlags( /* EXEMPT */
+                                localCreateFlags, CreateFlags.NoCritical, true))
+                        {
+                            code = PrivateInitializeAutoPath(null, true, ref error);
+                        }
+                    }
+                    #endregion
+
+                    ///////////////////////////////////////////////////////////////////////////////////
+
+                    #region Phase 5: Initialize Library
                     if (code == ReturnCode.Ok)
                     {
                         if (!FlagOps.HasFlags(
@@ -83130,7 +83264,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 5: Set Auto-Path & Library Variables
+                    #region Phase 6: Set Library Initialization Path Variable
                     if (code == ReturnCode.Ok)
                     {
                         if (!FlagOps.HasFlags( /* EXEMPT */
@@ -83138,7 +83272,7 @@ namespace Eagle._Components.Public
                             !FlagOps.HasFlags( /* EXEMPT */
                                 localCreateFlags, CreateFlags.NoCritical, true))
                         {
-                            code = PrivateInitializeAutoPath(autoPathList, ref error);
+                            code = PrivateInitializeAutoPath(autoPathList, false, ref error);
 
                             if (code == ReturnCode.Ok)
                                 code = PrivateInitializeLibraryPath(ref error);
@@ -83148,7 +83282,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 6: Initialize Debugger Interpreter
+                    #region Phase 7: Initialize Debugger Interpreter
 #if DEBUGGER
                     if (code == ReturnCode.Ok)
                     {
@@ -83160,7 +83294,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 7: Optional (Pre-)Populate Well-Known Packages
+                    #region Phase 8: Optional (Pre-)Populate Well-Known Packages
                     if (code == ReturnCode.Ok)
                     {
                         if (FlagOps.HasFlags(
@@ -83197,7 +83331,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 8: Optional Static Callback
+                    #region Phase 9: Optional Static Callback
                     if (code == ReturnCode.Ok)
                     {
                         if (FlagOps.HasFlags(
@@ -83220,7 +83354,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 9: Optional Re-Scan Packages
+                    #region Phase 10: Optional Re-Scan Packages
                     if (code == ReturnCode.Ok)
                     {
                         if (FlagOps.HasFlags(
@@ -83235,7 +83369,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 10: Optional Load Security Package
+                    #region Phase 11: Optional Load Security Package
                     if (code == ReturnCode.Ok)
                     {
                         if (FlagOps.HasFlags(
@@ -83250,7 +83384,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 11: Optional Remove "Critical" Commands
+                    #region Phase 12: Optional Remove "Critical" Commands
                     if (code == ReturnCode.Ok)
                     {
                         if (FlagOps.HasFlags(
@@ -83265,7 +83399,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 12: Optional Remove "Unsafe" Commands
+                    #region Phase 13: Optional Remove "Unsafe" Commands
                     if (code == ReturnCode.Ok)
                     {
                         if (FlagOps.HasFlags(
@@ -83280,7 +83414,7 @@ namespace Eagle._Components.Public
 
                     ///////////////////////////////////////////////////////////////////////////////////
 
-                    #region Phase 13: Set Library Initialized Flag
+                    #region Phase 14: Set Library Initialized Flag
                     //
                     // NOTE: Has everything succeeded?
                     //

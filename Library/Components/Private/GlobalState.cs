@@ -8797,7 +8797,7 @@ namespace Eagle._Components.Private
                     autoPaths.Add(sharedAutoPathList, true);
 
                     //
-                    // NOTE: Create a simple string list beased on the path
+                    // NOTE: Create a simple string list based on the path
                     //       list and return it.
                     //
                     return autoPaths.GetKeysInOrder(false);

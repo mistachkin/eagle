@@ -5887,39 +5887,42 @@ namespace Eagle._Components.Public
         ShowAutoPath = 0x40000000000,    /* Show all auto-path search information? */
         RefreshAutoPath = 0x80000000000, /* When used with the Scan flag, forces the
                                           * global auto-path to be refreshed. */
-        IgnoreError = 0x100000000000,
+        MergeAutoPath = 0x100000000000,  /* Merge the auto-path values from before and/or
+                                          * after the core script library initialization
+                                          * process. */
+        IgnoreError = 0x200000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        LibraryPath = 0x200000000000,
+        LibraryPath = 0x400000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Direct = 0x400000000000,
+        Direct = 0x800000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if ISOLATED_PLUGINS
-        Isolated = 0x800000000000,
+        Isolated = 0x1000000000000,
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Health = 0x1000000000000,
+        Health = 0x2000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        GlobalTracking = 0x2000000000000,
+        GlobalTracking = 0x4000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        NoCritical = 0x4000000000000,
-        NoUnsafe = 0x8000000000000,
+        NoCritical = 0x8000000000000,
+        NoUnsafe = 0x10000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ShellNoCritical = 0x10000000000000,
-        ShellNoUnsafe = 0x20000000000000,
+        ShellNoCritical = 0x20000000000000,
+        ShellNoUnsafe = 0x40000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -5991,7 +5994,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        AutoPath = SetAutoPath | GlobalAutoPath | StrictAutoPath,
+        AutoPath = SetAutoPath | GlobalAutoPath | StrictAutoPath | MergeAutoPath,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
