@@ -306,6 +306,7 @@ namespace Eagle._Commands
                                                         DbResultFormat resultFormat;
                                                         ValueFlags valueFlags;
                                                         DateTimeBehavior dateTimeBehavior;
+                                                        BlobBehavior blobBehavior;
                                                         DateTimeKind dateTimeKind;
                                                         DateTimeStyles dateTimeStyles;
                                                         ICallback changedCallback;
@@ -328,16 +329,16 @@ namespace Eagle._Commands
                                                         bool noFixup;
 
                                                         ObjectOps.ProcessExecuteOptions(
-                                                            interpreter, options, null, null, null, null, null,
+                                                            interpreter, options, null, null, null, null, null, null,
                                                             null, null, null, out cultureInfo, out commandType,
                                                             out commandBehavior, out executeType, out resultFormat,
-                                                            out valueFlags, out dateTimeBehavior, out dateTimeKind,
-                                                            out dateTimeStyles, out changedCallback, out rowsVarName,
-                                                            out timeVarName, out valueFormat, out dateTimeFormat,
-                                                            out numberFormat, out nullValue, out dbNullValue,
-                                                            out errorValue, out commandTimeout, out limit,
-                                                            out nested, out allowNull, out pairs, out names,
-                                                            out time, out verbatim, out noFixup);
+                                                            out valueFlags, out blobBehavior, out dateTimeBehavior,
+                                                            out dateTimeKind, out dateTimeStyles, out changedCallback,
+                                                            out rowsVarName, out timeVarName, out valueFormat,
+                                                            out dateTimeFormat, out numberFormat, out nullValue,
+                                                            out dbNullValue, out errorValue, out commandTimeout,
+                                                            out limit, out nested, out allowNull, out pairs,
+                                                            out names, out time, out verbatim, out noFixup);
 
                                                         if (rowsVarName == null)
                                                             rowsVarName = Vars.ResultSet.Rows;
@@ -512,7 +513,7 @@ namespace Eagle._Commands
                                                                                         interpreter, interpreter.InternalBinder,
                                                                                         cultureInfo, command, options, executeType,
                                                                                         commandBehavior, resultFormat, rowsVarName,
-                                                                                        dateTimeBehavior, dateTimeKind,
+                                                                                        blobBehavior, dateTimeBehavior, dateTimeKind,
                                                                                         dateTimeFormat, numberFormat, nullValue,
                                                                                         dbNullValue, errorValue, limit, nested,
                                                                                         allowNull, pairs, names, returnType,
@@ -684,6 +685,7 @@ namespace Eagle._Commands
                                                         DbExecuteType executeType;
                                                         DbResultFormat resultFormat;
                                                         ValueFlags valueFlags;
+                                                        BlobBehavior blobBehavior;
                                                         DateTimeBehavior dateTimeBehavior;
                                                         DateTimeKind dateTimeKind;
                                                         DateTimeStyles dateTimeStyles;
@@ -707,16 +709,16 @@ namespace Eagle._Commands
                                                         bool noFixup;
 
                                                         ObjectOps.ProcessExecuteOptions(
-                                                            interpreter, options, null, null, null, null, null,
+                                                            interpreter, options, null, null, null, null, null, null,
                                                             null, null, null, out cultureInfo, out commandType,
                                                             out commandBehavior, out executeType, out resultFormat,
-                                                            out valueFlags, out dateTimeBehavior, out dateTimeKind,
-                                                            out dateTimeStyles, out changedCallback, out rowsVarName,
-                                                            out timeVarName, out valueFormat, out dateTimeFormat,
-                                                            out numberFormat, out nullValue, out dbNullValue,
-                                                            out errorValue, out commandTimeout, out limit,
-                                                            out nested, out allowNull, out pairs, out names,
-                                                            out time, out verbatim, out noFixup);
+                                                            out valueFlags, out blobBehavior, out dateTimeBehavior,
+                                                            out dateTimeKind, out dateTimeStyles, out changedCallback,
+                                                            out rowsVarName, out timeVarName, out valueFormat,
+                                                            out dateTimeFormat, out numberFormat, out nullValue,
+                                                            out dbNullValue, out errorValue, out commandTimeout,
+                                                            out limit, out nested, out allowNull, out pairs,
+                                                            out names, out time, out verbatim, out noFixup);
 
                                                         if (rowsVarName == null)
                                                             rowsVarName = Vars.ResultSet.Row;
@@ -893,14 +895,15 @@ namespace Eagle._Commands
                                                                                         interpreter, interpreter.InternalBinder,
                                                                                         cultureInfo, command, options, executeType,
                                                                                         commandBehavior, resultFormat, this.Name,
-                                                                                        rowsVarName, body, body, dateTimeBehavior,
-                                                                                        dateTimeKind, dateTimeFormat, numberFormat,
-                                                                                        nullValue, dbNullValue, errorValue, limit,
-                                                                                        nested, allowNull, pairs, names, returnType,
-                                                                                        objectFlags, objectName, interpName, create,
-                                                                                        disposeReader, alias, aliasRaw, aliasAll,
-                                                                                        aliasReference, toString, noFixup,
-                                                                                        ref result);
+                                                                                        rowsVarName, body, body, blobBehavior,
+                                                                                        dateTimeBehavior, dateTimeKind,
+                                                                                        dateTimeFormat, numberFormat, nullValue,
+                                                                                        dbNullValue, errorValue, limit, nested,
+                                                                                        allowNull, pairs, names, returnType,
+                                                                                        objectFlags, objectName, interpName,
+                                                                                        create, disposeReader, alias, aliasRaw,
+                                                                                        aliasAll, aliasReference, toString,
+                                                                                        noFixup, ref result);
 
                                                                                     if (profiler != null)
                                                                                     {

@@ -6174,19 +6174,26 @@ namespace Eagle._Components.Public
 
 #if DATA
         public static string FixupDataValue(
+            Interpreter interpreter,
             object value,
-            IFormatValue formatValue
+            IFormatDataValue formatDataValue
             ) /* throw */
         {
+            if (formatDataValue == null)
+                return null;
+
             return MarshalOps.FixupDataValue(
-                value, formatValue.CultureInfo,
-                formatValue.DateTimeBehavior,
-                formatValue.DateTimeKind,
-                formatValue.DateTimeFormat,
-                formatValue.NumberFormat,
-                formatValue.NullValue,
-                formatValue.DbNullValue,
-                formatValue.ErrorValue);
+                interpreter, value,
+                formatDataValue.CultureInfo,
+                formatDataValue.BlobBehavior,
+                formatDataValue.DateTimeBehavior,
+                formatDataValue.DateTimeKind,
+                formatDataValue.DateTimeFormat,
+                formatDataValue.NumberFormat,
+                formatDataValue.NullValue,
+                formatDataValue.DbNullValue,
+                formatDataValue.ErrorValue,
+                formatDataValue.Alias);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6209,6 +6216,7 @@ namespace Eagle._Components.Public
             return DataOps.DataReaderToList(
                 interpreter, reader,
                 formatDataValue.CultureInfo,
+                formatDataValue.BlobBehavior,
                 formatDataValue.DateTimeBehavior,
                 formatDataValue.DateTimeKind,
                 formatDataValue.DateTimeFormat,
@@ -6223,6 +6231,7 @@ namespace Eagle._Components.Public
                 formatDataValue.Pairs,
                 formatDataValue.Names,
                 formatDataValue.NoFixup,
+                formatDataValue.Alias,
                 ref list, ref count, ref error);
         }
 
@@ -6246,6 +6255,7 @@ namespace Eagle._Components.Public
             return DataOps.DataReaderToArray(
                 interpreter, reader, varName,
                 formatDataValue.CultureInfo,
+                formatDataValue.BlobBehavior,
                 formatDataValue.DateTimeBehavior,
                 formatDataValue.DateTimeKind,
                 formatDataValue.DateTimeFormat,
@@ -6259,6 +6269,7 @@ namespace Eagle._Components.Public
                 formatDataValue.Pairs,
                 formatDataValue.Names,
                 formatDataValue.NoFixup,
+                formatDataValue.Alias,
                 ref count, ref error);
         }
 #endif

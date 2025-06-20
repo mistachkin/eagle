@@ -10128,6 +10128,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static ReturnCode FixupReturnValue(
+            Interpreter interpreter, /* in */
+            object value,            /* in */
+            bool alias,              /* in */
+            ref Result result        /* out */
+            )
+        {
+            return FixupReturnValue(
+                interpreter, null, ObjectFlags.None,
+                null, null, ObjectOptionType.Invoke,
+                null, value, true, alias, false,
+                ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode FixupReturnValue(
             Interpreter interpreter,     /* in */
             DelegateFlags delegateFlags, /* in */
             object value,                /* in */
@@ -12109,35 +12125,102 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static string FixupByteArrayDataValue(
-            byte[] value,
-            CultureInfo cultureInfo,
-            string numberFormat
+            Interpreter interpreter,   /* in: OPTIONAL */
+            byte[] value,              /* in: OPTIONAL */
+            CultureInfo cultureInfo,   /* in: OPTIONAL */
+            BlobBehavior blobBehavior, /* in */
+            string numberFormat,       /* in: OPTIONAL */
+            string errorValue,         /* in: OPTIONAL */
+            bool alias                 /* in */
             )
         {
-            if ((cultureInfo != null) || (numberFormat != null))
+            switch (blobBehavior)
             {
-                return ArrayOps.ToString(
-                    value, cultureInfo, numberFormat, true, false);
-            }
-            else
-            {
-                //
-                // HACK: Use legacy byte-array-to-list formatting.
-                //
-                return new ByteList(value).ToString();
+                case BlobBehavior.None:
+                    {
+                        return null;
+                    }
+                case BlobBehavior.Raw:
+                    {
+                        string stringValue = null;
+
+                        if (StringOps.GetString(
+                                null, value, EncodingType.Binary,
+                                ref stringValue) == ReturnCode.Ok)
+                        {
+                            return stringValue;
+                        }
+                        else
+                        {
+                            return errorValue;
+                        }
+                    }
+                case BlobBehavior.Base64:
+                    {
+                        return Convert.ToBase64String(value,
+                            Base64FormattingOptions.InsertLineBreaks);
+                    }
+                case BlobBehavior.Hexadecimal:
+                    {
+                        return ArrayOps.ToHexadecimalString(value);
+                    }
+                case BlobBehavior.Object:
+                    {
+                        Result result = null;
+
+                        if (FixupReturnValue(
+                                interpreter, value, alias,
+                                ref result) == ReturnCode.Ok)
+                        {
+                            return result;
+                        }
+                        else
+                        {
+                            return errorValue;
+                        }
+                    }
+                case BlobBehavior.List:
+                    {
+                        if ((cultureInfo != null) ||
+                            (numberFormat != null))
+                        {
+                            //
+                            // HACK: Create single string (list?)
+                            //       for the byte-array value, in
+                            //       the specified numeric format,
+                            //       with a single space as the
+                            //       element delimiter.
+                            //
+                            return ArrayOps.ToString(
+                                value, cultureInfo, numberFormat,
+                                true, false);
+                        }
+                        else
+                        {
+                            //
+                            // HACK: Use legacy byte-array-to-list
+                            //       formatting.
+                            //
+                            return new ByteList(value).ToString();
+                        }
+                    }
+                default:
+                    {
+                        return errorValue;
+                    }
             }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static string FixupDateTimeDataValue(
-            DateTime value,
-            CultureInfo cultureInfo,
-            DateTimeBehavior dateTimeBehavior,
-            DateTimeKind dateTimeKind,
-            string dateTimeFormat,
-            string numberFormat,
-            string errorValue
+            DateTime value,                    /* in */
+            CultureInfo cultureInfo,           /* in: OPTIONAL */
+            DateTimeBehavior dateTimeBehavior, /* in */
+            DateTimeKind dateTimeKind,         /* in */
+            string dateTimeFormat,             /* in: OPTIONAL */
+            string numberFormat,               /* in: OPTIONAL */
+            string errorValue                  /* in: OPTIONAL */
             )
         {
             value = ToDateTimeInKind(value, dateTimeKind, false);
@@ -12229,9 +12312,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static string FixupDecimalDataValue(
-            decimal value,
-            CultureInfo cultureInfo,
-            string numberFormat
+            decimal value,           /* in */
+            CultureInfo cultureInfo, /* in: OPTIONAL */
+            string numberFormat      /* in: OPTIONAL */
             )
         {
             if (numberFormat != null)
@@ -12540,15 +12623,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static string FixupDataValue(
+            Interpreter interpreter,
             object value,
             CultureInfo cultureInfo,
+            BlobBehavior blobBehavior,
             DateTimeBehavior dateTimeBehavior,
             DateTimeKind dateTimeKind,
             string dateTimeFormat,
             string numberFormat,
             string nullValue,
             string dbNullValue,
-            string errorValue
+            string errorValue,
+            bool alias
             )
         {
             if (value is string)
@@ -12558,7 +12644,9 @@ namespace Eagle._Components.Private
             else if (value is byte[])
             {
                 return FixupByteArrayDataValue(
-                    (byte[])value, cultureInfo, numberFormat);
+                    interpreter, (byte[])value, cultureInfo,
+                    blobBehavior, numberFormat, errorValue,
+                    alias);
             }
             else if (value is DateTime)
             {

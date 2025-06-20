@@ -47,7 +47,8 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count == 1)
                     {
-                        result = PathOps.GetUnixPath(Directory.GetCurrentDirectory());
+                        result = PathOps.GetUnixPath(
+                            Directory.GetCurrentDirectory()); /* EXEMPT */
                     }
                     else
                     {

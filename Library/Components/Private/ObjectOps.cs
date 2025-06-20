@@ -145,6 +145,14 @@ namespace Eagle._Components.Private
         //
         private static DateTimeBehavior DefaultDateTimeBehavior =
             DateTimeBehavior.Default;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is the default for [sql execute].
+        //
+        private static BlobBehavior DefaultBlobBehavior =
+            BlobBehavior.Default;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
@@ -2163,6 +2171,10 @@ namespace Eagle._Components.Private
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
                     Index.Invalid, "-datetimebehavior",
                     new Variant(DefaultDateTimeBehavior)),
+                new Option(typeof(BlobBehavior),
+                    OptionFlags.MustHaveEnumValue, Index.Invalid,
+                    Index.Invalid, "-blobbehavior",
+                    new Variant(DefaultBlobBehavior)),
                 new Option(typeof(DateTimeKind),
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
                     Index.Invalid, "-datetimekind",
@@ -3504,6 +3516,7 @@ namespace Eagle._Components.Private
             DbExecuteType? defaultExecuteType,
             DbResultFormat? defaultResultFormat,
             ValueFlags? defaultValueFlags,
+            BlobBehavior? defaultBlobBehavior,
             DateTimeBehavior? defaultDateTimeBehavior,
             DateTimeKind? defaultDateTimeKind,
             DateTimeStyles? defaultDateTimeStyles,
@@ -3513,6 +3526,7 @@ namespace Eagle._Components.Private
             out DbExecuteType executeType,
             out DbResultFormat resultFormat,
             out ValueFlags valueFlags,
+            out BlobBehavior blobBehavior,
             out DateTimeBehavior dateTimeBehavior,
             out DateTimeKind dateTimeKind,
             out DateTimeStyles dateTimeStyles,
@@ -3601,6 +3615,17 @@ namespace Eagle._Components.Private
                 options.CheckPresent("-valueflags", ref value))
             {
                 valueFlags = (ValueFlags)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            blobBehavior = (defaultBlobBehavior != null) ?
+                (BlobBehavior)defaultBlobBehavior : DefaultBlobBehavior;
+
+            if ((options != null) &&
+                options.CheckPresent("-blobbehavior", ref value))
+            {
+                blobBehavior = (BlobBehavior)value.Value;
             }
 
             ///////////////////////////////////////////////////////////////////

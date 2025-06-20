@@ -1489,14 +1489,13 @@ namespace Eagle._Components.Private
                 //
                 return (directory != null) ?
                     PathOps.ResolveFullPath(interpreter, directory) :
-                    Directory.GetCurrentDirectory();
+                    Directory.GetCurrentDirectory(); /* EXEMPT */
             }
             catch (Exception e)
             {
                 error = e;
+                return null;
             }
-
-            return null;
         }
 
         ///////////////////////////////////////////////////////////////////////

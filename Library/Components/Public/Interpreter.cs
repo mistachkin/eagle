@@ -1031,6 +1031,7 @@ namespace Eagle._Components.Public
 
 #if !THREADING
         private bool interactive;
+        private int interactiveScriptLevels;
         private MaybeEnableType interactiveInputEnabled;
         private StringBuilder interactiveInputBuffer;
         private string interactiveInput;
@@ -40743,6 +40744,75 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal int InteractiveScriptLevels
+        {
+            get
+            {
+#if THREADING
+                IInteractiveContext context = GetInteractiveContext();
+
+                if (context != null)
+                    return context.InteractiveScriptLevels;
+                else
+                    return 0;
+#else
+                lock (syncRoot)
+                {
+                    return interactiveScriptLevels;
+                }
+#endif
+            }
+            set
+            {
+#if THREADING
+                IInteractiveContext context = GetInteractiveContext();
+
+                if (context != null)
+                    context.InteractiveScriptLevels = value;
+#else
+                lock (syncRoot)
+                {
+                    interactiveScriptLevels = value;
+                }
+#endif
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void BeginInteractiveScriptLevels(
+            out int? savedInteractiveScriptLevels /* out */
+            )
+        {
+#if !THREADING
+            lock (syncRoot) /* TRANSACTIONAL */
+#endif
+            {
+                savedInteractiveScriptLevels = InteractiveScriptLevels;
+                InteractiveScriptLevels = ScriptLevels;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void EndInteractiveScriptLevels(
+            ref int? savedInteractiveScriptLevels /* in, out */
+            )
+        {
+            if (savedInteractiveScriptLevels != null)
+            {
+#if !THREADING
+                lock (syncRoot) /* TRANSACTIONAL */
+#endif
+                {
+                    InteractiveScriptLevels = (int)savedInteractiveScriptLevels;
+                    savedInteractiveScriptLevels = null;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal MaybeEnableType InteractiveInputEnabled
         {
             get
@@ -79243,6 +79313,7 @@ namespace Eagle._Components.Public
                 #region Interactive Context Members (Non-Threaded Only)
 #if !THREADING
                 // Interactive = false; // HACK: *SPECIAL* Setup() only.
+                InteractiveScriptLevels = 0;
                 InteractiveInputEnabled = MaybeEnableType.False;
                 InteractiveInputBuffer = null;
                 InteractiveInput = null;
@@ -82798,21 +82869,17 @@ namespace Eagle._Components.Public
             )
         {
             VariableFlags variableFlags;
-            TraceList traceList;
 
             if (skipTrace)
-            {
                 variableFlags = VariableFlags.SkipTrace;
-                traceList = null;
-            }
             else
-            {
                 variableFlags = VariableFlags.None;
 
-                lock (syncRoot)
-                {
-                    traceList = autoPathTraceList;
-                }
+            TraceList traceList;
+
+            lock (syncRoot)
+            {
+                traceList = autoPathTraceList;
             }
 
             ReturnCode code = SetLibraryVariableValue(
@@ -82866,6 +82933,8 @@ namespace Eagle._Components.Public
         private ReturnCode PrivateInitializeAutoPath(
             StringList autoPathList, /* in: OPTIONAL */
             bool noGlobalAutoPath,   /* in */
+            bool noMergeAutoPath,    /* in */
+            bool noTraceAutoPath,    /* in */
             ref Result error         /* out */
             )
         {
@@ -82890,7 +82959,7 @@ namespace Eagle._Components.Public
                     localInitializeFlags, InitializeFlags.MergeAutoPath,
                     true);
 
-                bool skipTrace = FlagOps.HasFlags(
+                bool skipTrace = noTraceAutoPath || FlagOps.HasFlags(
                     localInitializeFlags, InitializeFlags.NoTraceAutoPath,
                     true);
 
@@ -82917,7 +82986,7 @@ namespace Eagle._Components.Public
                     //       giving us the global auto-path and
                     //       it should be used verbatim.
                     //
-                    if (mergeAutoPath)
+                    if (!noMergeAutoPath && mergeAutoPath)
                     {
                         localAutoPathList = null;
 
@@ -82940,14 +83009,15 @@ namespace Eagle._Components.Public
                     localAutoPathList = GlobalState.GetAutoPathList(
                         this, false);
 
-                    if (mergeAutoPath && (PrivateMergeAutoPath(
+                    if (!noMergeAutoPath && mergeAutoPath &&
+                        (PrivateMergeAutoPath(
                             localAutoPathList, ref localAutoPathList,
                             ref error) != ReturnCode.Ok))
                     {
                         return ReturnCode.Error;
                     }
                 }
-                else if (mergeAutoPath)
+                else if (!noMergeAutoPath && mergeAutoPath)
                 {
                     localAutoPathList = null;
 
@@ -83211,7 +83281,8 @@ namespace Eagle._Components.Public
                             !FlagOps.HasFlags( /* EXEMPT */
                                 localCreateFlags, CreateFlags.NoCritical, true))
                         {
-                            code = PrivateInitializeAutoPath(null, true, ref error);
+                            code = PrivateInitializeAutoPath(
+                                null, true, true, true, ref error);
                         }
                     }
                     #endregion
@@ -83272,7 +83343,8 @@ namespace Eagle._Components.Public
                             !FlagOps.HasFlags( /* EXEMPT */
                                 localCreateFlags, CreateFlags.NoCritical, true))
                         {
-                            code = PrivateInitializeAutoPath(autoPathList, false, ref error);
+                            code = PrivateInitializeAutoPath(
+                                autoPathList, false, false, false, ref error);
 
                             if (code == ReturnCode.Ok)
                                 code = PrivateInitializeLibraryPath(ref error);
@@ -94340,6 +94412,15 @@ namespace Eagle._Components.Public
                 //
                 int count = 0;
 #endif
+
+                ///////////////////////////////////////////////////////////////
+
+                //
+                // NOTE: This variable is used to save/restore the interactive
+                //       script levels for the current interactive loop while
+                //       evaluating an interactive script.
+                //
+                int? savedScriptLevels = null;
                 #endregion
 
                 ///////////////////////////////////////////////////////////////
@@ -94841,9 +94922,20 @@ namespace Eagle._Components.Public
                                 ///////////////////////////////////////////////
 
                                 #region Evaluate Tcl Script
-                                localCode = EvaluateInteractiveTclScript(
-                                    interpreter, tclInterpName, text,
-                                    ref localResult, ref localErrorLine);
+                                try
+                                {
+                                    interpreter.BeginInteractiveScriptLevels(
+                                        out savedScriptLevels);
+
+                                    localCode = EvaluateInteractiveTclScript(
+                                        interpreter, tclInterpName, text,
+                                        ref localResult, ref localErrorLine);
+                                }
+                                finally
+                                {
+                                    interpreter.EndInteractiveScriptLevels(
+                                        ref savedScriptLevels);
+                                }
                                 #endregion
 
                                 ///////////////////////////////////////////////
@@ -94872,11 +94964,22 @@ namespace Eagle._Components.Public
                                 //       Matters are further complicated by
                                 //       script cancellation and timeouts.
                                 //
-                                localCode = EvaluateInteractiveScript(
-                                    interpreter, text, localEngineFlags,
-                                    localSubstitutionFlags, localEventFlags,
-                                    localExpressionFlags, noTimeout,
-                                    ref localResult, ref localErrorLine);
+                                try
+                                {
+                                    interpreter.BeginInteractiveScriptLevels(
+                                        out savedScriptLevels);
+
+                                    localCode = EvaluateInteractiveScript(
+                                        interpreter, text, localEngineFlags,
+                                        localSubstitutionFlags, localEventFlags,
+                                        localExpressionFlags, noTimeout,
+                                        ref localResult, ref localErrorLine);
+                                }
+                                finally
+                                {
+                                    interpreter.EndInteractiveScriptLevels(
+                                        ref savedScriptLevels);
+                                }
                                 #endregion
 
                                 ///////////////////////////////////////////////
@@ -107863,6 +107966,11 @@ namespace Eagle._Components.Public
                 if (empty || interactive)
                     list.Add("Interactive", interactive.ToString());
 
+                int interactiveScriptLevels = InteractiveScriptLevels; /* NOTE: Context only. */
+
+                if (empty || (interactiveScriptLevels > 0))
+                    list.Add("InteractiveScriptLevels", interactiveScriptLevels.ToString());
+
                 MaybeEnableType enabled = InteractiveInputEnabled; /* NOTE: Context only. */
 
                 if (empty || (enabled != MaybeEnableType.False))
@@ -117018,6 +117126,7 @@ namespace Eagle._Components.Public
 
                     #region Interactive Context (Non-Threaded Only)
                     interactive = false;
+                    interactiveScriptLevels = 0;
                     interactiveInputEnabled = MaybeEnableType.False;
                     interactiveInputBuffer = null;
                     interactiveInput = null;

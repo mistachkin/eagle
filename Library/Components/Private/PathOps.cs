@@ -4754,6 +4754,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string GetCurrentDirectory()
+        {
+            try
+            {
+                return Directory.GetCurrentDirectory(); /* throw */
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(PathOps).Name,
+                    TracePriority.FileSystemError);
+
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static void AddPathsToDictionary(
             Interpreter interpreter,              /* in */
             string path,                          /* in */
@@ -4785,8 +4803,8 @@ namespace Eagle._Components.Private
 
             if (current)
             {
-                AddPathToDictionary(Directory.GetCurrentDirectory(),
-                    ref dictionary);
+                AddPathToDictionary(
+                    GetCurrentDirectory(), ref dictionary);
             }
 
             if (user)
@@ -7148,7 +7166,7 @@ namespace Eagle._Components.Private
                     "{0}{1}", path[0], Characters.Colon));
             }
 
-            return Directory.GetCurrentDirectory();
+            return Directory.GetCurrentDirectory(); /* EXEMPT */
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -9939,7 +9957,7 @@ namespace Eagle._Components.Private
                             //       there is no root path specified.
                             //
                             if (rootPath == null)
-                                rootPath = Directory.GetCurrentDirectory();
+                                rootPath = Directory.GetCurrentDirectory(); /* EXEMPT */
 
                             if (!String.IsNullOrEmpty(newPath))
                             {

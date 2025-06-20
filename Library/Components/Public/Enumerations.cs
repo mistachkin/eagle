@@ -8755,6 +8755,20 @@ namespace Eagle._Components.Public
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
+    [ObjectId("3dc48f23-466b-4157-937a-d8a1177f9066")]
+    public enum BlobBehavior
+    {
+        None = 0,
+        Raw = 1,
+        Base64 = 2,
+        Hexadecimal = 3,
+        List = 4, /* COMPAT: Eagle beta. */
+        Object = 5,
+        Default = List
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     [Flags()]
     [ObjectId("21275a46-4292-4c42-ac70-9875dd6c2b2f")]
     public enum DbVariableFlags

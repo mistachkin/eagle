@@ -23,5 +23,6 @@ namespace Eagle._Interfaces.Public
         bool Pairs { get; set; }
         bool Names { get; set; }
         bool NoFixup { get; set; }
+        bool Alias { get; set; }
     }
 }

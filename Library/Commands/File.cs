@@ -1030,7 +1030,7 @@ namespace Eagle._Commands
                                                     }
 
                                                     if (String.IsNullOrEmpty(directory))
-                                                        directory = Directory.GetCurrentDirectory();
+                                                        directory = PathOps.GetCurrentDirectory();
 
                                                     if (noValidate ||
                                                         PathOps.ValidatePathAsDirectory(directory, null, true))
@@ -1267,7 +1267,7 @@ namespace Eagle._Commands
                                                 directory = PathOps.ResolveFullPath(interpreter, arguments[2]);
 
                                             if (String.IsNullOrEmpty(directory))
-                                                directory = Directory.GetCurrentDirectory();
+                                                directory = PathOps.GetCurrentDirectory();
 
                                             if (PathOps.ValidatePathAsDirectory(directory, true, true))
                                             {

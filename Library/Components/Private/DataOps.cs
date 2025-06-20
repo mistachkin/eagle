@@ -2681,6 +2681,7 @@ namespace Eagle._Components.Private
             DbResultFormat resultFormat,       /* in */
             string varName,                    /* in */
             string varIndex,                   /* in */
+            BlobBehavior blobBehavior,         /* in */
             DateTimeBehavior dateTimeBehavior, /* in */
             DateTimeKind dateTimeKind,         /* in */
             string dateTimeFormat,             /* in */
@@ -2724,12 +2725,12 @@ namespace Eagle._Components.Private
                         if (DataRecordToVariable(
                                 interpreter, record, varName,
                                 varIndex, cultureInfo,
-                                dateTimeBehavior, dateTimeKind,
-                                dateTimeFormat, numberFormat,
-                                nullValue, dbNullValue,
-                                errorValue, false, allowNull,
-                                pairs, names, noFixup,
-                                ref result) != ReturnCode.Ok)
+                                blobBehavior, dateTimeBehavior,
+                                dateTimeKind, dateTimeFormat,
+                                numberFormat, nullValue,
+                                dbNullValue, errorValue, false,
+                                allowNull, pairs, names, noFixup,
+                                alias, ref result) != ReturnCode.Ok)
                         {
                             return ReturnCode.Error;
                         }
@@ -2752,11 +2753,12 @@ namespace Eagle._Components.Private
 
                         if (DataRecordToList(
                                 interpreter, record, cultureInfo,
-                                dateTimeBehavior, dateTimeKind,
-                                dateTimeFormat, numberFormat,
-                                nullValue, dbNullValue, errorValue,
-                                nested, false, allowNull, pairs,
-                                names, noFixup, ref list,
+                                blobBehavior, dateTimeBehavior,
+                                dateTimeKind, dateTimeFormat,
+                                numberFormat, nullValue,
+                                dbNullValue, errorValue, nested,
+                                false, allowNull, pairs, names,
+                                noFixup, alias, ref list,
                                 ref result) != ReturnCode.Ok)
                         {
                             return ReturnCode.Error;
@@ -2930,6 +2932,7 @@ namespace Eagle._Components.Private
             OptionDictionary options,          /* in */
             DbResultFormat resultFormat,       /* in */
             string varName,                    /* in */
+            BlobBehavior blobBehavior,         /* in */
             DateTimeBehavior dateTimeBehavior, /* in */
             DateTimeKind dateTimeKind,         /* in */
             string dateTimeFormat,             /* in */
@@ -2972,12 +2975,12 @@ namespace Eagle._Components.Private
 
                         if (DataReaderToArray(
                                 interpreter, reader, varName,
-                                cultureInfo, dateTimeBehavior,
-                                dateTimeKind, dateTimeFormat,
-                                numberFormat, nullValue,
-                                dbNullValue, errorValue,
-                                limit, false, allowNull,
-                                pairs, names, noFixup, ref count,
+                                cultureInfo, blobBehavior,
+                                dateTimeBehavior, dateTimeKind,
+                                dateTimeFormat, numberFormat,
+                                nullValue, dbNullValue, errorValue,
+                                limit, false, allowNull, pairs,
+                                names, noFixup, alias, ref count,
                                 ref result) == ReturnCode.Ok)
                         {
                             result = andCount ?
@@ -2994,12 +2997,13 @@ namespace Eagle._Components.Private
 
                         if (DataReaderToList(
                                 interpreter, reader, cultureInfo,
-                                dateTimeBehavior, dateTimeKind,
-                                dateTimeFormat, numberFormat,
-                                nullValue, dbNullValue,
-                                errorValue, limit, nested,
-                                false, allowNull, pairs, names,
-                                noFixup, ref list, ref count,
+                                blobBehavior, dateTimeBehavior,
+                                dateTimeKind, dateTimeFormat,
+                                numberFormat, nullValue,
+                                dbNullValue, errorValue, limit,
+                                nested, false, allowNull, pairs,
+                                names, noFixup, alias, ref list,
+                                ref count,
                                 ref result) == ReturnCode.Ok)
                         {
                             if (andCount)
@@ -3123,6 +3127,7 @@ namespace Eagle._Components.Private
             CommandBehavior commandBehavior,   /* in */
             DbResultFormat resultFormat,       /* in */
             string varName,                    /* in */
+            BlobBehavior blobBehavior,         /* in */
             DateTimeBehavior dateTimeBehavior, /* in */
             DateTimeKind dateTimeKind,         /* in */
             string dateTimeFormat,             /* in */
@@ -3191,10 +3196,11 @@ namespace Eagle._Components.Private
                             else
                             {
                                 result = MarshalOps.FixupDataValue(
-                                    value, cultureInfo, dateTimeBehavior,
+                                    interpreter, value, cultureInfo,
+                                    blobBehavior, dateTimeBehavior,
                                     dateTimeKind, dateTimeFormat,
-                                    numberFormat, nullValue, dbNullValue,
-                                    errorValue);
+                                    numberFormat, nullValue,
+                                    dbNullValue, errorValue, alias);
                             }
 
                             return ReturnCode.Ok;
@@ -3225,16 +3231,16 @@ namespace Eagle._Components.Private
                             return DataReaderToResults(
                                 interpreter, binder, cultureInfo,
                                 reader, options, resultFormat,
-                                varName, dateTimeBehavior,
-                                dateTimeKind, dateTimeFormat,
-                                numberFormat, nullValue,
-                                dbNullValue, errorValue, limit,
-                                nested, allowNull, pairs, names,
-                                andCount, returnType, objectFlags,
-                                objectName, interpName, create,
-                                dispose, alias, aliasRaw, aliasAll,
-                                aliasReference, toString, noFixup,
-                                ref close, ref result);
+                                varName, blobBehavior,
+                                dateTimeBehavior, dateTimeKind,
+                                dateTimeFormat, numberFormat,
+                                nullValue, dbNullValue, errorValue,
+                                limit, nested, allowNull, pairs,
+                                names, andCount, returnType,
+                                objectFlags, objectName, interpName,
+                                create, dispose, alias, aliasRaw,
+                                aliasAll, aliasReference, toString,
+                                noFixup, ref close, ref result);
                         }
                         catch (Exception e)
                         {
@@ -3353,6 +3359,7 @@ namespace Eagle._Components.Private
             Interpreter interpreter,           /* in: NOT USED */
             IDataRecord record,                /* in */
             CultureInfo cultureInfo,           /* in */
+            BlobBehavior blobBehavior,         /* in */
             DateTimeBehavior dateTimeBehavior, /* in */
             DateTimeKind dateTimeKind,         /* in */
             string dateTimeFormat,             /* in */
@@ -3365,6 +3372,7 @@ namespace Eagle._Components.Private
             bool pairs,                        /* in */
             bool names,                        /* in */
             bool noFixup,                      /* in */
+            bool alias,                        /* in */
             ref StringList list                /* in, out */
             )
         {
@@ -3397,10 +3405,11 @@ namespace Eagle._Components.Private
                         else
                         {
                             element.Add(MarshalOps.FixupDataValue(
-                                value, cultureInfo, dateTimeBehavior,
+                                interpreter, value, cultureInfo,
+                                blobBehavior, dateTimeBehavior,
                                 dateTimeKind, dateTimeFormat,
-                                numberFormat, nullValue, dbNullValue,
-                                errorValue));
+                                numberFormat, nullValue,
+                                dbNullValue, errorValue, alias));
                         }
 
                         list.Add(element.ToString());
@@ -3417,10 +3426,11 @@ namespace Eagle._Components.Private
                         else
                         {
                             list.Add(MarshalOps.FixupDataValue(
-                                value, cultureInfo, dateTimeBehavior,
+                                interpreter, value, cultureInfo,
+                                blobBehavior, dateTimeBehavior,
                                 dateTimeKind, dateTimeFormat,
-                                numberFormat, nullValue, dbNullValue,
-                                errorValue));
+                                numberFormat, nullValue,
+                                dbNullValue, errorValue, alias));
                         }
                     }
                 }
@@ -3492,6 +3502,7 @@ namespace Eagle._Components.Private
             Interpreter interpreter,           /* in: NOT USED */
             IDataRecord record,                /* in */
             CultureInfo cultureInfo,           /* in */
+            BlobBehavior blobBehavior,         /* in */
             DateTimeBehavior dateTimeBehavior, /* in */
             DateTimeKind dateTimeKind,         /* in */
             string dateTimeFormat,             /* in */
@@ -3505,6 +3516,7 @@ namespace Eagle._Components.Private
             bool pairs,                        /* in */
             bool names,                        /* in */
             bool noFixup,                      /* in */
+            bool alias,                        /* in */
             ref StringList list,               /* in, out */
             ref Result error                   /* out */
             )
@@ -3514,11 +3526,12 @@ namespace Eagle._Components.Private
             /* NO RESULT */
             GetDataRecordFieldValues(
                 interpreter, record, cultureInfo,
-                dateTimeBehavior, dateTimeKind,
-                dateTimeFormat, numberFormat,
-                nullValue, dbNullValue, errorValue,
-                clear, allowNull, pairs, names,
-                noFixup, ref row);
+                blobBehavior, dateTimeBehavior,
+                dateTimeKind, dateTimeFormat,
+                numberFormat, nullValue,
+                dbNullValue, errorValue, clear,
+                allowNull, pairs, names, noFixup,
+                alias, ref row);
 
             if (row != null)
             {
@@ -3574,6 +3587,7 @@ namespace Eagle._Components.Private
             string varName,                    /* in */
             string varIndex,                   /* in */
             CultureInfo cultureInfo,           /* in */
+            BlobBehavior blobBehavior,         /* in */
             DateTimeBehavior dateTimeBehavior, /* in */
             DateTimeKind dateTimeKind,         /* in */
             string dateTimeFormat,             /* in */
@@ -3582,6 +3596,7 @@ namespace Eagle._Components.Private
             string dbNullValue,                /* in */
             string errorValue,                 /* in */
             bool noFixup,                      /* in */
+            bool alias,                        /* in */
             ref Result error                   /* out */
             )
         {
@@ -3594,10 +3609,11 @@ namespace Eagle._Components.Private
             if (!noFixup)
             {
                 value = MarshalOps.FixupDataValue(
-                   value, cultureInfo, dateTimeBehavior,
+                   interpreter, value, cultureInfo,
+                   blobBehavior, dateTimeBehavior,
                    dateTimeKind, dateTimeFormat,
-                   numberFormat, nullValue, dbNullValue,
-                   errorValue);
+                   numberFormat, nullValue,
+                   dbNullValue, errorValue, alias);
             }
 
             if (varName != null)
@@ -3625,6 +3641,7 @@ namespace Eagle._Components.Private
             string varName,                    /* in */
             string varIndex,                   /* in */
             CultureInfo cultureInfo,           /* in */
+            BlobBehavior blobBehavior,         /* in */
             DateTimeBehavior dateTimeBehavior, /* in */
             DateTimeKind dateTimeKind,         /* in */
             string dateTimeFormat,             /* in */
@@ -3637,6 +3654,7 @@ namespace Eagle._Components.Private
             bool pairs,                        /* in */
             bool names,                        /* in */
             bool noFixup,                      /* in */
+            bool alias,                        /* in */
             ref Result error                   /* out */
             )
         {
@@ -3651,11 +3669,12 @@ namespace Eagle._Components.Private
             /* NO RESULT */
             GetDataRecordFieldValues(
                 interpreter, record, cultureInfo,
-                dateTimeBehavior, dateTimeKind,
-                dateTimeFormat, numberFormat,
-                nullValue, dbNullValue, errorValue,
-                clear, allowNull, pairs, names,
-                noFixup, ref row);
+                blobBehavior, dateTimeBehavior,
+                dateTimeKind, dateTimeFormat,
+                numberFormat, nullValue,
+                dbNullValue, errorValue, clear,
+                allowNull, pairs, names, noFixup,
+                alias, ref row);
 
             if ((row != null) && (varName != null))
             {
@@ -3680,6 +3699,7 @@ namespace Eagle._Components.Private
             Interpreter interpreter,           /* in: NOT USED */
             IDataReader reader,                /* in */
             CultureInfo cultureInfo,           /* in */
+            BlobBehavior blobBehavior,         /* in */
             DateTimeBehavior dateTimeBehavior, /* in */
             DateTimeKind dateTimeKind,         /* in */
             string dateTimeFormat,             /* in */
@@ -3694,6 +3714,7 @@ namespace Eagle._Components.Private
             bool pairs,                        /* in */
             bool names,                        /* in */
             bool noFixup,                      /* in */
+            bool alias,                        /* in */
             ref StringList list,               /* in, out */
             ref int count,                     /* in, out */
             ref Result error                   /* out */
@@ -3713,11 +3734,12 @@ namespace Eagle._Components.Private
 
                 if (DataRecordToList(
                         interpreter, reader, cultureInfo,
-                        dateTimeBehavior, dateTimeKind,
-                        dateTimeFormat, numberFormat,
-                        nullValue, dbNullValue, errorValue,
-                        nested, clear, allowNull, pairs,
-                        names, noFixup, ref list,
+                        blobBehavior, dateTimeBehavior,
+                        dateTimeKind, dateTimeFormat,
+                        numberFormat, nullValue,
+                        dbNullValue, errorValue, nested,
+                        clear, allowNull, pairs, names,
+                        noFixup, alias, ref list,
                         ref error) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
@@ -3741,6 +3763,7 @@ namespace Eagle._Components.Private
             IDataReader reader,                /* in */
             string varName,                    /* in */
             CultureInfo cultureInfo,           /* in */
+            BlobBehavior blobBehavior,         /* in */
             DateTimeBehavior dateTimeBehavior, /* in */
             DateTimeKind dateTimeKind,         /* in */
             string dateTimeFormat,             /* in */
@@ -3754,6 +3777,7 @@ namespace Eagle._Components.Private
             bool pairs,                        /* in */
             bool names,                        /* in */
             bool noFixup,                      /* in */
+            bool alias,                        /* in */
             ref int count,                     /* in, out */
             ref Result error                   /* out */
             )
@@ -3803,11 +3827,12 @@ namespace Eagle._Components.Private
                 if (DataRecordToVariable(
                         interpreter, reader, varName,
                         localCount.ToString(), cultureInfo,
-                        dateTimeBehavior, dateTimeKind,
-                        dateTimeFormat, numberFormat,
-                        nullValue, dbNullValue, errorValue,
-                        clear, allowNull, pairs, names,
-                        noFixup, ref error) != ReturnCode.Ok)
+                        blobBehavior, dateTimeBehavior,
+                        dateTimeKind, dateTimeFormat,
+                        numberFormat, nullValue,
+                        dbNullValue, errorValue, clear,
+                        allowNull, pairs, names, noFixup,
+                        alias, ref error) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }
@@ -3850,6 +3875,7 @@ namespace Eagle._Components.Private
             string varName,                    /* in */
             string body,                       /* in */
             IScriptLocation location,          /* in */
+            BlobBehavior blobBehavior,         /* in */
             DateTimeBehavior dateTimeBehavior, /* in */
             DateTimeKind dateTimeKind,         /* in */
             string dateTimeFormat,             /* in */
@@ -3921,10 +3947,11 @@ namespace Eagle._Components.Private
                             if (DataValueToVariable(
                                     interpreter, value, varName,
                                     Vars.ResultSet.Count,
-                                    cultureInfo, dateTimeBehavior,
-                                    dateTimeKind, dateTimeFormat,
-                                    numberFormat, nullValue,
-                                    dbNullValue, errorValue, noFixup,
+                                    cultureInfo, blobBehavior,
+                                    dateTimeBehavior, dateTimeKind,
+                                    dateTimeFormat, numberFormat,
+                                    nullValue, dbNullValue,
+                                    errorValue, noFixup, alias,
                                     ref localResult) != ReturnCode.Ok)
                             {
                                 result = localResult;
@@ -3972,10 +3999,11 @@ namespace Eagle._Components.Private
                             if (DataValueToVariable(
                                     interpreter, value, varName,
                                     Vars.ResultSet.Value,
-                                    cultureInfo, dateTimeBehavior,
-                                    dateTimeKind, dateTimeFormat,
-                                    numberFormat, nullValue,
-                                    dbNullValue, errorValue, noFixup,
+                                    cultureInfo, blobBehavior,
+                                    dateTimeBehavior, dateTimeKind,
+                                    dateTimeFormat, numberFormat,
+                                    nullValue, dbNullValue,
+                                    errorValue, noFixup, alias,
                                     ref localResult) != ReturnCode.Ok)
                             {
                                 result = localResult;
@@ -4057,16 +4085,16 @@ namespace Eagle._Components.Private
                         interpreter, binder, cultureInfo,
                         reader, options, resultFormat,
                         varName, localCount.ToString(),
-                        dateTimeBehavior, dateTimeKind,
-                        dateTimeFormat, numberFormat,
-                        nullValue, dbNullValue,
-                        errorValue, localCount, limit,
-                        nested, allowNull, pairs, names,
-                        andCount, returnType, objectFlags,
-                        objectName, interpName, create,
-                        dispose, alias, aliasRaw, aliasAll,
-                        aliasReference, toString, noFixup,
-                        ref localResult);
+                        blobBehavior, dateTimeBehavior,
+                        dateTimeKind, dateTimeFormat,
+                        numberFormat, nullValue,
+                        dbNullValue, errorValue,
+                        localCount, limit, nested,
+                        allowNull, pairs, names, andCount,
+                        returnType, objectFlags, objectName,
+                        interpName, create, dispose, alias,
+                        aliasRaw, aliasAll, aliasReference,
+                        toString, noFixup, ref localResult);
 
                     if (code != ReturnCode.Ok)
                     {

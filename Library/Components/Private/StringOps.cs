@@ -1473,6 +1473,21 @@ namespace Eagle._Components.Private
             Encoding encoding, /* in */
             byte[] bytes,      /* in */
             EncodingType type, /* in */
+            ref string value   /* out */
+            )
+        {
+            Result error = null;
+
+            return GetString(
+                encoding, bytes, type, ref value, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetString(
+            Encoding encoding, /* in */
+            byte[] bytes,      /* in */
+            EncodingType type, /* in */
             ref string value,  /* out */
             ref Result error   /* out */
             )

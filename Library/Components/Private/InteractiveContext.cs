@@ -46,6 +46,7 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             interactive = false;
+            interactiveScriptLevels = 0;
             interactiveInputEnabled = MaybeEnableType.False;
             interactiveInputBuffer = null;
             interactiveInput = null;
@@ -150,6 +151,15 @@ namespace Eagle._Components.Private
         {
             get { CheckDisposed(); return interactive; }
             set { CheckDisposed(); interactive = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private int interactiveScriptLevels;
+        public int InteractiveScriptLevels
+        {
+            get { CheckDisposed(); return interactiveScriptLevels; }
+            set { CheckDisposed(); interactiveScriptLevels = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -371,6 +381,7 @@ namespace Eagle._Components.Private
                     ///////////////////////////////////////////////////////////
 
                     interactive = false;
+                    interactiveScriptLevels = 0;
                     interactiveInputEnabled = MaybeEnableType.False;
                     interactiveInputBuffer = null;
                     interactiveInput = null;

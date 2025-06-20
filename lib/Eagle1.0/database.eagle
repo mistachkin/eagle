@@ -21,6 +21,52 @@
 #
 namespace eval ::Eagle {
   #
+  # NOTE: This procedure returns non-zero if the specified database column
+  #       is within the specified database row value.
+  #
+  proc haveColumnValue { row column } {
+    #
+    # NOTE: Locate the index of the named column we are interested in.
+    #       This requires Tcl 8.5 (or higher) or Eagle.
+    #
+    set index [lsearch -exact -index 0 $row $column]
+
+    #
+    # NOTE: Did we find the column name in the row?
+    #
+    return [expr {$index != -1}]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified database column
+  #       is within the specified array of database row values.
+  #
+  proc haveRowColumnValue { varName id column } {
+    #
+    # NOTE: Start with the default value.
+    #
+    set result false
+
+    #
+    # NOTE: We need acccess to the result array (from the context of the
+    #       caller).
+    #
+    upvar 1 $varName rows
+
+    #
+    # NOTE: Make sure we have the first result row.
+    #
+    if {[info exists rows($id)]} then {
+      #
+      # NOTE: Check the value at the specified column.
+      #
+      set result [haveColumnValue $rows($id) $column]
+    }
+
+    return $result
+  }
+
+  #
   # NOTE: This procedure returns the value of the specified database column
   #       within the specified database row value, optionally wrapping the
   #       returned value with another string -OR- returning the specified
@@ -43,7 +89,7 @@ namespace eval ::Eagle {
     #
     if {$index != -1} then {
       #
-      # NOTE: Grab the column value.
+      # NOTE: Grab the column value and (possibly) format it.
       #
       set result [appendArgs $wrap [lindex [lindex $row $index] end] $wrap]
     }
@@ -71,18 +117,13 @@ namespace eval ::Eagle {
     upvar 1 $varName rows
 
     #
-    # NOTE: Make sure we have the first result row.
+    # NOTE: Make sure we have the specified result row.
     #
     if {[info exists rows($id)]} then {
       #
-      # NOTE: Grab the entire row we are interested in.
-      #
-      set row $rows($id)
-
-      #
       # NOTE: Grab the value at the specified column.
       #
-      set result [getColumnValue $row $column $default $wrap]
+      set result [getColumnValue $rows($id) $column $default $wrap]
     }
 
     return $result

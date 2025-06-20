@@ -9316,17 +9316,98 @@ namespace eval ::Eagle {
       return false
     }
 
+    proc eagle_isShellScriptLevel { {extraLevels 0} {quiet false} } {; # +1
+      #
+      # NOTE: There are typically five levels of nested "scripts"
+      #       at the point this procedure is called, as follows:
+      #
+      #       0 ==> 1: The EvaluateScript() from InteractiveLoop().
+      #
+      #       1 ==> 2: The [unknown] procedure (a.k.a. hooked by
+      #                the [eagle_shellUnknown] procedure), which
+      #                is typically called from within the Engine
+      #                unknown command handler; however, it should
+      #                be noted that this does NOT cause a(nother)
+      #                nested script evaluation as the resulting
+      #                IExecute is merely substituted (via prefix)
+      #                inline within the script engine itself, see
+      #                ExecuteArguments().
+      #
+      #       2 ==> 3: The first [if] command block within the
+      #                [eagle_shellUnknown] procedure.
+      #
+      ##############################################################
+      #
+      #       3 ==> 4: The [eagle_isShellScriptLevel] procedure.
+      #
+      #       4 ==> 5: The first [if] command block, below.
+      #
+      #       5 ==> 6: The second [if] command block, below.
+      #
+      #       6 ==> 7: The first [catch] command block, below.
+      #
+      #       Clearly, the above four levels are entered by simply
+      #       executing this procedure body.  All the remaining
+      #       script levels, if any (?), would be entered by code
+      #       that is external to this procedure, e.g. from within
+      #       the interactive loop, et al.
+      #
+      if {[llength [info commands object]] > 0} then {; # +1
+        if {[catch {; # +1
+          object invoke -flags +NonPublic \
+              Interpreter.GetActive ScriptLevels; # 7 (?)
+        } levels(0)] == 0 && [catch {
+          object invoke -flags +NonPublic \
+              Interpreter.GetActive InteractiveScriptLevels
+        } levels(1)] == 0} then {; # +1
+          #
+          # NOTE: This is the number of script levels that are
+          #       always used by this procedure (please see the
+          #       block comment above).  As of June 2025, this
+          #       value should be four.
+          #
+          set levels(thisProcedure) 4
+
+          set levels(2) [expr {
+            $levels(thisProcedure) + $levels(1) + $extraLevels
+          }]
+
+          if {$levels(0) == $levels(2)} then {
+            return true
+          } else {
+            if {!$quiet} then {
+              tputs [getTestChannelOrDefault] [appendArgs \
+                  "---- mismatched shell script levels: " \
+                  $levels(0) " versus " $levels(2) \n]
+            }
+          }
+        }
+      }
+
+      return false
+    }
+
     proc eagle_shellUnknown { name args } {
       if {![info exists ::no(shellUnknown)] && \
+          [eagle_isShellScriptLevel 3] && \
           [eagle_haveShell shell]} then {
+        set skipped false
+
         if {[catch {
           set command [list]
 
           lappend command exec -nocapture -commandline
           lappend command -success Success -directory [pwd]
-          lappend command -- $shell
+          lappend command --
 
-          if {[isWindows]} then {lappend command /C}; # cmd.exe /C
+          if {[isWindows] || \
+              [hasRuntimeOption shellUnknown_ViaShell]} then {
+            lappend command $shell; # cmd.exe -OR- /bin/bash
+          }
+
+          if {[isWindows]} then {
+            lappend command $shell /C; # cmd.exe /C
+          }
 
           lappend command $name
           eval lappend command $args
@@ -9349,12 +9430,19 @@ namespace eval ::Eagle {
             error $result
           }
         }
+      } else {
+        set skipped true
+
+        maybeInvokeForTester ::shellUnknownSkipped; # HOOK
       }
 
-      maybeInvokeForTester ::shellUnknownFallback; # HOOK
+      maybeInvokeForTester ::shellUnknownMaybeFallback; # HOOK
 
-      if {[hasRuntimeOption shellUnknown_OkFallback] && \
+      if {($skipped || \
+          [hasRuntimeOption shellUnknown_OkFallback]) && \
           [llength [info commands ::savedUnknown]] == 1} then {
+        maybeInvokeForTester ::shellUnknownOkFallback; # HOOK
+
         return [uplevel 1 [list ::savedUnknown $name $args]]
       }
     }

@@ -3,6 +3,11 @@
 
 BUGFIX: fix and/or address Coverity issues from #434153 to #523770.
 
+BUGFIX: make sure an (empty) auto-path is available prior to the core script
+        library initialization.  after the core script library initialization,
+        merge the default auto-path with the modifications resulting from the
+        core script library initialization.
+
 BUGFIX: several important performance fixes to the (generic) caching subsystem.
 
 BUGFIX: do not set the qualified name of local script variables, e.g. via the
@@ -27,6 +32,9 @@ REFACTOR: cleanup and optimize how notifications are processed.
 REFACTOR: improvements to build tools to harmonize / minimize differences with
           their "sibling" tools present in other projects.
 
+REFACTOR: add the InteractiveScriptLevels property to the IInteractiveContext
+          interface.
+
 REFACTOR: *BREAKING CHANGE* change the method signature for the trace filter
           callback delegate.
 
@@ -42,6 +50,8 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
+
+FEATURE: add the -blobbehavior option to the [sql execut]e sub-command.
 
 FEATURE: add the NoCritical interpreter creation flag and the NonCritical SDK
          type.

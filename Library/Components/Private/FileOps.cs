@@ -2820,7 +2820,15 @@ namespace Eagle._Components.Private
             SplitGlobPathPrefix(ref pathPrefix, ref directory);
 
             if (String.IsNullOrEmpty(directory))
-                directory = Directory.GetCurrentDirectory();
+            {
+                directory = PathOps.GetCurrentDirectory();
+
+                if (String.IsNullOrEmpty(directory))
+                {
+                    error = "invalid current directory";
+                    return null;
+                }
+            }
 
             DirectoryInfo directoryInfo = new DirectoryInfo(directory);
 
@@ -3250,10 +3258,12 @@ namespace Eagle._Components.Private
             //         code relying on the current directory may be
             //         messed up.
             //
-            string savedDirectory = Directory.GetCurrentDirectory();
+            string savedDirectory = null;
 
             try
             {
+                savedDirectory = Directory.GetCurrentDirectory(); /* EXEMPT */
+
                 Directory.SetCurrentDirectory(
                     GlobalState.GetAnyEntryAssemblyPath());
 

@@ -28,6 +28,7 @@ namespace Eagle._Interfaces.Private
 #endif
 
         bool Interactive { get; set; }
+        int InteractiveScriptLevels { get; set; }
         MaybeEnableType InteractiveInputEnabled { get; set; }
         StringBuilder InteractiveInputBuffer { get; set; }
         string InteractiveInput { get; set; }

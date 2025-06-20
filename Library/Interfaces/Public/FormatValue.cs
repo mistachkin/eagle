@@ -19,6 +19,7 @@ namespace Eagle._Interfaces.Public
     public interface IFormatValue : IHaveCultureInfo
     {
 #if DATA
+        BlobBehavior BlobBehavior { get; set; }
         DateTimeBehavior DateTimeBehavior { get; set; }
 #endif
 
