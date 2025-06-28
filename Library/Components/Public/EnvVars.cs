@@ -92,6 +92,8 @@ namespace Eagle._Components.Public
         public static readonly string TrustedBundlePassword = "TrustedBundlePassword";
 #endif
 
+        public static readonly string NoStartups = "NoStartups";
+
 #if THREADING
         public static readonly string NoWorkers = "NoWorkers";
 #endif

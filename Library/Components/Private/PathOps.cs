@@ -4764,7 +4764,7 @@ namespace Eagle._Components.Private
             {
                 TraceOps.DebugTrace(
                     e, typeof(PathOps).Name,
-                    TracePriority.FileSystemError);
+                    TracePriority.PathError);
 
                 return null;
             }
@@ -7162,11 +7162,22 @@ namespace Eagle._Components.Private
                 // HACK: This will return the current directory
                 //       for the specified drive letter.
                 //
-                return Path.GetFullPath(String.Format(
-                    "{0}{1}", path[0], Characters.Colon));
+                try
+                {
+                    return Path.GetFullPath(String.Format(
+                        "{0}{1}", path[0], Characters.Colon));
+                }
+                catch (Exception e)
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(PathOps).Name,
+                        TracePriority.PathError);
+
+                    return null;
+                }
             }
 
-            return Directory.GetCurrentDirectory(); /* EXEMPT */
+            return GetCurrentDirectory();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -7211,8 +7222,14 @@ namespace Eagle._Components.Private
 
                     if (allowCurrent)
                     {
-                        string newDirectory =
-                            GetCurrentDirectory(drive);
+                        string newDirectory = GetCurrentDirectory(
+                            drive);
+
+                        if (newDirectory == null)
+                        {
+                            fileName = path;
+                            return;
+                        }
 
                         if (separator != null)
                         {
@@ -9456,8 +9473,30 @@ namespace Eagle._Components.Private
             string path              /* in */
             )
         {
-            return NormalizePath(
-                interpreter, null, path, null, true, true, true, true, false);
+            Result error = null; /* NOT USED */
+
+            return ResolveFullPath(interpreter, path, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string ResolveFullPath(
+            Interpreter interpreter, /* in: OPTIONAL */
+            string path,             /* in */
+            ref Result error         /* out */
+            )
+        {
+            string newPath = null;
+
+            if (NormalizePath(
+                    interpreter, null, path, null, true,
+                    true, true, true, false, ref newPath,
+                    ref error) == ReturnCode.Ok)
+            {
+                return newPath;
+            }
+
+            return null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -9957,7 +9996,14 @@ namespace Eagle._Components.Private
                             //       there is no root path specified.
                             //
                             if (rootPath == null)
-                                rootPath = Directory.GetCurrentDirectory(); /* EXEMPT */
+                                rootPath = GetCurrentDirectory();
+
+                            if (rootPath == null)
+                            {
+                                error = "invalid current directory";
+                                code = ReturnCode.Error;
+                                goto done;
+                            }
 
                             if (!String.IsNullOrEmpty(newPath))
                             {
@@ -10047,6 +10093,8 @@ namespace Eagle._Components.Private
                 error = e;
                 code = ReturnCode.Error;
             }
+
+        done:
 
             if (EnableTraceForNormalize(null))
             {

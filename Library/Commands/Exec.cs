@@ -64,6 +64,8 @@ namespace Eagle._Commands
                             new Option(null, OptionFlags.None, Index.Invalid,
                                 Index.Invalid, "-nopreviousprocessid", null), // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
+                                Index.Invalid, "-trace", null),               // simple switch
+                            new Option(null, OptionFlags.None, Index.Invalid,
                                 Index.Invalid, "-debug", null),               // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
                                 Index.Invalid, "-nonormalize", null),         // simple switch
@@ -117,6 +119,8 @@ namespace Eagle._Commands
                                 Index.Invalid, "-username", null), // domain user name
                             new Option(null, OptionFlags.MustHaveSecureStringValue, Index.Invalid,
                                 Index.Invalid, "-password", null), // domain password
+                            new Option(null, OptionFlags.MustHaveListValue, Index.Invalid,
+                                Index.Invalid, "-escapesubstring", null), // command
                             new Option(null, OptionFlags.MustHaveListValue, Index.Invalid,
                                 Index.Invalid, "-preprocessarguments", null), // command
                             new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
@@ -186,6 +190,11 @@ namespace Eagle._Commands
 
                                 if (options.IsPresent("-userinterface"))
                                     userInterface = true;
+
+                                bool trace = false;
+
+                                if (options.IsPresent("-trace"))
+                                    trace = true;
 
                                 bool debug = false;
 
@@ -377,16 +386,21 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-timeout", ref value))
                                     timeout = (int)value.Value;
 
-                                StringList list = null;
+                                StringList escapeSubStringCommand = null;
+
+                                if (options.IsPresent("-escapesubstring", ref value))
+                                    escapeSubStringCommand = (StringList)value.Value;
+
+                                StringList preProcessArgumentsCommand = null;
 
                                 if (options.IsPresent("-preprocessarguments", ref value))
-                                    list = (StringList)value.Value;
+                                    preProcessArgumentsCommand = (StringList)value.Value;
 
                                 int argumentStopIndex = arguments.Count - 1;
                                 bool background = false;
 
                                 if (SharedStringOps.SystemEquals(
-                                        arguments[arguments.Count - 1],
+                                        arguments[argumentStopIndex],
                                         Characters.Ampersand.ToString()))
                                 {
                                     argumentStopIndex--;
@@ -398,30 +412,42 @@ namespace Eagle._Commands
                                 if (!PathOps.IsRemoteUri(execFileName))
                                     execFileName = PathOps.GetNativePath(execFileName);
 
-                                string execArguments = null;
-
-                                if ((argumentIndex + 1) < arguments.Count)
-                                {
-                                    if (commandLine)
-                                    {
-                                        execArguments = RuntimeOps.BuildCommandLine(
-                                            ArgumentList.GetRangeAsStringList(arguments,
-                                                argumentIndex + 1, argumentStopIndex,
-                                                dequote),
-                                            quoteAll);
-                                    }
-                                    else
-                                    {
-                                        execArguments = ListOps.Concat(arguments,
-                                            argumentIndex + 1, argumentStopIndex);
-                                    }
-                                }
-
                                 Result input = null;
                                 IObject inputObject = null;
                                 DataReceivedEventHandler outputHandler = null;
                                 DataReceivedEventHandler errorHandler = null;
                                 EventHandler startHandler = null;
+
+                                long processId = 0;
+                                bool attempted = false;
+                                ExitCode exitCode = ResultOps.SuccessExitCode();
+                                Result error = null;
+
+                                string execArguments = null;
+                                int argumentStartIndex = argumentIndex + 1;
+                                bool done = false;
+
+                                if (argumentStartIndex < arguments.Count)
+                                {
+                                    if (commandLine)
+                                    {
+                                        execArguments = RuntimeOps.BuildCommandLine(
+                                            interpreter,
+                                            ArgumentList.GetRangeAsStringList(
+                                                arguments, argumentStartIndex,
+                                                argumentStopIndex, dequote),
+                                            escapeSubStringCommand, quoteAll,
+                                            true, ref done, ref result);
+
+                                        if (done)
+                                            goto done;
+                                    }
+                                    else
+                                    {
+                                        execArguments = ListOps.Concat(arguments,
+                                            argumentStartIndex, argumentStopIndex);
+                                    }
+                                }
 
                                 code = ProcessOps.HandleCaptureOptions(
                                     interpreter, options, startCallback, stdOutCallback,
@@ -467,18 +493,12 @@ namespace Eagle._Commands
                                         FormatOps.WrapOrNull(errorHandler)), typeof(Exec).Name, priority);
                                 }
 
-                                long processId = 0;
-                                bool attempted = false;
-                                ExitCode exitCode = ResultOps.SuccessExitCode();
-                                Result error = null;
-
                                 if (code == ReturnCode.Ok)
                                 {
-                                    bool done = false;
-
                                     code = ProcessOps.PreProcessArguments(
-                                        interpreter, list, execFileName, directory,
-                                        ref execArguments, ref done, ref result);
+                                        interpreter, preProcessArgumentsCommand,
+                                        execFileName, directory, ref execArguments,
+                                        ref done, ref result);
 
                                     if (done)
                                         goto done;
@@ -495,7 +515,7 @@ namespace Eagle._Commands
                                             captureExitCode, captureOutput, useUnicode, ignoreStdErr,
                                             overrideCapture, userInterface, noSleep, killOnError,
                                             keepNewLine, background, !noEvents && !background,
-                                            noPreviousProcessId, ref processId, ref exitCode,
+                                            noPreviousProcessId, trace, ref processId, ref exitCode,
                                             ref result, ref error);
 
                                         attempted = true; /* probably? */

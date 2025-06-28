@@ -57,7 +57,8 @@ namespace Eagle._Commands
                             new IOption[] { 
                             new Option(null, OptionFlags.MustHaveReturnCodeValue, Index.Invalid, Index.Invalid, "-code", null),
                             new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-errorinfo", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-errorcode", null)
+                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-errorcode", null),
+                            Option.CreateEndOfOptions()
                         });
 
                         int argumentIndex = Index.Invalid;

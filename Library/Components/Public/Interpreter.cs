@@ -82658,7 +82658,9 @@ namespace Eagle._Components.Public
                 //        OPTIONAL USER SCRIPT LIBRARY (SYNCHRONOUS)         //
                 ///////////////////////////////////////////////////////////////
 
-                if (FlagOps.HasFlags(
+                if (!GlobalConfiguration.DoesValueExist(
+                        EnvVars.NoStartups, ConfigurationFlags.Interpreter) &&
+                    FlagOps.HasFlags(
                         localInitializeFlags, InitializeFlags.Startup1, true))
                 {
                     ScriptFlags scriptFlags = ScriptOps.GetFlags(
@@ -82847,11 +82849,14 @@ namespace Eagle._Components.Public
                 variableFlags, TclVars.Core.AutoPath, false,
                 false, false, false, ref autoPathList, ref error);
 
+            TracePriority priority = ResultOps.IsSuccess(code, false) ?
+                TracePriority.ScriptDebug : TracePriority.ScriptError;
+
             TraceOps.DebugTrace(String.Format(
                 "GetAutoPathList: autoPathList = {0}, code = {1}, " +
                 "error = {2}", FormatOps.WrapOrNull(autoPathList),
                 FormatOps.WrapOrNull(code), FormatOps.WrapOrNull(error)),
-                typeof(Interpreter).Name, TracePriority.ScriptDebug);
+                typeof(Interpreter).Name, priority);
 
             if ((code != ReturnCode.Ok) && ignoreError)
                 code = ReturnCode.Ok;
@@ -82887,11 +82892,14 @@ namespace Eagle._Components.Public
                 GetAutoPathValue(autoPathList, null),
                 traceList, ref error);
 
+            TracePriority priority = ResultOps.IsSuccess(code, false) ?
+                TracePriority.ScriptDebug : TracePriority.ScriptError;
+
             TraceOps.DebugTrace(String.Format(
                 "SetAutoPathList: autoPathList = {0}, code = {1}, " +
                 "error = {2}", FormatOps.WrapOrNull(autoPathList),
                 FormatOps.WrapOrNull(code), FormatOps.WrapOrNull(error)),
-                typeof(Interpreter).Name, TracePriority.ScriptDebug);
+                typeof(Interpreter).Name, priority);
 
             if ((code != ReturnCode.Ok) && ignoreError)
                 code = ReturnCode.Ok;
@@ -83753,7 +83761,9 @@ namespace Eagle._Components.Public
                 //               OPTIONAL SHELL STARTUP SCRIPT               //
                 ///////////////////////////////////////////////////////////////
 
-                if (FlagOps.HasFlags(
+                if (!GlobalConfiguration.DoesValueExist(
+                        EnvVars.NoStartups, ConfigurationFlags.Interpreter) &&
+                    FlagOps.HasFlags(
                         localInitializeFlags, InitializeFlags.Startup3, true))
                 {
                     ScriptFlags scriptFlags = ScriptOps.GetFlags(

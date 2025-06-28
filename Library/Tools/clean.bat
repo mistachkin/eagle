@@ -15,6 +15,9 @@
 ::
 
 SETLOCAL
+SET NoWritePrompt=1
+SET NoStartups=1
+SET NoWorkers=1
 
 REM SET __ECHO=ECHO
 REM SET __ECHO2=ECHO
@@ -70,7 +73,7 @@ SET TESTEXEFILES=%TESTEXEFILES% tclsh__.exe
 
 IF DEFINED CLEANDIRS GOTO skip_cleanDirs
 
-SET CLEANDIRS=.vs bin cov-int obj
+SET CLEANDIRS=bin obj
 SET CLEANDIRS=%CLEANDIRS% Build\bin Build\obj
 SET CLEANDIRS=%CLEANDIRS% Example\bin Example\obj
 SET CLEANDIRS=%CLEANDIRS% Installer\bin Installer\obj
@@ -91,19 +94,28 @@ SET CLEANDIRS=%CLEANDIRS% Update\bin Update\obj
 
 %_VECHO% CleanDirs = '%CLEANDIRS%'
 
+IF DEFINED CLEANRECURSIVEDIRS GOTO skip_cleanRecursiveDirs
+
+SET CLEANRECURSIVEDIRS=.vs
+SET CLEANRECURSIVEDIRS=%CLEANRECURSIVEDIRS% cov-int
+
+:cleanRecursiveDirs
+
+%_VECHO% CLEANRECURSIVEDIRS = '%CLEANRECURSIVEDIRS%'
+
 IF NOT DEFINED CLEANEXTS (
   SET CLEANEXTS=asc exe htm log nupkg rar txt zip
 )
 
 %_VECHO% CleanExts = '%CLEANEXTS%'
 
-IF DEFINED PLUGINDIRS GOTO skip_PluginDirs
+IF DEFINED PLUGINRECURSIVEDIRS GOTO skip_PluginRecursiveDirs
 
-SET PLUGINDIRS=Plugins\bin Plugins\obj
+SET PLUGINRECURSIVEDIRS=Plugins\bin Plugins\obj
 
-:skip_PluginDirs
+:skip_PluginRecursiveDirs
 
-%_VECHO% PluginDirs = '%PLUGINDIRS%'
+%_VECHO% PluginRecursiveDirs = '%PLUGINRECURSIVEDIRS%'
 
 IF DEFINED RELEASEDIRS GOTO skip_releaseDirs
 
@@ -236,18 +248,18 @@ SET RELEASESUBDIRS=%RELEASESUBDIRS% DebugDllCoverage ReleaseDllCoverage
 
 %_VECHO% ReleaseSubDirs = '%RELEASESUBDIRS%'
 
-IF DEFINED PACKAGETEADIRS GOTO skip_PackageTeaDirs
+IF DEFINED PACKAGETEARECURSIVEDIRS GOTO skip_PackageTeaRecursiveDirs
 
 REM
 REM NOTE: *WARNING* The asterisk character ("*") will be appended to each
 REM       of these patterns prior to use.
 REM
-SET PACKAGETEADIRS=Native\Package\src\win\tea\Debug
-SET PACKAGETEADIRS=%PACKAGETEADIRS% Native\Package\src\win\tea\Release
+SET PACKAGETEARECURSIVEDIRS=Native\Package\src\win\tea\Debug
+SET PACKAGETEARECURSIVEDIRS=%PACKAGETEARECURSIVEDIRS% Native\Package\src\win\tea\Release
 
-:skip_PackageTeaDirs
+:skip_PackageTeaRecursiveDirs
 
-%_VECHO% PackageTeaDirs = '%PACKAGETEADIRS%'
+%_VECHO% PackageTeaRecursiveDirs = '%PACKAGETEARECURSIVEDIRS%'
 
 IF DEFINED PACKAGETEAFILES GOTO skip_PackageTeaFiles
 
@@ -301,7 +313,38 @@ FOR %%E IN (%CLEANEXTS%) DO (
   )
 )
 
-FOR %%C IN (%PLUGINDIRS%) DO (
+FOR %%C IN (%CLEANRECURSIVEDIRS%) DO (
+  %_AECHO% Checking for directories matching "%SOURCE%\%%C"...
+  %_AECHO%.
+
+  FOR /F "delims=" %%D IN ('DIR /B /S /AD "%SOURCE%\%%C" 2^> NUL') DO (
+    %__ECHO% RMDIR /S /Q "%%D"
+
+    IF ERRORLEVEL 1 (
+      ECHO Could not remove directory "%%D".
+      ECHO.
+      GOTO errors
+    ) ELSE (
+      %_AECHO% Removed directory "%%D".
+      %_AECHO%.
+    )
+  )
+
+  FOR /F "delims=" %%D IN ('DIR /B /S /AHD "%SOURCE%\%%C" 2^> NUL') DO (
+    %__ECHO% RMDIR /S /Q "%%D"
+
+    IF ERRORLEVEL 1 (
+      ECHO Could not remove directory "%%D".
+      ECHO.
+      GOTO errors
+    ) ELSE (
+      %_AECHO% Removed directory "%%D".
+      %_AECHO%.
+    )
+  )
+)
+
+FOR %%C IN (%PLUGINRECURSIVEDIRS%) DO (
   %_AECHO% Checking for plugin directories matching "%SOURCE%\%%C"...
   %_AECHO%.
 
@@ -373,7 +416,7 @@ FOR %%C IN (%RELEASEDIRS%) DO (
   )
 )
 
-FOR %%C IN (%PACKAGETEADIRS%) DO (
+FOR %%C IN (%PACKAGETEARECURSIVEDIRS%) DO (
   %_AECHO% Checking for package TEA directories matching "%SOURCE%\%%C*"...
   %_AECHO%.
 

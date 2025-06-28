@@ -20,6 +20,9 @@ REM ****************************************************************************
 
 SETLOCAL
 ECHO FLIGHT STARTED ON %DATE% AT %TIME% BY %USERDOMAIN%\%USERNAME%
+SET NoWritePrompt=1
+SET NoStartups=1
+SET NoWorkers=1
 
 REM SET __ECHO=ECHO
 REM SET __ECHO2=ECHO

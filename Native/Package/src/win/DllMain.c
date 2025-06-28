@@ -40,13 +40,13 @@ BOOL WINAPI		DllMain(HINSTANCE hInstance, DWORD reason,
  *       This mutex should be visible in all user sessions.
  */
 
-static HANDLE globalMutex = NULL;
+static volatile HANDLE globalMutex = NULL;
 
 /*
  * NOTE: The mutex that we create and hold while this DLL is loaded.
  */
 
-static HANDLE mutex = NULL;
+static volatile HANDLE mutex = NULL;
 
 /*
  *----------------------------------------------------------------------

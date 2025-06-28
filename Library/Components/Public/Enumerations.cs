@@ -8759,11 +8759,13 @@ namespace Eagle._Components.Public
     public enum BlobBehavior
     {
         None = 0,
-        Raw = 1,
-        Base64 = 2,
-        Hexadecimal = 3,
-        List = 4, /* COMPAT: Eagle beta. */
-        Object = 5,
+        List = 0x1, /* COMPAT: Eagle beta. */
+        Dump = 0x2,
+        Object = 0x4,
+        Base64 = 0x8,
+        Hexadecimal = 0x10,
+        Raw = 0x20,
+        Unknown = 0x40,
         Default = List
     }
 

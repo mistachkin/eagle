@@ -2376,10 +2376,17 @@ namespace Eagle._Components.Private
         #region System.Drawing.Font Methods
 #if DRAWING
         private static float BiggerFontSize(
-            Font font /* in */
+            Font font,    /* in */
+            float? emSize /* in */
             )
         {
-            return (font != null) ? font.Size * 2 : DefaultFontSize;
+            if (emSize != null)
+                return (float)emSize * 2;
+
+            if (font == null)
+                return DefaultFontSize;
+
+            return font.Size * 2;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2393,7 +2400,7 @@ namespace Eagle._Components.Private
             if (font != null)
             {
                 return new Font(
-                    family, BiggerFontSize(font),
+                    family, BiggerFontSize(font, emSize),
                     font.Style, font.Unit, font.GdiCharSet,
                     font.GdiVerticalFont);
             }

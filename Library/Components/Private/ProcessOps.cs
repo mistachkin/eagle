@@ -1480,22 +1480,27 @@ namespace Eagle._Components.Private
             ref Result error         /* out */
             )
         {
-            try
+            //
+            // NOTE: If they supplied a working directory, normalize
+            //       it and then use it; otherwise, use the current
+            //       directory for this process.
+            //
+            string workingDirectory = null;
+
+            if (directory != null)
             {
-                //
-                // NOTE: If they supplied a working directory, normalize
-                //       it and then use it; otherwise, use the current
-                //       directory for this process.
-                //
-                return (directory != null) ?
-                    PathOps.ResolveFullPath(interpreter, directory) :
-                    Directory.GetCurrentDirectory(); /* EXEMPT */
+                workingDirectory = PathOps.ResolveFullPath(
+                    interpreter, directory, ref error);
             }
-            catch (Exception e)
+            else
             {
-                error = e;
-                return null;
+                workingDirectory = PathOps.GetCurrentDirectory();
+
+                if (workingDirectory == null)
+                    error = "invalid current directory";
             }
+
+            return workingDirectory;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1872,7 +1877,7 @@ namespace Eagle._Components.Private
 
         public static ReturnCode PreProcessArguments(
             Interpreter interpreter,  /* in */
-            StringList list,          /* in: OPTIONAL */
+            StringList list,          /* in, out: OPTIONAL */
             string execFileName,      /* in: OPTIONAL */
             string directory,         /* in: OPTIONAL */
             ref string execArguments, /* in, out */
@@ -2518,6 +2523,8 @@ namespace Eagle._Components.Private
             bool noPreviousProcessId,       /* in: Do NOT set and/or reset the
                                              *     PreviousProcessId of the
                                              *     interpreter. */
+            bool trace,                     /* in: Non-zero to emit a trace with
+                                             *     the final command line. */
             ref long id,                    /* out: Upon returning, the Id of
                                              *      started process, if any. */
             ref ExitCode exitCode,          /* out: Upon success, ExitCode from
@@ -2652,6 +2659,18 @@ namespace Eagle._Components.Private
             {
                 error = localError;
                 return ReturnCode.Error;
+            }
+
+            if (trace)
+            {
+                IDebugHost debugHost = (interpreter != null) ?
+                    interpreter.InternalHost as IDebugHost : null;
+
+                DebugOps.WriteWithoutFail(debugHost,
+                    String.Format("ExecuteProcess: {0} {1}",
+                    FormatOps.WrapOrNull(startInfo.FileName),
+                    FormatOps.WrapOrNull(startInfo.Arguments)),
+                    true, true);
             }
 
             //
@@ -2903,8 +2922,8 @@ namespace Eagle._Components.Private
                 null, null, null, null, ProcessWindowStyle.Normal,
                 eventFlags, null, false, true, true, useUnicode,
                 false, false, false, false, false, true, false,
-                true, false, ref id, ref exitCode, ref result,
-                ref error);
+                true, false, false, ref id, ref exitCode,
+                ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2929,8 +2948,8 @@ namespace Eagle._Components.Private
                 null, null, fileName, arguments, null, null, null, null,
                 null, null, ProcessWindowStyle.Normal, eventFlags, null,
                 false, true, true, false, false, false, false, false,
-                true, false, false, true, false, ref id, ref exitCode,
-                ref result, ref error);
+                true, false, false, true, false, false, ref id,
+                ref exitCode, ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2956,7 +2975,7 @@ namespace Eagle._Components.Private
                 null, null, fileName, arguments, directory, null, null,
                 null, null, null, ProcessWindowStyle.Normal, eventFlags,
                 null, true, false, false, false, false, false, false,
-                false, false, false, false, true, false, ref id,
+                false, false, false, false, true, false, false, ref id,
                 ref exitCode, ref result, ref error);
         }
 
@@ -2982,7 +3001,7 @@ namespace Eagle._Components.Private
                 null, null, fileName, arguments, directory, null, null,
                 null, null, null, ProcessWindowStyle.Normal, eventFlags,
                 null, false, false, false, false, false, false, false,
-                false, false, false, false, true, false, ref id,
+                false, false, false, false, true, false, false, ref id,
                 ref exitCode, ref result, ref error);
         }
 
@@ -3009,8 +3028,8 @@ namespace Eagle._Components.Private
                 null, null, fileName, arguments, directory, null, null,
                 null, null, null, ProcessWindowStyle.Normal, eventFlags,
                 null, false, false, false, false, false, false, false,
-                false, false, false, background, true, false, ref id,
-                ref exitCode, ref result, ref error);
+                false, false, false, background, true, false, false,
+                ref id, ref exitCode, ref result, ref error);
         }
 #endif
         #endregion

@@ -15,6 +15,9 @@
 ::
 
 SETLOCAL
+SET NoWritePrompt=1
+SET NoStartups=1
+SET NoWorkers=1
 
 REM SET __ECHO=ECHO
 REM SET __ECHO2=ECHO

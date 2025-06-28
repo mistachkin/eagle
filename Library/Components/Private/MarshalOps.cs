@@ -10127,7 +10127,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode FixupReturnValue(
+        private static ReturnCode FixupReturnValue(
             Interpreter interpreter, /* in */
             object value,            /* in */
             bool alias,              /* in */
@@ -12134,52 +12134,15 @@ namespace Eagle._Components.Private
             bool alias                 /* in */
             )
         {
+            Result result; /* REUSED */
+
             switch (blobBehavior)
             {
-                case BlobBehavior.None:
+                case BlobBehavior.None: // {<null>}
                     {
                         return null;
                     }
-                case BlobBehavior.Raw:
-                    {
-                        string stringValue = null;
-
-                        if (StringOps.GetString(
-                                null, value, EncodingType.Binary,
-                                ref stringValue) == ReturnCode.Ok)
-                        {
-                            return stringValue;
-                        }
-                        else
-                        {
-                            return errorValue;
-                        }
-                    }
-                case BlobBehavior.Base64:
-                    {
-                        return Convert.ToBase64String(value,
-                            Base64FormattingOptions.InsertLineBreaks);
-                    }
-                case BlobBehavior.Hexadecimal:
-                    {
-                        return ArrayOps.ToHexadecimalString(value);
-                    }
-                case BlobBehavior.Object:
-                    {
-                        Result result = null;
-
-                        if (FixupReturnValue(
-                                interpreter, value, alias,
-                                ref result) == ReturnCode.Ok)
-                        {
-                            return result;
-                        }
-                        else
-                        {
-                            return errorValue;
-                        }
-                    }
-                case BlobBehavior.List:
+                case BlobBehavior.List: // {0 .. 99 .. 100 .. 255}
                     {
                         if ((cultureInfo != null) ||
                             (numberFormat != null))
@@ -12204,8 +12167,80 @@ namespace Eagle._Components.Private
                             return new ByteList(value).ToString();
                         }
                     }
+                case BlobBehavior.Dump: // {00 .. 99 .. AA .. FF}
+                    {
+                        return ArrayOps.ToString(
+                            value, cultureInfo, "X2", true, false);
+                    }
+                case BlobBehavior.Object: // {System.Byte[]#<int>}
+                    {
+                        result = null;
+
+                        if (FixupReturnValue(
+                                interpreter, value, alias,
+                                ref result) == ReturnCode.Ok)
+                        {
+                            return result;
+                        }
+                        else
+                        {
+                            TraceOps.DebugTrace(String.Format(
+                                "FixupByteArrayDataValue: failed " +
+                                "to get object handle from value {0}: {1}",
+                                FormatOps.WrapOrNull(
+                                    ArrayOps.ToHexadecimalString(value)),
+                                FormatOps.WrapOrNull(result)),
+                                typeof(MarshalOps).Name,
+                                TracePriority.MarshalError);
+
+                            return errorValue;
+                        }
+                    }
+                case BlobBehavior.Base64: // {AGNk/w==}
+                    {
+                        return Convert.ToBase64String(value,
+                            Base64FormattingOptions.InsertLineBreaks);
+                    }
+                case BlobBehavior.Hexadecimal: // {006364ff}
+                    {
+                        return ArrayOps.ToHexadecimalString(value);
+                    }
+                case BlobBehavior.Raw: // {<nul>cd<\xFF>}
+                    {
+                        string stringValue = null;
+
+                        result = null;
+
+                        if (StringOps.GetString(null, value,
+                                EncodingType.Binary, ref stringValue,
+                                ref result) == ReturnCode.Ok)
+                        {
+                            return stringValue;
+                        }
+                        else
+                        {
+                            TraceOps.DebugTrace(String.Format(
+                                "FixupByteArrayDataValue: failed " +
+                                "to get raw string from value {0}: {1}",
+                                FormatOps.WrapOrNull(
+                                    ArrayOps.ToHexadecimalString(value)),
+                                FormatOps.WrapOrNull(result)),
+                                typeof(MarshalOps).Name,
+                                TracePriority.MarshalError);
+
+                            return errorValue;
+                        }
+                    }
+                case BlobBehavior.Unknown: // {<error>}
                 default:
                     {
+                        TraceOps.DebugTrace(String.Format(
+                            "FixupByteArrayDataValue: " +
+                            "unsupported blob behavior {0}",
+                            FormatOps.WrapOrNull(blobBehavior)),
+                            typeof(MarshalOps).Name,
+                            TracePriority.MarshalError);
+
                         return errorValue;
                     }
             }
@@ -12297,10 +12332,9 @@ namespace Eagle._Components.Private
                 default:
                     {
                         TraceOps.DebugTrace(String.Format(
-                            "FixupDateTimeDataValue: unsupported " +
-                            "date time behavior {0}",
-                            FormatOps.WrapOrNull(
-                                dateTimeBehavior)),
+                            "FixupDateTimeDataValue: " +
+                            "unsupported date time behavior {0}",
+                            FormatOps.WrapOrNull(dateTimeBehavior)),
                             typeof(MarshalOps).Name,
                             TracePriority.MarshalError);
 

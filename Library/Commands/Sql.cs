@@ -45,6 +45,15 @@ namespace Eagle._Commands
     [ObjectGroup("managedEnvironment")]
     internal sealed class Sql : Core
     {
+        #region Private Constants
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static string ChangedEventName = "Changed";
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Private Data
         private readonly EnsembleDictionary transactionSubCommands =
         new EnsembleDictionary(new string[] {
@@ -384,7 +393,7 @@ namespace Eagle._Commands
                                                                         if (connectionType != null)
                                                                         {
                                                                             EventInfo eventInfo = connectionType.GetEvent(
-                                                                                "Changed");
+                                                                                ChangedEventName);
 
                                                                             if (eventInfo != null)
                                                                             {
@@ -764,7 +773,7 @@ namespace Eagle._Commands
                                                                         if (connectionType != null)
                                                                         {
                                                                             EventInfo eventInfo = connectionType.GetEvent(
-                                                                                "Changed");
+                                                                                ChangedEventName);
 
                                                                             if (eventInfo != null)
                                                                             {

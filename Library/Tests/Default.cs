@@ -5403,6 +5403,62 @@ namespace Eagle._Tests
             token = 0;
             result = null;
 
+            if (interpreter.AddExecuteCallback("seti",
+                    TestSetImmutableCommandCallback, clientData,
+                    ref token, ref result) == ReturnCode.Ok)
+            {
+                if (token != 0)
+                {
+                    if (results == null)
+                        results = new ResultList();
+
+                    results.Add(token);
+                }
+            }
+            else
+            {
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
+
+                    results.Add(result);
+                }
+
+                errorCount++;
+            }
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback("writable",
+                    TestWritableCommandCallback, clientData,
+                    ref token, ref result) == ReturnCode.Ok)
+            {
+                if (token != 0)
+                {
+                    if (results == null)
+                        results = new ResultList();
+
+                    results.Add(token);
+                }
+            }
+            else
+            {
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
+
+                    results.Add(result);
+                }
+
+                errorCount++;
+            }
+
+            token = 0;
+            result = null;
+
             if (interpreter.AddExecuteCallback("exists",
                     TestExistsCommandCallback, clientData,
                     ref token, ref result) == ReturnCode.Ok)
@@ -11355,10 +11411,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11380,10 +11439,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11446,10 +11508,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11462,10 +11527,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11527,10 +11595,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11552,10 +11623,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11577,10 +11651,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11602,10 +11679,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11627,10 +11707,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11652,10 +11735,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11677,10 +11763,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11702,10 +11791,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11727,10 +11819,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11752,10 +11847,13 @@ namespace Eagle._Tests
                 errorCount++;
             }
 
-            if (results == null)
-                results = new ResultList();
+            if (result != null)
+            {
+                if (results == null)
+                    results = new ResultList();
 
-            results.Add(result);
+                results.Add(result);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11818,10 +11916,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11834,10 +11935,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11850,10 +11954,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11866,10 +11973,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11882,10 +11992,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11898,10 +12011,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11914,10 +12030,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11930,10 +12049,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11946,10 +12068,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -11962,10 +12087,13 @@ namespace Eagle._Tests
                     errorCount++;
                 }
 
-                if (results == null)
-                    results = new ResultList();
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
 
-                results.Add(result);
+                    results.Add(result);
+                }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -16282,6 +16410,145 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Command Callback Methods
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        private static ReturnCode TestSetImmutableCommandCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ArgumentList arguments,
+            ref Result result
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if ((argumentCount < 2) || (argumentCount > 3))
+            {
+                result = "wrong # args: should be \"seti varName ?newValue?\"";
+                return ReturnCode.Error;
+            }
+
+            string varName = arguments[1];
+            VariableFlags variableFlags = VariableFlags.DirectValueMask;
+
+            if (argumentCount == 3)
+            {
+                Argument valueArgument = arguments[2];
+
+                if (valueArgument != null)
+                {
+                    variableFlags |= VariableFlags.Invariant;
+
+                    if (interpreter.SetVariableValue2(
+                            variableFlags, varName,
+                            valueArgument.Value, null,
+                            ref result) == ReturnCode.Ok)
+                    {
+                        result = valueArgument;
+                        return ReturnCode.Ok;
+                    }
+                }
+                else
+                {
+                    result = String.Format(
+                        "can't set {0}: value is invalid",
+                        FormatOps.ErrorVariableName(varName));
+                }
+
+                return ReturnCode.Error;
+            }
+
+            variableFlags |= VariableFlags.SkipToString;
+
+            return interpreter.GetVariableValue(
+                variableFlags, varName, ref result, ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        private static ReturnCode TestWritableCommandCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ArgumentList arguments,
+            ref Result result
+            )
+        {
+            // writable
+
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 2)
+            {
+                result = "wrong # args: should be \"writable name\"";
+                return ReturnCode.Error;
+            }
+
+            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+            {
+                string varName = arguments[1];
+                VariableFlags variableFlags = VariableFlags.None;
+                IVariable variable = null;
+
+                if (interpreter.GetVariableViaResolversWithSplit(
+                        varName, ref variableFlags, ref variable,
+                        ref result) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                if (variable == null)
+                {
+                    result = String.Format(
+                        "can't flag {0}: variable is invalid",
+                        FormatOps.ErrorVariableName(varName));
+
+                    return ReturnCode.Error;
+                }
+
+                StringList list = new StringList();
+
+                if (variable.HasFlags(VariableFlags.ReadOnly, true))
+                {
+                    variable.SetFlags(VariableFlags.ReadOnly, false);
+                    list.Add(VariableFlags.ReadOnly.ToString());
+                }
+
+                if (variable.HasFlags(VariableFlags.Invariant, true))
+                {
+                    variable.SetFlags(VariableFlags.Invariant, false);
+                    list.Add(VariableFlags.Invariant.ToString());
+                }
+
+                result = list;
+                return ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         /* Eagle._Components.Public.Delegates.ExecuteCallback */
         private static ReturnCode TestExistsCommandCallback(
             Interpreter interpreter,

@@ -28,6 +28,48 @@
 #       theme or piece of functionality.
 #
 namespace eval ::Eagle {
+  proc promptForAndGetTextInput { {prompt ""} {title ""} } {
+    if {[string length $prompt] == 0} then {
+      set prompt "Please enter some text input: "
+    }
+
+    if {[string length $title] == 0} then {
+      if {[isEagle]} then {
+        set title [info engine]
+      } elseif {[info exists ::tcl_platform(engine)]} then {
+        set title $::tcl_platform(engine)
+      } else {
+        set title "Eagle Library"
+      }
+    }
+
+    if {[isEagle]} then {
+      if {![info exists ::no(inputBox)] && \
+          [llength [info commands object]] > 0} then {
+        if {[catch {
+          object load Microsoft.VisualBasic
+        } assembly] == 0} then {
+          return [string trim [string trim [object invoke \
+              Microsoft.VisualBasic.Interaction InputBox \
+              $prompt $title]]]
+        }
+      }
+    }
+
+    if {[string length $title] > 0} then {
+      if {[isEagle]} then {
+        catch {host writebox -- $title; puts stdout ""}
+      } else {
+        catch {puts stdout [appendArgs "Title: " $title]}
+      }
+    }
+
+    puts -nonewline stdout [appendArgs "Prompt: " $prompt]
+    flush stdout
+
+    return [string trim [gets stdin]]
+  }
+
   proc addTestScripts { scriptVarName args } {
     upvar 1 $scriptVarName script
 
@@ -8226,13 +8268,41 @@ namespace eval ::Eagle {
     }
   }
 
-  proc getRemoteMessageLimit {} {
-    if {[info exists ::eagle_debugger(logRemoteMessageLimit)]} then {
-      set limit $::eagle_debugger(logRemoteMessageLimit)
-    } else {
-      set limit -1; # i.e. use maximum message limit
+  proc getRemoteMessageRaiseError {} {
+    #
+    # HACK: Should script errors be raised when [logRemoteMessage] is
+    #       unable to work correctly due to error conditions that are
+    #       detected in advance, i.e. they are not unexpected errors?
+    #
+    if {[info exists ::eagle_debugger(logRemoteMessageRaiseError)]} then {
+      set raiseError $::eagle_debugger(logRemoteMessageRaiseError)
+
+      if {[string is true -strict $raiseError]} then {
+        set raiseError true
+      }
     }
 
+    return false
+  }
+
+  proc getRemoteMessageRetries {} {
+    #
+    # HACK: Should we retry the HTTPS request when it fails?  If so,
+    #       how many times?  If this value is zero, no retries will
+    #       be performed.
+    #
+    if {[info exists ::eagle_debugger(logRemoteMessageRetries)]} then {
+      set retries $::eagle_debugger(logRemoteMessageRetries)
+
+      if {[string is integer -strict $retries] && $retries >= 0} then {
+        return $retries
+      }
+    }
+
+    return 0; # NOTE: Do not retry.
+  }
+
+  proc getRemoteMessageLimit {} {
     #
     # NOTE: This should be the maximum possible remote message size,
     #       given the following set of simplifying assumptions:
@@ -8248,6 +8318,12 @@ namespace eval ::Eagle {
     #
     #       5. The overhead for URL encoding is 4 / 3.
     #
+    if {[info exists ::eagle_debugger(logRemoteMessageLimit)]} then {
+      set limit $::eagle_debugger(logRemoteMessageLimit)
+    } else {
+      set limit -1; # i.e. use maximum message limit
+    }
+
     set maximumLimit [expr {
       (1024 * 128) - (1000 * 2)
     }]; # 129072 (minimum?) <= 191568 (tested) <= 262144 (maximum?)
@@ -8314,17 +8390,17 @@ namespace eval ::Eagle {
           message {uri ""} {apiKey ""} {password ""} {channel stdout}
           {quiet false} } {
     #
-    # HACK: Should this procedure raise a script error if some kind
-    #       of error condition is detected, i.e. not an unexpected
-    #       error?
+    # HACK: Should script errors be raised when [logRemoteMessage] is
+    #       unable to work correctly due to error conditions that are
+    #       detected in advance, i.e. they are not unexpected errors?
     #
-    if {[info exists ::eagle_debugger(logRemoteMessageRaiseError)] && \
-        [string is true -strict \
-            $::eagle_debugger(logRemoteMessageRaiseError)]} then {
-      set raiseError true
-    } else {
-      set raiseError false
-    }
+    #       Some examples are:
+    #
+    #       1. Remote logging password is unavailable when required.
+    #
+    #       2. Message exceeds the configured message size limits.
+    #
+    set raiseError [getRemoteMessageRaiseError]
 
     #
     # NOTE: This procedure attempts to (securely) send the specified
@@ -8414,11 +8490,12 @@ namespace eval ::Eagle {
         set start [clock now -gmt true]
       }
 
+      set retries [getRemoteMessageRetries]
       set ok false
 
       try {
         set result [string trim [uri upload \
-            -timeouttype network -inline -retries 0 \
+            -timeouttype network -inline -retries $retries \
             -data $query -- $uri]]
 
         if {[regexp -- {^OK \d+$} $result]} then {; # VERIFY OK
@@ -8434,8 +8511,7 @@ namespace eval ::Eagle {
           #       we are forbidden from doing so.  Maybe consider
           #       changing this default?
           #
-          if {$raiseError || \
-              ![info exists ::no(NoErrorRemoteMessage)]} then {
+          if {![info exists ::no(NoErrorRemoteMessage)]} then {
             error $message; # FAIL-SAFE
           }
         }
@@ -9284,7 +9360,7 @@ namespace eval ::Eagle {
       return false
     }
 
-    proc eagle_enableShellUnknown { {enable ""} } {
+    proc eagle_enableShellUnknown { {enable ""} {quiet false} } {
       if {[string length $enable] > 0} then {
         if {$enable} then {
           if {[llength [info commands ::unknown]] > 0 && \
@@ -9293,6 +9369,12 @@ namespace eval ::Eagle {
             rename ::unknown ::savedUnknown
             rename ::eagle_shellUnknown ::unknown
 
+            if {!$quiet} then {
+              tputs [getTestChannelOrDefault] \
+                  "---- enabled shell \[unknown\] handler\n"
+            }
+
+            addRuntimeOption shellUnknown_IsEnabled
             return true
           }
         } else {
@@ -9302,6 +9384,12 @@ namespace eval ::Eagle {
             rename ::unknown ::eagle_shellUnknown
             rename ::savedUnknown ::unknown
 
+            if {!$quiet} then {
+              tputs [getTestChannelOrDefault] \
+                  "---- disabled shell \[unknown\] handler\n"
+            }
+
+            removeRuntimeOption shellUnknown_IsEnabled
             return true
           }
         }
@@ -9387,48 +9475,145 @@ namespace eval ::Eagle {
       return false
     }
 
+    proc eagle_shellBuildCommand { shell name args } {
+      set result [list]
+
+      maybeInvokeForTester ::initialShellBuildCommand; # HOOK
+
+      lappend result exec -nocapture -commandline
+      lappend result -success Success -directory [pwd]
+
+      if {[hasRuntimeOption shellUnknown_EmitTrace]} then {
+        lappend result -trace
+      }
+
+      lappend result --
+
+      if {[isWindows] || \
+          [hasRuntimeOption shellUnknown_ViaShell]} then {
+        lappend result $shell; # cmd.exe -OR- /bin/bash
+      }
+
+      #
+      # HACK: By default, append all command arguments as their
+      #       own elements.  In some cases, e.g. PowerShell, we
+      #       must combine all these elements into one argument
+      #       prior to shell command execution.
+      #
+      set oneArgument false
+
+      #
+      # HACK: By default, single quotes are basically ignored.
+      #       In some cases, e.g. PowerShell, we must wrap the
+      #       resulting shell command in single quotes as well
+      #       as escape embedded single quotes by doubling them
+      #       up.
+      #
+      set singleQuote false
+
+      maybeInvokeForTester ::beforeShellBuildCommand; # HOOK
+
+      if {[isWindows]} then {
+        #
+        # HACK: Generally, we want to use the "/C" option when
+        #       using "cmd.exe" -OR- any of its various clones
+        #       on Windows.  Alternatively, for PowerShell, we
+        #       (apparently?) want to use a "-Command" prefix.
+        #
+        set shellOnly [file tail $shell]
+
+        if {[hasRuntimeOption shellUnknown_ForceSlashC] || \
+            [string match -nocase *cmd.exe $shellOnly] || \
+            [string match -nocase 4nt.exe $shellOnly] || \
+            [string match -nocase tcc.exe $shellOnly]} then {
+          lappend result /C; # cmd.exe /C
+        } elseif {[hasRuntimeOption shellUnknown_ForceDashCommand] || \
+            [string match -nocase PowerShell.exe $shellOnly] || \
+            [string match -nocase pwsh.exe $shellOnly]} then {
+          set oneArgument true; # PowerShell.exe -Command <script>
+          set singleQuote true; # Escape by doubling single quotes...
+          lappend result -Command; # PowerShell.exe -Command
+        } elseif {[info exists \
+            ::eagle_debugger(shellUnknownCommandPrefix)]} then {
+          #
+          # HACK: Attempt to use the (pre-)configured shell command
+          #       prefix, which MUST be a properly formatted list.
+          #
+          set prefix $::eagle_debugger(shellUnknownCommandPrefix)
+
+          if {[string is list -strict $prefix]} then {
+            eval lappend result $prefix; # ??
+          } else {
+            set result [list]
+
+            maybeInvokeForTester ::shellBuildCommandError; # HOOK
+
+            return $result
+          }
+        }
+      }
+
+      maybeInvokeForTester ::afterShellBuildCommand; # HOOK
+
+      if {$oneArgument} then {
+        set subResult [list]
+
+        lappend subResult $name; # e.g. Get-Process
+        eval lappend subResult $args; # e.g. Win*
+
+        lappend result $subResult
+      } else {
+        lappend result $name; # e.g. DIR
+        eval lappend result $args; # e.g. /S /B
+      }
+
+      maybeInvokeForTester ::finalShellBuildCommand; # HOOK
+
+      return $result
+    }
+
     proc eagle_shellUnknown { name args } {
+      #
+      # HACK: Pay special attention to the number three (3) in this [if]
+      #       command.  It represents the total number of EvaluateScript
+      #       frames that should exist between the interactive loop and
+      #       this procedure.  Please refer to the comments within the
+      #       [eagle_isShellScriptLevel] procedure for further details.
+      #
       if {![info exists ::no(shellUnknown)] && \
-          [eagle_isShellScriptLevel 3] && \
-          [eagle_haveShell shell]} then {
+          [eagle_isShellScriptLevel 3] && [eagle_haveShell shell]} then {
         set skipped false
 
-        if {[catch {
-          set command [list]
+        set command [eval \
+            eagle_shellBuildCommand [list $shell] [list $name] $args]
 
-          lappend command exec -nocapture -commandline
-          lappend command -success Success -directory [pwd]
-          lappend command --
-
-          if {[isWindows] || \
-              [hasRuntimeOption shellUnknown_ViaShell]} then {
-            lappend command $shell; # cmd.exe -OR- /bin/bash
-          }
-
-          if {[isWindows]} then {
-            lappend command $shell /C; # cmd.exe /C
-          }
-
-          lappend command $name
-          eval lappend command $args
-
+        if {[llength $command] > 0} then {
           if {[hasRuntimeOption shellUnknown_WhatIf]} then {
             maybeInvokeForTester ::whatIfShellUnknown; # HOOK
             host result WhatIf [appendArgs "SHELL: " $command \n]
-          } else {
+          } elseif {[catch {
             maybeInvokeForTester ::beforeShellUnknown; # HOOK
+
+            if {[hasRuntimeOption shellUnknown_Verbose]} then {
+              host result WhatIf [appendArgs "SHELL: " $command \n]
+            }
+
             eval $command
-          }
-        } result] == 0} then {
-          maybeInvokeForTester ::afterShellUnknown; # HOOK
+          } result] == 0} then {
+            maybeInvokeForTester ::afterShellUnknown; # HOOK
 
-          return $result
+            return $result
+          } else {
+            maybeInvokeForTester ::shellUnknownError; # HOOK
+
+            if {![hasRuntimeOption shellUnknown_ErrorFallback]} then {
+              error $result
+            }
+          }
         } else {
-          maybeInvokeForTester ::shellUnknownError; # HOOK
+          set skipped true
 
-          if {![hasRuntimeOption shellUnknown_ErrorFallback]} then {
-            error $result
-          }
+          maybeInvokeForTester ::shellUnknownNoCommand; # HOOK
         }
       } else {
         set skipped true
@@ -9451,21 +9636,55 @@ namespace eval ::Eagle {
       return [list pwd file info]
     }
 
-    proc eagle_probeForCommands { names } {
-      foreach name $names {
-        if {[catch $name error] == 0} then {
-          continue
-        }
-
-        if {$error ne [string map [list %name% $name] \
-            "invalid command name \"%name%\""]} then {
-          continue
-        }
-
+    proc eagle_haveProbeForCommand {} {
+      if {[catch {
+        info commands eagle_probeForCommand
+      } result] == 0 && [llength $result] > 0} then {
+        return true
+      } else {
         return false
       }
+    }
+
+    proc eagle_probeForCommand { name } {; # HOOK
+      if {[catch {
+        info commands $name
+      } result] == 0 && [llength $result] > 0} then {
+        return true
+      } else {
+        return false
+      }
+    }
+
+    proc eagle_probeForCommands { names } {
+      set result true
 
-      return true
+      maybeInvokeForTester ::beforeProbeForCommands; # HOOK
+      set haveProbeForCommand [eagle_haveProbeForCommand]
+
+      foreach name $names {
+        if {$haveProbeForCommand} then {
+          if {[catch {
+            eagle_probeForCommand $name
+          } result] == 0 && $result} then {
+            continue
+          }
+        } else {
+          if {[catch $name error] == 0} then {
+            continue
+          }
+
+          if {$error ne [string map [list %name% $name] \
+              "invalid command name \"%name%\""]} then {
+            continue
+          }
+        }
+
+        set result false; break; # NOTE: Missing command?
+      }
+
+      maybeInvokeForTester ::afterProbeForCommands; # HOOK
+      return $result
     }
 
     proc eagle_probeForPromptCommands { {names ""} } {
@@ -9478,9 +9697,8 @@ namespace eval ::Eagle {
 
     proc eagle_getShellPromptScript {} {
       #
-      # NOTE: Thanks go to Kyle.  Enhance the default interactive shell
-      #       prompt so that it always includes the current directory,
-      #       etc.
+      # NOTE: Lots of thanks go to Kyle.  Enhance default interactive shell
+      #       prompt so that it always includes the current directory, etc.
       #
       return {
         apply [list [list] {
@@ -9519,6 +9737,29 @@ namespace eval ::Eagle {
             host result Error <
             host result Ok $pwd
             host result Error "> "
+
+            if {![info exists ::no(NoTclPrompt1Branch)] && \
+                ![info exists ::env(NoTclPrompt1Branch)]} then {
+              if {[catch {
+                exec -success Success -- fossil branch current
+              } branch] == 0 && [string length [set branch \
+                  [string trim $branch]]] > 0} then {
+                set branch [appendArgs fossil: $branch]
+              } elseif {[catch {
+                exec -success Success -- git rev-parse --abbrev-ref HEAD
+              } branch] == 0 && [string length [set branch \
+                  [string trim $branch]]] > 0} then {
+                set branch [appendArgs git: $branch]
+              } else {
+                set branch ""; # NOTE: Ignore errors.
+              }
+
+              if {[string length $branch] > 0} then {
+                host result Break (
+                host result Ok $branch
+                host result Break ") "
+              }
+            }
           }
         }]
 
@@ -12372,12 +12613,12 @@ namespace eval ::Eagle {
     #       namespace as well.
     #
     exportAndImportPackageCommands [namespace current] [list \
-        addTestScripts evaluateTestScripts combineTestScriptResults \
-        newPackageId getParameterFromAny getIndexForDirectory \
-        maybeAddToAutoPath maybeScanAutoPath haveModernNetFx \
-        haveInfinitySymbol private annotateProcedure createPairs \
-        flattenPairs tclLogForTester maybeInvokeForTester haveCaches \
-        resetCaches reportCaches maybeMakeHighPriority \
+        promptForAndGetTextInput addTestScripts evaluateTestScripts \
+        combineTestScriptResults newPackageId getParameterFromAny \
+        getIndexForDirectory maybeAddToAutoPath maybeScanAutoPath \
+        haveModernNetFx haveInfinitySymbol private annotateProcedure \
+        createPairs flattenPairs tclLogForTester maybeInvokeForTester \
+        haveCaches resetCaches reportCaches maybeMakeHighPriority \
         removeTemporarySubDirectories enableInteractiveCommands \
         getProcedureArguments cloneProcedure getTclMinimumVersion \
         getTclMaximumVersion tryToLoadZeus loadTetrisViaTclTk breakOnError \
@@ -12443,12 +12684,13 @@ namespace eval ::Eagle {
         reportTestStatisticCounts runAllTests isTestSuiteRunning \
         getTestChannelOrDefault tryVerifyTestPath checkForAndSetTestPath \
         configureTcltest machineToPlatform architectureForPlatform \
-        calculateTestConstraintCounts getRemoteMessageLimit \
-        encodeRemoteMessage logRemoteMessage logRemoteMessageWrapper \
-        getRemoteMessageHeader getRemoteTestResults logRemoteTestResults \
-        logRemoteTestRunMessage getPassedPercentage getSkippedPercentage \
-        testCheckOverallResult reportTestResultCounts getTestSnippets \
-        lmissing getTestAppDomains] false false
+        calculateTestConstraintCounts getRemoteMessageRaiseError \
+        getRemoteMessageLimit getRemoteMessageRetries encodeRemoteMessage \
+        logRemoteMessage logRemoteMessageWrapper getRemoteMessageHeader \
+        getRemoteTestResults logRemoteTestResults logRemoteTestRunMessage \
+        getPassedPercentage getSkippedPercentage testCheckOverallResult \
+        reportTestResultCounts getTestSnippets lmissing getTestAppDomains] \
+        false false
 
     ###########################################################################
     ############################## END Tcl ONLY ###############################

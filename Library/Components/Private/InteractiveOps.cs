@@ -4278,7 +4278,7 @@ namespace Eagle._Components.Private
                     //       construct a command line that can survive both sets of
                     //       quoting rules.  Also, we must be sure to skip the
                     //       interactive command name itself (i.e. there was a long
-                    //       standing bug here becase we were not doing that).
+                    //       standing bug here because we were not doing that).
                     //
                     // EXAMPLE:
                     //

@@ -172,10 +172,10 @@ static SIZE_T EagleWcharStrToUshortStr(LPWSTR wstr);
  * NOTE: This is the private data for this file.
  */
 
-static SIZE_T memoryBytesAllocated = 0;
+static volatile SIZE_T memoryBytesAllocated = 0;
 
 #if defined(_WIN32) && defined(USE_HEAPAPI) && USE_HEAPAPI
-static HANDLE hMemoryHeap = NULL;
+static volatile HANDLE hMemoryHeap = NULL;
 #endif
 
 /*

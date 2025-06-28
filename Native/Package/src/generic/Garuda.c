@@ -120,7 +120,7 @@ TCL_DECLARE_MUTEX(packageMutex);
  *       the package module file name.
  */
 
-static HANDLE hPackageModule = NULL;
+static volatile HANDLE hPackageModule = NULL;
 
 /*
  * NOTE: The package module file name.  The value stored here is obtained from
@@ -138,7 +138,7 @@ static LPWSTR packageFileName;
  *       interlocked API functions can be used with it.
  */
 
-static LONG lTclStubs = 0;
+static volatile LONG lTclStubs = 0;
 
 /*
  * NOTE: The Tcl library module handle.  This is needed to pass to the bridge
@@ -146,7 +146,7 @@ static LONG lTclStubs = 0;
  *       from the [already] loaded Tcl library.
  */
 
-static HANDLE hTclModule = NULL;
+static volatile HANDLE hTclModule = NULL;
 
 /*
  * NOTE: The Tcl C API function pointers required by the Eagle native Tcl
@@ -184,14 +184,14 @@ static ICLRRuntimeHost *pClrRuntimeHost = NULL;
  *       will be reset to FALSE.
  */
 
-static BOOL bClrStarted = FALSE;
+static volatile BOOL bClrStarted = FALSE;
 
 /*
  * NOTE: This variable will be TRUE if the bridge was successfully started and
  *       has not been shutdown yet.
  */
 
-static BOOL bBridgeStarted = FALSE;
+static volatile BOOL bBridgeStarted = FALSE;
 
 /*
  *----------------------------------------------------------------------

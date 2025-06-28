@@ -33,6 +33,10 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 using CleanupPathPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Components.Private.CleanupPathClientData>;
 
+using CleanupPathPairs = System.Collections.Generic.IEnumerable<
+    System.Collections.Generic.KeyValuePair<string,
+        Eagle._Components.Private.CleanupPathClientData>>;
+
 using FilePair = System.Collections.Generic.KeyValuePair<string, object>;
 
 #if NET_STANDARD_21
@@ -3237,8 +3241,7 @@ namespace Eagle._Components.Private
             if (paths == null)
                 return ReturnCode.Ok;
 
-            IEnumerable<CleanupPathPair> pairs =
-                paths.GetPairsInOrder(true);
+            CleanupPathPairs pairs = paths.GetPairsInOrder(true);
 
             if (pairs == null)
             {
@@ -3258,12 +3261,19 @@ namespace Eagle._Components.Private
             //         code relying on the current directory may be
             //         messed up.
             //
-            string savedDirectory = null;
+            string savedDirectory = PathOps.GetCurrentDirectory();
+
+            if (savedDirectory == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid current directory");
+                return ReturnCode.Error;
+            }
 
             try
             {
-                savedDirectory = Directory.GetCurrentDirectory(); /* EXEMPT */
-
                 Directory.SetCurrentDirectory(
                     GlobalState.GetAnyEntryAssemblyPath());
 

@@ -2622,16 +2622,55 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Command Line Support Methods
+        private static ReturnCode MaybeEscapeSubString(
+            Interpreter interpreter, /* in */
+            StringList command,      /* in */
+            string value,            /* in */
+            int startIndex,          /* in */
+            int stopIndex,           /* in */
+            EscapeMode mode,         /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (command != null)
+            {
+                if (interpreter == null)
+                {
+                    result = "invalid interpreter";
+                    return ReturnCode.Error;
+                }
+
+                StringList localCommand = new StringList(command);
+
+                localCommand.Add(value);
+                localCommand.Add(startIndex.ToString());
+                localCommand.Add(stopIndex.ToString());
+                localCommand.Add(mode.ToString());
+
+                return interpreter.EvaluateScript(
+                    localCommand.ToString(), ref result);
+            }
+
+            return ReturnCode.Continue;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static void AppendCommandLineArgument(
-            StringBuilder builder,
-            string arg,
-            bool quoteAll
+            Interpreter interpreter, /* in */
+            StringBuilder builder,   /* in, out */
+            StringList command,      /* in */
+            string arg,              /* in */
+            bool quoteAll,           /* in */
+            bool noComplain,         /* in */
+            ref bool done,           /* in, out */
+            ref Result error         /* out */
             )
         {
             if ((builder == null) || (arg == null))
                 return;
 
-            char[] special = {
+            char[] specials = {
                 Characters.Space, Characters.QuotationMark,
                 Characters.Backslash
             };
@@ -2640,33 +2679,204 @@ namespace Eagle._Components.Private
                 builder.Append(Characters.Space);
 
             bool wrap = quoteAll ||
-                (arg.IndexOfAny(special) != Index.Invalid);
+                (arg.IndexOfAny(specials) != Index.Invalid);
+
+            Result result; /* REUSED */
+            ResultList errors = null;
 
             if (wrap)
-                builder.Append(Characters.QuotationMark);
+            {
+                result = null;
+
+                switch (MaybeEscapeSubString(
+                        interpreter, command, arg, Index.Invalid,
+                        Index.Invalid, EscapeMode.Start, ref result))
+                {
+                    case ReturnCode.Ok:
+                        {
+                            //
+                            // NOTE: Character (which may have
+                            //       been "escaped") should be
+                            //       added via that result and
+                            //       all default handling will
+                            //       be skipped.
+                            //
+                            if (result != null)
+                                builder.Append(result);
+
+                            break;
+                        }
+                    case ReturnCode.Error: /* Warning (?) */
+                        {
+                            //
+                            // NOTE: Character is forbidden (?),
+                            //       maybe record an error and
+                            //       then continue.
+                            //
+                            if (result != null)
+                            {
+                                if (errors == null)
+                                    errors = new ResultList();
+
+                                errors.Add(result);
+                            }
+
+                            break;
+                        }
+                    case ReturnCode.Return:
+                        {
+                            //
+                            // NOTE: Character was considered to
+                            //       stop all further processing
+                            //       and return immediately.
+                            //
+                            if (result != null)
+                            {
+                                if (errors == null)
+                                    errors = new ResultList();
+
+                                errors.Add(result);
+                            }
+
+                            done = true;
+                            error = errors;
+
+                            return;
+                        }
+                    case ReturnCode.Break:
+                        {
+                            //
+                            // NOTE: Character was considered to
+                            //       stop all further processing
+                            //       and finalize the argument.
+                            //
+                            if (result != null)
+                                builder.Append(result);
+
+                            goto case ReturnCode.Continue;
+                        }
+                    case ReturnCode.Continue:
+                    default:
+                        {
+                            //
+                            // NOTE: Character should be treated
+                            //       as normal, do nothing extra
+                            //       and then continue argument
+                            //       processing as normal.
+                            //
+                            builder.Append(Characters.QuotationMark);
+                            break;
+                        }
+                }
+            }
 
             int length = arg.Length;
 
             for (int index = 0; index < length; index++)
             {
-                if (arg[index] == Characters.QuotationMark)
+                char character = arg[index]; /* REUSED */
+
+                result = null;
+
+                switch (MaybeEscapeSubString(
+                        interpreter, command, arg, index, index,
+                        EscapeMode.Middle, ref result))
+                {
+                    case ReturnCode.Ok:
+                        {
+                            //
+                            // NOTE: Character (which may have
+                            //       been "escaped") should be
+                            //       added via that result and
+                            //       all default handling will
+                            //       be skipped.
+                            //
+                            if (result != null)
+                                builder.Append(result);
+
+                            continue;
+                        }
+                    case ReturnCode.Error: /* Warning (?) */
+                        {
+                            //
+                            // NOTE: Character is forbidden (?),
+                            //       maybe record an error and
+                            //       then continue.
+                            //
+                            if (result != null)
+                            {
+                                if (errors == null)
+                                    errors = new ResultList();
+
+                                errors.Add(result);
+                            }
+
+                            continue;
+                        }
+                    case ReturnCode.Return:
+                        {
+                            //
+                            // NOTE: Character was considered to
+                            //       stop all further processing
+                            //       and return immediately.
+                            //
+                            if (result != null)
+                            {
+                                if (errors == null)
+                                    errors = new ResultList();
+
+                                errors.Add(result);
+                            }
+
+                            done = true;
+                            error = errors;
+
+                            return;
+                        }
+                    case ReturnCode.Break:
+                        {
+                            //
+                            // NOTE: Character was considered to
+                            //       stop all further processing
+                            //       and finalize the argument.
+                            //
+                            if (result != null)
+                                builder.Append(result);
+
+                            goto case ReturnCode.Continue;
+                        }
+                    case ReturnCode.Continue:
+                    default:
+                        {
+                            //
+                            // NOTE: Character should be treated
+                            //       as normal, do nothing extra
+                            //       and then continue argument
+                            //       processing as normal.
+                            //
+                            break;
+                        }
+                }
+
+                if (character == Characters.QuotationMark)
                 {
                     builder.Append(Characters.Backslash);
                     builder.Append(Characters.QuotationMark);
                 }
-                else if (arg[index] == Characters.Backslash)
+                else if (character == Characters.Backslash)
                 {
                     int count = 0;
 
                     while ((index < length) &&
-                        (arg[index] == Characters.Backslash))
+                        (character == Characters.Backslash))
                     {
                         count++; index++;
+                        character = arg[index];
                     }
 
                     if (index < length)
                     {
-                        if (arg[index] == Characters.QuotationMark)
+                        if (character == Characters.QuotationMark)
                         {
                             builder.Append(
                                 Characters.Backslash, (count * 2) + 1);
@@ -2676,7 +2886,7 @@ namespace Eagle._Components.Private
                         else
                         {
                             builder.Append(Characters.Backslash, count);
-                            builder.Append(arg[index]);
+                            builder.Append(character);
                         }
                     }
                     else
@@ -2687,19 +2897,137 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
-                    builder.Append(arg[index]);
+                    builder.Append(character);
                 }
             }
 
             if (wrap)
-                builder.Append(Characters.QuotationMark);
+            {
+                result = null;
+
+                switch (MaybeEscapeSubString(
+                        interpreter, command, arg, Index.Invalid,
+                        Index.Invalid, EscapeMode.End, ref result))
+                {
+                    case ReturnCode.Ok:
+                        {
+                            //
+                            // NOTE: Character (which may have
+                            //       been "escaped") should be
+                            //       added via that result and
+                            //       all default handling will
+                            //       be skipped.
+                            //
+                            if (result != null)
+                                builder.Append(result);
+
+                            break;
+                        }
+                    case ReturnCode.Error: /* Warning (?) */
+                        {
+                            //
+                            // NOTE: Character is forbidden (?),
+                            //       maybe record an error and
+                            //       then continue.
+                            //
+                            if (result != null)
+                            {
+                                if (errors == null)
+                                    errors = new ResultList();
+
+                                errors.Add(result);
+                            }
+
+                            break;
+                        }
+                    case ReturnCode.Return:
+                        {
+                            //
+                            // NOTE: Character was considered to
+                            //       stop all further processing
+                            //       and return immediately.
+                            //
+                            if (result != null)
+                            {
+                                if (errors == null)
+                                    errors = new ResultList();
+
+                                errors.Add(result);
+                            }
+
+                            done = true;
+                            error = errors;
+
+                            return;
+                        }
+                    case ReturnCode.Break:
+                        {
+                            //
+                            // NOTE: Character was considered to
+                            //       stop all further processing
+                            //       and finalize the argument.
+                            //
+                            if (result != null)
+                                builder.Append(result);
+
+                            goto case ReturnCode.Continue;
+                        }
+                    case ReturnCode.Continue:
+                    default:
+                        {
+                            //
+                            // NOTE: Character should be treated
+                            //       as normal, do nothing extra
+                            //       and then continue argument
+                            //       processing as normal.
+                            //
+                            builder.Append(Characters.QuotationMark);
+                            break;
+                        }
+                }
+            }
+
+            if (errors != null)
+            {
+                if (noComplain)
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "AppendCommandLineArgument: errors = {0}",
+                        FormatOps.WrapOrNull(errors)),
+                        typeof(RuntimeOps).Name,
+                        TracePriority.ScriptError);
+                }
+                else
+                {
+                    DebugOps.Complain(ReturnCode.Error, errors);
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static string BuildCommandLine(
-            IEnumerable<string> args,
-            bool quoteAll
+            IEnumerable<string> args, /* in */
+            bool quoteAll             /* in */
+            )
+        {
+            bool done = false; /* NOT USED */
+            Result error = null; /* NOT USED */
+
+            return BuildCommandLine(
+                null, args, null, quoteAll, false, ref done, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string BuildCommandLine(
+            Interpreter interpreter,  /* in */
+            IEnumerable<string> args, /* in */
+            StringList command,       /* in */
+            bool quoteAll,            /* in */
+            bool noComplain,          /* in */
+            ref bool done,            /* in, out */
+            ref Result error          /* out */
             )
         {
             if (args == null)
@@ -2708,7 +3036,15 @@ namespace Eagle._Components.Private
             StringBuilder builder = StringBuilderFactory.Create();
 
             foreach (string arg in args)
-                AppendCommandLineArgument(builder, arg, quoteAll);
+            {
+                /* NO RESULT */
+                AppendCommandLineArgument(
+                    interpreter, builder, command, arg, quoteAll,
+                    noComplain, ref done, ref error);
+
+                if (done)
+                    return null;
+            }
 
             return StringBuilderCache.GetStringAndRelease(ref builder);
         }
@@ -2718,10 +3054,10 @@ namespace Eagle._Components.Private
 
         #region Alias Support Methods
         public static ReturnCode GetInterpreterAliasArguments(
-            string interpreterName,
-            ObjectOptionType objectOptionType, /* NOT USED */
-            ref ArgumentList arguments,
-            ref Result error /* NOT USED */
+            string interpreterName,            /* in */
+            ObjectOptionType objectOptionType, /* in: NOT USED */
+            ref ArgumentList arguments,        /* out */
+            ref Result error                   /* out: NOT USED */
             )
         {
             arguments = new ArgumentList((IEnumerable<string>)new string[] {
@@ -2739,10 +3075,10 @@ namespace Eagle._Components.Private
 
 #if EMIT && NATIVE && LIBRARY
         public static ReturnCode GetLibraryAliasArguments(
-            string delegateName,
-            ObjectOptionType objectOptionType, /* NOT USED */
-            ref ArgumentList arguments,
-            ref Result error /* NOT USED */
+            string delegateName,               /* in */
+            ObjectOptionType objectOptionType, /* in: NOT USED */
+            ref ArgumentList arguments,        /* out */
+            ref Result error                   /* out: NOT USED */
             )
         {
             arguments = new ArgumentList((IEnumerable<string>)new string[] {
@@ -2760,7 +3096,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static string GetObjectAliasSubCommand(
-            ObjectOptionType objectOptionType
+            ObjectOptionType objectOptionType /* in */
             )
         {
             ObjectOptionType maskedObjectOptionType =
@@ -2782,10 +3118,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode GetObjectAliasArguments(
-            string objectName,
-            ObjectOptionType objectOptionType,
-            ref ArgumentList arguments,
-            ref Result error
+            string objectName,                 /* in */
+            ObjectOptionType objectOptionType, /* in */
+            ref ArgumentList arguments,        /* out */
+            ref Result error                   /* out */
             )
         {
             string subCommand = GetObjectAliasSubCommand(objectOptionType);
@@ -2811,10 +3147,10 @@ namespace Eagle._Components.Private
 
 #if NATIVE && TCL
         public static ReturnCode GetTclAliasArguments(
-            string interpName,
-            ObjectOptionType objectOptionType, /* NOT USED */
-            ref ArgumentList arguments,
-            ref Result error /* NOT USED */
+            string interpName,                 /* in */
+            ObjectOptionType objectOptionType, /* in: NOT USED */
+            ref ArgumentList arguments,        /* out */
+            ref Result error                   /* out: NOT USED */
             )
         {
             arguments = new ArgumentList((IEnumerable<string>)new string[] {
@@ -2837,19 +3173,19 @@ namespace Eagle._Components.Private
         //       the Interpreter class.
         //
         public static IAlias NewAlias(
-            string name,
-            CommandFlags flags,
-            AliasFlags aliasFlags,
-            IClientData clientData,
-            string nameToken,
-            Interpreter sourceInterpreter,
-            Interpreter targetInterpreter,
-            INamespace sourceNamespace,
-            INamespace targetNamespace,
-            IExecute target,
-            ArgumentList arguments,
-            OptionDictionary options,
-            int startIndex
+            string name,                   /* in */
+            CommandFlags flags,            /* in */
+            AliasFlags aliasFlags,         /* in */
+            IClientData clientData,        /* in */
+            string nameToken,              /* in */
+            Interpreter sourceInterpreter, /* in */
+            Interpreter targetInterpreter, /* in */
+            INamespace sourceNamespace,    /* in */
+            INamespace targetNamespace,    /* in */
+            IExecute target,               /* in */
+            ArgumentList arguments,        /* in */
+            OptionDictionary options,      /* in */
+            int startIndex                 /* in */
             )
         {
             //

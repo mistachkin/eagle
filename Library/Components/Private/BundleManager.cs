@@ -344,6 +344,17 @@ namespace Eagle._Components.Private
                         ////////////////////////////////////
                         // dispose managed resources here...
                         ////////////////////////////////////
+
+                        lock (syncRoot) /* TRANSACTIONAL */
+                        {
+                            fileName = null;
+
+                            if (fileNames != null)
+                            {
+                                fileNames.Clear();
+                                fileNames = null;
+                            }
+                        }
                     }
 
                     //////////////////////////////////////

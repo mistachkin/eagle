@@ -14,6 +14,19 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Private
 {
+    [Flags()]
+    [ObjectId("752678c1-c688-4f2d-89a1-01ae342c72f0")]
+    internal enum EscapeMode
+    {
+        None = 0x0,
+        Invalid = 0x1,
+        Start = 0x100,
+        Middle = 0x200,
+        End = 0x400
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     [ObjectId("67126d39-f60d-4ee3-b436-af3c78436030")]
     internal enum BundleField
     {

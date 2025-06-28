@@ -904,6 +904,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        #region Dead Code
+#if DEAD_CODE
+        public static char ToChar(ushort X) /* SAFE */
+        {
+            return (char)(X & char.MaxValue);
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         public static char ToChar(int X) /* LOSSY */
         {
             return (char)(X & char.MaxValue);

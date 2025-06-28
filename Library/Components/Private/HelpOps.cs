@@ -4843,6 +4843,11 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab, EnvVars.NoSecurityUpdate));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], startup\n" +
+                                "{0}scripts are disabled while creating and initializing the interpreter.",
+                                Characters.HorizontalTab, EnvVars.NoStartups));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything],\n" +
                                 "{0}exceptions will not be thrown when a disposed object is accessed.",
                                 Characters.HorizontalTab, EnvVars.NoThrowOnDisposed));
