@@ -96,12 +96,16 @@ SET CLEANDIRS=%CLEANDIRS% Update\bin Update\obj
 
 IF DEFINED CLEANRECURSIVEDIRS GOTO skip_cleanRecursiveDirs
 
+REM
+REM WARNING: The asterisk character ("*") will be appended to each of
+REM          these patterns prior to use.
+REM
 SET CLEANRECURSIVEDIRS=.vs
 SET CLEANRECURSIVEDIRS=%CLEANRECURSIVEDIRS% cov-int
 
-:cleanRecursiveDirs
+:skip_cleanRecursiveDirs
 
-%_VECHO% CLEANRECURSIVEDIRS = '%CLEANRECURSIVEDIRS%'
+%_VECHO% CleanRecursiveDirs = '%CLEANRECURSIVEDIRS%'
 
 IF NOT DEFINED CLEANEXTS (
   SET CLEANEXTS=asc exe htm log nupkg rar txt zip
@@ -109,11 +113,15 @@ IF NOT DEFINED CLEANEXTS (
 
 %_VECHO% CleanExts = '%CLEANEXTS%'
 
-IF DEFINED PLUGINRECURSIVEDIRS GOTO skip_PluginRecursiveDirs
+IF DEFINED PLUGINRECURSIVEDIRS GOTO skip_pluginRecursiveDirs
 
+REM
+REM WARNING: The asterisk character ("*") will be appended to each of
+REM          these patterns prior to use.
+REM
 SET PLUGINRECURSIVEDIRS=Plugins\bin Plugins\obj
 
-:skip_PluginRecursiveDirs
+:skip_pluginRecursiveDirs
 
 %_VECHO% PluginRecursiveDirs = '%PLUGINRECURSIVEDIRS%'
 
@@ -248,20 +256,20 @@ SET RELEASESUBDIRS=%RELEASESUBDIRS% DebugDllCoverage ReleaseDllCoverage
 
 %_VECHO% ReleaseSubDirs = '%RELEASESUBDIRS%'
 
-IF DEFINED PACKAGETEARECURSIVEDIRS GOTO skip_PackageTeaRecursiveDirs
+IF DEFINED PACKAGETEARECURSIVEDIRS GOTO skip_packageTeaRecursiveDirs
 
 REM
-REM NOTE: *WARNING* The asterisk character ("*") will be appended to each
-REM       of these patterns prior to use.
+REM WARNING: The asterisk character ("*") will be appended to each of
+REM          these patterns prior to use.
 REM
 SET PACKAGETEARECURSIVEDIRS=Native\Package\src\win\tea\Debug
 SET PACKAGETEARECURSIVEDIRS=%PACKAGETEARECURSIVEDIRS% Native\Package\src\win\tea\Release
 
-:skip_PackageTeaRecursiveDirs
+:skip_packageTeaRecursiveDirs
 
 %_VECHO% PackageTeaRecursiveDirs = '%PACKAGETEARECURSIVEDIRS%'
 
-IF DEFINED PACKAGETEAFILES GOTO skip_PackageTeaFiles
+IF DEFINED PACKAGETEAFILES GOTO skip_packageTeaFiles
 
 SET PACKAGETEAFILES=nmakehlp.exe nmakehlp.obj version.ts version.vc
 SET PACKAGETEAFILES=%PACKAGETEAFILES% versions.ts versions.vc
@@ -269,7 +277,7 @@ SET PACKAGETEAFILES=%PACKAGETEAFILES% trimspace.exe trimspace.obj
 SET PACKAGETEAFILES=%PACKAGETEAFILES% vercl.i vercl.ts vercl.vc vercl.x
 SET PACKAGETEAFILES=%PACKAGETEAFILES% _junk.out _junk.pch __.idb __.pdb
 
-:skip_PackageTeaFiles
+:skip_packageTeaFiles
 
 %_VECHO% PackageTeaFiles = '%PACKAGETEAFILES%'
 
@@ -314,10 +322,10 @@ FOR %%E IN (%CLEANEXTS%) DO (
 )
 
 FOR %%C IN (%CLEANRECURSIVEDIRS%) DO (
-  %_AECHO% Checking for directories matching "%SOURCE%\%%C"...
+  %_AECHO% Checking for directories matching "%SOURCE%\%%C*"...
   %_AECHO%.
 
-  FOR /F "delims=" %%D IN ('DIR /B /S /AD "%SOURCE%\%%C" 2^> NUL') DO (
+  FOR /F "delims=" %%D IN ('DIR /B /S /AD "%SOURCE%\%%C*" 2^> NUL') DO (
     %__ECHO% RMDIR /S /Q "%%D"
 
     IF ERRORLEVEL 1 (
@@ -330,7 +338,7 @@ FOR %%C IN (%CLEANRECURSIVEDIRS%) DO (
     )
   )
 
-  FOR /F "delims=" %%D IN ('DIR /B /S /AHD "%SOURCE%\%%C" 2^> NUL') DO (
+  FOR /F "delims=" %%D IN ('DIR /B /S /AHD "%SOURCE%\%%C*" 2^> NUL') DO (
     %__ECHO% RMDIR /S /Q "%%D"
 
     IF ERRORLEVEL 1 (
@@ -345,10 +353,10 @@ FOR %%C IN (%CLEANRECURSIVEDIRS%) DO (
 )
 
 FOR %%C IN (%PLUGINRECURSIVEDIRS%) DO (
-  %_AECHO% Checking for plugin directories matching "%SOURCE%\%%C"...
+  %_AECHO% Checking for plugin directories matching "%SOURCE%\%%C*"...
   %_AECHO%.
 
-  FOR /F "delims=" %%D IN ('DIR /B /S /AD "%SOURCE%\%%C" 2^> NUL') DO (
+  FOR /F "delims=" %%D IN ('DIR /B /S /AD "%SOURCE%\%%C*" 2^> NUL') DO (
     %__ECHO% RMDIR /S /Q "%%D"
 
     IF ERRORLEVEL 1 (
@@ -462,7 +470,7 @@ ENDLOCAL
 
 IF EXIST "%SOURCE%\*.VC.db" (
   REM
-  REM NOTE: *WARNING* Deleting from the entire source tree.
+  REM WARNING: Deleting from the entire source tree.
   REM
   %__ECHO% DEL /S /Q "%SOURCE%\*.VC.db"
 
@@ -481,7 +489,7 @@ IF EXIST "%SOURCE%\*.VC.db" (
 
 IF EXIST "%SOURCE%\*.VC.opendb" (
   REM
-  REM NOTE: *WARNING* Unhiding in the entire source tree.
+  REM WARNING: Unhiding in the entire source tree.
   REM
   %__ECHO% ATTRIB -H "%SOURCE%\*.VC.opendb" /S
 
@@ -495,7 +503,7 @@ IF EXIST "%SOURCE%\*.VC.opendb" (
   )
 
   REM
-  REM NOTE: *WARNING* Deleting from the entire source tree.
+  REM WARNING: Deleting from the entire source tree.
   REM
   %__ECHO% DEL /S /Q "%SOURCE%\*.VC.opendb"
 
@@ -514,7 +522,7 @@ IF EXIST "%SOURCE%\*.VC.opendb" (
 
 IF EXIST "%SOURCE%\*.cache" (
   REM
-  REM NOTE: *WARNING* Deleting from the entire source tree.
+  REM WARNING: Deleting from the entire source tree.
   REM
   %__ECHO% DEL /S /Q "%SOURCE%\*.cache"
 
@@ -549,7 +557,7 @@ IF EXIST "%SOURCE%\*.csv" (
 
 IF EXIST "%SOURCE%\*.ncb" (
   REM
-  REM NOTE: *WARNING* Deleting from the entire source tree.
+  REM WARNING: Deleting from the entire source tree.
   REM
   %__ECHO% DEL /S /Q "%SOURCE%\*.ncb"
 
@@ -600,7 +608,7 @@ IF EXIST "%SOURCE%\*.sdf" (
 
 IF EXIST "%SOURCE%\*.suo" (
   REM
-  REM NOTE: *WARNING* Unhiding in the entire source tree.
+  REM WARNING: Unhiding in the entire source tree.
   REM
   %__ECHO% ATTRIB -H "%SOURCE%\*.suo" /S
 
@@ -614,7 +622,7 @@ IF EXIST "%SOURCE%\*.suo" (
   )
 
   REM
-  REM NOTE: *WARNING* Deleting from the entire source tree.
+  REM WARNING: Deleting from the entire source tree.
   REM
   %__ECHO% DEL /S /Q "%SOURCE%\*.suo"
 
@@ -770,6 +778,9 @@ FOR %%E IN (%TESTEXEFILES%) DO (
     IF ERRORLEVEL 1 GOTO errors
 
     IF DEFINED SHOULD_DELETE_FILE (
+      %_AECHO% Deleting "%%F", not in use by active test suite...
+      %_AECHO%.
+
       %__ECHO% DEL /Q "%%F"
 
       IF ERRORLEVEL 1 (

@@ -16484,8 +16484,6 @@ namespace Eagle._Tests
             ref Result result
             )
         {
-            // writable
-
             if (interpreter == null)
             {
                 result = "invalid interpreter";

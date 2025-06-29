@@ -1214,6 +1214,16 @@ namespace Eagle._Components.Public
             get { return expressionFlags; }
             set { throw new NotImplementedException(); }
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if DATA
+        public BundleFlags BundleFlags
+        {
+            get { throw new NotImplementedException(); }
+            set { throw new NotImplementedException(); }
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

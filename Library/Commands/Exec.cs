@@ -74,6 +74,8 @@ namespace Eagle._Commands
                             new Option(null, OptionFlags.None, Index.Invalid,
                                 Index.Invalid, "-commandline", null),         // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
+                                Index.Invalid, "-forprocessor", null),        // simple switch
+                            new Option(null, OptionFlags.None, Index.Invalid,
                                 Index.Invalid, "-dequote", null),             // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
                                 Index.Invalid, "-quoteall", null),            // simple switch
@@ -220,6 +222,11 @@ namespace Eagle._Commands
 
                                 if (options.IsPresent("-commandline"))
                                     commandLine = true;
+
+                                bool forProcessor = false;
+
+                                if (options.IsPresent("-forprocessor"))
+                                    forProcessor = true;
 
                                 bool dequote = false;
 
@@ -437,7 +444,8 @@ namespace Eagle._Commands
                                                 arguments, argumentStartIndex,
                                                 argumentStopIndex, dequote),
                                             escapeSubStringCommand, quoteAll,
-                                            true, ref done, ref result);
+                                            forProcessor, true, ref done,
+                                            ref result);
 
                                         if (done)
                                             goto done;

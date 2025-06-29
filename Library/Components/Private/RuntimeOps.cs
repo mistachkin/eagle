@@ -2662,6 +2662,7 @@ namespace Eagle._Components.Private
             StringList command,      /* in */
             string arg,              /* in */
             bool quoteAll,           /* in */
+            bool forProcessor,       /* in */
             bool noComplain,         /* in */
             ref bool done,           /* in, out */
             ref Result error         /* out */
@@ -2678,8 +2679,19 @@ namespace Eagle._Components.Private
             if (builder.Length > 0)
                 builder.Append(Characters.Space);
 
-            bool wrap = quoteAll ||
+            bool wrap = quoteAll || forProcessor ||
                 (arg.IndexOfAny(specials) != Index.Invalid);
+
+            EscapeMode escapeMode = EscapeMode.Default;
+
+            if (quoteAll)
+                escapeMode |= EscapeMode.QuoteAll;
+
+            if (forProcessor)
+                escapeMode |= EscapeMode.ForProcessor;
+
+            if (noComplain)
+                escapeMode |= EscapeMode.NoComplain;
 
             Result result; /* REUSED */
             ResultList errors = null;
@@ -2690,7 +2702,8 @@ namespace Eagle._Components.Private
 
                 switch (MaybeEscapeSubString(
                         interpreter, command, arg, Index.Invalid,
-                        Index.Invalid, EscapeMode.Start, ref result))
+                        Index.Invalid, escapeMode | EscapeMode.Start,
+                        ref result))
                 {
                     case ReturnCode.Ok:
                         {
@@ -2774,13 +2787,12 @@ namespace Eagle._Components.Private
 
             for (int index = 0; index < length; index++)
             {
-                char character = arg[index]; /* REUSED */
-
                 result = null;
 
                 switch (MaybeEscapeSubString(
-                        interpreter, command, arg, index, index,
-                        EscapeMode.Middle, ref result))
+                        interpreter, command, arg, index,
+                        index, escapeMode | EscapeMode.Middle,
+                        ref result))
                 {
                     case ReturnCode.Ok:
                         {
@@ -2858,46 +2870,65 @@ namespace Eagle._Components.Private
                         }
                 }
 
-                if (character == Characters.QuotationMark)
+                if (forProcessor && (arg[index] == Characters.Caret))
                 {
-                    builder.Append(Characters.Backslash);
+                    builder.Append(Characters.Caret, 2);
+                }
+                else if (arg[index] == Characters.QuotationMark)
+                {
+                    if (forProcessor)
+                    {
+                        builder.Append(Characters.Backslash);
+                        builder.Append(Characters.Caret);
+                    }
+                    else
+                    {
+                        builder.Append(Characters.Backslash);
+                    }
+
                     builder.Append(Characters.QuotationMark);
                 }
-                else if (character == Characters.Backslash)
+                else if (arg[index] == Characters.Backslash)
                 {
                     int count = 0;
 
                     while ((index < length) &&
-                        (character == Characters.Backslash))
+                        (arg[index] == Characters.Backslash))
                     {
                         count++; index++;
-                        character = arg[index];
                     }
 
                     if (index < length)
                     {
-                        if (character == Characters.QuotationMark)
+                        if (arg[index] == Characters.QuotationMark)
                         {
                             builder.Append(
                                 Characters.Backslash, (count * 2) + 1);
+
+                            if (forProcessor)
+                                builder.Append(Characters.Caret);
 
                             builder.Append(Characters.QuotationMark);
                         }
                         else
                         {
                             builder.Append(Characters.Backslash, count);
-                            builder.Append(character);
+                            builder.Append(arg[index]);
                         }
                     }
                     else
                     {
-                        builder.Append(Characters.Backslash, count * 2);
+                        if (forProcessor)
+                            builder.Append(Characters.Backslash, count);
+                        else
+                            builder.Append(Characters.Backslash, count * 2);
+
                         break;
                     }
                 }
                 else
                 {
-                    builder.Append(character);
+                    builder.Append(arg[index]);
                 }
             }
 
@@ -2907,7 +2938,8 @@ namespace Eagle._Components.Private
 
                 switch (MaybeEscapeSubString(
                         interpreter, command, arg, Index.Invalid,
-                        Index.Invalid, EscapeMode.End, ref result))
+                        Index.Invalid, escapeMode | EscapeMode.End,
+                        ref result))
                 {
                     case ReturnCode.Ok:
                         {
@@ -3015,7 +3047,8 @@ namespace Eagle._Components.Private
             Result error = null; /* NOT USED */
 
             return BuildCommandLine(
-                null, args, null, quoteAll, false, ref done, ref error);
+                null, args, null, quoteAll, false,
+                false, ref done, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3025,6 +3058,7 @@ namespace Eagle._Components.Private
             IEnumerable<string> args, /* in */
             StringList command,       /* in */
             bool quoteAll,            /* in */
+            bool forProcessor,        /* in */
             bool noComplain,          /* in */
             ref bool done,            /* in, out */
             ref Result error          /* out */
@@ -3040,7 +3074,7 @@ namespace Eagle._Components.Private
                 /* NO RESULT */
                 AppendCommandLineArgument(
                     interpreter, builder, command, arg, quoteAll,
-                    noComplain, ref done, ref error);
+                    forProcessor, noComplain, ref done, ref error);
 
                 if (done)
                     return null;

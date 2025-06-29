@@ -28,7 +28,26 @@
 #       theme or piece of functionality.
 #
 namespace eval ::Eagle {
-  proc promptForAndGetTextInput { {prompt ""} {title ""} } {
+  proc f_proc { name args body {command ""} } {; # NOTE: "args" not last.
+    if {[string length $command] == 0} then {
+      if {[isEagle] && \
+          [llength [info commands nproc]] > 0} then {
+        set command nproc
+      } else {
+        set command proc
+      }
+    }
+
+    if {[lsearch -exact [list proc nproc] $command] == -1} then {
+      error "procedure command must be \[proc\] or \[nproc\]"
+    }
+
+    return [uplevel 1 [list $command $name $args $body]]
+  }
+
+  f_proc promptForAndGetTextInput {
+          {prompt ""} {title ""} {default ""} {noDots true}
+          {canceledVarName ""} } {
     if {[string length $prompt] == 0} then {
       set prompt "Please enter some text input: "
     }
@@ -43,15 +62,52 @@ namespace eval ::Eagle {
       }
     }
 
-    if {[isEagle]} then {
-      if {![info exists ::no(inputBox)] && \
-          [llength [info commands object]] > 0} then {
+    if {$noDots} then {; # NOTE: Forbid using all dots?
+      set transform [list [list value varName] {
+        set value [string trim $value]
+
+        set endsInDot [expr {
+          [string index $value end] eq "."
+        }]
+
+        if {[string length $varName] > 0} then {
+          upvar 2 $varName canceled; # [apply] ==> [proc] ==> <caller>
+
+          set dots [string repeat . [string length $value]]
+
+          if {$value eq $dots} then {
+            set canceled true
+          } else {
+            set canceled false
+          }
+        }
+
+        set value [string trim $value .]
+
+        if {$endsInDot && \
+            [string length $value] > 0} then {
+          append value .
+        }
+
+        return $value
+      }]
+    } else {
+      set transform [list [list value varName] {
+        return [string trim $value]
+      }]
+    }
+
+    if {[isEagle] && ![info exists ::no(inputBox)] && \
+        [llength [info commands object]] > 0} then {
+      if {[catch {
+        object load Microsoft.VisualBasic
+      } assembly] == 0} then {
         if {[catch {
-          object load Microsoft.VisualBasic
-        } assembly] == 0} then {
-          return [string trim [string trim [object invoke \
-              Microsoft.VisualBasic.Interaction InputBox \
-              $prompt $title]]]
+          object invoke \
+              Microsoft.VisualBasic.Interaction \
+              InputBox $prompt $title $default
+        } value] == 0} then {
+          return [apply $transform $value $canceledVarName]
         }
       }
     }
@@ -60,14 +116,14 @@ namespace eval ::Eagle {
       if {[isEagle]} then {
         catch {host writebox -- $title; puts stdout ""}
       } else {
-        catch {puts stdout [appendArgs "Title: " $title]}
+        catch {puts stdout [appendArgs "Title ==> " $title]}
       }
     }
 
-    puts -nonewline stdout [appendArgs "Prompt: " $prompt]
+    puts -nonewline stdout [appendArgs "Prompt ==> " $prompt]
     flush stdout
 
-    return [string trim [gets stdin]]
+    return [apply $transform [gets stdin] $canceledVarName]
   }
 
   proc addTestScripts { scriptVarName args } {
@@ -9208,7 +9264,7 @@ namespace eval ::Eagle {
       }
     }
 
-    proc isActiveProcess { pid } {
+    proc isActiveProcess { pid {default true} } {
       if {[catch {
         object invoke -alias \
             System.Diagnostics.Process GetProcessById $pid
@@ -9216,9 +9272,12 @@ namespace eval ::Eagle {
         return false
       }
 
-      if {[catch {
-        $process Refresh; $process HasExited
-      } exited] || [string is true -strict $exited]} then {
+      if {[catch {$process Refresh}] || \
+          [catch {$process HasExited} exited]} then {
+        return $default
+      }
+
+      if {[string is true -strict $exited]} then {
         return false
       }
 
@@ -9480,17 +9539,40 @@ namespace eval ::Eagle {
 
       maybeInvokeForTester ::initialShellBuildCommand; # HOOK
 
-      lappend result exec -nocapture -commandline
+      lappend result exec -nocapture
+
+      if {[hasRuntimeOption shellUnknown_ForceCommandLine] || \
+          [isWindows]} then {
+        lappend result -commandline; # CommandLineToArgvW
+      }
+
       lappend result -success Success -directory [pwd]
 
       if {[hasRuntimeOption shellUnknown_EmitTrace]} then {
         lappend result -trace
       }
 
+      set shellOnly [file tail $shell]
+
+      if {[hasRuntimeOption shellUnknown_ForceCommandProcessor]} then {
+        set forProcessor true
+      } elseif {![hasRuntimeOption shellUnknown_NoCommandProcessor] && \
+          [isWindows] && [string match -nocase *cmd.exe $shellOnly]} then {
+        set forProcessor true
+      } else {
+        set forProcessor false
+      }
+
+      if {$forProcessor} then {
+        lappend result -forprocessor
+      }
+
+      maybeInvokeForTester ::optionsShellBuildCommand; # HOOK
+
       lappend result --
 
-      if {[isWindows] || \
-          [hasRuntimeOption shellUnknown_ViaShell]} then {
+      if {[hasRuntimeOption shellUnknown_ViaShell] || \
+          [isWindows]} then {
         lappend result $shell; # cmd.exe -OR- /bin/bash
       }
 
@@ -9509,6 +9591,11 @@ namespace eval ::Eagle {
       #       as escape embedded single quotes by doubling them
       #       up.
       #
+      # NOTE: It should be noted that this local variable is now
+      #       for use only by hooks, i.e. it will not be checked
+      #       by the code in this procedure; furthermore, it is
+      #       only set to true when not running on Windows.
+      #
       set singleQuote false
 
       maybeInvokeForTester ::beforeShellBuildCommand; # HOOK
@@ -9520,18 +9607,19 @@ namespace eval ::Eagle {
         #       on Windows.  Alternatively, for PowerShell, we
         #       (apparently?) want to use a "-Command" prefix.
         #
-        set shellOnly [file tail $shell]
-
         if {[hasRuntimeOption shellUnknown_ForceSlashC] || \
-            [string match -nocase *cmd.exe $shellOnly] || \
+            $forProcessor || \
             [string match -nocase 4nt.exe $shellOnly] || \
             [string match -nocase tcc.exe $shellOnly]} then {
           lappend result /C; # cmd.exe /C
         } elseif {[hasRuntimeOption shellUnknown_ForceDashCommand] || \
+            [string match -nocase PowerShell $shellOnly] || \
             [string match -nocase PowerShell.exe $shellOnly] || \
+            [string match -nocase pwsh $shellOnly] || \
             [string match -nocase pwsh.exe $shellOnly]} then {
           set oneArgument true; # PowerShell.exe -Command <script>
-          set singleQuote true; # Escape by doubling single quotes...
+          set singleQuote true; # Escape by doubling single quotes?
+
           lappend result -Command; # PowerShell.exe -Command
         } elseif {[info exists \
             ::eagle_debugger(shellUnknownCommandPrefix)]} then {
@@ -12612,7 +12700,7 @@ namespace eval ::Eagle {
     # NOTE: We need several of our test related commands in the global
     #       namespace as well.
     #
-    exportAndImportPackageCommands [namespace current] [list \
+    exportAndImportPackageCommands [namespace current] [list f_proc \
         promptForAndGetTextInput addTestScripts evaluateTestScripts \
         combineTestScriptResults newPackageId getParameterFromAny \
         getIndexForDirectory maybeAddToAutoPath maybeScanAutoPath \

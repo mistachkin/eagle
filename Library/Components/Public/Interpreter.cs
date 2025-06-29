@@ -8717,8 +8717,7 @@ namespace Eagle._Components.Public
         public ReturnCode EvaluateBundleFile(
             string fileName,
             byte[] password,
-            bool errorOnEmpty,
-            bool stopOnError,
+            BundleFlags bundleFlags,
             ref IClientData clientData,
             ref Result result
             )
@@ -8728,8 +8727,9 @@ namespace Eagle._Components.Public
             int errorLine = 0;
 
             ReturnCode code = EvaluateBundleFile(
-                fileName, password, errorOnEmpty, stopOnError,
-                ref clientData, ref result, ref errorLine);
+                fileName, password, bundleFlags,
+                ref clientData, ref result,
+                ref errorLine);
 
             if (errorLine != 0)
                 SetErrorLine(this, errorLine);
@@ -8742,8 +8742,7 @@ namespace Eagle._Components.Public
         public ReturnCode EvaluateBundleFile(
             string fileName,
             byte[] password,
-            bool errorOnEmpty,
-            bool stopOnError,
+            BundleFlags bundleFlags,
             ref IClientData clientData,
             ref Result result,
             ref int errorLine
@@ -8762,9 +8761,11 @@ namespace Eagle._Components.Public
                 haveScriptFlags.ExpressionFlags = ExpressionFlagsNoLock;
             }
 
+            haveScriptFlags.BundleFlags = bundleFlags;
+
             return EvaluateBundleFile(
-                fileName, password, haveScriptFlags, errorOnEmpty,
-                stopOnError, ref clientData, ref result, ref errorLine);
+                fileName, password, haveScriptFlags,
+                ref clientData, ref result, ref errorLine);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -8773,8 +8774,6 @@ namespace Eagle._Components.Public
             string fileName,                  /* in */
             byte[] password,                  /* in: OPTIONAL */
             IHaveScriptFlags haveScriptFlags, /* in: OPTIONAL */
-            bool errorOnEmpty,                /* in */
-            bool stopOnError,                 /* in */
             ref IClientData clientData,       /* in, out: OPTIONAL */
             ref Result result,                /* out */
             ref int errorLine                 /* out */
@@ -8796,6 +8795,9 @@ namespace Eagle._Components.Public
             {
                 return ReturnCode.Error;
             }
+
+            BundleFlags bundleFlags = (haveScriptFlags != null) ?
+                haveScriptFlags.BundleFlags : BundleFlags.Default;
 
             Result localResult; /* REUSED */
 
@@ -8822,6 +8824,15 @@ namespace Eagle._Components.Public
                     result = localResult;
                     return ReturnCode.Error;
                 }
+            }
+            else if (FlagOps.HasFlags(
+                    bundleFlags, BundleFlags.RequireKeyRing, true))
+            {
+                result = String.Format(
+                    "missing the required bundle key ring file {0}",
+                    FormatOps.WrapOrNull(mergeBundleKeyRingFileName));
+
+                return ReturnCode.Error;
             }
 
             StringList verifyCommand = new StringList();
@@ -8860,7 +8871,9 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
-            if (errorOnEmpty && (scripts.Count == 0))
+            if (FlagOps.HasFlags(
+                    bundleFlags, BundleFlags.ErrorOnEmpty, true) &&
+                (scripts.Count == 0))
             {
                 result = "bundle file has no scripts";
                 return ReturnCode.Error;
@@ -8931,8 +8944,11 @@ namespace Eagle._Components.Public
 
                             errors.Add(localResult);
 
-                            if (stopOnError)
+                            if (FlagOps.HasFlags(bundleFlags,
+                                    BundleFlags.StopOnError, true))
+                            {
                                 break;
+                            }
                         }
                     }
 
@@ -84812,12 +84828,20 @@ namespace Eagle._Components.Public
                 if (evaluateFileCallback == null)
                 {
 #if DATA
+                    //
+                    // TODO: Are these the best bundle flags
+                    //       to use here?
+                    //
+                    BundleFlags bundleFlags =
+                        BundleFlags.Default |
+                        BundleFlags.RequireKeyRing;
+
                     if (PathOps.MightBeBundleFile(fileName))
                     {
                         IClientData clientData = null;
 
                         return EvaluateBundleFile(
-                            fileName, null, false, false,
+                            fileName, null, bundleFlags,
                             ref clientData, ref result,
                             ref errorLine);
                     }

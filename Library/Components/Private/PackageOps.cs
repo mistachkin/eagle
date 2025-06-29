@@ -2744,7 +2744,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static string GetIndexFilePattern(
+        public static string GetIndexFilePattern(
             Interpreter interpreter,
             PackageType packageType,
             bool tagged,

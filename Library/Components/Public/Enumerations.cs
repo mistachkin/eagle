@@ -15,6 +15,37 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Public
 {
+#if DATA
+    [Flags()]
+    [ObjectId("7415026d-5fa5-4561-88b4-088129d9a800")]
+    public enum BundleFlags
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ErrorOnEmpty = 0x100,   /* Fail if there are no scripts in
+                                 * the bundle. */
+        StopOnError = 0x200,    /* Stop immediately if any of the
+                                 * bundled scripts raise any script
+                                 * error. */
+        RequireKeyRing = 0x400, /* Fail if the "bundle" key ring
+                                 * file (i.e. "keyRing.one.eagle")
+                                 * cannot be found. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForDefault = 0x1000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Default = ForDefault
+    }
+#endif
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if NETWORK
     [Flags()]
     [ObjectId("355c6bf7-5f50-4f48-bc37-e070c7362f75")]

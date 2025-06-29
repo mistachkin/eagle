@@ -23,5 +23,9 @@ namespace Eagle._Interfaces.Public
         SubstitutionFlags SubstitutionFlags { get; set; }
         EventFlags EventFlags { get; set; }
         ExpressionFlags ExpressionFlags { get; set; }
+
+#if DATA
+        BundleFlags BundleFlags { get; set; }
+#endif
     }
 }

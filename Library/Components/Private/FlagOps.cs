@@ -111,6 +111,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if DATA
+        public static bool HasFlags(
+            BundleFlags flags,
+            BundleFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != BundleFlags.None);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool HasFlags(
             ByRefArgumentFlags flags,
             ByRefArgumentFlags hasFlags,

@@ -88,15 +88,18 @@ namespace Eagle._Commands
                 new Option(null, OptionFlags.MustHaveBooleanValue |
                     OptionFlags.Nullable, Index.Invalid, Index.Invalid,
                     "-bundle", null),
+                new Option(typeof(BundleFlags),
+                    OptionFlags.MustHaveEnumValue, Index.Invalid,
+                    Index.Invalid, "-bundleflags",
+                    new Variant(BundleFlags.Default)),
 #else
                 new Option(null, OptionFlags.MustHaveBooleanValue |
                     OptionFlags.Nullable | OptionFlags.Unsupported,
                     Index.Invalid, Index.Invalid, "-bundle", null),
+                new Option(null, OptionFlags.MustHaveEnumValue |
+                    OptionFlags.Unsupported, Index.Invalid,
+                    Index.Invalid, "-bundleflags", null),
 #endif
-                new Option(null, OptionFlags.MustHaveBooleanValue,
-                    Index.Invalid, Index.Invalid, "-erroronempty", null),
-                new Option(null, OptionFlags.MustHaveBooleanValue,
-                    Index.Invalid, Index.Invalid, "-stoponerror", null),
                 Option.CreateEndOfOptions()
             });
 
@@ -165,17 +168,12 @@ namespace Eagle._Commands
 
             if (options.IsPresent("-bundle", ref value))
                 bundle = (bool?)value.Value;
+
+            BundleFlags bundleFlags = BundleFlags.Default;
+
+            if (options.IsPresent("-bundleflags", ref value))
+                bundleFlags = (BundleFlags)value.Value;
 #endif
-
-            bool errorOnEmpty = false;
-
-            if (options.IsPresent("-erroronempty", ref value))
-                errorOnEmpty = (bool)value.Value;
-
-            bool stopOnError = false;
-
-            if (options.IsPresent("-stoponerror", ref value))
-                stopOnError = (bool)value.Value;
 
             if (code == ReturnCode.Ok)
             {
@@ -248,9 +246,8 @@ namespace Eagle._Commands
                                     if ((bool)bundle)
                                     {
                                         code = interpreter.EvaluateBundleFile(
-                                            fileName, password, errorOnEmpty,
-                                            stopOnError, ref clientData,
-                                            ref result);
+                                            fileName, password, bundleFlags,
+                                            ref clientData, ref result);
                                     }
                                     else
 #endif

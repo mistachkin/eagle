@@ -92,6 +92,17 @@ namespace Eagle._Components.Public
             get { return expressionFlags; }
             set { expressionFlags = value; }
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if DATA
+        private BundleFlags bundleFlags;
+        public BundleFlags BundleFlags
+        {
+            get { return bundleFlags; }
+            set { bundleFlags = value; }
+        }
+#endif
         #endregion
     }
 }

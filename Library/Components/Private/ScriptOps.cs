@@ -49,6 +49,13 @@ using DelegateList = System.Collections.Generic.List<
     System.Reflection.MethodBase, System.Delegate,
     Eagle._Components.Public.DelegateFlags>>;
 
+using PackageIndexPair = System.Collections.Generic.KeyValuePair<string,
+    Eagle._Components.Public.MutableAnyPair<string,
+    Eagle._Components.Public.PackageIndexFlags>>;
+
+using PackageIndexAnyPair = Eagle._Components.Public.MutableAnyPair<
+    string, Eagle._Components.Public.PackageIndexFlags>;
+
 #if NETWORK && OFFICIAL_BINARY && !ENTERPRISE_LOCKDOWN
 using SharedAttributeOps = Eagle._Components.Shared.AttributeOps;
 #endif
@@ -444,17 +451,12 @@ namespace Eagle._Components.Private
                 return;
             }
 
-            string indexFileName = FormatOps.ScriptTypeToFileName(
-                ScriptTypes.PackageIndex, PackageType.None, true, false);
-
-            if (String.IsNullOrEmpty(indexFileName))
-            {
-                TraceOps.DebugTrace(
-                    "GetSecurityPackageIndexPaths: no index file name",
-                    typeof(ScriptOps).Name, TracePriority.PackageError);
-
-                return;
-            }
+            string[] searchPatterns = {
+                PackageOps.GetIndexFilePattern(
+                    interpreter, PackageType.None, true, false),
+                PackageOps.GetIndexFilePattern(
+                    interpreter, PackageType.None, false, false)
+            };
 
             TraceOps.DebugTrace(String.Format(
                 "GetSecurityPackageIndexPaths: input path list: {0}",
@@ -468,49 +470,55 @@ namespace Eagle._Components.Private
                 if (String.IsNullOrEmpty(path))
                     continue;
 
-                string[] fileNames = Directory.GetFiles(
-                    PathOps.GetNativePath(path), indexFileName,
-                    searchOption);
-
-                if ((fileNames == null) || (fileNames.Length == 0))
-                    continue;
-
-                Array.Sort(fileNames); /* O(N) */
-
-                foreach (string fileName in fileNames)
+                foreach (string searchPattern in searchPatterns)
                 {
-                    if (String.IsNullOrEmpty(fileName))
+                    if (String.IsNullOrEmpty(searchPattern))
                         continue;
 
-                    string directory = Path.GetDirectoryName(fileName);
+                    string[] fileNames = Directory.GetFiles(
+                        PathOps.GetNativePath(path), searchPattern,
+                        searchOption);
 
-                    if (String.IsNullOrEmpty(directory))
+                    if ((fileNames == null) || (fileNames.Length == 0))
                         continue;
 
-                    if (Parser.StringMatch(
-                            interpreter, PathOps.GetUnixPath(fileName), 0,
-                            HarpyPackageIndexPattern, 0, PathOps.NoCase) ||
-                        Parser.StringMatch(
-                            interpreter, PathOps.GetUnixPath(fileName), 0,
-                            BadgePackageIndexPattern, 0, PathOps.NoCase))
+                    Array.Sort(fileNames); /* O(N) */
+
+                    foreach (string fileName in fileNames)
                     {
-                        if (paths == null)
-                            paths = new StringList();
+                        if (String.IsNullOrEmpty(fileName))
+                            continue;
 
-                        paths.Add(directory);
-                        continue;
+                        string directory = Path.GetDirectoryName(fileName);
+
+                        if (String.IsNullOrEmpty(directory))
+                            continue;
+
+                        if (Parser.StringMatch(
+                                interpreter, PathOps.GetUnixPath(fileName), 0,
+                                HarpyPackageIndexPattern, 0, PathOps.NoCase) ||
+                            Parser.StringMatch(
+                                interpreter, PathOps.GetUnixPath(fileName), 0,
+                                BadgePackageIndexPattern, 0, PathOps.NoCase))
+                        {
+                            if (paths == null)
+                                paths = new StringList();
+
+                            paths.Add(directory);
+                            continue;
+                        }
+
+                        //
+                        // HACK: Do not use fileName here... Instead, check for
+                        //       the "Harpy*.dll" / "Badge*.dll" patterns using
+                        //       the directory.  This is being done in order to
+                        //       support loading out-of-tree plugins running on
+                        //       the .NET Core runtime, where they may not have
+                        //       a matching directory name pattern (above).
+                        //
+                        GetSecurityAssemblyPaths(
+                            interpreter, directory, ref paths);
                     }
-
-                    //
-                    // HACK: Do not use fileName here... Instead, check for
-                    //       the "Harpy*.dll" / "Badge*.dll" patterns using
-                    //       the directory.  This is being done in order to
-                    //       support loading out-of-tree plugins running on
-                    //       the .NET Core runtime, where they may not have
-                    //       a matching directory name pattern (above).
-                    //
-                    GetSecurityAssemblyPaths(
-                        interpreter, directory, ref paths);
                 }
             }
 
@@ -552,7 +560,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool SplitPackageIndexFileName(
+            string fileName,        /* in */
+            out string directory,   /* out */
+            out string fileNameOnly /* out */
+            )
+        {
+            directory = null;
+            fileNameOnly = null;
+
+            try
+            {
+                directory = Path.GetDirectoryName(fileName);
+                fileNameOnly = Path.GetFileName(fileName);
+
+                return true;
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(ScriptOps).Name,
+                    TracePriority.PathError);
+
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static bool HaveSecurityPackageIndexes(
+            Interpreter interpreter,              /* in */
             StringList paths,                     /* in */
             PackageIndexDictionary packageIndexes /* in */
             )
@@ -560,25 +597,54 @@ namespace Eagle._Components.Private
             if ((paths == null) || (packageIndexes == null))
                 return false;
 
-            string indexFileName = FormatOps.ScriptTypeToFileName(
-                ScriptTypes.PackageIndex, PackageType.None, true, false);
+            string[] searchPatterns = {
+                PackageOps.GetIndexFilePattern(
+                    interpreter, PackageType.None, true, false),
+                PackageOps.GetIndexFilePattern(
+                    interpreter, PackageType.None, false, false)
+            };
 
-            if (String.IsNullOrEmpty(indexFileName))
-                return false;
+            int count = 0;
 
-            foreach (string path in paths)
+            foreach (string searchPattern in searchPatterns)
             {
-                if (String.IsNullOrEmpty(path))
+                if (String.IsNullOrEmpty(searchPattern))
                     continue;
 
-                if (!packageIndexes.ContainsKey(Path.Combine(
-                        path, indexFileName)))
+                foreach (string path in paths)
                 {
-                    return false;
+                    if (String.IsNullOrEmpty(path))
+                        continue;
+
+                    foreach (PackageIndexPair pair in packageIndexes)
+                    {
+                        string directory;
+                        string fileNameOnly;
+
+                        if (!SplitPackageIndexFileName(
+                                pair.Key, out directory, out fileNameOnly) ||
+                            String.IsNullOrEmpty(directory) ||
+                            String.IsNullOrEmpty(fileNameOnly))
+                        {
+                            continue;
+                        }
+
+                        if (!PathOps.IsEqualFileName(directory, path))
+                            continue;
+
+                        if (!StringOps.Match(
+                                interpreter, MatchMode.Glob, fileNameOnly,
+                                searchPattern, PathOps.NoCase))
+                        {
+                            continue;
+                        }
+
+                        count++;
+                    }
                 }
             }
 
-            return true;
+            return (count == paths.Count);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -633,8 +699,11 @@ namespace Eagle._Components.Private
                 //       the interpreter, skip trying to find and load them
                 //       again.
                 //
-                if (HaveSecurityPackageIndexes(paths, packageIndexes))
+                if (HaveSecurityPackageIndexes(
+                        interpreter, paths, packageIndexes))
+                {
                     return ReturnCode.Ok;
+                }
 
                 PackageIndexFlags savedPackageIndexFlags =
                     interpreter.ContextPackageIndexFlags;
@@ -10417,10 +10486,18 @@ namespace Eagle._Components.Private
                             File.WriteAllBytes(bundleFileName, data);
                             File.WriteAllBytes(signatureFileName, signature);
 
+                            //
+                            // TODO: Re-evaluate if these are the best flags to
+                            //       use here.
+                            //
+                            BundleFlags bundleFlags =
+                                BundleFlags.Default | BundleFlags.StopOnError |
+                                BundleFlags.RequireKeyRing;
+
                             Result result = null;
 
                             if (interpreter.EvaluateBundleFile(
-                                    bundleFileName, password, false, true,
+                                    bundleFileName, password, bundleFlags,
                                     ref clientData, ref result) == ReturnCode.Ok)
                             {
                                 interpreter.MarkAsTrustedRemoteOk();
