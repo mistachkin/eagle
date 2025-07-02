@@ -2923,7 +2923,54 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string GetTempFileName() /* throw */
+        private static void GetRandomFileName(
+            string prefix,          /* in: OPTIONAL */
+            out string fileNameOnly /* out */
+            )
+        {
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            if (prefix != null)
+            {
+                Regex regEx = identifierRegEx;
+
+                if (regEx != null)
+                {
+                    Match match = regEx.Match(prefix);
+
+                    if ((match != null) && match.Success)
+                    {
+                        builder.Append(prefix);
+                        goto suffix;
+                    }
+                }
+
+                //
+                // HACK: *SECURITY* This is fail-safe fallback
+                //       handling, which will make sure that a
+                //       prefix is always added, even if the
+                //       specified prefix is invalid or cannot
+                //       be validated.
+                //
+                builder.Append(
+                    "egrfn_"); /* Eagle Get Random File Name */
+
+                goto suffix; /* REDUNDANT */
+            }
+
+        suffix:
+
+            builder.Append(Path.GetRandomFileName()); /* throw */
+
+            fileNameOnly = StringBuilderCache.GetStringAndRelease(
+                ref builder);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string GetTempFileName( /* throw */
+            string prefix /* in: OPTIONAL */
+            )
         {
             GetStringValueCallback callback;
 
@@ -2942,9 +2989,13 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
-                    return Path.Combine(
-                        Path.GetTempPath(), /* throw */
-                        Path.GetRandomFileName()); /* throw */
+                    string fileNameOnly;
+
+                    GetRandomFileName(
+                        prefix, out fileNameOnly);
+
+                    result = Path.Combine(
+                        Path.GetTempPath(), fileNameOnly);
                 }
             }
             catch (Exception e)
@@ -2960,7 +3011,7 @@ namespace Eagle._Components.Private
                 "GetTempFileName: result = {0}",
                 FormatOps.WrapOrNull(result)),
                 typeof(PathOps).Name,
-                TracePriority.PathDebug);
+                TracePriority.PathDebug2);
 
             return result;
         }
@@ -6299,13 +6350,15 @@ namespace Eagle._Components.Private
                 return null;
             }
 
-            if (identifierRegEx == null)
+            Regex regEx = identifierRegEx;
+
+            if (regEx == null)
             {
                 error = "cannot check resource name";
                 return null;
             }
 
-            Match match = identifierRegEx.Match(resourceName);
+            Match match = regEx.Match(resourceName);
 
             if ((match == null) || !match.Success)
             {

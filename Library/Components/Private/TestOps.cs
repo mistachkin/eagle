@@ -2521,7 +2521,8 @@ namespace Eagle._Components.Private
                 // NOTE: First, just obtain a temporary file name from the
                 //       operating system.
                 //
-                fileNames[0] = PathOps.GetTempFileName(); /* throw */
+                fileNames[0] = PathOps.GetTempFileName( /* throw */
+                    "eitf_"); /* Eagle Isolated Test File */
 
                 if (!String.IsNullOrEmpty(fileNames[0]))
                 {

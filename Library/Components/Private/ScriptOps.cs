@@ -452,9 +452,9 @@ namespace Eagle._Components.Private
             }
 
             string[] searchPatterns = {
-                PackageOps.GetIndexFilePattern(
+                PackageOps.GetIndexFilePattern( /* "pkgIndex_*.eagle" */
                     interpreter, PackageType.None, true, false),
-                PackageOps.GetIndexFilePattern(
+                PackageOps.GetIndexFilePattern( /* "pkgIndex.eagle" */
                     interpreter, PackageType.None, false, false)
             };
 
@@ -598,9 +598,9 @@ namespace Eagle._Components.Private
                 return false;
 
             string[] searchPatterns = {
-                PackageOps.GetIndexFilePattern(
+                PackageOps.GetIndexFilePattern( /* "pkgIndex_*.eagle" */
                     interpreter, PackageType.None, true, false),
-                PackageOps.GetIndexFilePattern(
+                PackageOps.GetIndexFilePattern( /* "pkgIndex.eagle" */
                     interpreter, PackageType.None, false, false)
             };
 
@@ -621,8 +621,8 @@ namespace Eagle._Components.Private
                         string directory;
                         string fileNameOnly;
 
-                        if (!SplitPackageIndexFileName(
-                                pair.Key, out directory, out fileNameOnly) ||
+                        if (!SplitPackageIndexFileName(pair.Key,
+                                out directory, out fileNameOnly) ||
                             String.IsNullOrEmpty(directory) ||
                             String.IsNullOrEmpty(fileNameOnly))
                         {
@@ -632,17 +632,25 @@ namespace Eagle._Components.Private
                         if (!PathOps.IsEqualFileName(directory, path))
                             continue;
 
-                        if (!StringOps.Match(
-                                interpreter, MatchMode.Glob, fileNameOnly,
+                        if (!StringOps.Match(interpreter,
+                                MatchMode.Glob, fileNameOnly,
                                 searchPattern, PathOps.NoCase))
                         {
                             continue;
                         }
 
-                        count++;
+                        count++; // MATCHED
                     }
                 }
             }
+
+            TraceOps.DebugTrace(String.Format(
+                "HaveSecurityPackageIndexes: interpreter = {0}, " +
+                "paths = {1}, packageIndexes = {2}, count = {3}",
+                FormatOps.InterpreterNoThrow(interpreter),
+                FormatOps.WrapOrNull(paths),
+                FormatOps.WrapOrNull(packageIndexes), count),
+                typeof(ScriptOps).Name, TracePriority.PackageDebug4);
 
             return (count == paths.Count);
         }
@@ -4402,6 +4410,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode GetTemporaryFileName(
+            string prefix,       /* in */
             ref string fileName, /* out */
             ref Result error     /* out */
             )
@@ -4415,7 +4424,7 @@ namespace Eagle._Components.Private
                 // NOTE: First, just obtain a temporary file name from the
                 //       operating system.
                 //
-                fileNames[0] = PathOps.GetTempFileName(); /* throw */
+                fileNames[0] = PathOps.GetTempFileName(prefix); /* throw */
 
                 if (!String.IsNullOrEmpty(fileNames[0]))
                 {
@@ -4522,7 +4531,9 @@ namespace Eagle._Components.Private
                 // NOTE: First, attempt to obtain a temporary script file
                 //       name (i.e. with an ".eagle" extension).
                 //
-                code = GetTemporaryFileName(ref localFileName, ref error);
+                code = GetTemporaryFileName(
+                    "etsf_", /* Eagle Temporary Script File */
+                    ref localFileName, ref error);
 
                 if (code != ReturnCode.Ok)
                     return code;
@@ -10423,7 +10434,8 @@ namespace Eagle._Components.Private
                 return;
             }
 
-            string bundleFileName = PathOps.GetTempFileName();
+            string bundleFileName = PathOps.GetTempFileName(
+                "etru_"); /* Eagle Trusted Remote Uri */
 
             if (String.IsNullOrEmpty(bundleFileName) ||
                 File.Exists(bundleFileName))

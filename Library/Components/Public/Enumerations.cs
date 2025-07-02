@@ -1461,6 +1461,7 @@ namespace Eagle._Components.Public
         InteractiveDebug = Medium | Debug,        // interactive loop, etc.
         EngineDebug2 = Medium | Debug,            // low-level script evaluation
 
+        PathDebug2 = MediumHigh | Debug,          // path discovery and building
         StartupDebug3 = MediumHigh | Debug,       // library / interpreter startup.
         ThreadDebug = MediumHigh | Debug,         // thread exceptions, timeout, etc.
         TestDebug = MediumHigh | Debug,           // test suite infrastructure, etc.

@@ -9546,6 +9546,14 @@ namespace eval ::Eagle {
         lappend result -commandline; # CommandLineToArgvW
       }
 
+      if {[hasRuntimeOption shellUnknown_ForceDequote]} then {
+        lappend result -dequote; # "<arg1>" ==> <arg1>
+      }
+
+      if {[hasRuntimeOption shellUnknown_ForceQuoteAll]} then {
+        lappend result -quoteall; # cmd "<arg1>" ... "<argN>"
+      }
+
       lappend result -success Success -directory [pwd]
 
       if {[hasRuntimeOption shellUnknown_EmitTrace]} then {
@@ -9554,10 +9562,25 @@ namespace eval ::Eagle {
 
       set shellOnly [file tail $shell]
 
+      if {[string match -nocase *cmd.exe $shellOnly]} then {
+        set isCmdDotExe true
+      } else {
+        set isCmdDotExe false
+      }
+
+      if {[string match -nocase PowerShell $shellOnly] || \
+          [string match -nocase PowerShell.exe $shellOnly] || \
+          [string match -nocase pwsh $shellOnly] || \
+          [string match -nocase pwsh.exe $shellOnly]} then {
+        set isPowerShell true
+      } else {
+        set isPowerShell false
+      }
+
       if {[hasRuntimeOption shellUnknown_ForceCommandProcessor]} then {
         set forProcessor true
-      } elseif {![hasRuntimeOption shellUnknown_NoCommandProcessor] && \
-          [isWindows] && [string match -nocase *cmd.exe $shellOnly]} then {
+      } elseif {$isCmdDotExe && \
+          ![hasRuntimeOption shellUnknown_NoCommandProcessor]} then {
         set forProcessor true
       } else {
         set forProcessor false
@@ -9571,9 +9594,16 @@ namespace eval ::Eagle {
 
       lappend result --
 
-      if {[hasRuntimeOption shellUnknown_ViaShell] || \
-          [isWindows]} then {
-        lappend result $shell; # cmd.exe -OR- /bin/bash
+      if {([isWindows] && \
+           ![hasRuntimeOption shellUnknown_NoShell]) || \
+          [hasRuntimeOption shellUnknown_ForceShell]} then {
+        lappend result $shell; # "cmd.exe" -OR- "/bin/bash", etc.
+
+        if {(![isWindows] && \
+             ![hasRuntimeOption shellUnknown_NoDashC]) || \
+            [hasRuntimeOption shellUnknown_DashC]} then {
+          lappend result -c; # Bash single command string.
+        }
       }
 
       #
@@ -9591,16 +9621,12 @@ namespace eval ::Eagle {
       #       as escape embedded single quotes by doubling them
       #       up.
       #
-      # NOTE: It should be noted that this local variable is now
-      #       for use only by hooks, i.e. it will not be checked
-      #       by the code in this procedure; furthermore, it is
-      #       only set to true when not running on Windows.
-      #
       set singleQuote false
 
       maybeInvokeForTester ::beforeShellBuildCommand; # HOOK
 
-      if {[isWindows]} then {
+      if {![info exists ::no(windowsShellBuildCommand)] && \
+          [isWindows]} then {; # NOTE: Non-Windows is simpler.
         #
         # HACK: Generally, we want to use the "/C" option when
         #       using "cmd.exe" -OR- any of its various clones
@@ -9608,17 +9634,17 @@ namespace eval ::Eagle {
         #       (apparently?) want to use a "-Command" prefix.
         #
         if {[hasRuntimeOption shellUnknown_ForceSlashC] || \
-            $forProcessor || \
+            $isCmdDotExe || \
             [string match -nocase 4nt.exe $shellOnly] || \
             [string match -nocase tcc.exe $shellOnly]} then {
           lappend result /C; # cmd.exe /C
         } elseif {[hasRuntimeOption shellUnknown_ForceDashCommand] || \
-            [string match -nocase PowerShell $shellOnly] || \
-            [string match -nocase PowerShell.exe $shellOnly] || \
-            [string match -nocase pwsh $shellOnly] || \
-            [string match -nocase pwsh.exe $shellOnly]} then {
+            $isPowerShell} then {
           set oneArgument true; # PowerShell.exe -Command <script>
-          set singleQuote true; # Escape by doubling single quotes?
+
+          if {[hasRuntimeOption shellUnknown_ForceSingleQuote]} then {
+            set singleQuote true; # Escape by doubling single quotes?
+          }
 
           lappend result -Command; # PowerShell.exe -Command
         } elseif {[info exists \
@@ -9639,6 +9665,17 @@ namespace eval ::Eagle {
             return $result
           }
         }
+      } else {
+        if {[hasRuntimeOption shellUnknown_ForceDashCommand] || \
+            $isPowerShell} then {
+          set oneArgument true; # PowerShell -Command <script>
+
+          if {![hasRuntimeOption shellUnknown_NoSingleQuote]} then {
+            set singleQuote true; # Escape by doubling single quotes?
+          }
+
+          lappend result -Command; # PowerShell -Command
+        }
       }
 
       maybeInvokeForTester ::afterShellBuildCommand; # HOOK
@@ -9648,6 +9685,33 @@ namespace eval ::Eagle {
 
         lappend subResult $name; # e.g. Get-Process
         eval lappend subResult $args; # e.g. Win*
+
+        if {![hasRuntimeOption shellUnknown_NoJoinSubResult]} then {
+          set subResult [join $subResult " "]; # i.e. not Tcl list (?)
+        }
+
+        if {$singleQuote} then {
+          #
+          # NOTE: This is (basically) for (anything like) PowerShell
+          #       running via Bash.  The following algorithm is used:
+          #
+          #       1. Replace internal single-quotes with the following
+          #          sequence:
+          #
+          #          A. <singleQuote> (close outer single-quotes)
+          #          B. <backslash> (escape for literal single-quote)
+          #          C. <singleQuote> (escaped literal single-quote)
+          #          D. <singleQuote> (re-open outer single-quotes)
+          #
+          #       2. Wrap the entire command string in single quotes.
+          #
+          #       The final command should look like the following:
+          #
+          # /bin/bash -c 'pwsh -Command '\''Write-Output "Hello World"'\'''
+          #
+          set subResult [string map [list ' '\\''] $subResult]
+          set subResult [appendArgs ' $subResult ']
+        }
 
         lappend result $subResult
       } else {

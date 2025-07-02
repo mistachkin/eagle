@@ -213,6 +213,7 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-noellipsis"))
                                     ellipsis = false;
 
+                                TracePriority errorPriority = TracePriority.ProcessError2;
                                 TracePriority priority = TracePriority.CommandDebug;
 
                                 if (debug)
@@ -466,6 +467,15 @@ namespace Eagle._Commands
 
                                 if (debug)
                                 {
+                                    if (code != ReturnCode.Ok)
+                                    {
+                                        TraceOps.ChangeBaseTracePriority(
+                                            ref priority, errorPriority);
+
+                                        TraceOps.ChangeToErrorPriority(
+                                            ref priority);
+                                    }
+
                                     TraceOps.DebugTrace(String.Format(
                                         "Execute: interpreter = {0}, domainName = {1}, userName = {2}, " +
                                         "password = {3}, execFileName = {4}, execArguments = {5}, " +
@@ -508,6 +518,15 @@ namespace Eagle._Commands
                                         execFileName, directory, ref execArguments,
                                         ref done, ref result);
 
+                                    if (debug && (code != ReturnCode.Ok))
+                                    {
+                                        TraceOps.ChangeBaseTracePriority(
+                                            ref priority, errorPriority);
+
+                                        TraceOps.ChangeToErrorPriority(
+                                            ref priority);
+                                    }
+
                                     if (done)
                                         goto done;
 
@@ -525,6 +544,15 @@ namespace Eagle._Commands
                                             keepNewLine, background, !noEvents && !background,
                                             noPreviousProcessId, trace, ref processId, ref exitCode,
                                             ref result, ref error);
+
+                                        if (debug && (code != ReturnCode.Ok))
+                                        {
+                                            TraceOps.ChangeBaseTracePriority(
+                                                ref priority, errorPriority);
+
+                                            TraceOps.ChangeToErrorPriority(
+                                                ref priority);
+                                        }
 
                                         attempted = true; /* probably? */
                                     }

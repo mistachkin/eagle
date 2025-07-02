@@ -2905,20 +2905,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static void ChangeTracePriority(
-            ref TracePriority priority,   /* in, out */
-            TracePriority newBasePriority /* in */
+        public static void ChangeBaseTracePriority(
+            ref TracePriority priority, /* in, out */
+            TracePriority basePriority  /* in */
             )
         {
-            TracePriority basePriority = MaskTracePriority(
-                newBasePriority);
+            TracePriority newBasePriority = MaskTracePriority(
+                basePriority);
 
-            if (FlagOps.HasFlags(basePriority,
+            if (FlagOps.HasFlags(newBasePriority,
                     TracePriority.AnyPriorityMask, false))
             {
                 priority &= ~TracePriority.AnyPriorityMask;
-                priority |= basePriority;
+                priority |= newBasePriority;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void ChangeToErrorPriority(
+            ref TracePriority priority /* in, out */
+            )
+        {
+            priority &= ~TracePriority.AnyCoreTypeMask;
+            priority |= TracePriority.Error;
         }
 
         ///////////////////////////////////////////////////////////////////////

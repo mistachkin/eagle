@@ -1763,7 +1763,8 @@ namespace Eagle._Components.Private
 
             try
             {
-                fileName = PathOps.GetTempFileName(); /* throw */
+                fileName = PathOps.GetTempFileName( /* throw */
+                    "esnv_"); /* Eagle Strong Name Verification */
 
                 //
                 // NOTE: *SECURITY* Failure, if we cannot obtain a temporary
@@ -2099,7 +2100,8 @@ namespace Eagle._Components.Private
 
             try
             {
-                fileName = PathOps.GetTempFileName(); /* throw */
+                fileName = PathOps.GetTempFileName( /* throw */
+                    "etfc_"); /* Eagle Trusted File Checking */
 
                 //
                 // NOTE: *SECURITY* Failure, if we cannot obtain a temporary
@@ -2679,7 +2681,7 @@ namespace Eagle._Components.Private
             if (builder.Length > 0)
                 builder.Append(Characters.Space);
 
-            bool wrap = quoteAll || forProcessor ||
+            bool wrap = quoteAll ||
                 (arg.IndexOfAny(specials) != Index.Invalid);
 
             EscapeMode escapeMode = EscapeMode.Default;

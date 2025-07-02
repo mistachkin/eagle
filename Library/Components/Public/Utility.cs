@@ -804,6 +804,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string GetTempFileName(
+            string prefix
+            )
+        {
+            return PathOps.GetTempFileName(prefix);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool IsUnderPath(
             Interpreter interpreter,
             string path1,
@@ -5966,12 +5975,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static void ChangeTracePriority(
+        public static void ChangeBaseTracePriority(
             ref TracePriority priority,
-            TracePriority newBasePriority
+            TracePriority basePriority
             )
         {
-            TraceOps.ChangeTracePriority(ref priority, newBasePriority);
+            TraceOps.ChangeBaseTracePriority(
+                ref priority, basePriority);
         }
 
         ///////////////////////////////////////////////////////////////////////
