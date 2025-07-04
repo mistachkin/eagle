@@ -14761,7 +14761,7 @@ namespace Eagle._Tests
             if (path != null)
             {
                 return Path.Combine(path, String.Format(
-                    "eltc_{0:X5}.tmp", /* Eagle Library Test Code */
+                    "eltc_{0:X3}.tmp", /* Eagle Library Test Code */
                     GlobalState.NextId()));
             }
             else

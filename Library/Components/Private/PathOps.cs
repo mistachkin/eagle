@@ -484,6 +484,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         //
+        // NOTE: If this value is non-zero, all temporary file names returned
+        //       from this class will be validated beforehand, via the method
+        //       ValidatePathAsFile.
+        //
+        private static bool validateTempFileName = false;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
         // NOTE: If this is not null, it will be used as the return value from
         //       the (extremely important) GetBinaryPath method.
         //
@@ -2996,6 +3005,14 @@ namespace Eagle._Components.Private
 
                     result = Path.Combine(
                         Path.GetTempPath(), fileNameOnly);
+                }
+
+                if (validateTempFileName &&
+                    !ValidatePathAsFile(result, true, false))
+                {
+                    throw new ScriptException(String.Format(
+                        "temporary file name failed validation: {0}",
+                        FormatOps.WrapOrNull(result)));
                 }
             }
             catch (Exception e)
