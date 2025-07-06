@@ -52,6 +52,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constants
+        //
+        // HACK: This is the name of the private field within the
+        //       TextWriterTraceListener class that contains the
+        //       fully qualified name of the associated log file.
+        //       Ideally, this should not be necessary; however,
+        //       apparently Microsoft does not grasp this.
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static string TextWriterFileNameFieldName1 =
+            "fileName"; /* .NET Framework */
+
+        private static string TextWriterFileNameFieldName2 =
+            "_fileName"; /* .NET Core */
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static readonly string ListenerName =
             typeof(Interpreter).FullName + ".LogFile";
 
@@ -2841,6 +2858,158 @@ namespace Eagle._Components.Private
             }
         }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool TryGetTraceLogFileName(
+            TextWriterTraceListener listener, /* in */
+            out string fileName               /* out */
+            )
+        {
+            fileName = null;
+
+            if (listener == null)
+                return false;
+
+            Type type = listener.GetType();
+
+            if (type == null) /* IMPOSSIBLE (?) */
+                return false;
+
+            BindingFlags bindingFlags = ObjectOps.GetBindingFlags(
+                MetaBindingFlags.PrivateInstanceGetField, true);
+
+            try
+            {
+                foreach (string fieldName in new string[] {
+                        TextWriterFileNameFieldName1, /* .NET Framework */
+                        TextWriterFileNameFieldName2  /* .NET Core */
+                    })
+                {
+                    if (fieldName == null)
+                        continue;
+
+                    FieldInfo fieldInfo = type.GetField(
+                        fieldName, bindingFlags);
+
+                    if (fieldInfo == null)
+                        continue;
+
+                    fileName = (string)fieldInfo.GetValue(
+                        listener);
+
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(DebugOps).Name,
+                    TracePriority.TraceError);
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if TEST
+        private static bool TryGetTraceLogFileName(
+            _Tests.Default.Listener listener, /* in */
+            out string fileName               /* out */
+            )
+        {
+            fileName = null;
+
+            if (listener == null)
+                return false;
+
+            try
+            {
+                fileName = listener.Path;
+                return true;
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(DebugOps).Name,
+                    TracePriority.TraceError);
+            }
+
+            return false;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ExtractTraceLogFileNames(
+            bool debug,               /* in */
+            ref StringList fileNames, /* in, out */
+            ref Result error          /* out */
+            )
+        {
+            TraceListenerCollection listeners = GetListeners(debug);
+
+            return ExtractTraceLogFileNames(
+                listeners, ref fileNames, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool ExtractTraceLogFileNames(
+            TraceListenerCollection listeners, /* in */
+            ref StringList fileNames,          /* in, out */
+            ref Result error                   /* out */
+            )
+        {
+            if (listeners == null)
+            {
+                error = "invalid trace listener collection";
+                return false;
+            }
+
+            int count = 0;
+
+            foreach (TraceListener listener in listeners)
+            {
+                string fileName;
+
+                if (listener == null)
+                {
+                    continue;
+                }
+                else if (listener is TextWriterTraceListener)
+                {
+                    if (TryGetTraceLogFileName(
+                            (TextWriterTraceListener)listener,
+                            out fileName) && (fileName != null))
+                    {
+                        if (fileNames == null)
+                            fileNames = new StringList();
+
+                        fileNames.Add(fileName);
+                        count++;
+                    }
+                }
+#if TEST
+                else if (listener is _Tests.Default.Listener)
+                {
+                    if (TryGetTraceLogFileName(
+                            (_Tests.Default.Listener)listener,
+                            out fileName) && (fileName != null))
+                    {
+                        if (fileNames == null)
+                            fileNames = new StringList();
+
+                        fileNames.Add(fileName);
+                        count++;
+                    }
+                }
+#endif
+            }
+
+            return (count > 0);
+        }
 
         ///////////////////////////////////////////////////////////////////////
 

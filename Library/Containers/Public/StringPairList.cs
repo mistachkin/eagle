@@ -360,6 +360,17 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         public void Add(
+            string key,
+            IEnumerable<string> value
+            )
+        {
+            base.Add(new StringPair(key,
+                (value != null) ? StringList.MakeList(value) : null));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void Add(
             StringBuilder item
             )
         {

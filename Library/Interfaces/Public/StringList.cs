@@ -40,8 +40,10 @@ namespace Eagle._Interfaces.Public
         void Add(string item);
         void Add(string key, string value);
         void Add(string key, string value, bool normalize, bool ellipsis);
+        void Add(string key, IEnumerable<string> value);
         void Add(StringBuilder item);
 
+        void Add(string[] array, int startIndex);
         void Add(IList list, int startIndex);
         void Add(IStringList list, int startIndex);
         void Add(IEnumerable<string> collection);

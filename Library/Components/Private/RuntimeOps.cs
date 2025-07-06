@@ -9009,6 +9009,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static long GetSignedRandomNumber() /* throw */
+        {
+            /* NO RESULT */
+            InitializeRandomness(false); /* throw */
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return GetSignedRandomNumber(
+                    null, randomNumberGenerator, null); /* throw */
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long GetSignedRandomNumber( /* throw */
+            IProvideEntropy provideEntropy,              /* in: may be NULL. */
+            RandomNumberGenerator randomNumberGenerator, /* in: may be NULL. */
+            Random random                                /* in: may be NULL. */
+            )
+        {
+            return ConversionOps.ToLong(GetRandomNumber(
+                provideEntropy, randomNumberGenerator, random));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ulong GetRandomNumber() /* throw */
         {
             /* NO RESULT */

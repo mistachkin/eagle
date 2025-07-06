@@ -1514,6 +1514,16 @@ namespace Eagle._Constants
         ///////////////////////////////////////////////////////////////////////
 
         //
+        // NOTE: Official key rings for the security packages within
+        //       Eagle Enterprise Edition (i.e. "Harpy" and "Badge")
+        //       are normally signed with this public key token
+        //       ("EagleEnterpriseTrustRootPublic.snk", 16384 bits).
+        //
+        public static readonly string TrustRoot = "26f17c3a1a544324";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // NOTE: Official scripts for the core library and the security
         //       package plugins are normally signed with this public
         //       key token ("EagleEnterpriseClass0RootPublic.snk", 16384
@@ -1524,12 +1534,47 @@ namespace Eagle._Constants
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // NOTE: Official key rings for the security packages within
-        //       Eagle Enterprise Edition (i.e. "Harpy" and "Badge")
-        //       are normally signed with this public key token
-        //       ("EagleEnterpriseTrustRootPublic.snk", 16384 bits).
+        // NOTE: Official script bundles for the core library and the
+        //       security package plugins are normally signed with this
+        //       public key token ("EagleEnterpriseClass1RootPublic.snk",
+        //       16384 bits).
         //
-        public static readonly string TrustRoot = "26f17c3a1a544324";
+        public static readonly string Class1 = "ab4e2d63da72214e";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: Official script responses for the core library and the
+        //       security package plugins are normally signed with this
+        //       public key token ("EagleEnterpriseClass2RootPublic.snk",
+        //       8192 bits).
+        //
+        public static readonly string Class2 = "180558840e482cda";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: Personal scripts, bundles, etc, for "personal" use by
+        //       the original author of this library, Joe Mistachkin,
+        //       ("MistachkinPublic.snk", 8192 bits).
+        //
+        public static readonly string Mistachkin = "2c322765603b5278";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: For build lab use only.  This key should not be trusted
+        //       for anything important ("EagleMonoPublic.snk", 1024 bits).
+        //
+        public static readonly string Build = "645d697a1b3acac5";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: For test lab use only.  This key should not be trusted for
+        //       anything important ("TestTrustRootPublic.snk", 16384 bits).
+        //
+        public static readonly string Test = "a6086e3ec99207b8";
     }
 
     ///////////////////////////////////////////////////////////////////////////

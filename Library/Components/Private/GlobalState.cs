@@ -490,6 +490,11 @@ namespace Eagle._Components.Private
         private static long nextRuleSetId = Math.Abs((random != null) ?
             random.Next() : 0);
 #endif
+
+#if !SHARED_ID_POOL
+        private static long nextFileId = Math.Abs((random != null) ?
+            random.Next() : 0);
+#endif
 #endif
         #endregion
 
@@ -521,6 +526,10 @@ namespace Eagle._Components.Private
 
 #if !SHARED_ID_POOL
         private static long nextRuleSetId = 0;
+#endif
+
+#if !SHARED_ID_POOL
+        private static long nextFileId = 0;
 #endif
 #endif
         #endregion
@@ -1310,6 +1319,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static long NextFileId() /* THREAD-SAFE */
+        {
+            return NextFileId(defaultNoComplain);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long NextFileId(
+            bool noComplain
+            ) /* THREAD-SAFE */
+        {
+            long result;
+
+#if SHARED_ID_POOL
+            result = NextId(noComplain);
+#else
+            result = Interlocked.Increment(ref nextFileId);
+#endif
+
+#if USE_APPDOMAIN_FOR_ID
+            result = MaybeCombineWithAppDomainId(result, noComplain);
+#endif
+
+            if (!noComplain && (result < 0))
+            {
+                DebugOps.Complain(ReturnCode.Error,
+                    "next file identifier is negative");
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static long NextTypeId(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -1325,8 +1368,9 @@ namespace Eagle._Components.Private
             ) /* THREAD-SAFE */
         {
             //
-            // NOTE: Type names must be totally unique within the application
-            //       domain; therefore, this must be global.
+            // NOTE: Type names must be totally unique within
+            //       the application domain; therefore, this
+            //       must be global.
             //
             return NextId(noComplain);
         }

@@ -36,7 +36,9 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public ObjectArrayList(IEnumerable<object[]> collection)
+        public ObjectArrayList(
+            IEnumerable<object[]> collection /* in */
+            )
             : base(collection)
         {
             // do nothing.
@@ -44,7 +46,9 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public ObjectArrayList(int capacity)
+        public ObjectArrayList(
+            int capacity /* in */
+            )
             : base(capacity)
         {
             // do nothing.
@@ -54,7 +58,9 @@ namespace Eagle._Containers.Public
 
         #region Dead Code
 #if DEAD_CODE
-        public ObjectArrayList(params object[][] objects)
+        public ObjectArrayList(
+            params object[][] objects /* in */
+            )
             : base(objects)
         {
             // do nothing.
@@ -64,11 +70,42 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public string ToString(string pattern, bool noCase)
+        public string ToString(
+            string pattern, /* in */
+            bool noCase     /* in */
+            )
         {
-            return ParserOps<object[]>.ListToString(
-                this, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.SpaceString, pattern, noCase);
+            StringList list = new StringList();
+
+            foreach (object[] element in this)
+            {
+                if (element == null)
+                    continue;
+
+                StringList subList = new StringList();
+
+                foreach (object subElement in element)
+                {
+                    if (subElement == null)
+                        continue;
+
+                    string subElementString =
+                        StringOps.GetStringFromObject(subElement);
+
+                    if ((pattern != null) && !StringOps.Match(
+                            null, StringOps.DefaultMatchMode,
+                            subElementString, pattern, noCase))
+                    {
+                        continue;
+                    }
+
+                    subList.Add(subElementString);
+                }
+
+                list.Add(subList.ToString());
+            }
+
+            return list.ToString();
         }
 
         ///////////////////////////////////////////////////////////////////////

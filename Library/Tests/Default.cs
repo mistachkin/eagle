@@ -822,6 +822,7 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        private readonly object syncRoot = new object();
         private long id;
         internal sbyte internalField;
         private EventWaitHandle @event;
@@ -851,8 +852,13 @@ namespace Eagle._Tests
         private bool uniqueToString;
         private bool throwOnDispose;
         private object[] miscellaneousData;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private string tempPath;
         private bool tempException;
+        private bool tempEightDotThree;
+        private string tempPrefix;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -12647,8 +12653,32 @@ namespace Eagle._Tests
         {
             CheckDisposed();
 
-            if (exception != null)
-                tempException = (bool)exception;
+            return TestSetupGetTempFileNameCallback(
+                null, setup, exception, null, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode TestSetupGetTempFileNameCallback(
+            string prefix,
+            bool setup,
+            bool? exception,
+            bool? eightDotThree,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                tempPrefix = prefix;
+
+                if (exception != null)
+                    tempException = (bool)exception;
+
+                if (eightDotThree != null)
+                    tempEightDotThree = (bool)eightDotThree;
+            }
 
             return TestChangePathCallback(
                 PathCallbackType.GetTempFileName, setup ?
@@ -12668,8 +12698,40 @@ namespace Eagle._Tests
         {
             CheckDisposed();
 
-            if (exception != null)
-                tempException = (bool)exception;
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (exception != null)
+                    tempException = (bool)exception;
+            }
+
+            return TestChangePathCallback(
+                PathCallbackType.GetTempPath, setup ?
+                    (GetStringValueCallback)TestGetTempPathCallback :
+                    null, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode TestSetupGetTempPathCallback(
+            string prefix,
+            bool setup,
+            bool? exception,
+            bool? eightDotThree,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                tempPrefix = prefix;
+
+                if (exception != null)
+                    tempException = (bool)exception;
+
+                if (eightDotThree != null)
+                    tempEightDotThree = (bool)eightDotThree;
+            }
 
             return TestChangePathCallback(
                 PathCallbackType.GetTempPath, setup ?
@@ -14750,24 +14812,99 @@ namespace Eagle._Tests
         {
             // CheckDisposed();
 
-            if (tempException)
+            bool exception;
+
+            lock (syncRoot)
+            {
+                exception = tempException;
+            }
+
+            if (exception)
             {
                 throw new ScriptException(
                     "get temporary file name failure (requested)");
             }
 
-            string path = tempPath;
+            string result;
+            string path;
+            bool exists;
+
+            lock (syncRoot)
+            {
+                path = tempPath;
+            }
 
             if (path != null)
             {
-                return Path.Combine(path, String.Format(
-                    "eltc_{0:X3}.tmp", /* Eagle Library Test Code */
-                    GlobalState.NextId()));
+                string format; /* NOTE: File name (only) format string. */
+                long id; /* NOTE: The "unique" file identifier. */
+                bool eightDotThree;
+
+                lock (syncRoot)
+                {
+                    eightDotThree = tempEightDotThree;
+                }
+
+                if (eightDotThree) // COMPAT: Eagle beta.
+                {
+                    id = GlobalState.NextFileId();
+
+                    if ((id < 0) || (id > 0xFFFF))
+                    {
+                        throw new ScriptException(String.Format(
+                            "unique file identifier is out-of-range: {0}",
+                            id));
+                    }
+
+                    format = "eltc{0:X4}.tmp"; /* Eagle Library Test Code */
+                }
+                else
+                {
+                    id = RuntimeOps.GetSignedRandomNumber();
+
+                    StringBuilder builder = StringBuilderFactory.Create();
+                    string prefix;
+
+                    lock (syncRoot)
+                    {
+                        prefix = tempPrefix;
+                    }
+
+                    if (prefix != null)
+                    {
+                        /* ?????: Supplied via the end-user override. */
+                        builder.Append(prefix);
+                    }
+                    else
+                    {
+                        /* Eagle NextGen Library Test Code */
+                        builder.Append("enltc_");
+                    }
+
+                    builder.Append("{0:X16}.tmp");
+
+                    format = StringBuilderCache.GetStringAndRelease(
+                        ref builder);
+                }
+
+                result = Path.Combine(path, String.Format(format, id));
+                exists = false; /* NOTE: File name must not exist. */
             }
             else
             {
-                return Path.GetTempFileName(); /* EXEMPT */
+                result = Path.GetTempFileName(); /* EXEMPT */
+                exists = true; /* MSDN: File name must exist. */
             }
+
+            if (PathOps.validateTempFileName &&
+                !PathOps.ValidatePathAsFile(result, true, exists))
+            {
+                throw new ScriptException(String.Format(
+                    "temporary file name failed validation (test): {0}",
+                    FormatOps.WrapOrNull(result)));
+            }
+
+            return result;
         }
         #endregion
 
@@ -14778,13 +14915,27 @@ namespace Eagle._Tests
         {
             // CheckDisposed();
 
-            if (tempException)
+            bool exception;
+
+            lock (syncRoot)
+            {
+                exception = tempException;
+            }
+
+            if (exception)
             {
                 throw new ScriptException(
                     "get temporary path failure (requested)");
             }
 
-            return tempPath;
+            string path;
+
+            lock (syncRoot)
+            {
+                path = tempPath;
+            }
+
+            return path;
         }
         #endregion
 
@@ -20262,16 +20413,16 @@ namespace Eagle._Tests
 
         public string TempPath
         {
-            get { CheckDisposed(); return tempPath; }
-            set { CheckDisposed(); tempPath = value; }
+            get { CheckDisposed(); lock (syncRoot) { return tempPath; } }
+            set { CheckDisposed(); lock (syncRoot) { tempPath = value; } }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public bool TempException
         {
-            get { CheckDisposed(); return tempException; }
-            set { CheckDisposed(); tempException = value; }
+            get { CheckDisposed(); lock (syncRoot) { return tempException; } }
+            set { CheckDisposed(); lock (syncRoot) { tempException = value; } }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -36283,6 +36434,22 @@ namespace Eagle._Tests
                     message, 0, message.Length, localBuffer, 0);
 
                 buffer = localBuffer; offset = 0; count = byteCount;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Properties
+            public string Path
+            {
+                get { CheckDisposed(); return path; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public Encoding Encoding
+            {
+                get { CheckDisposed(); return encoding; }
             }
             #endregion
 

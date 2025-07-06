@@ -327,7 +327,7 @@ namespace Eagle._Components.Private
                             if (list == null)
                                 list = new StringPairList();
 
-                            list.Add(key1.ToString(), null);
+                            list.Add(key1.ToString(), (string)null);
                             continue;
                         }
 
@@ -350,7 +350,7 @@ namespace Eagle._Components.Private
                                 if (list == null)
                                     list = new StringPairList();
 
-                                list.Add(key2.ToString(), null);
+                                list.Add(key2.ToString(), (string)null);
                                 continue;
                             }
 

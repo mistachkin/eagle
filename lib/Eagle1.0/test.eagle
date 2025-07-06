@@ -28,7 +28,35 @@
 #       theme or piece of functionality.
 #
 namespace eval ::Eagle {
+  proc s_proc { name {args ""} {command ""} } {; # NOTE: "args" not last.
+    # stub_proc
+    if {[string length $command] == 0} then {
+      set command proc
+    }
+
+    if {[lsearch -exact [list proc nproc] $command] == -1} then {
+      error "procedure command must be \[proc\] or \[nproc\]"
+    }
+
+    if {[llength $args] == 0} then {
+      set args [list args]
+    }
+
+    set body {
+      # <help>
+      # This procedure is a stub.
+      # </help>
+    }
+
+    if {[info exists ::eagle_debugger(stubProcedureBody)]} then {
+      append body \n\n $::eagle_debugger(stubProcedureBody)
+    }
+
+    return [uplevel 1 [list $command $name $args $body]]
+  }
+
   proc f_proc { name args body {command ""} } {; # NOTE: "args" not last.
+    # flexible_proc
     if {[string length $command] == 0} then {
       if {[isEagle] && \
           [llength [info commands nproc]] > 0} then {
@@ -12764,7 +12792,8 @@ namespace eval ::Eagle {
     # NOTE: We need several of our test related commands in the global
     #       namespace as well.
     #
-    exportAndImportPackageCommands [namespace current] [list f_proc \
+    exportAndImportPackageCommands [namespace current] [list \
+        s_proc f_proc \
         promptForAndGetTextInput addTestScripts evaluateTestScripts \
         combineTestScriptResults newPackageId getParameterFromAny \
         getIndexForDirectory maybeAddToAutoPath maybeScanAutoPath \

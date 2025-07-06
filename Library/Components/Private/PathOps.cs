@@ -479,6 +479,8 @@ namespace Eagle._Components.Private
         //       popular method NormalizePath.  This is handled specially due
         //       to it being in the hot-path for basically everything.
         //
+        // HACK: This is purposely not read-only.
+        //
         private static int traceForNormalize = 0;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -488,13 +490,17 @@ namespace Eagle._Components.Private
         //       from this class will be validated beforehand, via the method
         //       ValidatePathAsFile.
         //
-        private static bool validateTempFileName = false;
+        // HACK: This is purposely not read-only.
+        //
+        internal static bool validateTempFileName = false;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         //
         // NOTE: If this is not null, it will be used as the return value from
         //       the (extremely important) GetBinaryPath method.
+        //
+        // HACK: This is purposely not read-only.
         //
         private static string binaryPath = null;
 
@@ -511,9 +517,7 @@ namespace Eagle._Components.Private
         // WARNING: These values are probably not correct for non-Windows
         //          platforms.
         //
-        // HACK: This is purposely not read-only.
-        //
-        private static string[] defaultCloudPaths = {
+        private static readonly string[] defaultCloudPaths = {
             null,           // Override #1
             null,           // Override #2
             null,           // Override #3
@@ -531,6 +535,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        //
+        // HACK: These are purposely not read-only.
+        //
         private static GetStringValueCallback getTempFileNameCallback = null;
         private static GetStringValueCallback getTempPathCallback = null;
 

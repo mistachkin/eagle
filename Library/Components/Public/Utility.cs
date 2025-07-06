@@ -1535,6 +1535,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool ExtractTraceLogFileNames(
+            bool debug,
+            ref StringList fileNames,
+            ref Result error
+            )
+        {
+            return DebugOps.ExtractTraceLogFileNames(
+                debug, ref fileNames, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode QueryTraceStatus(
+            Interpreter interpreter,
+            ref StringPairList list,
+            ref Result error
+            )
+        {
+            return TraceOps.QueryStatus(
+                interpreter, ref list, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static Encoding GetEncoding(
             string name,
             ref Result error

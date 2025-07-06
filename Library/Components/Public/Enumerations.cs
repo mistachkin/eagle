@@ -1360,6 +1360,7 @@ namespace Eagle._Components.Public
         NativeError4 = Highest | Error,           // native code and interop
         AnnotationError = Highest | Error,        // error extracting annotations, etc.
         EntityError = Highest | Error,            // entity creation, detection, etc.
+        TraceError = Highest | Error,             // debug tracing subsystem, etc.
 
         StateError = Always | Error,              // internal state changes, etc. (NOT USED)
         LockError3 = Always | Error,              // unable to acquire required lock
