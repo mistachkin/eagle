@@ -4984,6 +4984,20 @@ namespace eval ::Eagle {
       return ""
     }
 
+    #
+    # HACK: This environment variable can be quite useful
+    #       for "external integration", i.e. where a test
+    #       suite ends up executing something that itself
+    #       then executes a (nested) Eagle shell that may
+    #       end up wanting to add something to the (outer)
+    #       test log file, i.e. without having to directly
+    #       add another command line argument to the Eagle
+    #       shell command line.
+    #
+    if {[info exists ::env(getDefaultTestLog)]} then {
+      return $::env(getDefaultTestLog)
+    }
+
     set executable [getShellExecutableName]
 
     if {[info exists ::test_log_path]} then {
@@ -5511,15 +5525,24 @@ namespace eval ::Eagle {
     if {[llength $args] > 0} then {eval lappend command $args}
     set procName [lindex [info level [info level]] 0]
     set channel [getTestChannelOrDefault]
+    set now [expr {[isEagle] ? [clock now] : [clock seconds]}]
 
     if {![canTestExec $procName]} then {
       tputs $channel [appendArgs \
           "---- skipping command: " $command \n]
 
+      if {![info exists ::no(testExecDenied)]} then {
+        lappend ::eagle_debugger(testExecDenied) [list $now $command]
+      }
+
       error "test use of \[$procName\] has been disabled"
     } else {
       tputs $channel [appendArgs \
           "---- running command: " $command \n]
+
+      if {![info exists ::no(testExecAllowed)]} then {
+        lappend ::eagle_debugger(testExecAllowed) [list $now $command]
+      }
 
       return [uplevel 1 $command]
     }
