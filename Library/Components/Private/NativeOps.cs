@@ -1028,7 +1028,8 @@ namespace Eagle._Components.Private
             /* NOTE: Always Ansi on Unix. */
             [DllImport(DllName.LibC,
                 CallingConvention = CallingConvention.Cdecl,
-                CharSet = CharSet.Ansi, BestFitMapping = false,
+                EntryPoint = "syslog", CharSet = CharSet.Ansi,
+                BestFitMapping = false,
                 ThrowOnUnmappableChar = true)]
             internal static extern void bare_syslog(
                 int priority,  /* in */
@@ -1040,7 +1041,8 @@ namespace Eagle._Components.Private
             /* NOTE: Always Ansi on Unix. */
             [DllImport(DllName.LibC,
                 CallingConvention = CallingConvention.Cdecl,
-                CharSet = CharSet.Ansi, BestFitMapping = false,
+                EntryPoint = "syslog", CharSet = CharSet.Ansi,
+                BestFitMapping = false,
                 ThrowOnUnmappableChar = true)]
             internal static extern void string_syslog(
                 int priority,    /* in */
