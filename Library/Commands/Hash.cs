@@ -117,6 +117,9 @@ namespace Eagle._Commands
                             OptionDictionary options = new OptionDictionary(
                                 new IOption[] {
                                 new Option(null, OptionFlags.None,
+                                    Index.Invalid, Index.Invalid, "-object",
+                                    null),
+                                new Option(null, OptionFlags.None,
                                     Index.Invalid, Index.Invalid, "-raw",
                                     null),
                                 new Option(null, OptionFlags.Unsafe,
@@ -140,7 +143,11 @@ namespace Eagle._Commands
                                     ((argumentIndex + 2) <= arguments.Count) &&
                                     ((argumentIndex + 3) >= arguments.Count))
                                 {
-                                    IVariant value = null;
+                                    bool asObject = false;
+
+                                    if (options.IsPresent("-object"))
+                                        asObject = true;
+
                                     bool raw = false;
 
                                     if (options.IsPresent("-raw"))
@@ -148,9 +155,10 @@ namespace Eagle._Commands
 
                                     bool isFileName = false;
 
-                                    if (options.IsPresent("-filename", ref value))
+                                    if (options.IsPresent("-filename"))
                                         isFileName = true;
 
+                                    IVariant value = null;
                                     Encoding encoding = null;
 
                                     if (options.IsPresent("-encoding", ref value))
@@ -168,31 +176,83 @@ namespace Eagle._Commands
 
                                     if (code == ReturnCode.Ok)
                                     {
-                                        try
-                                        {
-                                            byte[] hashValue = HashOps.ComputeKeyed(
-                                                interpreter, arguments[argumentIndex],
-                                                key, arguments[argumentIndex + 1],
-                                                encoding, isFileName, ref result);
+                                        string stringValue = arguments[argumentIndex + 1];
+                                        EncodingType? encodingType = null;
 
-                                            if (hashValue != null)
+                                        if (asObject)
+                                        {
+                                            if (isFileName)
                                             {
-                                                if (raw)
-                                                    result = new ByteList(hashValue);
-                                                else
-                                                    result = FormatOps.Hash(hashValue);
+                                                result = "cannot use -object with -filename";
+                                                code = ReturnCode.Error;
+                                            }
+                                            else if (encoding != null)
+                                            {
+                                                result = "cannot use -object with -encoding";
+                                                code = ReturnCode.Error;
                                             }
                                             else
                                             {
-                                                code = ReturnCode.Error;
+                                                IObject @object = null;
+
+                                                code = interpreter.GetObject(
+                                                    stringValue, LookupFlags.Default,
+                                                    ref @object, ref result);
+
+                                                if (code == ReturnCode.Ok)
+                                                {
+                                                    byte[] bytes = (@object != null) ?
+                                                        @object.Value as byte[] : null;
+
+                                                    if (bytes != null)
+                                                    {
+                                                        //
+                                                        // HACK: This is necessary to fully work with
+                                                        //       internal calls to StringOps.GetBytes
+                                                        //       method(s).
+                                                        //
+                                                        stringValue = Convert.ToBase64String(bytes,
+                                                            Base64FormattingOptions.InsertLineBreaks);
+
+                                                        encodingType = EncodingType.Null;
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "object must be byte array";
+                                                        code = ReturnCode.Error;
+                                                    }
+                                                }
                                             }
                                         }
-                                        catch (Exception e)
-                                        {
-                                            Engine.SetExceptionErrorCode(interpreter, e);
 
-                                            result = e;
-                                            code = ReturnCode.Error;
+                                        if (code == ReturnCode.Ok)
+                                        {
+                                            try
+                                            {
+                                                byte[] hashValue = HashOps.ComputeKeyed(
+                                                    interpreter, arguments[argumentIndex],
+                                                    key, stringValue, encoding, encodingType,
+                                                    isFileName, ref result);
+
+                                                if (hashValue != null)
+                                                {
+                                                    if (raw)
+                                                        result = new ByteList(hashValue);
+                                                    else
+                                                        result = FormatOps.Hash(hashValue);
+                                                }
+                                                else
+                                                {
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                Engine.SetExceptionErrorCode(interpreter, e);
+
+                                                result = e;
+                                                code = ReturnCode.Error;
+                                            }
                                         }
                                     }
                                 }
@@ -307,6 +367,9 @@ namespace Eagle._Commands
                             OptionDictionary options = new OptionDictionary(
                                 new IOption[] {
                                 new Option(null, OptionFlags.None,
+                                    Index.Invalid, Index.Invalid, "-object",
+                                    null),
+                                new Option(null, OptionFlags.None,
                                     Index.Invalid, Index.Invalid, "-raw",
                                     null),
                                 new Option(null, OptionFlags.Unsafe,
@@ -330,7 +393,11 @@ namespace Eagle._Commands
                                     ((argumentIndex + 2) <= arguments.Count) &&
                                     ((argumentIndex + 3) >= arguments.Count))
                                 {
-                                    IVariant value = null;
+                                    bool asObject = false;
+
+                                    if (options.IsPresent("-object"))
+                                        asObject = true;
+
                                     bool raw = false;
 
                                     if (options.IsPresent("-raw"))
@@ -338,9 +405,10 @@ namespace Eagle._Commands
 
                                     bool isFileName = false;
 
-                                    if (options.IsPresent("-filename", ref value))
+                                    if (options.IsPresent("-filename"))
                                         isFileName = true;
 
+                                    IVariant value = null;
                                     Encoding encoding = null;
 
                                     if (options.IsPresent("-encoding", ref value))
@@ -358,31 +426,83 @@ namespace Eagle._Commands
 
                                     if (code == ReturnCode.Ok)
                                     {
-                                        try
-                                        {
-                                            byte[] hashValue = HashOps.ComputeHMAC(
-                                                interpreter, arguments[argumentIndex],
-                                                key, arguments[argumentIndex + 1],
-                                                encoding, isFileName, ref result);
+                                        string stringValue = arguments[argumentIndex + 1];
+                                        EncodingType? encodingType = null;
 
-                                            if (hashValue != null)
+                                        if (asObject)
+                                        {
+                                            if (isFileName)
                                             {
-                                                if (raw)
-                                                    result = new ByteList(hashValue);
-                                                else
-                                                    result = FormatOps.Hash(hashValue);
+                                                result = "cannot use -object with -filename";
+                                                code = ReturnCode.Error;
+                                            }
+                                            else if (encoding != null)
+                                            {
+                                                result = "cannot use -object with -encoding";
+                                                code = ReturnCode.Error;
                                             }
                                             else
                                             {
-                                                code = ReturnCode.Error;
+                                                IObject @object = null;
+
+                                                code = interpreter.GetObject(
+                                                    stringValue, LookupFlags.Default,
+                                                    ref @object, ref result);
+
+                                                if (code == ReturnCode.Ok)
+                                                {
+                                                    byte[] bytes = (@object != null) ?
+                                                        @object.Value as byte[] : null;
+
+                                                    if (bytes != null)
+                                                    {
+                                                        //
+                                                        // HACK: This is necessary to fully work with
+                                                        //       internal calls to StringOps.GetBytes
+                                                        //       method(s).
+                                                        //
+                                                        stringValue = Convert.ToBase64String(bytes,
+                                                            Base64FormattingOptions.InsertLineBreaks);
+
+                                                        encodingType = EncodingType.Null;
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "object must be byte array";
+                                                        code = ReturnCode.Error;
+                                                    }
+                                                }
                                             }
                                         }
-                                        catch (Exception e)
-                                        {
-                                            Engine.SetExceptionErrorCode(interpreter, e);
 
-                                            result = e;
-                                            code = ReturnCode.Error;
+                                        if (code == ReturnCode.Ok)
+                                        {
+                                            try
+                                            {
+                                                byte[] hashValue = HashOps.ComputeHMAC(
+                                                    interpreter, arguments[argumentIndex],
+                                                    key, stringValue, encoding, encodingType,
+                                                    isFileName, ref result);
+
+                                                if (hashValue != null)
+                                                {
+                                                    if (raw)
+                                                        result = new ByteList(hashValue);
+                                                    else
+                                                        result = FormatOps.Hash(hashValue);
+                                                }
+                                                else
+                                                {
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                Engine.SetExceptionErrorCode(interpreter, e);
+
+                                                result = e;
+                                                code = ReturnCode.Error;
+                                            }
                                         }
                                     }
                                 }
@@ -422,6 +542,9 @@ namespace Eagle._Commands
                             OptionDictionary options = new OptionDictionary(
                                 new IOption[] {
                                 new Option(null, OptionFlags.None,
+                                    Index.Invalid, Index.Invalid, "-object",
+                                    null),
+                                new Option(null, OptionFlags.None,
                                     Index.Invalid, Index.Invalid, "-raw",
                                     null),
                                 new Option(null, OptionFlags.Unsafe,
@@ -444,7 +567,11 @@ namespace Eagle._Commands
                                 if ((argumentIndex != Index.Invalid) &&
                                     ((argumentIndex + 2) == arguments.Count))
                                 {
-                                    IVariant value = null;
+                                    bool asObject = false;
+
+                                    if (options.IsPresent("-object"))
+                                        asObject = true;
+
                                     bool raw = false;
 
                                     if (options.IsPresent("-raw"))
@@ -452,9 +579,10 @@ namespace Eagle._Commands
 
                                     bool isFileName = false;
 
-                                    if (options.IsPresent("-filename", ref value))
+                                    if (options.IsPresent("-filename"))
                                         isFileName = true;
 
+                                    IVariant value = null;
                                     Encoding encoding = null;
 
                                     if (options.IsPresent("-encoding", ref value))
@@ -462,31 +590,83 @@ namespace Eagle._Commands
 
                                     if (code == ReturnCode.Ok) /* REDUNDANT */
                                     {
-                                        try
-                                        {
-                                            byte[] hashValue = HashOps.Compute(
-                                                interpreter, arguments[argumentIndex],
-                                                arguments[argumentIndex + 1],
-                                                encoding, isFileName, ref result);
+                                        string stringValue = arguments[argumentIndex + 1];
+                                        EncodingType? encodingType = null;
 
-                                            if (hashValue != null)
+                                        if (asObject)
+                                        {
+                                            if (isFileName)
                                             {
-                                                if (raw)
-                                                    result = new ByteList(hashValue);
-                                                else
-                                                    result = FormatOps.Hash(hashValue);
+                                                result = "cannot use -object with -filename";
+                                                code = ReturnCode.Error;
+                                            }
+                                            else if (encoding != null)
+                                            {
+                                                result = "cannot use -object with -encoding";
+                                                code = ReturnCode.Error;
                                             }
                                             else
                                             {
-                                                code = ReturnCode.Error;
+                                                IObject @object = null;
+
+                                                code = interpreter.GetObject(
+                                                    stringValue, LookupFlags.Default,
+                                                    ref @object, ref result);
+
+                                                if (code == ReturnCode.Ok)
+                                                {
+                                                    byte[] bytes = (@object != null) ?
+                                                        @object.Value as byte[] : null;
+
+                                                    if (bytes != null)
+                                                    {
+                                                        //
+                                                        // HACK: This is necessary to fully work with
+                                                        //       internal calls to StringOps.GetBytes
+                                                        //       method(s).
+                                                        //
+                                                        stringValue = Convert.ToBase64String(bytes,
+                                                            Base64FormattingOptions.InsertLineBreaks);
+
+                                                        encodingType = EncodingType.Null;
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "object must be byte array";
+                                                        code = ReturnCode.Error;
+                                                    }
+                                                }
                                             }
                                         }
-                                        catch (Exception e)
-                                        {
-                                            Engine.SetExceptionErrorCode(interpreter, e);
 
-                                            result = e;
-                                            code = ReturnCode.Error;
+                                        if (code == ReturnCode.Ok)
+                                        {
+                                            try
+                                            {
+                                                byte[] hashValue = HashOps.Compute(
+                                                    interpreter, arguments[argumentIndex],
+                                                    stringValue, encoding, encodingType,
+                                                    isFileName, ref result);
+
+                                                if (hashValue != null)
+                                                {
+                                                    if (raw)
+                                                        result = new ByteList(hashValue);
+                                                    else
+                                                        result = FormatOps.Hash(hashValue);
+                                                }
+                                                else
+                                                {
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                Engine.SetExceptionErrorCode(interpreter, e);
+
+                                                result = e;
+                                                code = ReturnCode.Error;
+                                            }
                                         }
                                     }
                                 }

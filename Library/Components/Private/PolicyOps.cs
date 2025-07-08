@@ -938,8 +938,8 @@ namespace Eagle._Components.Private
                     localError = null;
 
                     haveHashValue = HashOps.Compute(
-                        interpreter, hashAlgorithmName, fileName, null,
-                        true, ref localError);
+                        interpreter, hashAlgorithmName, fileName,
+                        null, null, true, ref localError);
 
                     if (haveHashValue == null)
                     {

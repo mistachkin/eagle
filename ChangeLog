@@ -51,6 +51,11 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
 
+FEATURE: add the -object option to the [hash] computation sub-commands.
+
+FEATURE: add the -trace, -escapesubstring, and -forprocessor options to the
+         [exec] command.
+
 FEATURE: add the -blobbehavior option to the [sql execut]e sub-command.
 
 FEATURE: add the NoCritical interpreter creation flag and the NonCritical SDK
@@ -94,6 +99,10 @@ FEATURE: add the DefaultValue and DefaultInnerValue properties to the IOption
          interface.
 
 FEATURE: add the [clock monthdays] sub-command.
+
+FEATURE: add the NoStartups environment variable.  it is used to disable all
+         evaluation of the startup scripts during interpreter creation and/or
+         initialization.
 
 FEATURE: add the DataFlags environment variable.  it is used to set or alter
          the script data flags used when creating an interpreter.

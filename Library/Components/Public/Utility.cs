@@ -1429,7 +1429,7 @@ namespace Eagle._Components.Public
             return HashOps.Compute(interpreter,
                 HashOps.GetAlgorithmName(EncodingType.Text),
                 value, StringOps.GetEncoding(encodingType),
-                false, ref error);
+                null, false, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1444,8 +1444,8 @@ namespace Eagle._Components.Public
         {
             return HashOps.Compute(
                 interpreter, hashAlgorithmName, value,
-                StringOps.GetEncoding(encodingType), false,
-                ref error);
+                StringOps.GetEncoding(encodingType), null,
+                false, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

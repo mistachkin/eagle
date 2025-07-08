@@ -817,13 +817,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static byte[] ComputeKeyed(
-            Interpreter interpreter,  /* in: OPTIONAL */
-            string hashAlgorithmName, /* in */
-            byte[] key,               /* in */
-            string value,             /* in */
-            Encoding encoding,        /* in */
-            bool valueIsPath,         /* in */
-            ref Result error          /* out */
+            Interpreter interpreter,    /* in: OPTIONAL */
+            string hashAlgorithmName,   /* in */
+            byte[] key,                 /* in */
+            string value,               /* in */
+            Encoding encoding,          /* in */
+            EncodingType? encodingType, /* in */
+            bool valueIsPath,           /* in */
+            ref Result error            /* out */
             )
         {
             using (KeyedHashAlgorithm hashAlgorithm = CreateKeyedAlgorithm(
@@ -875,9 +876,10 @@ namespace Eagle._Components.Private
                 {
                     byte[] bytes = null;
 
-                    if (StringOps.GetBytes(encoding, value,
-                            EncodingType.Binary, true, ref bytes,
-                            ref error) != ReturnCode.Ok)
+                    if (StringOps.GetBytes(
+                            encoding, value, (encodingType != null) ?
+                            (EncodingType)encodingType : EncodingType.Binary,
+                            true, ref bytes, ref error) != ReturnCode.Ok)
                     {
                         return null;
                     }
@@ -968,12 +970,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static byte[] Compute(
-            Interpreter interpreter,  /* in: OPTIONAL */
-            string hashAlgorithmName, /* in: OPTIONAL */
-            string value,             /* in */
-            Encoding encoding,        /* in: OPTIONAL */
-            bool valueIsPath,         /* in */
-            ref Result error          /* out */
+            Interpreter interpreter,    /* in: OPTIONAL */
+            string hashAlgorithmName,   /* in: OPTIONAL */
+            string value,               /* in */
+            Encoding encoding,          /* in: OPTIONAL */
+            EncodingType? encodingType, /* in */
+            bool valueIsPath,           /* in */
+            ref Result error            /* out */
             )
         {
             using (HashAlgorithm hashAlgorithm = CreateAlgorithm(
@@ -1022,9 +1025,10 @@ namespace Eagle._Components.Private
                 {
                     byte[] bytes = null;
 
-                    if (StringOps.GetBytes(encoding, value,
-                            EncodingType.Binary, true, ref bytes,
-                            ref error) != ReturnCode.Ok)
+                    if (StringOps.GetBytes(
+                            encoding, value, (encodingType != null) ?
+                            (EncodingType)encodingType : EncodingType.Binary,
+                            true, ref bytes, ref error) != ReturnCode.Ok)
                     {
                         return null;
                     }
@@ -1048,13 +1052,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static byte[] ComputeHMAC(
-            Interpreter interpreter,  /* in: OPTIONAL */
-            string hashAlgorithmName, /* in */
-            byte[] key,               /* in */
-            string value,             /* in */
-            Encoding encoding,        /* in */
-            bool valueIsPath,         /* in */
-            ref Result error          /* out */
+            Interpreter interpreter,    /* in: OPTIONAL */
+            string hashAlgorithmName,   /* in */
+            byte[] key,                 /* in */
+            string value,               /* in */
+            Encoding encoding,          /* in */
+            EncodingType? encodingType, /* in */
+            bool valueIsPath,           /* in */
+            ref Result error            /* out */
             )
         {
             using (HMAC hashAlgorithm = CreateHMAC(
@@ -1106,9 +1111,10 @@ namespace Eagle._Components.Private
                 {
                     byte[] bytes = null;
 
-                    if (StringOps.GetBytes(encoding, value,
-                            EncodingType.Binary, true, ref bytes,
-                            ref error) != ReturnCode.Ok)
+                    if (StringOps.GetBytes(
+                            encoding, value, (encodingType != null) ?
+                            (EncodingType)encodingType : EncodingType.Binary,
+                            true, ref bytes, ref error) != ReturnCode.Ok)
                     {
                         return null;
                     }
