@@ -10211,7 +10211,7 @@ namespace eval ::Eagle {
 
     proc isValidJson { value } {
       if {[string length $value] > 0 && [catch {
-        object load Newtonsoft.Json; # NOTE: Not loaded yet?
+        set assembly [object load Newtonsoft.Json]; # NOTE: Not loaded yet?
 
         object invoke -alias \
             Newtonsoft.Json.Linq.JToken Parse $value
@@ -10230,7 +10230,7 @@ namespace eval ::Eagle {
       set index 0
 
       if {[catch {
-        object load Newtonsoft.Json; # NOTE: Not loaded yet?
+        set assembly [object load Newtonsoft.Json]; # NOTE: Not loaded yet?
 
         object invoke -alias \
             Newtonsoft.Json.Linq.JObject Parse $json
@@ -10575,7 +10575,7 @@ namespace eval ::Eagle {
             openAI_enableSecurity haveSecurity $channel $quiet
           }
 
-          object load Newtonsoft.Json; # NOTE: OpenAI JSON response.
+          set assembly [object load Newtonsoft.Json]; # NOTE: Not loaded yet?
         } result] == 0} then {
           set command [list]
 
