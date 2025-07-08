@@ -5631,7 +5631,7 @@ namespace Eagle._Components.Private
                 Interlocked.Increment(ref traceException);
 
 #if NATIVE
-                DebugOps.Output(e);
+                DebugOps.Output(e, DebugPriority.ViaTraceException);
 #endif
             }
             finally
@@ -5915,7 +5915,7 @@ namespace Eagle._Components.Private
                 Interlocked.Increment(ref traceException);
 
 #if NATIVE
-                DebugOps.Output(e);
+                DebugOps.Output(e, DebugPriority.ViaTraceException);
 #endif
             }
             finally

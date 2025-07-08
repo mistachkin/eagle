@@ -5117,7 +5117,22 @@ namespace Eagle._Components.Public
             string message
             )
         {
-            DebugOps.Output(message);
+            DebugOps.Output(message, DebugPriority.ViaExternal);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void OutputDebugString(
+            string message,
+            DebugPriority? priority
+            )
+        {
+            DebugPriority localPriority = DebugPriority.ViaExternal;
+
+            if (priority != null)
+                localPriority |= (DebugPriority)priority;
+
+            DebugOps.Output(message, localPriority);
         }
 #endif
 

@@ -62,6 +62,9 @@ using VirtualKeyCodeList = System.Collections.Generic.List<
     Eagle._Components.Private.NativeOps.UnsafeNativeMethods.VirtualKeyCode>;
 #endif
 
+using DebugPriorityDictionary = System.Collections.Generic.Dictionary<
+    Eagle._Components.Public.DebugPriority, Eagle._Components.Public.DebugPriority>;
+
 namespace Eagle._Components.Private
 {
 #if NET_40
@@ -1111,6 +1114,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static bool once = false;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is the default "priority" value for use with the syslog()
+        //       function on Linux and macOS, et al.
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static DebugPriority defaultDebugPriority = DebugPriority.Default;
+        private static DebugPriorityDictionary debugPriorities = null;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2842,7 +2856,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static bool WindowsOutputDebugMessage(
-            string message /* in */
+            string message,         /* in */
+            DebugPriority? priority /* in: NOT USED */
             )
         {
             if (message != null)
@@ -3321,7 +3336,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static bool MacintoshOutputDebugMessage(
-            string message /* in */
+            string message,         /* in */
+            DebugPriority? priority /* in: OPTIONAL */
             )
         {
             EscapePrintfStyleFormatting(ref message);
@@ -3331,7 +3347,7 @@ namespace Eagle._Components.Private
                 try
                 {
                     UnsafeNativeMethods.bare_syslog(
-                        UnsafeNativeMethods.LOG_DEBUG,
+                        GetOutputDebugMessagePriority(priority),
                         message);
 
                     return true;
@@ -3348,7 +3364,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static bool UnixOutputDebugMessage(
-            string message /* in */
+            string message,         /* in */
+            DebugPriority? priority /* in: OPTIONAL */
             )
         {
             if (message != null)
@@ -3356,7 +3373,7 @@ namespace Eagle._Components.Private
                 try
                 {
                     UnsafeNativeMethods.string_syslog(
-                        UnsafeNativeMethods.LOG_DEBUG,
+                        GetOutputDebugMessagePriority(priority),
                         FormatOps.StringInputFormat, message);
 
                     return true;
@@ -3762,6 +3779,192 @@ namespace Eagle._Components.Private
 
             return (message.Length - length);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void InitializeDebugPriorities(
+            bool force /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (force || (debugPriorities == null))
+                {
+                    if (debugPriorities != null)
+                        debugPriorities.Clear();
+                    else
+                        debugPriorities = new DebugPriorityDictionary();
+
+                    DebugPriority[] priorities = {
+                        DebugPriority.ViaFailSafe,
+                            DebugPriority.Alert,
+                        DebugPriority.ViaSelf,
+                            DebugPriority.Critical,
+                        DebugPriority.ViaTraceException,
+                            DebugPriority.Error,
+                        DebugPriority.ViaTraceMessage,
+                            DebugPriority.Warning,
+                        DebugPriority.ViaTest,
+                            DebugPriority.Notice,
+                        DebugPriority.ViaExternal,
+                            DebugPriority.Information
+                    };
+
+                    int length = priorities.Length;
+
+                    for (int index = 0; index < length; index += 2)
+                    {
+                        debugPriorities.Add(
+                            priorities[index], priorities[index + 1]);
+                    }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void SplitDebugPriority(
+            DebugPriority? priority,        /* in: OPTIONAL */
+            out DebugPriority fromPriority, /* in */
+            out DebugPriority viaPriority   /* in */
+            )
+        {
+            if (priority != null)
+            {
+                //
+                // HACK: Mask off our "custom" bits (i.e. which
+                //       indicate the source of the debug output
+                //       message).  This will allow the priority
+                //       range checking to work correctly.
+                //
+                DebugPriority localPriority = (DebugPriority)priority;
+
+                fromPriority = localPriority & ~DebugPriority.ViaMask;
+                viaPriority = localPriority & DebugPriority.ViaMask;
+            }
+            else
+            {
+                //
+                // NOTE: There is debug priority value, set both
+                //       of the output parameters to nothing.
+                //
+                fromPriority = DebugPriority.None;
+                viaPriority = DebugPriority.None;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool TryTranslateDebugPriority(
+            DebugPriority fromPriority,  /* in */
+            out DebugPriority toPriority /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                InitializeDebugPriorities(false);
+
+                if ((debugPriorities != null) &&
+                    debugPriorities.TryGetValue(
+                        fromPriority, out toPriority))
+                {
+                    return true;
+                }
+
+                toPriority = defaultDebugPriority;
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool IsValidDebugPriority(
+            DebugPriority priority /* in */
+            )
+        {
+            //
+            // HACK: *SPECIAL* The DebugPriority enumeration is
+            //       based on POSIX values and those include a
+            //       value that is zero.  Hence, standard flags
+            //       handling will not quite work here.
+            //
+            if ((priority >= DebugPriority.Minimum) &&
+                (priority <= DebugPriority.Maximum))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static DebugPriority TranslateDebugPriority(
+            DebugPriority? priority /* in: OPTIONAL */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (priority != null)
+                {
+                    //
+                    // NOTE: STEP #1, Split priority into a specific
+                    //       level, if any, and its source, if any.
+                    //
+                    DebugPriority fromPriority;
+                    DebugPriority viaPriority;
+
+                    SplitDebugPriority(
+                        priority, out fromPriority, out viaPriority);
+
+                    //
+                    // NOTE: STEP #2, If the specific level is found,
+                    //       just use it.  For this case, the source
+                    //       of the debug message is ignored.
+                    //
+                    if (IsValidDebugPriority(fromPriority))
+                        return fromPriority;
+
+                    //
+                    // NOTE: STEP #3, Otherwise, see if the source is
+                    //       mapped to a specific level.  If so, just
+                    //       use it.
+                    //
+                    DebugPriority toPriority;
+
+                    if (TryTranslateDebugPriority(
+                            viaPriority, out toPriority) &&
+                        IsValidDebugPriority(toPriority))
+                    {
+                        return toPriority;
+                    }
+                }
+
+                //
+                // NOTE: STEP #4, Just use the default debug priority.
+                //
+                return defaultDebugPriority;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static int GetOutputDebugMessagePriority(
+            DebugPriority? priority /* in: OPTIONAL */
+            )
+        {
+            //
+            // HACK: Adjust the translated DebugPriority level by
+            //       subtracting the offset that was added to all
+            //       the contained "raw" POSIX values.  This was
+            //       needed in order to reserve zero as a special
+            //       indicator of "nothing has been specified".
+            //
+            return (int)TranslateDebugPriority(
+                priority) - (int)DebugPriority.Offset;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3783,7 +3986,8 @@ namespace Eagle._Components.Private
         {
             int returnValue = 0;
 
-            return PrintDouble(buffer, format, value, ref returnValue, ref error);
+            return PrintDouble(
+                buffer, format, value, ref returnValue, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4307,12 +4511,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static bool OutputDebugMessage(
-            string message /* in */
+            string message,         /* in */
+            DebugPriority? priority /* in: OPTIONAL */
             )
         {
 #if WINDOWS
             if (PlatformOps.IsWindowsOperatingSystem())
-                return WindowsOutputDebugMessage(message);
+                return WindowsOutputDebugMessage(message, priority);
 #endif
 
 #if UNIX
@@ -4320,11 +4525,11 @@ namespace Eagle._Components.Private
                 PlatformOps.IsMacintoshOperatingSystem() &&
                 !PlatformOps.IsIntelProcessorArchitecture())
             {
-                return MacintoshOutputDebugMessage(message);
+                return MacintoshOutputDebugMessage(message, priority);
             }
 
             if (PlatformOps.IsUnixOperatingSystem())
-                return UnixOutputDebugMessage(message);
+                return UnixOutputDebugMessage(message, priority);
 #endif
 
             return false;

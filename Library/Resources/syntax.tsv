@@ -102,7 +102,7 @@ debug onreturn	debug onreturn ?enabled?
 debug ontest	debug ontest ?enabled?
 debug ontoken	debug ontoken ?enabled?
 debug operator	debug operator name ?enabled?
-debug output	debug output message
+debug output	debug output message ?priority?
 debug paths	debug paths ?flags?
 debug pluginexecute	debug pluginexecute name request
 debug pluginflags	debug pluginflags ?flags?

@@ -1463,24 +1463,28 @@ namespace Eagle._Components.Private
         #region Private Output Support Methods
 #if NATIVE
         public static void Output(
-            string message
+            string message,         /* in */
+            DebugPriority? priority /* in: OPTIONAL */
             )
         {
             NativeOps.OutputDebugMessage(String.Format(
-                "{0}{1}", message, Environment.NewLine));
+                "{0}{1}", message, Environment.NewLine),
+                priority);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static void Output(
-            Exception exception
+            Exception exception,    /* in */
+            DebugPriority? priority /* in: OPTIONAL */
             )
         {
             if (exception == null)
                 return;
 
             Output(String.Format(
-                "{0}{1}", exception, Environment.NewLine));
+                "{0}{1}", exception, Environment.NewLine),
+                priority);
         }
 #endif
 
@@ -1671,7 +1675,7 @@ namespace Eagle._Components.Private
         {
 #if NATIVE
             if (viaOutput)
-                Output(value);
+                Output(value, DebugPriority.ViaSelf);
 #endif
 
             ///////////////////////////////////////////////////////////////////
@@ -2765,7 +2769,8 @@ namespace Eagle._Components.Private
             catch (Exception e)
             {
                 Output(ResultOps.Format(
-                    ReturnCode.Error, e));
+                    ReturnCode.Error, e),
+                    DebugPriority.ViaSelf);
             }
 #else
             catch
@@ -2795,7 +2800,8 @@ namespace Eagle._Components.Private
             catch (Exception e)
             {
                 Output(ResultOps.Format(
-                    ReturnCode.Error, e));
+                    ReturnCode.Error, e),
+                    DebugPriority.ViaSelf);
             }
 #else
             catch
@@ -4795,7 +4801,7 @@ namespace Eagle._Components.Private
                 //       subsystem may make assumptions that may not be
                 //       true at this point.
                 //
-                Output(ResultOps.Format(code, error));
+                Output(ResultOps.Format(code, error), DebugPriority.ViaSelf);
             }
 #endif
 

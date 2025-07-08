@@ -5773,7 +5773,8 @@ namespace Eagle._Tests
                             returnCode, result, true));
 
 #if NATIVE
-                        DebugOps.Output(formatted);
+                        DebugOps.Output(formatted,
+                            DebugPriority.ViaFailSafe);
 #endif
 
                         TraceOps.DebugTrace(
@@ -32124,7 +32125,8 @@ namespace Eagle._Tests
                 CheckDisposed();
 
                 /* IGNORED */
-                NativeOps.OutputDebugMessage(message); /* throw */
+                NativeOps.OutputDebugMessage(
+                    message, DebugPriority.ViaTraceMessage); /* throw */
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -32137,7 +32139,8 @@ namespace Eagle._Tests
 
                 /* IGNORED */
                 NativeOps.OutputDebugMessage(String.Format(
-                    "{0}{1}", message, Environment.NewLine)); /* throw */
+                    "{0}{1}", message, Environment.NewLine),
+                    DebugPriority.ViaTraceMessage); /* throw */
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////

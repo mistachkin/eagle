@@ -1745,7 +1745,7 @@ namespace Eagle._Components.Private
                 if (PlatformOps.IsWindowsOperatingSystem() &&
                     NativeOps.SafeNativeMethods.IsDebuggerPresent())
                 {
-                    DebugOps.Output(value);
+                    DebugOps.Output(value, DebugPriority.ViaTest);
                     count++;
                 }
 #endif

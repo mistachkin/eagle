@@ -3104,13 +3104,31 @@ namespace Eagle._Commands
                                     }
                                 case "output":
                                     {
-                                        if (newArguments.Count == 3)
+                                        if ((newArguments.Count >= 3) && (newArguments.Count <= 4))
                                         {
 #if NATIVE
-                                            DebugOps.Output(newArguments[2]);
+                                            DebugPriority? priority = null;
 
-                                            result = String.Empty;
-                                            code = ReturnCode.Ok;
+                                            if (newArguments.Count >= 4)
+                                            {
+                                                object enumValue = EnumOps.TryParseFlags(
+                                                    interpreter, typeof(DebugPriority),
+                                                    DebugPriority.Default.ToString(),
+                                                    newArguments[3],
+                                                    interpreter.InternalCultureInfo,
+                                                    true, true, true, ref result);
+
+                                                if (enumValue is DebugPriority)
+                                                    priority = (DebugPriority)enumValue;
+                                                else
+                                                    code = ReturnCode.Error;
+                                            }
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                DebugOps.Output(newArguments[2], priority);
+                                                result = String.Empty;
+                                            }
 #else
                                             result = "not implemented";
                                             code = ReturnCode.Error;
@@ -3118,7 +3136,7 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"debug output message\"";
+                                            result = "wrong # args: should be \"debug output message ?priority?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

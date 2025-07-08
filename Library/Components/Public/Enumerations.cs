@@ -13,8 +13,74 @@ using System;
 using System.IO;
 using Eagle._Attributes;
 
+#if NATIVE && UNIX
+using UNM = Eagle._Components.Private.NativeOps.UnsafeNativeMethods;
+#endif
+
 namespace Eagle._Components.Public
 {
+    [Flags()]
+    [ObjectId("ab970a48-f5eb-49d6-973b-d5e35e210a99")]
+    public enum DebugPriority /* syslog(priority) */ : int /* COMPAT: POSIX */
+    {
+        None = 0,
+        Offset = 1,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if NATIVE && UNIX
+        Emergency = UNM.LOG_EMERG + Offset,
+        Alert = UNM.LOG_ALERT + Offset,
+        Critical = UNM.LOG_CRIT + Offset,
+        Error = UNM.LOG_ERR + Offset,
+        Warning = UNM.LOG_WARNING + Offset,
+        Notice = UNM.LOG_NOTICE + Offset,
+        Information = UNM.LOG_INFO + Offset,
+        Debug = UNM.LOG_DEBUG + Offset,
+#else
+        //
+        // TODO: Make sure to keep these values compatible
+        //       with those from the POSIX standard(s).
+        //
+        Emergency = 0 + Offset,
+        Alert = 1 + Offset,
+        Critical = 2 + Offset,
+        Error = 3 + Offset,
+        Warning = 4 + Offset,
+        Notice = 5 + Offset,
+        Information = 6 + Offset,
+        Debug = 7 + Offset,
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ViaFailSafe = 0x1000000,
+        ViaSelf = 0x2000000,
+        ViaTraceException = 0x4000000,
+        ViaTraceMessage = 0x8000000,
+        ViaTest = 0x10000000,
+        ViaExternal = 0x20000000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        BaseMask = Emergency | Alert | Critical | Error |
+                   Warning | Notice | Information | Debug,
+
+        ViaMask = ViaFailSafe | ViaSelf | ViaTraceException |
+                  ViaTraceMessage | ViaTest | ViaExternal,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Minimum = Emergency,
+        Maximum = Debug,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Default = Maximum // COMPAT: Eagle beta.
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if DATA
     [Flags()]
     [ObjectId("7415026d-5fa5-4561-88b4-088129d9a800")]
