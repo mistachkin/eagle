@@ -51,10 +51,13 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
 
+FEATURE: add the [debug write] sub-command to write a (diagnostic?) message to
+         wherever it possibly can.
+
 FEATURE: add the -object option to the [hash] computation sub-commands.
 
-FEATURE: add the -trace, -escapesubstring, and -forprocessor options to the
-         [exec] command.
+FEATURE: add the -trace, -escapesubstring, -escaperanges, and -forprocessor
+         options to the [exec] command.
 
 FEATURE: add the -blobbehavior option to the [sql execut]e sub-command.
 

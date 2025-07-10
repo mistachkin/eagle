@@ -2350,7 +2350,7 @@ namespace Eagle._Components.Public
 
             if (arguments == null)
             {
-                error = "invalid arguments";
+                error = "invalid argument list";
                 return ReturnCode.Error;
             }
 
@@ -4764,7 +4764,7 @@ namespace Eagle._Components.Public
                 }
                 else
                 {
-                    error = "invalid arguments";
+                    error = "invalid argument list";
                     code = ReturnCode.Error;
                 }
 
@@ -40283,7 +40283,7 @@ namespace Eagle._Components.Public
 
                 if (arguments == null)
                 {
-                    error = "invalid arguments";
+                    error = "invalid argument list";
                     return ReturnCode.Error;
                 }
 
@@ -41187,7 +41187,7 @@ namespace Eagle._Components.Public
             //
             try
             {
-                IDebugHost debugHost = interpreter.Host;
+                IDebugHost debugHost = interpreter.InternalHost;
 
                 if (debugHost != null)
                 {
@@ -85117,6 +85117,7 @@ namespace Eagle._Components.Public
             //       use when emitting trace messages.
             //
             string commandLine; /* REUSED */
+            bool done; /* REUSED */
 
             //
             // NOTE: In debug mode, show the command line arguments just
@@ -85131,7 +85132,25 @@ namespace Eagle._Components.Public
                     "The managed executable file name is: {0}",
                     managedExecutableFileName));
 
-                commandLine = RuntimeOps.BuildCommandLine(argv, true);
+                done = false;
+
+                commandLine = RuntimeOps.BuildCommandLine(
+                    activeInterpreter, argv, null, true, false,
+                    false, ref done, ref result);
+
+                if (done)
+                    goto done;
+
+                if (commandLine == null)
+                {
+                    HostOps.WriteConsoleOrComplain(
+                        ReturnCode.Error, result);
+
+                    exitCode = ShellOps.FailureExitCode(
+                        activeInterpreter);
+
+                    goto done;
+                }
 
                 HostOps.WriteLineOrConsole(interactiveHost, String.Format(
                     "The original command line arguments are: {0}",
@@ -85421,7 +85440,25 @@ namespace Eagle._Components.Public
                 //
                 if (!whatIf && activeInterpreter.Debug)
                 {
-                    commandLine = RuntimeOps.BuildCommandLine(argv, true);
+                    done = false;
+
+                    commandLine = RuntimeOps.BuildCommandLine(
+                        activeInterpreter, argv, null, true, false,
+                        false, ref done, ref result);
+
+                    if (done)
+                        goto done;
+
+                    if (commandLine == null)
+                    {
+                        HostOps.WriteConsoleOrComplain(
+                            ReturnCode.Error, result);
+
+                        exitCode = ShellOps.FailureExitCode(
+                            activeInterpreter);
+
+                        goto done;
+                    }
 
                     HostOps.WriteLineOrConsole(
                         interactiveHost, String.Format(
@@ -85498,7 +85535,25 @@ namespace Eagle._Components.Public
             //
             if (!whatIf && activeInterpreter.Debug)
             {
-                commandLine = RuntimeOps.BuildCommandLine(argv, true);
+                done = false;
+
+                commandLine = RuntimeOps.BuildCommandLine(
+                    activeInterpreter, argv, null, true, false,
+                    false, ref done, ref result);
+
+                if (done)
+                    goto done;
+
+                if (commandLine == null)
+                {
+                    HostOps.WriteConsoleOrComplain(
+                        ReturnCode.Error, result);
+
+                    exitCode = ShellOps.FailureExitCode(
+                        activeInterpreter);
+
+                    goto done;
+                }
 
                 HostOps.WriteLineOrConsole(
                     interactiveHost, String.Format(

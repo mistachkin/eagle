@@ -54,20 +54,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ViaFailSafe = 0x1000000,
-        ViaSelf = 0x2000000,
-        ViaTraceException = 0x4000000,
-        ViaTraceMessage = 0x8000000,
-        ViaTest = 0x10000000,
-        ViaExternal = 0x20000000,
+        FromFailSafe = 0x1000,
+        FromSelf = 0x2000,
+        FromTraceException = 0x4000,
+        FromTraceMessage = 0x8000,
+        FromTest = 0x10000,
+        FromExternal = 0x20000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        NoViaOutput = 0x100000,
+        NoViaTrace = 0x200000,
+        NoViaHost = 0x400000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         BaseMask = Emergency | Alert | Critical | Error |
                    Warning | Notice | Information | Debug,
 
-        ViaMask = ViaFailSafe | ViaSelf | ViaTraceException |
-                  ViaTraceMessage | ViaTest | ViaExternal,
+        FromMask = FromFailSafe | FromSelf | FromTraceException |
+                   FromTraceMessage | FromTest | FromExternal,
+
+        NoViaMask = NoViaOutput | NoViaTrace | NoViaHost,
+
+        NonBaseMask = FromMask | NoViaMask,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 

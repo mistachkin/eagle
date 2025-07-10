@@ -719,6 +719,22 @@ IF EXIST "%SOURCE%\Installer\Tests\*.wixpdb" (
   %_AECHO%.
 )
 
+IF EXIST "%SOURCE%\Service\*.user" (
+  %__ECHO% DEL /Q "%SOURCE%\Service\*.user"
+
+  IF ERRORLEVEL 1 (
+    ECHO Could not delete "%SOURCE%\Service\*.user".
+    ECHO.
+    GOTO errors
+  ) ELSE (
+    %_AECHO% Deleted "%SOURCE%\Service\*.user".
+    %_AECHO%.
+  )
+) ELSE (
+  %_AECHO% No files matching "%SOURCE%\Service\*.user" exist.
+  %_AECHO%.
+)
+
 IF EXIST "%SOURCE%\Service\Web.config" (
   %__ECHO% DEL /Q "%SOURCE%\Service\Web.config"
 

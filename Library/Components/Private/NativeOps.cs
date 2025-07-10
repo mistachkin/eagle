@@ -3798,17 +3798,17 @@ namespace Eagle._Components.Private
                         debugPriorities = new DebugPriorityDictionary();
 
                     DebugPriority[] priorities = {
-                        DebugPriority.ViaFailSafe,
+                        DebugPriority.FromFailSafe,
                             DebugPriority.Alert,
-                        DebugPriority.ViaSelf,
+                        DebugPriority.FromSelf,
                             DebugPriority.Critical,
-                        DebugPriority.ViaTraceException,
+                        DebugPriority.FromTraceException,
                             DebugPriority.Error,
-                        DebugPriority.ViaTraceMessage,
+                        DebugPriority.FromTraceMessage,
                             DebugPriority.Warning,
-                        DebugPriority.ViaTest,
+                        DebugPriority.FromTest,
                             DebugPriority.Notice,
-                        DebugPriority.ViaExternal,
+                        DebugPriority.FromExternal,
                             DebugPriority.Information
                     };
 
@@ -3841,8 +3841,8 @@ namespace Eagle._Components.Private
                 //
                 DebugPriority localPriority = (DebugPriority)priority;
 
-                fromPriority = localPriority & ~DebugPriority.ViaMask;
-                viaPriority = localPriority & DebugPriority.ViaMask;
+                fromPriority = localPriority & ~DebugPriority.NonBaseMask;
+                viaPriority = localPriority & DebugPriority.NonBaseMask;
             }
             else
             {

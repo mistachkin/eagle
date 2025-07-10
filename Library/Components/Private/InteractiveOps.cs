@@ -4285,14 +4285,30 @@ namespace Eagle._Components.Private
                     //       #cmd /c [info nameofexecutable] -eval "set x 2; puts $x"
                     //       (this requires "#isflags +Commands")
                     //
-                    string execArguments = RuntimeOps.BuildCommandLine(
-                        ArgumentList.GetRangeAsStringList(debugArguments, 1), false);
+                    string execArguments;
+                    bool done = false;
 
-                    localCode = ProcessOps.ExecuteProcess(interpreter, fileName,
-                        execArguments, null, localEventFlags, ref localResult);
+                    execArguments = RuntimeOps.BuildCommandLine(
+                        interpreter, ArgumentList.GetRangeAsStringList(
+                        debugArguments, 1), null, false, false, false,
+                        ref done, ref localResult);
 
-                    if (localCode == ReturnCode.Ok)
-                        localResult = String.Empty;
+                    if (done)
+                        return;
+
+                    if (execArguments != null)
+                    {
+                        localCode = ProcessOps.ExecuteProcess(
+                            interpreter, fileName, execArguments, null,
+                            localEventFlags, ref localResult);
+
+                        if (localCode == ReturnCode.Ok)
+                            localResult = String.Empty;
+                    }
+                    else
+                    {
+                        localCode = ReturnCode.Error;
+                    }
                 }
                 else
                 {
@@ -4467,16 +4483,30 @@ namespace Eagle._Components.Private
                                     else
                                         debugArguments.Add(text);
 
-                                    string execArguments = RuntimeOps.BuildCommandLine(
-                                        ArgumentList.GetRangeAsStringList(debugArguments, 1),
-                                        false);
+                                    string execArguments;
+                                    bool done = false;
 
-                                    localCode = ProcessOps.ExecuteProcess(
-                                        interpreter, fileName, execArguments, null,
-                                        localEventFlags, true, ref localResult);
+                                    execArguments = RuntimeOps.BuildCommandLine(
+                                        interpreter, ArgumentList.GetRangeAsStringList(
+                                        debugArguments, 1), null, false, false, false,
+                                        ref done, ref localResult);
 
-                                    if (localCode == ReturnCode.Ok)
-                                        localResult = String.Empty;
+                                    if (done)
+                                        return;
+
+                                    if (execArguments != null)
+                                    {
+                                        localCode = ProcessOps.ExecuteProcess(
+                                            interpreter, fileName, execArguments, null,
+                                            localEventFlags, true, ref localResult);
+
+                                        if (localCode == ReturnCode.Ok)
+                                            localResult = String.Empty;
+                                    }
+                                    else
+                                    {
+                                        localCode = ReturnCode.Error;
+                                    }
                                 }
                                 else
                                 {

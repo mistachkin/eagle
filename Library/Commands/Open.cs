@@ -176,7 +176,7 @@ namespace Eagle._Commands
                                                 {
                                                     try
                                                     {
-                                                        IStreamHost streamHost = interpreter.Host;
+                                                        IStreamHost streamHost = interpreter.InternalHost;
 
                                                         //
                                                         // NOTE: *WARNING* This option causes the "fileName",
@@ -233,7 +233,7 @@ namespace Eagle._Commands
                                                 {
                                                     try
                                                     {
-                                                        IStreamHost streamHost = interpreter.Host;
+                                                        IStreamHost streamHost = interpreter.InternalHost;
 
                                                         //
                                                         // NOTE: *WARNING* This option causes the "fileName",
@@ -290,7 +290,7 @@ namespace Eagle._Commands
                                                 {
                                                     try
                                                     {
-                                                        IStreamHost streamHost = interpreter.Host;
+                                                        IStreamHost streamHost = interpreter.InternalHost;
 
                                                         //
                                                         // NOTE: *WARNING* This option causes the "fileName",

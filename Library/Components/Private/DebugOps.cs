@@ -1297,7 +1297,7 @@ namespace Eagle._Components.Private
                         ref locked); /* TRANSACTIONAL */
 
                     if (locked && !interpreter.Disposed)
-                        return interpreter.Host; /* throw */
+                        return interpreter.InternalHost;
                 }
                 catch
                 {
@@ -1627,6 +1627,46 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool MaybeWriteViaDebugHost(
+            IDebugHost debugHost,
+            string value
+            )
+        {
+            try
+            {
+                if (IsHostUsable(
+                        debugHost, HostFlags.Debug))
+                {
+                    //
+                    // NOTE: Since our caller has no way
+                    //       to indicate if the output to
+                    //       be written is associated with
+                    //       "success" or "failure", use a
+                    //       sane default ("neutral").
+                    //
+                    return debugHost.WriteResult(
+                        ReturnCode.Break, value, true,
+                        true);
+                }
+            }
+            catch (Exception e)
+            {
+                //
+                // HACK: This will end up calling right
+                //       back into this method; however,
+                //       the IDebugHost will be null in
+                //       that case and this block will
+                //       not be entered again.
+                //
+                /* RECURSIVE */
+                HostWriteException(0, e);
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // WARNING: This method is called from places where the interpreter
         //          host may have failed to emit output; therefore, it must
@@ -1665,7 +1705,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void WriteWithoutFail(
+        public static void WriteWithoutFail(
             IDebugHost debugHost,
             string value,
             bool viaOutput,
@@ -1675,7 +1715,7 @@ namespace Eagle._Components.Private
         {
 #if NATIVE
             if (viaOutput)
-                Output(value, DebugPriority.ViaSelf);
+                Output(value, DebugPriority.FromSelf);
 #endif
 
             ///////////////////////////////////////////////////////////////////
@@ -1688,36 +1728,8 @@ namespace Eagle._Components.Private
             if (viaHost && (debugHost != null) &&
                 !AppDomainOps.IsTransparentProxy(debugHost))
             {
-                try
-                {
-                    if (IsHostUsable(
-                            debugHost, HostFlags.Debug))
-                    {
-                        //
-                        // NOTE: Since our caller has no way
-                        //       to indicate if the output to
-                        //       be written is associated with
-                        //       "success" or "failure", use a
-                        //       sane default ("neutral").
-                        //
-                        /* IGNORED */
-                        debugHost.WriteResult(
-                            ReturnCode.Break, value, true,
-                            true);
-                    }
-                }
-                catch (Exception e)
-                {
-                    //
-                    // HACK: This will end up calling right
-                    //       back into this method; however,
-                    //       the IDebugHost will be null in
-                    //       that case and this block will
-                    //       not be entered again.
-                    //
-                    /* RECURSIVE */
-                    HostWriteException(0, e);
-                }
+                /* IGNORED */
+                MaybeWriteViaDebugHost(debugHost, value);
             }
         }
 
@@ -2770,7 +2782,7 @@ namespace Eagle._Components.Private
             {
                 Output(ResultOps.Format(
                     ReturnCode.Error, e),
-                    DebugPriority.ViaSelf);
+                    DebugPriority.FromSelf);
             }
 #else
             catch
@@ -2801,7 +2813,7 @@ namespace Eagle._Components.Private
             {
                 Output(ResultOps.Format(
                     ReturnCode.Error, e),
-                    DebugPriority.ViaSelf);
+                    DebugPriority.FromSelf);
             }
 #else
             catch
@@ -4801,7 +4813,7 @@ namespace Eagle._Components.Private
                 //       subsystem may make assumptions that may not be
                 //       true at this point.
                 //
-                Output(ResultOps.Format(code, error), DebugPriority.ViaSelf);
+                Output(ResultOps.Format(code, error), DebugPriority.FromSelf);
             }
 #endif
 

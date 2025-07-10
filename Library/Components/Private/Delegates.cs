@@ -74,6 +74,15 @@ namespace Eagle._Components.Private.Delegates
 
     ///////////////////////////////////////////////////////////////////////////
 
+    [ObjectId("57960c5c-3baa-4507-ad02-03ccd9364a62")]
+    internal delegate bool? IndexRangeCallback(
+        Pair<ulong> range,
+        ulong index,
+        IClientData clientData
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
     [ObjectId("3fd07a42-53af-4bad-924c-715c4ccdbeef")]
     internal delegate object FactoryCallback();
     #endregion

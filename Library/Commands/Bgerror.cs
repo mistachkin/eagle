@@ -48,7 +48,7 @@ namespace Eagle._Commands
                     {
                         if (!interpreter.HasNoBackgroundError())
                         {
-                            IInteractiveHost interactiveHost = interpreter.Host;
+                            IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                             if (interactiveHost != null)
                             {

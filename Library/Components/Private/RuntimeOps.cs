@@ -37,8 +37,10 @@ using System.Security.Principal;
 #endif
 
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Eagle._Attributes;
+using Eagle._Components.Private.Delegates;
 using Eagle._Components.Public;
 using Eagle._Components.Public.Delegates;
 using Eagle._Components.Shared;
@@ -50,6 +52,14 @@ using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
 using SharedAttributeOps = Eagle._Components.Shared.AttributeOps;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
+
+using IndexRange = Eagle._Components.Public.Pair<ulong>;
+
+using IndexRangeList = System.Collections.Generic.List<
+    Eagle._Components.Public.Pair<ulong>>;
+
+using IndexDictionary = System.Collections.Generic.Dictionary<
+    ulong, bool>;
 
 using PluginPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Wrappers.Plugin>;
@@ -148,6 +158,15 @@ namespace Eagle._Components.Private
         #region Compile Options Constants
         private const string ThreadingDefineName = "THREADING";
         private const string NativeDefineName = "NATIVE";
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Integer Range Constants
+        private static readonly Regex indexRangesRegEx = RegExOps.Create(
+            "^(?:[ ]*\\d+(?:[ ]*-[ ]*\\d+)?" +
+            "(?:[ ]*,[ ]*\\d+(?:[ ]*-[ ]*\\d+)?)*)?[ ]*$",
+            RegexOptions.Singleline | RegexOptions.CultureInvariant);
         #endregion
         #endregion
 
@@ -2624,6 +2643,280 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Command Line Support Methods
+        private static ReturnCode ParseIndexRange(
+            string value,            /* in */
+            int count,               /* in */
+            CultureInfo cultureInfo, /* in */
+            ref IndexRange range,    /* out */
+            ref Result error         /* out */
+            )
+        {
+            string trimValue;
+
+            if (StringOps.IsLogicallyEmpty(value, out trimValue))
+            {
+                error = "empty index range is not allowed";
+                return ReturnCode.Error;
+            }
+
+            ulong startIndex;
+            ulong stopIndex;
+            int minusIndex = trimValue.IndexOf(Characters.MinusSign);
+
+            if (minusIndex != Index.Invalid)
+            {
+                startIndex = 0;
+
+                if (Value.GetUnsignedWideInteger2(
+                        trimValue.Substring(0, minusIndex).Trim(),
+                        ValueFlags.AnyWideInteger, cultureInfo,
+                        ref startIndex, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                if ((count >= 0) && (startIndex >= (ulong)count))
+                {
+                    error = String.Format(
+                        "start index {0} must be less than count {1}",
+                        startIndex, count);
+
+                    return ReturnCode.Error;
+                }
+
+                stopIndex = 0;
+
+                if (Value.GetUnsignedWideInteger2(
+                        trimValue.Substring(minusIndex + 1).Trim(),
+                        ValueFlags.AnyWideInteger, cultureInfo,
+                        ref stopIndex, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                if ((count >= 0) && (stopIndex >= (ulong)count))
+                {
+                    error = String.Format(
+                        "stop index {0} must be less than count {1}",
+                        stopIndex, count);
+
+                    return ReturnCode.Error;
+                }
+
+                if (startIndex > stopIndex)
+                {
+                    error = String.Format(
+                        "start index {0} cannot exceed stop index {1}",
+                        startIndex, stopIndex);
+
+                    return ReturnCode.Error;
+                }
+            }
+            else
+            {
+                startIndex = 0;
+
+                if (Value.GetUnsignedWideInteger2(
+                        trimValue, ValueFlags.AnyWideInteger,
+                        cultureInfo, ref startIndex,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                if ((count >= 0) && (startIndex >= (ulong)count))
+                {
+                    error = String.Format(
+                        "index {0} must be less than count {1}",
+                        startIndex, count);
+
+                    return ReturnCode.Error;
+                }
+
+                stopIndex = startIndex;
+            }
+
+            range = new IndexRange(startIndex, stopIndex);
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This method is used to parse a list of "index ranges",
+        //       which must be of the following form:
+        //
+        //       <start0>[-<end0>] ... [,<startN>[-<endN>]]
+        //
+        //       Where <start*> and <end*> must be non-negative integer
+        //       values less than the specified count.
+        //
+        //       The minus sign must be used when specifying an ending
+        //       index for the range; otherwise, it will be the same as
+        //       the starting index.  The comma must be used in between
+        //       each range.  If there is only one range, no comma is
+        //       required.
+        //
+        //       Spaces are the only legal whitespace and they will be
+        //       ignored.
+        //
+        private static ReturnCode ParseIndexRanges(
+            string value,              /* in */
+            int count,                 /* in */
+            CultureInfo cultureInfo,   /* in */
+            ref IndexRangeList ranges, /* in, out */
+            ref Result error           /* out */
+            )
+        {
+            if (value == null)
+            {
+                error = "ranges cannot be null";
+                return ReturnCode.Error;
+            }
+
+            Regex regEx = indexRangesRegEx;
+
+            if ((regEx == null) || !regEx.IsMatch(value))
+            {
+                error = "index ranges syntax error";
+                return ReturnCode.Error;
+            }
+
+            string[] parts = value.Split(Characters.Comma);
+
+            if (parts == null) /* IMPOSSIBLE (?) */
+            {
+                error = "could not split index ranges";
+                return ReturnCode.Error;
+            }
+
+            IndexRangeList localRanges = new IndexRangeList();
+            int length = parts.Length;
+
+            for (int index = 0; index < length; index++)
+            {
+                string part = parts[index];
+
+                if (part == null)
+                    continue;
+
+                IndexRange localRange = null;
+
+                if (ParseIndexRange(part,
+                        count, cultureInfo, ref localRange,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                if (localRange != null)
+                    localRanges.Add(localRange);
+            }
+
+            if (ranges != null)
+                ranges.AddRange(localRanges);
+            else
+                ranges = localRanges;
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Dead Code
+#if DEAD_CODE
+        private static ReturnCode ProcessIndexRanges(
+            int count,                   /* in */
+            IndexRangeList ranges,       /* in */
+            IndexRangeCallback callback, /* in */
+            IClientData clientData,      /* in: OPTIONAL */
+            ref Result error             /* out */
+            )
+        {
+            if (ranges == null)
+            {
+                error = "ranges cannot be null";
+                return ReturnCode.Error;
+            }
+
+            if (callback == null)
+            {
+                error = "invalid index range callback";
+                return ReturnCode.Error;
+            }
+
+            IndexDictionary marks = new IndexDictionary(count);
+
+            foreach (IndexRange range in ranges)
+            {
+                if (range == null) /* IMPOSSIBLE (?) */
+                    continue;
+
+                ulong startIndex = range.X;
+                ulong stopIndex = range.Y;
+
+                if (startIndex > stopIndex) /* IMPOSSIBLE (?) */
+                {
+                    error = String.Format(
+                        "start index {0} cannot exceed stop index {1}",
+                        startIndex, stopIndex);
+
+                    return ReturnCode.Error;
+                }
+
+                if (stopIndex == ulong.MaxValue)
+                {
+                    error = String.Format(
+                        "stop index {0} cannot exceed {1}",
+                        stopIndex, ulong.MaxValue - 1);
+
+                    return ReturnCode.Error;
+                }
+
+                for (ulong index = startIndex; index <= stopIndex; index++)
+                {
+                    bool mark;
+
+                    if (marks.TryGetValue(index, out mark) && mark)
+                        continue;
+
+                    try
+                    {
+                        bool? cancel = callback(range, index, clientData);
+
+                        if (cancel != null)
+                        {
+                            if ((bool)cancel)
+                            {
+                                return ReturnCode.Ok;
+                            }
+                            else
+                            {
+                                error = String.Format(
+                                    "canceled at index range {0} and index {1}",
+                                    range, index);
+
+                                return ReturnCode.Error;
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        error = e;
+                        return ReturnCode.Error;
+                    }
+
+                    marks[index] = true;
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static ReturnCode MaybeEscapeSubString(
             Interpreter interpreter, /* in */
             StringList command,      /* in */
@@ -2658,6 +2951,195 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string BuildCommandLine(
+            Interpreter interpreter, /* in */
+            IList<string> args,      /* in */
+            string rangeValue,       /* in */
+            CultureInfo cultureInfo, /* in */
+            StringList command,      /* in */
+            bool quoteAll,           /* in */
+            bool forProcessor,       /* in */
+            bool noComplain,         /* in */
+            ref bool done,           /* in, out */
+            ref Result error         /* out */
+            )
+        {
+            if (args == null)
+            {
+                error = "invalid argument list";
+                return null;
+            }
+
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            ReturnCode code;
+            ResultList errors = null;
+
+            code = AppendCommandLine(
+                interpreter, args, rangeValue, cultureInfo,
+                command, quoteAll, forProcessor, noComplain,
+                ref builder, ref done, ref errors);
+
+            if (errors != null)
+                error = errors;
+
+            if (code != ReturnCode.Ok)
+                return null;
+
+            return StringBuilderCache.GetStringAndRelease(ref builder);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode MarkIndexRanges(
+            IndexRangeList ranges, /* in */
+            IndexDictionary marks, /* in */
+            ref Result error       /* out */
+            )
+        {
+            if (ranges == null)
+            {
+                error = "ranges cannot be null";
+                return ReturnCode.Error;
+            }
+
+            if (marks == null)
+            {
+                error = "marks cannot be null";
+                return ReturnCode.Error;
+            }
+
+            foreach (IndexRange range in ranges)
+            {
+                if (range == null) /* IMPOSSIBLE (?) */
+                    continue;
+
+                ulong startIndex = range.X;
+                ulong stopIndex = range.Y;
+
+                if (startIndex > stopIndex) /* IMPOSSIBLE (?) */
+                {
+                    error = String.Format(
+                        "start index {0} cannot exceed stop index {1}",
+                        startIndex, stopIndex);
+
+                    return ReturnCode.Error;
+                }
+
+                if (stopIndex == ulong.MaxValue)
+                {
+                    error = String.Format(
+                        "stop index {0} cannot exceed {1}",
+                        stopIndex, ulong.MaxValue - 1);
+
+                    return ReturnCode.Error;
+                }
+
+                for (ulong index = startIndex; index <= stopIndex; index++)
+                {
+                    bool indexVisited;
+
+                    if (marks.TryGetValue(
+                            index, out indexVisited) && indexVisited)
+                    {
+                        continue;
+                    }
+
+                    marks[index] = true;
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode AppendCommandLine(
+            Interpreter interpreter,   /* in */
+            IList<string> args,        /* in */
+            string rangeValue,         /* in */
+            CultureInfo cultureInfo,   /* in */
+            StringList command,        /* in */
+            bool quoteAll,             /* in */
+            bool forProcessor,         /* in */
+            bool noComplain,           /* in */
+            ref StringBuilder builder, /* in, out */
+            ref bool done,             /* in, out */
+            ref ResultList errors      /* in, out */
+            )
+        {
+            if (args == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid argument list");
+                return ReturnCode.Error;
+            }
+
+            Result error; /* REUSED */
+            int count = args.Count;
+            IndexRangeList ranges = null;
+
+            error = null;
+
+            if (ParseIndexRanges(
+                    rangeValue, count, cultureInfo, ref ranges,
+                    ref error) != ReturnCode.Ok)
+            {
+                if (error != null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add("invalid argument list");
+                }
+
+                return ReturnCode.Error;
+            }
+
+            IndexDictionary marks = new IndexDictionary(count);
+
+            error = null;
+
+            if (MarkIndexRanges(
+                    ranges, marks, ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (builder == null)
+                builder = StringBuilderFactory.Create();
+
+            for (int index = 0; index < count; index++)
+            {
+                string arg = args[(int)index];
+                bool mark;
+
+                if (marks.TryGetValue((ulong)index, out mark) && mark)
+                {
+                    /* NO RESULT */
+                    AppendCommandLineArgument(
+                        interpreter, builder, command, arg, quoteAll,
+                        forProcessor, noComplain, ref done, ref errors);
+
+                    if (done)
+                        break;
+                }
+                else
+                {
+                    if (builder.Length > 0)
+                        builder.Append(Characters.Space);
+
+                    builder.Append(arg);
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static void AppendCommandLineArgument(
             Interpreter interpreter, /* in */
             StringBuilder builder,   /* in, out */
@@ -2667,11 +3149,32 @@ namespace Eagle._Components.Private
             bool forProcessor,       /* in */
             bool noComplain,         /* in */
             ref bool done,           /* in, out */
-            ref Result error         /* out */
+            ref ResultList errors    /* in, out */
             )
         {
-            if ((builder == null) || (arg == null))
+            if (builder == null) /* IMPOSSIBLE (?) */
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid string builder");
+
+                done = true; /* HACK: Cannot continue. */
+
                 return;
+            }
+
+            if (arg == null) /* IMPOSSIBLE (?) */
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid command argument");
+
+                done = true; /* HACK: Cannot continue. */
+
+                return;
+            }
 
             char[] specials = {
                 Characters.Space, Characters.QuotationMark,
@@ -2696,7 +3199,6 @@ namespace Eagle._Components.Private
                 escapeMode |= EscapeMode.NoComplain;
 
             Result result; /* REUSED */
-            ResultList errors = null;
 
             if (wrap)
             {
@@ -2754,7 +3256,6 @@ namespace Eagle._Components.Private
                             }
 
                             done = true;
-                            error = errors;
 
                             return;
                         }
@@ -2843,7 +3344,6 @@ namespace Eagle._Components.Private
                             }
 
                             done = true;
-                            error = errors;
 
                             return;
                         }
@@ -2990,7 +3490,6 @@ namespace Eagle._Components.Private
                             }
 
                             done = true;
-                            error = errors;
 
                             return;
                         }
@@ -3020,37 +3519,6 @@ namespace Eagle._Components.Private
                         }
                 }
             }
-
-            if (errors != null)
-            {
-                if (noComplain)
-                {
-                    TraceOps.DebugTrace(String.Format(
-                        "AppendCommandLineArgument: errors = {0}",
-                        FormatOps.WrapOrNull(errors)),
-                        typeof(RuntimeOps).Name,
-                        TracePriority.ScriptError);
-                }
-                else
-                {
-                    DebugOps.Complain(ReturnCode.Error, errors);
-                }
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static string BuildCommandLine(
-            IEnumerable<string> args, /* in */
-            bool quoteAll             /* in */
-            )
-        {
-            bool done = false; /* NOT USED */
-            Result error = null; /* NOT USED */
-
-            return BuildCommandLine(
-                null, args, null, quoteAll, false,
-                false, ref done, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3067,20 +3535,27 @@ namespace Eagle._Components.Private
             )
         {
             if (args == null)
+            {
+                error = "invalid argument list";
                 return null;
+            }
 
             StringBuilder builder = StringBuilderFactory.Create();
+            ResultList errors = null;
 
             foreach (string arg in args)
             {
                 /* NO RESULT */
                 AppendCommandLineArgument(
                     interpreter, builder, command, arg, quoteAll,
-                    forProcessor, noComplain, ref done, ref error);
+                    forProcessor, noComplain, ref done, ref errors);
 
                 if (done)
-                    return null;
+                    break;
             }
+
+            if (errors != null)
+                error = errors;
 
             return StringBuilderCache.GetStringAndRelease(ref builder);
         }
@@ -3880,7 +4355,7 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            IFileSystemHost fileSystemHost = interpreter.Host; /* throw */
+            IFileSystemHost fileSystemHost = interpreter.InternalHost;
 
             if (fileSystemHost == null)
             {

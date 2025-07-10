@@ -5774,7 +5774,7 @@ namespace Eagle._Tests
 
 #if NATIVE
                         DebugOps.Output(formatted,
-                            DebugPriority.ViaFailSafe);
+                            DebugPriority.FromFailSafe);
 #endif
 
                         TraceOps.DebugTrace(
@@ -6499,7 +6499,7 @@ namespace Eagle._Tests
 
             try
             {
-                IFileSystemHost fileSystemHost = interpreter.Host;
+                IFileSystemHost fileSystemHost = interpreter.InternalHost;
 
                 if (fileSystemHost == null)
                 {
@@ -9454,7 +9454,7 @@ namespace Eagle._Tests
         {
             if (interpreter != null)
             {
-                IDisplayHost displayHost = interpreter.Host;
+                IDisplayHost displayHost = interpreter.InternalHost;
 
                 if (displayHost != null)
                 {
@@ -9549,7 +9549,8 @@ namespace Eagle._Tests
                 return false;
 
 #if CONSOLE
-            _Hosts.Console consoleHost = interpreter.Host as _Hosts.Console;
+            _Hosts.Console consoleHost =
+                interpreter.InternalHost as _Hosts.Console;
 
             if (consoleHost == null)
                 return false;
@@ -9595,7 +9596,8 @@ namespace Eagle._Tests
             if (interpreter == null)
                 return false;
 
-            _Hosts.Default defaultHost = interpreter.Host as _Hosts.Default;
+            _Hosts.Default defaultHost =
+                interpreter.InternalHost as _Hosts.Default;
 
             if (defaultHost == null)
                 return false;
@@ -15515,7 +15517,7 @@ namespace Eagle._Tests
 
                 if (arguments == null)
                 {
-                    error = "invalid arguments";
+                    error = "invalid argument list";
                     code = ReturnCode.Error;
 
                     return code;
@@ -32126,7 +32128,7 @@ namespace Eagle._Tests
 
                 /* IGNORED */
                 NativeOps.OutputDebugMessage(
-                    message, DebugPriority.ViaTraceMessage); /* throw */
+                    message, DebugPriority.FromTraceMessage); /* throw */
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -32140,7 +32142,7 @@ namespace Eagle._Tests
                 /* IGNORED */
                 NativeOps.OutputDebugMessage(String.Format(
                     "{0}{1}", message, Environment.NewLine),
-                    DebugPriority.ViaTraceMessage); /* throw */
+                    DebugPriority.FromTraceMessage); /* throw */
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////

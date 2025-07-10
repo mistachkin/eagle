@@ -4130,7 +4130,7 @@ namespace Eagle._Hosts
                         isolatedHost = interpreter.IsolatedHost;
 #endif
 
-                        host = interpreter.Host;
+                        host = interpreter.InternalHost;
                         interactiveHost = interpreter.InteractiveHost;
                     }
                 }

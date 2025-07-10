@@ -9781,9 +9781,16 @@ namespace Eagle._Components.Private
                 //       -n : never overwrite existing files
                 //       -d : extract files into exdir
                 //
-                string unzipArguments = RuntimeOps.BuildCommandLine(
-                    new string[] { "-n", downloadFileName, "-d",
-                    extractDirectory }, false);
+                string unzipArguments;
+                bool done = false;
+
+                unzipArguments = RuntimeOps.BuildCommandLine(
+                    interpreter, new string[] {
+                        "-n", downloadFileName, "-d", extractDirectory
+                    }, null, false, false, false, ref done, ref error);
+
+                if (done)
+                    return ReturnCode.Ok;
 
                 if (unzipArguments == null)
                 {

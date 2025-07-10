@@ -856,7 +856,7 @@ namespace Eagle._Components.Private
         {
             if (arguments == null)
             {
-                error = "invalid arguments";
+                error = "invalid argument list";
                 return ReturnCode.Error;
             }
 

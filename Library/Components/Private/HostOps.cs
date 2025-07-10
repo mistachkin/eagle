@@ -2716,7 +2716,7 @@ namespace Eagle._Components.Private
 
             try
             {
-                IHost host = interpreter.Host; /* throw */
+                IHost host = interpreter.InternalHost; /* throw */
 
                 if (host == null)
                 {

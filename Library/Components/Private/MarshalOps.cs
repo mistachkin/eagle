@@ -11404,7 +11404,7 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
-                        error = "invalid arguments";
+                        error = "invalid argument list";
                     }
                 }
                 else

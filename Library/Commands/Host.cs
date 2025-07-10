@@ -132,7 +132,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    IHost host = interpreter.Host;
+                                                    IHost host = interpreter.InternalHost;
 
                                                     if (host != null)
                                                     {
@@ -181,7 +181,7 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 3))
                                         {
-                                            IHost host = interpreter.Host;
+                                            IHost host = interpreter.InternalHost;
 
                                             if (host != null)
                                             {
@@ -272,7 +272,7 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                IDebugHost debugHost = interpreter.Host;
+                                                IDebugHost debugHost = interpreter.InternalHost;
 
                                                 if (debugHost != null)
                                                 {
@@ -299,7 +299,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            IHost host = interpreter.Host;
+                                            IHost host = interpreter.InternalHost;
 
                                             if (host != null)
                                             {
@@ -330,7 +330,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            IHost host = interpreter.Host;
+                                            IHost host = interpreter.InternalHost;
 
                                             if (host != null)
                                             {
@@ -376,7 +376,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    IColorHost colorHost = interpreter.Host;
+                                                    IColorHost colorHost = interpreter.InternalHost;
 
                                                     if (colorHost != null)
                                                     {
@@ -458,7 +458,7 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 3))
                                         {
-                                            IHost host = interpreter.Host;
+                                            IHost host = interpreter.InternalHost;
 
                                             if (host != null)
                                             {
@@ -495,7 +495,7 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 3))
                                         {
-                                            IStreamHost streamHost = interpreter.Host;
+                                            IStreamHost streamHost = interpreter.InternalHost;
 
                                             if (streamHost != null)
                                             {
@@ -553,7 +553,7 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                IDebugHost debugHost = interpreter.Host;
+                                                IDebugHost debugHost = interpreter.InternalHost;
 
                                                 if (debugHost != null)
                                                 {
@@ -580,7 +580,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            IInteractiveHost interactiveHost = interpreter.Host;
+                                            IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                             if (interactiveHost != null)
                                             {
@@ -696,7 +696,7 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 3))
                                         {
-                                            IStreamHost streamHost = interpreter.Host;
+                                            IStreamHost streamHost = interpreter.InternalHost;
 
                                             if (streamHost != null)
                                             {
@@ -742,7 +742,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            IInteractiveHost interactiveHost = interpreter.Host;
+                                            IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                             if (interactiveHost != null)
                                             {
@@ -765,7 +765,7 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 3) || (arguments.Count == 4))
                                         {
-                                            IHost host = interpreter.Host;
+                                            IHost host = interpreter.InternalHost;
 
                                             if (host != null)
                                             {
@@ -854,7 +854,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    IColorHost colorHost = interpreter.Host;
+                                                    IColorHost colorHost = interpreter.InternalHost;
 
                                                     if (colorHost != null)
                                                     {
@@ -943,7 +943,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            IHost host = interpreter.Host;
+                                            IHost host = interpreter.InternalHost;
 
                                             if (host != null)
                                             {
@@ -969,7 +969,7 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 3))
                                         {
-                                            IStreamHost streamHost = interpreter.Host;
+                                            IStreamHost streamHost = interpreter.InternalHost;
 
                                             if (streamHost != null)
                                             {
@@ -1015,7 +1015,7 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 3))
                                         {
-                                            IHost host = interpreter.Host;
+                                            IHost host = interpreter.InternalHost;
 
                                             if (host != null)
                                             {
@@ -1063,7 +1063,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            IInteractiveHost interactiveHost = interpreter.Host;
+                                            IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                             if (interactiveHost != null)
                                             {
@@ -1114,7 +1114,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    IPositionHost positionHost = interpreter.Host;
+                                                    IPositionHost positionHost = interpreter.InternalHost;
 
                                                     if (positionHost != null)
                                                     {
@@ -1198,7 +1198,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            IHost host = interpreter.Host;
+                                            IHost host = interpreter.InternalHost;
 
                                             if (host != null)
                                             {
@@ -1238,7 +1238,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            IReadHost readHost = interpreter.Host;
+                                            IReadHost readHost = interpreter.InternalHost;
 
                                             if (readHost != null)
                                             {
@@ -1292,7 +1292,7 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                IReadHost readHost = interpreter.Host;
+                                                IReadHost readHost = interpreter.InternalHost;
 
                                                 if (readHost != null)
                                                 {
@@ -1362,7 +1362,7 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                IInteractiveHost interactiveHost = interpreter.Host;
+                                                IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                 if (interactiveHost != null)
                                                 {
@@ -1412,7 +1412,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 3)
                                         {
-                                            IStreamHost streamHost = interpreter.Host;
+                                            IStreamHost streamHost = interpreter.InternalHost;
 
                                             if (streamHost != null)
                                             {
@@ -1516,7 +1516,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    IHost host = interpreter.Host;
+                                                    IHost host = interpreter.InternalHost;
 
                                                     if (host != null)
                                                     {
@@ -1735,7 +1735,7 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                IDebugHost debugHost = interpreter.Host;
+                                                IDebugHost debugHost = interpreter.InternalHost;
 
                                                 if (debugHost != null)
                                                 {
@@ -2080,7 +2080,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    ISizeHost sizeHost = interpreter.Host;
+                                                    ISizeHost sizeHost = interpreter.InternalHost;
 
                                                     if (sizeHost != null)
                                                     {
@@ -2182,7 +2182,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 3)
                                         {
-                                            IThreadHost threadHost = interpreter.Host;
+                                            IThreadHost threadHost = interpreter.InternalHost;
 
                                             if (threadHost != null)
                                             {
@@ -2231,7 +2231,7 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 3))
                                         {
-                                            IInteractiveHost interactiveHost = interpreter.Host;
+                                            IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                             if (interactiveHost != null)
                                             {
@@ -2269,7 +2269,7 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                IInteractiveHost interactiveHost = interpreter.Host;
+                                                IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                 if (interactiveHost != null)
                                                 {
@@ -2352,7 +2352,7 @@ namespace Eagle._Commands
                                             {
                                                 if ((argumentIndex != Index.Invalid) && ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    IDisplayHost displayHost = interpreter.Host;
+                                                    IDisplayHost displayHost = interpreter.InternalHost;
 
                                                     if (displayHost != null)
                                                     {

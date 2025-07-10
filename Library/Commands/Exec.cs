@@ -54,7 +54,9 @@ namespace Eagle._Commands
             {
                 if (arguments != null)
                 {
-                    if (arguments.Count >= 2)
+                    int argumentCount = arguments.Count;
+
+                    if (argumentCount >= 2)
                     {
                         ObjectFlags objectFlags =
                             ObjectOps.GetDefaultObjectFlags() | ObjectFlags.NoDispose;
@@ -121,6 +123,8 @@ namespace Eagle._Commands
                                 Index.Invalid, "-username", null), // domain user name
                             new Option(null, OptionFlags.MustHaveSecureStringValue, Index.Invalid,
                                 Index.Invalid, "-password", null), // domain password
+                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                                Index.Invalid, "-escaperanges", null), // index range list
                             new Option(null, OptionFlags.MustHaveListValue, Index.Invalid,
                                 Index.Invalid, "-escapesubstring", null), // command
                             new Option(null, OptionFlags.MustHaveListValue, Index.Invalid,
@@ -404,7 +408,12 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-preprocessarguments", ref value))
                                     preProcessArgumentsCommand = (StringList)value.Value;
 
-                                int argumentStopIndex = arguments.Count - 1;
+                                string escapeRanges = null;
+
+                                if (options.IsPresent("-escaperanges", ref value))
+                                    escapeRanges = value.ToString();
+
+                                int argumentStopIndex = argumentCount - 1;
                                 bool background = false;
 
                                 if (SharedStringOps.SystemEquals(
@@ -435,7 +444,7 @@ namespace Eagle._Commands
                                 int argumentStartIndex = argumentIndex + 1;
                                 bool done = false;
 
-                                if (argumentStartIndex < arguments.Count)
+                                if (argumentStartIndex < argumentCount)
                                 {
                                     if (commandLine)
                                     {
@@ -451,10 +460,39 @@ namespace Eagle._Commands
                                         if (done)
                                             goto done;
                                     }
+                                    else if (escapeRanges != null)
+                                    {
+                                        execArguments = RuntimeOps.BuildCommandLine(
+                                            interpreter,
+                                            ArgumentList.GetRangeAsStringList(
+                                                arguments, argumentStartIndex,
+                                                argumentStopIndex, dequote),
+                                            escapeRanges,
+                                            interpreter.InternalCultureInfo,
+                                            escapeSubStringCommand, quoteAll,
+                                            forProcessor, true, ref done,
+                                            ref result);
+
+                                        if (done)
+                                            goto done;
+                                    }
                                     else
                                     {
                                         execArguments = ListOps.Concat(arguments,
                                             argumentStartIndex, argumentStopIndex);
+                                    }
+
+                                    if (execArguments == null)
+                                    {
+                                        code = ReturnCode.Error;
+
+                                        TraceOps.ChangeBaseTracePriority(
+                                            ref priority, errorPriority);
+
+                                        TraceOps.ChangeToErrorPriority(
+                                            ref priority);
+
+                                        goto done;
                                     }
                                 }
 
@@ -491,7 +529,8 @@ namespace Eagle._Commands
                                         "processIdVarName = {34}, exitCodeVarName = {35}, stdInVarName = {36}, " +
                                         "stdInObjectVarName = {37}, stdOutVarName = {38}, stdErrVarName = {39}, " +
                                         "startCallback = {40}, stdOutCallback = {41}, stdErrCallback = {42}, " +
-                                        "startHandler = {43}, outputHandler = {44}, errorHandler = {45}",
+                                        "startHandler = {43}, outputHandler = {44}, errorHandler = {45}, " +
+                                        "done = {46}",
                                         FormatOps.InterpreterNoThrow(interpreter), FormatOps.WrapOrNull(domainName),
                                         FormatOps.WrapOrNull(userName), FormatOps.WrapOrNull(password),
                                         FormatOps.WrapOrNull(execFileName), FormatOps.WrapOrNull(execArguments),
@@ -508,7 +547,7 @@ namespace Eagle._Commands
                                         FormatOps.WrapOrNull(stdErrVarName), FormatOps.WrapOrNull(startCallback),
                                         FormatOps.WrapOrNull(stdOutCallback), FormatOps.WrapOrNull(stdErrCallback),
                                         FormatOps.WrapOrNull(startHandler), FormatOps.WrapOrNull(outputHandler),
-                                        FormatOps.WrapOrNull(errorHandler)), typeof(Exec).Name, priority);
+                                        FormatOps.WrapOrNull(errorHandler), done), typeof(Exec).Name, priority);
                                 }
 
                                 if (code == ReturnCode.Ok)
@@ -578,7 +617,8 @@ namespace Eagle._Commands
                                         "stdInObjectVarName = {37}, stdOutVarName = {38}, stdErrVarName = {39}, " +
                                         "startCallback = {40}, stdOutCallback = {41}, stdErrCallback = {42}, " +
                                         "startHandler = {43}, outputHandler = {44}, errorHandler = {45}, " +
-                                        "processId = {46}, exitCode = {47}, result = {48}, error = {49}",
+                                        "done = {46}, processId = {47}, exitCode = {48}, result = {49}, " +
+                                        "error = {50}",
                                         FormatOps.InterpreterNoThrow(interpreter), FormatOps.WrapOrNull(domainName),
                                         FormatOps.WrapOrNull(userName), FormatOps.WrapOrNull(password),
                                         FormatOps.WrapOrNull(execFileName), FormatOps.WrapOrNull(execArguments),
@@ -595,7 +635,7 @@ namespace Eagle._Commands
                                         FormatOps.WrapOrNull(stdErrVarName), FormatOps.WrapOrNull(startCallback),
                                         FormatOps.WrapOrNull(stdOutCallback), FormatOps.WrapOrNull(stdErrCallback),
                                         FormatOps.WrapOrNull(startHandler), FormatOps.WrapOrNull(outputHandler),
-                                        FormatOps.WrapOrNull(errorHandler), processId, exitCode,
+                                        FormatOps.WrapOrNull(errorHandler), done, processId, exitCode,
                                         FormatOps.WrapOrNull(normalize, ellipsis, result),
                                         FormatOps.WrapOrNull(normalize, ellipsis, error)),
                                         typeof(Exec).Name, priority);

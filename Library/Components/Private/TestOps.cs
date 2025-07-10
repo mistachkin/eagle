@@ -1745,7 +1745,7 @@ namespace Eagle._Components.Private
                 if (PlatformOps.IsWindowsOperatingSystem() &&
                     NativeOps.SafeNativeMethods.IsDebuggerPresent())
                 {
-                    DebugOps.Output(value, DebugPriority.ViaTest);
+                    DebugOps.Output(value, DebugPriority.FromTest);
                     count++;
                 }
 #endif
@@ -2676,7 +2676,7 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             //
-            // NOTE: First, if there are arguments that must preceed the
+            // NOTE: First, if there are arguments that must precede the
             //       rest of the command line, add them now.
             //
             if (firstArguments != null)
@@ -2801,8 +2801,16 @@ namespace Eagle._Components.Private
             // NOTE: Build the final, properly quoted command line for the
             //       caller and return it.
             //
-            arguments = RuntimeOps.BuildCommandLine(list, false);
-            return ReturnCode.Ok;
+            bool done = false;
+
+            arguments = RuntimeOps.BuildCommandLine(
+                interpreter, list, null, false, false, false, ref done,
+                ref error);
+
+            if (done)
+                return ReturnCode.Ok;
+
+            return (arguments != null) ? ReturnCode.Ok : ReturnCode.Error;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3279,7 +3287,7 @@ namespace Eagle._Components.Private
                         // NOTE: Grab a copy of the reference to the interpreter
                         //       host.
                         //
-                        IDebugHost debugHost = interpreter.Host;
+                        IDebugHost debugHost = interpreter.InternalHost;
 
                         //
                         // NOTE: Make sure the interpreter host is currently valid.
@@ -3370,7 +3378,7 @@ namespace Eagle._Components.Private
                         // NOTE: Grab a copy of the reference to the interpreter
                         //       host.
                         //
-                        IDebugHost debugHost = interpreter.Host;
+                        IDebugHost debugHost = interpreter.InternalHost;
 
                         //
                         // NOTE: Make sure the interpreter host is currently valid.

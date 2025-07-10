@@ -42,6 +42,8 @@ namespace Eagle._Commands
     [ObjectGroup("debug")]
     internal sealed class Debug : Core
     {
+        private static DebugPriority? DefaultDebugPriority = null;
+
         public Debug(
             ICommandData commandData
             )
@@ -65,7 +67,7 @@ namespace Eagle._Commands
             "secureeval", "self", "set", "setup", "shell", "stack", "status",
             "step", "steps", "subst", "suspend", "sysmemory", "test",
             "testpath", "token", "trace", "types", "undelete", "unmount",
-            "variable", "vout", "watch"
+            "variable", "vout", "watch", "write"
         });
 
         public override EnsembleDictionary SubCommands
@@ -845,7 +847,7 @@ namespace Eagle._Commands
                                                                             localInterpreter.InterpreterFlags,
                                                                             localInterpreter.PluginFlags,
                                                                             localInterpreter.GetAppDomain(),
-                                                                            localInterpreter.Host,
+                                                                            localInterpreter.InternalHost,
                                                                             DebuggerOps.GetLibraryPath(
                                                                                 localInterpreter),
                                                                             DebuggerOps.GetAutoPathList(
@@ -1274,7 +1276,7 @@ namespace Eagle._Commands
                                                                     {
                                                                         if ((builderString != null) && (builderString.Length > 0))
                                                                         {
-                                                                            IDebugHost debugHost = interpreter.Host;
+                                                                            IDebugHost debugHost = interpreter.InternalHost;
 
                                                                             if (debugHost != null)
                                                                             {
@@ -1397,7 +1399,7 @@ namespace Eagle._Commands
                                                 {
                                                     debugger.Enabled = enabled;
 
-                                                    IInteractiveHost interactiveHost = interpreter.Host;
+                                                    IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                     if (interactiveHost != null)
                                                         /* IGNORED */
@@ -2274,7 +2276,7 @@ namespace Eagle._Commands
                                             {
                                                 if (enabled)
                                                 {
-                                                    IDebugHost debugHost = interpreter.Host;
+                                                    IDebugHost debugHost = interpreter.InternalHost;
 
                                                     if (debugHost != null)
                                                     {
@@ -2708,7 +2710,7 @@ namespace Eagle._Commands
                                                 {
                                                     debugger.BreakOnCancel = enabled;
 
-                                                    IInteractiveHost interactiveHost = interpreter.Host;
+                                                    IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                     if (interactiveHost != null)
                                                         /* IGNORED */
@@ -2759,7 +2761,7 @@ namespace Eagle._Commands
                                                 {
                                                     debugger.BreakOnError = enabled;
 
-                                                    IInteractiveHost interactiveHost = interpreter.Host;
+                                                    IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                     if (interactiveHost != null)
                                                         /* IGNORED */
@@ -2810,7 +2812,7 @@ namespace Eagle._Commands
                                                 {
                                                     debugger.BreakOnExecute = enabled;
 
-                                                    IInteractiveHost interactiveHost = interpreter.Host;
+                                                    IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                     if (interactiveHost != null)
                                                         /* IGNORED */
@@ -2861,7 +2863,7 @@ namespace Eagle._Commands
                                                 {
                                                     debugger.BreakOnExit = enabled;
 
-                                                    IInteractiveHost interactiveHost = interpreter.Host;
+                                                    IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                     if (interactiveHost != null)
                                                         /* IGNORED */
@@ -2912,7 +2914,7 @@ namespace Eagle._Commands
                                                 {
                                                     debugger.BreakOnReturn = enabled;
 
-                                                    IInteractiveHost interactiveHost = interpreter.Host;
+                                                    IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                     if (interactiveHost != null)
                                                         /* IGNORED */
@@ -2963,7 +2965,7 @@ namespace Eagle._Commands
                                                 {
                                                     debugger.BreakOnTest = enabled;
 
-                                                    IInteractiveHost interactiveHost = interpreter.Host;
+                                                    IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                     if (interactiveHost != null)
                                                         /* IGNORED */
@@ -3014,7 +3016,7 @@ namespace Eagle._Commands
                                                 {
                                                     debugger.BreakOnToken = enabled;
 
-                                                    IInteractiveHost interactiveHost = interpreter.Host;
+                                                    IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                     if (interactiveHost != null)
                                                         /* IGNORED */
@@ -3107,7 +3109,7 @@ namespace Eagle._Commands
                                         if ((newArguments.Count >= 3) && (newArguments.Count <= 4))
                                         {
 #if NATIVE
-                                            DebugPriority? priority = null;
+                                            DebugPriority? priority = DefaultDebugPriority;
 
                                             if (newArguments.Count >= 4)
                                             {
@@ -4497,7 +4499,7 @@ namespace Eagle._Commands
                                                         createFlags, interpreter.HostCreateFlags,
                                                         initializeFlags, scriptFlags, interpreterFlags,
                                                         pluginFlags, interpreter.GetAppDomain(),
-                                                        interpreter.Host,
+                                                        interpreter.InternalHost,
                                                         DebuggerOps.GetLibraryPath(interpreter),
                                                         DebuggerOps.GetAutoPathList(interpreter),
                                                         false, setup, isolated, ref result))
@@ -4761,7 +4763,7 @@ namespace Eagle._Commands
                                                     {
                                                         debugger.SingleStep = enabled;
 
-                                                        IInteractiveHost interactiveHost = interpreter.Host;
+                                                        IInteractiveHost interactiveHost = interpreter.InternalHost;
 
                                                         if (interactiveHost != null)
                                                             /* IGNORED */
@@ -5848,7 +5850,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 1) == newArguments.Count))
                                                 {
-                                                    IHost host = interpreter.Host;
+                                                    IHost host = interpreter.InternalHost;
 
                                                     if (host != null)
                                                     {
@@ -6114,6 +6116,71 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"debug watch ?varName? ?types?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "write":
+                                    {
+                                        if ((newArguments.Count >= 3) && (newArguments.Count <= 4))
+                                        {
+                                            DebugPriority? priority = DefaultDebugPriority;
+
+                                            if (newArguments.Count >= 4)
+                                            {
+                                                object enumValue = EnumOps.TryParseFlags(
+                                                    interpreter, typeof(DebugPriority),
+                                                    DebugPriority.Default.ToString(),
+                                                    newArguments[3],
+                                                    interpreter.InternalCultureInfo,
+                                                    true, true, true, ref result);
+
+                                                if (enumValue is DebugPriority)
+                                                    priority = (DebugPriority)enumValue;
+                                                else
+                                                    code = ReturnCode.Error;
+                                            }
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                bool viaOutput = true;
+                                                bool viaTrace = true;
+                                                bool viaHost = true;
+
+                                                if (priority != null)
+                                                {
+                                                    DebugPriority localPriority =
+                                                        (DebugPriority)priority;
+
+                                                    if (FlagOps.HasFlags(localPriority,
+                                                            DebugPriority.NoViaOutput, true))
+                                                    {
+                                                        viaOutput = false;
+                                                    }
+
+                                                    if (FlagOps.HasFlags(localPriority,
+                                                            DebugPriority.NoViaTrace, true))
+                                                    {
+                                                        viaTrace = false;
+                                                    }
+
+                                                    if (FlagOps.HasFlags(localPriority,
+                                                            DebugPriority.NoViaHost, true))
+                                                    {
+                                                        viaHost = false;
+                                                    }
+                                                }
+
+                                                DebugOps.WriteWithoutFail(
+                                                    interpreter.InternalHost, newArguments[2],
+                                                    viaOutput, viaTrace, viaHost);
+
+                                                result = String.Empty;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"debug write message ?priority?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

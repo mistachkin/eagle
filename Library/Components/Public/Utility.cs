@@ -1105,7 +1105,12 @@ namespace Eagle._Components.Public
             bool quoteAll
             )
         {
-            return _RuntimeOps.BuildCommandLine(args, quoteAll);
+            bool done = false; /* NOT USED */
+            Result error = null; /* NOT USED */
+
+            return _RuntimeOps.BuildCommandLine(
+                null, args, null, quoteAll, false,
+                false, ref done, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5117,7 +5122,7 @@ namespace Eagle._Components.Public
             string message
             )
         {
-            DebugOps.Output(message, DebugPriority.ViaExternal);
+            DebugOps.Output(message, DebugPriority.FromExternal);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5127,7 +5132,7 @@ namespace Eagle._Components.Public
             DebugPriority? priority
             )
         {
-            DebugPriority localPriority = DebugPriority.ViaExternal;
+            DebugPriority localPriority = DebugPriority.FromExternal;
 
             if (priority != null)
                 localPriority |= (DebugPriority)priority;

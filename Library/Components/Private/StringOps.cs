@@ -330,23 +330,54 @@ namespace Eagle._Components.Private
             out int length
             )
         {
+            string trimValue; /* NOT USED */
+
+            return IsLogicallyEmpty(value, out trimValue, out length);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsLogicallyEmpty(
+            string value,
+            out string trimValue
+            )
+        {
+            int length; /* NOT USED */
+
+            return IsLogicallyEmpty(value, out trimValue, out length);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool IsLogicallyEmpty(
+            string value,
+            out string trimValue,
+            out int length
+            )
+        {
             int localLength;
 
             if (IsNullOrEmpty(value, out localLength))
             {
+                trimValue = null;
                 length = localLength;
+
                 return true;
             }
 
-            string trimValue = value.Trim();
+            string localTrimValue = value.Trim();
 
-            if (IsNullOrEmpty(trimValue, out localLength))
+            if (IsNullOrEmpty(localTrimValue, out localLength))
             {
+                trimValue = localTrimValue;
                 length = localLength;
+
                 return true;
             }
 
+            trimValue = localTrimValue;
             length = localLength;
+
             return false;
         }
 

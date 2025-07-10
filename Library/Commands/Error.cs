@@ -55,7 +55,7 @@ namespace Eagle._Commands
 
                 if (arguments == null)
                 {
-                    result = "invalid arguments";
+                    result = "invalid argument list";
                     return ReturnCode.Error;
                 }
 
