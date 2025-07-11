@@ -606,7 +606,7 @@ string equal	string equal ?options? string1 string2
 string first	string first ?options? needleString haystackString ?startIndex?
 string format	string format format ?arg ...?
 string index	string index string charIndex
-string is	#annotation array base64 boolean byte cidr command component datetime decimal dict directory double element encoding entier false file guid identifier inetaddr integer interpreter list none number numeric object path plugin real ruleset scalar single timespan true type uri value variant version versionrange xml wideinteger alnum alpha ascii asciialnum asciialpha asciidigit control digit graph hexadecimal lower print punct reserved space upper wordchar xdigit
+string is	#annotation array base64 boolean byte cidr command component datetime decimal dict directory double element encoding entier false file guid identifier idxranges inetaddr integer interpreter list none number numeric object path plugin real ruleset scalar single timespan true type uri value variant version versionrange xml wideinteger alnum alpha ascii asciialnum asciialpha asciidigit control digit graph hexadecimal lower print punct reserved space upper wordchar xdigit
 string is alnum	string is ?not? alnum ?-strict? ?-failindex varName? string
 string is alpha	string is ?not? alpha ?-strict? ?-failindex varName? string
 string is annotation	string is ?not? annotation ?-strict? ?-failindex varName? string
@@ -637,6 +637,7 @@ string is graph	string is ?not? graph ?-strict? ?-failindex varName? string
 string is guid	string is ?not? guid ?-strict? ?-failindex varName? string
 string is hexadecimal	string is ?not? hexadecimal ?-strict? ?-failindex varName? string
 string is identifier	string is ?not? identifier ?-strict? ?-failindex varName? string
+string is idxranges	string is ?not? idxranges ?-strict? ?-failindex varName? string
 string is inetaddr	string is ?not? inetaddr ?-strict? ?-failindex varName? string
 string is integer	string is ?not? integer ?-strict? ?-failindex varName? string
 string is interpreter	string is ?not? interpreter ?-strict? ?-failindex varName? string

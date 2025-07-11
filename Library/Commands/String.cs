@@ -38,6 +38,9 @@ using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
+using IndexRangeList = System.Collections.Generic.List<
+    Eagle._Components.Public.Pair<ulong>>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -105,6 +108,7 @@ namespace Eagle._Commands
                 callbacks.Add("file", null);         // *SPECIAL CASE*, whole string only
                 callbacks.Add("guid", null);         // *SPECIAL CASE*, whole string only
                 callbacks.Add("identifier", null);   // *SPECIAL CASE*, whole string only
+                callbacks.Add("idxranges", null);    // *SPECIAL CASE*, whole string only
                 callbacks.Add("inetaddr", null);     // *SPECIAL CASE*, whole string only
                 callbacks.Add("integer", null);      // *SPECIAL CASE*, whole string only
                 callbacks.Add("interpreter", null);  // *SPECIAL CASE*, whole string only
@@ -859,6 +863,7 @@ namespace Eagle._Commands
                                                             new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-not", new Variant(not)),
                                                             new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-any", null),
                                                             new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-via", null),
+                                                            new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-count", null),
                                                             new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-good", null),
                                                             new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-bad", null),
                                                             new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-failindex", null),
@@ -920,6 +925,11 @@ namespace Eagle._Commands
                                                                 {
                                                                     noStrict = true;
                                                                 }
+
+                                                                int? count = null;
+
+                                                                if (options.IsPresent("-count", ref value))
+                                                                    count = (int)value.Value;
 
                                                                 bool valid = !not;
                                                                 int failIndex = Index.Invalid;
@@ -1302,6 +1312,24 @@ namespace Eagle._Commands
                                                                                         StringOps.CharIsIdentifierOnePlus,
                                                                                         not, any, !strict, ref failIndex);
 
+                                                                                    break;
+                                                                                }
+                                                                            case "idxranges":
+                                                                                {
+                                                                                    IndexRangeList ranges = null; /* NOT USED */
+
+                                                                                    if ((count != null) &&
+                                                                                        (RuntimeOps.ParseIndexRanges(
+                                                                                            @string, (int)count,
+                                                                                            interpreter.InternalCultureInfo,
+                                                                                            ref ranges) == ReturnCode.Ok))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        valid = not;
+                                                                                    }
                                                                                     break;
                                                                                 }
                                                                             case "inetaddr":

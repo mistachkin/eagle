@@ -162,7 +162,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Integer Range Constants
+        #region Integer Range List Constants
         private static readonly Regex indexRangesRegEx = RegExOps.Create(
             "^(?:[ ]*\\d+(?:[ ]*-[ ]*\\d+)?" +
             "(?:[ ]*,[ ]*\\d+(?:[ ]*-[ ]*\\d+)?)*)?[ ]*$",
@@ -2738,6 +2738,21 @@ namespace Eagle._Components.Private
 
             range = new IndexRange(startIndex, stopIndex);
             return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ParseIndexRanges(
+            string value,             /* in */
+            int count,                /* in */
+            CultureInfo cultureInfo,  /* in */
+            ref IndexRangeList ranges /* in, out */
+            )
+        {
+            Result error = null;
+
+            return ParseIndexRanges(
+                value, count, cultureInfo, ref ranges, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

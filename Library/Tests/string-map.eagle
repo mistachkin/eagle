@@ -526,17 +526,22 @@ proc getStringIsClasses { type } {
       lappend result boolean double false integer none true \
           wideinteger
 
+      if {[haveConstraint tip237]} then {
+        lappend result entier
+      }
+
       if {[isEagle]} then {
-        lappend result annotation base64 byte datetime decimal dict \
-            guid inetaddr list none number numeric timespan uri value \
-            variant version xml
+        lappend result annotation base64 byte cidr datetime decimal \
+            dict guid idxranges inetaddr list none not number numeric \
+            real ruleset single timespan uri value variant version \
+            versionrange xml
       }
     }
     entity {
       if {[isEagle]} then {
         lappend result array command component directory element \
-            encoding file path identifier interpreter object \
-            plugin scalar type
+            encoding file identifier interpreter object path plugin \
+            scalar type
       }
     }
   }
@@ -658,6 +663,10 @@ proc getStringIsValues { class } {
     }
     identifier {
       return [list a ab _ab 1ab ab1 _ \; : \{ \} \[ \] () \$ \r \n]
+    }
+    idxranges {
+      return [list \
+          -1 0,1 1,2,3 1,,3 1-4,5-6 1-4,5-6,7 ,8 10 1-10 1-2,9-8 1,9-10]
     }
     inetaddr {
       set ::refs(52X) 0
@@ -851,11 +860,11 @@ proc getStringIsValues { class } {
   }
 }
 
-proc getStringIsAnyResult { class value } {
+proc getStringIsAnyResult { class value {count 10} } {
   set length [string length $value]
 
   for {set index 0} {$index < $length} {incr index} {
-    if {[string is $class -strict \
+    if {[string is $class -count $count -strict \
         [string index $value $index]]} then {
       return true
     }
@@ -864,17 +873,27 @@ proc getStringIsAnyResult { class value } {
   return false
 }
 
-proc getStringIsResults { channel class } {
+proc getStringIsResults { channel class {count 10} } {
   set results [list]
 
   set totals(true) 0
   set totals(false) 0
 
-  set result [string is $class ""]
+  if {[isEagle]} then {
+    set result [string is $class -count $count ""]
+  } else {
+    set result [string is $class ""]
+  }
+
   # if {$result} then {incr totals(true)} else {incr totals(false)}
   lappend results empty [expr {int($result)}]
 
-  set result [string is $class -strict ""]
+  if {[isEagle]} then {
+    set result [string is $class -strict -count $count ""]
+  } else {
+    set result [string is $class -strict ""]
+  }
+
   # if {$result} then {incr totals(true)} else {incr totals(false)}
   lappend results strict [expr {int($result)}]
 
@@ -908,15 +927,20 @@ proc getStringIsResults { channel class } {
       }
     }
 
-    set result [string is $class $value]
+    if {[isEagle]} then {
+      set result [string is $class -count $count $value]
+    } else {
+      set result [string is $class $value]
+    }
+
     if {$result} then {incr totals(true)} else {incr totals(false)}
 
     if {[isEagle]} then {; # check opposite, e.g. [string is not], etc.
-      if {[catch {string is not alpha abc}] == 0} then {
+      if {[catch {string is not alpha -count $count abc}] == 0} then {
         set expr {$class in [getStringIsClasses character]}
 
         if {[expr $expr]} then {
-          set anyResult(1) [string is $class -any false $value]
+          set anyResult(1) [string is $class -any false -count $count $value]
           set anyResult(2) $result
 
           if {$anyResult(1) != $anyResult(2)} then {
@@ -926,7 +950,7 @@ proc getStringIsResults { channel class } {
                 $anyResult(2)]
           }
 
-          set anyResult(1) [string is $class -any true $value]
+          set anyResult(1) [string is $class -any true -count $count $value]
           set anyResult(2) [getStringIsAnyResult $class $value]
 
           if {$anyResult(1) != $anyResult(2)} then {
@@ -937,7 +961,7 @@ proc getStringIsResults { channel class } {
           }
         }
 
-        set notResult(1) [string is not $class $value]
+        set notResult(1) [string is not $class -count $count $value]
         set notResult(2) [expr {!$result}]
 
         if {$notResult(1) != $notResult(2)} then {
@@ -946,7 +970,7 @@ proc getStringIsResults { channel class } {
               "\}\], got: " $notResult(1) ", wanted: " $notResult(2)]
         }
 
-        set notResult(1) [string is not not $class $value]
+        set notResult(1) [string is not not $class -count $count $value]
         set notResult(2) $result
 
         if {$notResult(1) != $notResult(2)} then {
@@ -955,7 +979,7 @@ proc getStringIsResults { channel class } {
               "\}\], got: " $notResult(1) ", wanted: " $notResult(2)]
         }
 
-        set notResult(1) [string is $class -not false $value]
+        set notResult(1) [string is $class -not false -count $count $value]
         set notResult(2) $result
 
         if {$notResult(1) != $notResult(2)} then {
@@ -965,7 +989,7 @@ proc getStringIsResults { channel class } {
               $notResult(2)]
         }
 
-        set notResult(1) [string is not $class -not false $value]
+        set notResult(1) [string is not $class -not false -count $count $value]
         set notResult(2) $result
 
         if {$notResult(1) != $notResult(2)} then {
@@ -975,7 +999,7 @@ proc getStringIsResults { channel class } {
               $notResult(2)]
         }
 
-        set notResult(1) [string is $class -not true $value]
+        set notResult(1) [string is $class -not true -count $count $value]
         set notResult(2) [expr {!$result}]
 
         if {$notResult(1) != $notResult(2)} then {
@@ -985,7 +1009,7 @@ proc getStringIsResults { channel class } {
               $notResult(2)]
         }
 
-        set notResult(1) [string is not $class -not true $value]
+        set notResult(1) [string is not $class -not true -count $count $value]
         set notResult(2) [expr {!$result}]
 
         if {$notResult(1) != $notResult(2)} then {
@@ -2148,6 +2172,18 @@ null 0 true 0 false 0 -1 0 0 0 1 0 1.0 0 Eagle 0 Eagle* 0 Eagle.* 0 <refs(75X)>\
 
 ###############################################################################
 
+runTest {test string-99.420 {string is idxranges} -setup {
+  resetStringIsRefs
+} -body {
+  getStringIsResults $test_channel idxranges
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle compile.NETWORK command.object} -result {empty 1 strict 0\
+-1 0 0,1 1 1,2,3 1 1,,3 0 1-4,5-6 1 1-4,5-6,7 1 ,8 0 10 0 1-10 0 1-2,9-8 0\
+1,9-10 0}}
+
+###############################################################################
+
 rename resetStringIsRefs ""
 rename getStringIsAnyResult ""
 rename getStringIsResults ""
@@ -2161,10 +2197,10 @@ runTest {test string-99.500.1 {string classes} -body {
 } -constraints [fixConstraints {eagle !tip237}] -result {alnum alpha annotation\
 array ascii asciialnum asciialpha asciidigit base64 boolean byte cidr command\
 component control datetime decimal dict digit directory double element encoding\
-false file graph guid hexadecimal identifier inetaddr integer interpreter list\
-lower none not number numeric object path plugin print punct real reserved\
-ruleset scalar single space timespan true type upper uri value variant version\
-versionrange wideinteger wordchar xdigit xml}}
+false file graph guid hexadecimal identifier idxranges inetaddr integer\
+interpreter list lower none not number numeric object path plugin print punct\
+real reserved ruleset scalar single space timespan true type upper uri value\
+variant version versionrange wideinteger wordchar xdigit xml}}
 
 ###############################################################################
 
@@ -2173,10 +2209,10 @@ runTest {test string-99.500.2 {string classes} -body {
 } -constraints {eagle tip237} -result {alnum alpha annotation array ascii\
 asciialnum asciialpha asciidigit base64 boolean byte cidr command component\
 control datetime decimal dict digit directory double element encoding entier\
-false file graph guid hexadecimal identifier inetaddr integer interpreter list\
-lower none not number numeric object path plugin print punct real reserved\
-ruleset scalar single space timespan true type upper uri value variant version\
-versionrange wideinteger wordchar xdigit xml}}
+false file graph guid hexadecimal identifier idxranges inetaddr integer\
+interpreter list lower none not number numeric object path plugin print punct\
+real reserved ruleset scalar single space timespan true type upper uri value\
+variant version versionrange wideinteger wordchar xdigit xml}}
 
 ###############################################################################
 

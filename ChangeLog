@@ -77,7 +77,7 @@ FEATURE: add -usecount option to the [gets] and [puts] commands and the -count
 
 FEATURE: add -encoding option to the [gets], [puts], and [read] commands.
 
-FEATURE: add the [string is ruleset] sub-command.
+FEATURE: add the [string is ruleset] and [string is idxranges] sub-commands.
 
 FEATURE: add CIDR matching mode to [string match] and the [string is cidr]
          sub-command.
