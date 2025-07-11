@@ -425,7 +425,9 @@ REM ****************************************************************************
 
 SET VSCMD_SKIP_SENDTELEMETRY=1
 SET VCPKG_KEEP_ENV_VARS=VSCMD_SKIP_SENDTELEMETRY
+SET VCPKG_DISABLE_METRICS=1
 SET DOTNET_CLI_TELEMETRY_OPTOUT=1
+SET DOTNET_SCAFFOLD_TELEMETRY_OPTOUT=1
 
 REM ****************************************************************************
 REM ********************* Visual Studio Version Detection **********************
@@ -671,9 +673,76 @@ IF DEFINED USEPACKAGERESTORE (
 
 %_VECHO% NuGetArgs = '%NUGET_ARGS%'
 
+CALL :fn_UnsetVariable SOURCE_TAGS_ARGS
+
+IF DEFINED NOTAG GOTO skip_sourceTags
+IF DEFINED SOURCE_ID GOTO skip_sourceId
+IF NOT EXIST "%ROOT%\manifest.uuid" GOTO skip_sourceTags
+
+SET SOURCE_ID_CMD=TYPE "%ROOT%\manifest.uuid"
+
+IF DEFINED __ECHO (
+  %__ECHO% %SOURCE_ID_CMD%
+  SET SOURCE_ID=0000000000000000000000000000000000000000
+) ELSE (
+  FOR /F %%T IN ('%SOURCE_ID_CMD%') DO (SET SOURCE_ID=%%T)
+)
+
+IF NOT DEFINED SOURCE_ID (
+  ECHO The SOURCE_ID environment variable could not be set.
+  GOTO errors
+)
+
+:skip_sourceId
+
+%_VECHO% SourceId = '%SOURCE_ID%'
+
+IF NOT DEFINED SOURCE_ID_FILE (
+  SET SOURCE_ID_FILE=%ROOT%\Library\Components\Private\PatchLevel.cs
+)
+
+%_VECHO% SourceIdFile = '%SOURCE_ID_FILE%'
+
+IF DEFINED POWERSHELL_CMD (
+  SET POWERSHELL_FILE=%POWERSHELL_CMD%
+) ELSE (
+  SET POWERSHELL_FILE=PowerShell.exe
+)
+
+%_VECHO% PowerShellCmd = '%POWERSHELL_CMD%'
+%_VECHO% PowerShellFile = '%POWERSHELL_FILE%'
+
+FOR %%T IN (%POWERSHELL_FILE%) DO (
+  SET %%T_PATH=%%~dp$PATH:T
+)
+
+IF NOT DEFINED %POWERSHELL_FILE%_PATH skip_sourceTags
+
+CALL :fn_CopyVariable %POWERSHELL_FILE%_PATH POWERSHELL_PATH
+CALL :fn_PrependToPath POWERSHELL_PATH
+
+%_VECHO% PowerShellPath = '%POWERSHELL_PATH%'
+%_VECHO% Path = '%PATH%'
+
+%_CECHO% %POWERSHELL_FILE% -Command "(Get-Content -Raw '%SOURCE_ID_FILE%') -replace '\[assembly: AssemblySourceId\(null\)\]', '[assembly: AssemblySourceId(""""%SOURCE_ID%"""")]' | Set-Content '%SOURCE_ID_FILE%'"
+%__ECHO% %POWERSHELL_FILE% -Command "(Get-Content -Raw '%SOURCE_ID_FILE%') -replace '\[assembly: AssemblySourceId\(null\)\]', '[assembly: AssemblySourceId(""""%SOURCE_ID%"""")]' | Set-Content '%SOURCE_ID_FILE%'"
+
+IF ERRORLEVEL 1 (
+  ECHO SourceId tagging failed.
+  GOTO errors
+)
+
+%_AECHO% Tagged "%SOURCE_ID_FILE%" with source identifier "%SOURCE_ID%".
+
+CALL :fn_AppendVariable SOURCE_TAGS_ARGS " /property:EagleSourceId=true"
+
+:skip_sourceTags
+
+%_VECHO% SourceTagsArgs = '%SOURCE_TAGS_ARGS%'
+
 IF NOT DEFINED NOBUILD (
-  %_CECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" %MAXCPUCOUNT% "/target:%TARGET%" "/property:Configuration=%MSBUILD_CONFIGURATION%" "/property:Platform=%PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% /property:BuildType=%ARGS%
-  %__ECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" %MAXCPUCOUNT% "/target:%TARGET%" "/property:Configuration=%MSBUILD_CONFIGURATION%" "/property:Platform=%PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% /property:BuildType=%ARGS%
+  %_CECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" %MAXCPUCOUNT% "/target:%TARGET%" "/property:Configuration=%MSBUILD_CONFIGURATION%" "/property:Platform=%PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% %SOURCE_TAGS_ARGS% /property:BuildType=%ARGS%
+  %__ECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" %MAXCPUCOUNT% "/target:%TARGET%" "/property:Configuration=%MSBUILD_CONFIGURATION%" "/property:Platform=%PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% %SOURCE_TAGS_ARGS% /property:BuildType=%ARGS%
 
   IF ERRORLEVEL 1 (
     ECHO Build failed.
@@ -976,6 +1045,7 @@ REM ****************************************************************************
   )
   IF NOT DEFINED NOBUILDTOOLDIR (
     CALL :fn_PrependToPath BUILDTOOLDIR
+    SET NOBUILDTOOLDIR=1
   )
   %_VECHO% Path = '%PATH%'
   GOTO :EOF
