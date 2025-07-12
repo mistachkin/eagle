@@ -90,11 +90,27 @@ namespace Eagle._Shell
             ShellOps.CheckBreak(args); /* throw */
 
             //
+            // NOTE: Check for applicable assembly public key token.  If
+            //       there is one, it will be formatted as a hexadecimal
+            //       string.
+            //
+            string publicKeyTokenString = ShellOps.GetPublicKeyTokenAsString();
+
+            //
             // NOTE: Attempt to load the main Eagle assembly by name.
             //
-            Assembly assembly = Assembly.Load(
-                String.Format("{0}, PublicKeyToken={1}", assemblyName,
-                ShellOps.GetPublicKeyTokenAsString())); /* throw */
+            Assembly assembly;
+
+            if (!String.IsNullOrEmpty(publicKeyTokenString))
+            {
+                assembly = Assembly.Load(String.Format(
+                    "{0}, PublicKeyToken={1}", assemblyName,
+                    publicKeyTokenString)); /* throw */
+            }
+            else
+            {
+                assembly = Assembly.Load(assemblyName); /* throw */
+            }
 
             //
             // NOTE: Attempt to locate the Interpreter type by name.

@@ -5442,14 +5442,14 @@ Command mode \{Exact, Include\} patterns string\}\} \{commands \{\{\{Core,\
 Safe, Standard, NoAttributes, SecuritySdk\} apply\} \{\{Core, Safe, Standard,\
 NoAttributes, SecuritySdk\} foreach\} \{\{Core, Safe, Standard, NoAttributes,\
 Initialize, SecuritySdk\} if\} \{\{Core, Safe, Standard, NoAttributes,\
-SecuritySdk\} list\} \{\{Core, NoAdd, Safe, Standard, Initialize\} namespace\}\
-\{\{Core, Safe, NonStandard, NoAttributes\} nop\} \{\{Core, Safe, Standard,\
-NoAttributes, SecuritySdk\} rename\} \{\{Core, Safe, Standard, NoAttributes,\
-Initialize, SecuritySdk\} string\}\} hiddenCommands \{\{\{Core, Hidden, Unsafe,\
-Standard, NoAttributes, SecuritySdk, LicenseSdk, Critical\} load\} \{\{Core,\
-Hidden, Unsafe, Standard, NoAttributes, Initialize, SecuritySdk, LicenseSdk\}\
-package\} \{\{Core, Hidden, (?:NativeCode, )?Unsafe, Standard, NoAttributes,\
-SecuritySdk, Critical\} file\}\}\}$}}
+SecuritySdk\} list\} \{\{Core, (?:NoAdd, )?Safe, Standard, Initialize\}\
+namespace\} \{\{Core, Safe, NonStandard, NoAttributes\} nop\} \{\{Core, Safe,\
+Standard, NoAttributes, SecuritySdk\} rename\} \{\{Core, Safe, Standard,\
+NoAttributes, Initialize, SecuritySdk\} string\}\} hiddenCommands \{\{\{Core,\
+Hidden, Unsafe, Standard, NoAttributes, SecuritySdk, LicenseSdk, Critical\}\
+load\} \{\{Core, Hidden, Unsafe, Standard, NoAttributes, Initialize,\
+SecuritySdk, LicenseSdk\} package\} \{\{Core, Hidden, (?:NativeCode, )?Unsafe,\
+Standard, NoAttributes, SecuritySdk, Critical\} file\}\}\}$}}
 
 ###############################################################################
 

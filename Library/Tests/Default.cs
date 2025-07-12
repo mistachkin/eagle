@@ -3784,12 +3784,7 @@ namespace Eagle._Tests
                 return ReturnCode.Error;
             }
 
-            IPlugin plugin =
-#if TEST_PLUGIN || DEBUG
-                    interpreter.GetTestPlugin(ref result);
-#else
-                    interpreter.GetCorePlugin(ref result);
-#endif
+            IPlugin plugin = TestGetPlugin(interpreter, ref result);
 
             if (plugin == null)
                 return ReturnCode.Error;
@@ -3923,12 +3918,7 @@ namespace Eagle._Tests
                 return ReturnCode.Error;
             }
 
-            IPlugin plugin =
-#if TEST_PLUGIN || DEBUG
-                    interpreter.GetTestPlugin(ref result);
-#else
-                    interpreter.GetCorePlugin(ref result);
-#endif
+            IPlugin plugin = TestGetPlugin(interpreter, ref result);
 
             if (plugin == null)
                 return ReturnCode.Error;
@@ -7219,12 +7209,7 @@ namespace Eagle._Tests
                     return;
                 }
 
-                IPlugin plugin =
-#if TEST_PLUGIN || DEBUG
-                    interpreter.GetTestPlugin(ref result);
-#else
-                    interpreter.GetCorePlugin(ref result);
-#endif
+                IPlugin plugin = TestGetPlugin(interpreter, ref result);
 
                 if (plugin == null)
                 {
@@ -9007,7 +8992,7 @@ namespace Eagle._Tests
             IPlugin plugin;
             Result error = null;
 
-            plugin = interpreter.GetTestPlugin(ref error);
+            plugin = TestGetPlugin(interpreter, ref error);
 
             if (plugin == null)
             {
@@ -9125,7 +9110,7 @@ namespace Eagle._Tests
             IPlugin plugin;
             Result error = null;
 
-            plugin = interpreter.GetTestPlugin(ref error);
+            plugin = TestGetPlugin(interpreter, ref error);
 
             if (plugin == null)
             {
@@ -13119,12 +13104,7 @@ namespace Eagle._Tests
                 return ReturnCode.Error;
             }
 
-            IPlugin plugin =
-#if TEST_PLUGIN || DEBUG
-                    interpreter.GetTestPlugin(ref result);
-#else
-                    interpreter.GetCorePlugin(ref result);
-#endif
+            IPlugin plugin = TestGetPlugin(interpreter, ref result);
 
             if (plugin == null)
                 return ReturnCode.Error;
@@ -17887,6 +17867,57 @@ namespace Eagle._Tests
                     // do nothing.
                 }
             }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Test Plugin Methods
+        private static IPlugin TestGetPlugin(
+            Interpreter interpreter,
+            ref Result error
+            )
+        {
+            ResultList errors = null;
+            IPlugin plugin; /* REUSED */
+            Result localError; /* REUSED */
+
+#if TEST_PLUGIN || DEBUG
+            localError = null;
+
+            plugin = interpreter.GetTestPlugin(
+                ref localError);
+
+            if (plugin != null)
+                return plugin;
+
+            if (localError != null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(localError);
+            }
+#endif
+
+            localError = null;
+
+            plugin = interpreter.GetCorePlugin(
+                ref localError);
+
+            if (plugin != null)
+                return plugin;
+
+            if (localError != null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(localError);
+            }
+
+            error = errors;
+            return null;
         }
         #endregion
 

@@ -136,12 +136,27 @@ namespace Eagle._Shell
 #if DYNAMIC
         public static string GetPublicKeyTokenAsString()
         {
-            StringBuilder builder = new StringBuilder();
+            Assembly assembly = Assembly.GetExecutingAssembly();
 
-            byte[] publicKeyToken = Assembly.GetExecutingAssembly().
-                    GetName().GetPublicKeyToken();
+            if (assembly == null)
+                return null;
+
+            AssemblyName assemblyName = assembly.GetName();
+
+            if (assemblyName == null)
+                return null;
+
+            byte[] publicKeyToken = assemblyName.GetPublicKeyToken();
+
+            if (publicKeyToken == null)
+                return null;
 
             int length = publicKeyToken.Length;
+
+            if (length == 0)
+                return null;
+
+            StringBuilder builder = new StringBuilder();
 
             for (int index = 0; index < length; index++)
                 builder.AppendFormat("{0:x2}", publicKeyToken[index]);

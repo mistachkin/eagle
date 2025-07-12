@@ -79,6 +79,8 @@ IF ERRORLEVEL 1 (
 
 CALL :fn_PrependToPath FRAMEWORKDIR
 
+%_VECHO% Path = '%PATH%'
+
 :skip_addToPath
 
 IF NOT EXIST "%TEMP%\GetFile.exe" (

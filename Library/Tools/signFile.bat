@@ -314,6 +314,8 @@ IF DEFINED EAGLESIGNTOOLDIR (
   CALL :fn_PrependToPath EAGLESIGNTOOLDIR
 )
 
+%_VECHO% Path = '%PATH%'
+
 IF DEFINED NOSIGNCODE GOTO skip_signCodePath
 
 FOR %%T IN (SignCode.exe) DO (

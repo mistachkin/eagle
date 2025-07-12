@@ -673,6 +673,32 @@ IF DEFINED USEPACKAGERESTORE (
 
 %_VECHO% NuGetArgs = '%NUGET_ARGS%'
 
+CALL :fn_UnsetVariable AUTO_BUILD_ARGS
+
+REM
+REM HACK: If the checkout identifier "manifest" file is present in the root of
+REM       the source tree, assume that we are building from a Git checkout.
+REM
+REM       Generally, this means that the private strong name keys will not be
+REM       available.  This is fine, as they officially optional, it just means
+REM       that the sample MSBuild tasks cannot be loaded by MSBuild; therefore,
+REM       disable them.
+REM
+REM       After building, the resulting assemblies cannot be loaded on Windows
+REM       unless strong name verification bypass registry entries are present.
+REM       Therefore, also disable assembly strong name signing unless the user
+REM       forces it to remain enabled.
+REM
+IF EXIST "%ROOT%\manifest.uuid" (
+  IF NOT DEFINED FORCE_EAGLE_SIGNING (
+    CALL :fn_AppendVariable AUTO_BUILD_ARGS " /property:SignAssembly=false"
+  )
+
+  CALL :fn_AppendVariable AUTO_BUILD_ARGS " /property:EagleSampleTargets=false"
+)
+
+%_VECHO% AutoBuildArgs = '%AUTO_BUILD_ARGS%'
+
 CALL :fn_UnsetVariable SOURCE_TAGS_ARGS
 
 IF DEFINED NOTAG GOTO skip_sourceTags
@@ -728,7 +754,7 @@ CALL :fn_PrependToPath POWERSHELL_PATH
 %__ECHO% %POWERSHELL_FILE% -Command "(Get-Content -Raw '%SOURCE_ID_FILE%') -replace '\[assembly: AssemblySourceId\(null\)\]', '[assembly: AssemblySourceId(""""%SOURCE_ID%"""")]' | Set-Content '%SOURCE_ID_FILE%'"
 
 IF ERRORLEVEL 1 (
-  ECHO SourceId tagging failed.
+  ECHO Source identifier tagging failed.
   GOTO errors
 )
 
@@ -741,8 +767,8 @@ CALL :fn_AppendVariable SOURCE_TAGS_ARGS " /property:EagleSourceId=true"
 %_VECHO% SourceTagsArgs = '%SOURCE_TAGS_ARGS%'
 
 IF NOT DEFINED NOBUILD (
-  %_CECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" %MAXCPUCOUNT% "/target:%TARGET%" "/property:Configuration=%MSBUILD_CONFIGURATION%" "/property:Platform=%PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% %SOURCE_TAGS_ARGS% /property:BuildType=%ARGS%
-  %__ECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" %MAXCPUCOUNT% "/target:%TARGET%" "/property:Configuration=%MSBUILD_CONFIGURATION%" "/property:Platform=%PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% %SOURCE_TAGS_ARGS% /property:BuildType=%ARGS%
+  %_CECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" %MAXCPUCOUNT% "/target:%TARGET%" "/property:Configuration=%MSBUILD_CONFIGURATION%" "/property:Platform=%PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% %AUTO_BUILD_ARGS% %SOURCE_TAGS_ARGS% /property:BuildType=%ARGS%
+  %__ECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" %MAXCPUCOUNT% "/target:%TARGET%" "/property:Configuration=%MSBUILD_CONFIGURATION%" "/property:Platform=%PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% %AUTO_BUILD_ARGS% %SOURCE_TAGS_ARGS% /property:BuildType=%ARGS%
 
   IF ERRORLEVEL 1 (
     ECHO Build failed.
@@ -750,8 +776,8 @@ IF NOT DEFINED NOBUILD (
   )
 
   IF DEFINED EXTRA_SOLUTION (
-    %_CECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%EXTRA_SOLUTION%" %MAXCPUCOUNT% "/target:%EXTRA_TARGET%" "/property:Configuration=%EXTRA_CONFIGURATION%" "/property:Platform=%EXTRA_PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% /property:BuildType=%ARGS%
-    %__ECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%EXTRA_SOLUTION%" %MAXCPUCOUNT% "/target:%EXTRA_TARGET%" "/property:Configuration=%EXTRA_CONFIGURATION%" "/property:Platform=%EXTRA_PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% /property:BuildType=%ARGS%
+    %_CECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%EXTRA_SOLUTION%" %MAXCPUCOUNT% "/target:%EXTRA_TARGET%" "/property:Configuration=%EXTRA_CONFIGURATION%" "/property:Platform=%EXTRA_PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% %AUTO_BUILD_ARGS% %SOURCE_TAGS_ARGS% /property:BuildType=%ARGS%
+    %__ECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%EXTRA_SOLUTION%" %MAXCPUCOUNT% "/target:%EXTRA_TARGET%" "/property:Configuration=%EXTRA_CONFIGURATION%" "/property:Platform=%EXTRA_PLATFORM%" %NUGET_ARGS% %LOGGING% %BUILD_ARGS% %MSBUILD_ARGS% %MSBUILD_ARGS_CFG% %AUTO_BUILD_ARGS% %SOURCE_TAGS_ARGS% /property:BuildType=%ARGS%
 
     IF ERRORLEVEL 1 (
       ECHO Extra build failed.
