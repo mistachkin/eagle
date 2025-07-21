@@ -6223,9 +6223,26 @@ namespace eval ::Eagle {
     return $allResults
   }
 
-  proc maybeRecordTestStatistics { varName index type } {
+  proc shouldRecordTestStatistics { type } {
     if {![info exists ::no(leak)] && \
         ![info exists ::no(leak,$type)]} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  proc shouldReportTestStatistics { type } {
+    if {![info exists ::no(runStatistics)] && \
+        ![info exists ::no(runStatistics,$type)]} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  proc maybeRecordTestStatistics { varName index type } {
+    if {[shouldRecordTestStatistics $type]} then {
       upvar 1 $varName array
 
       if {[info exists ::env(enableTestStatisticsLists)]} then {
@@ -6240,10 +6257,8 @@ namespace eval ::Eagle {
   proc maybeReportTestStatistics {
           channel name stop statsVarName namesVarName type {script ""}
           {quiet false} } {
-    if {![info exists ::no(leak)] && \
-        ![info exists ::no(leak,$type)] && \
-        ![info exists ::no(runStatistics)] && \
-        ![info exists ::no(runStatistics,$type)]} then {
+    if {[shouldRecordTestStatistics $type] && \
+        [shouldReportTestStatistics $type]} then {
       upvar 1 $statsVarName array
       upvar 1 $namesVarName names
 
@@ -12880,6 +12895,7 @@ namespace eval ::Eagle {
         runTestPrologue runTestEpilogue hookPuts unhookPuts getTestFile \
         getTestName runTest testShim tsource getKnownEagleVersions \
         isStableEagleRelease changeArrayElement enableTestStatisticsLists \
+        shouldRecordTestStatistics shouldReportTestStatistics \
         maybeRecordTestStatistics maybeReportTestStatistics \
         recordTestStatistics getNamesForTestStatistics reportTestStatistics \
         formatList formatListAsDict pathToRegexp assemblyNameToRegexp \

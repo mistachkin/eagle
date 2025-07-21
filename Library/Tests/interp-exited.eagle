@@ -5390,6 +5390,10 @@ runTest {test interp-1.60003 {total interpreter count (AppDomain)} -body {
 
 ###############################################################################
 
+#
+# BUGFIX: This test *must* handle the case where namespaces are NOT enabled
+#         by default.
+#
 runTest {test interp-1.70000 {IRuleSet handling} -setup {
   set i [interp create -nosecurity]
 

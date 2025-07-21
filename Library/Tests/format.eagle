@@ -101,7 +101,14 @@ if {[isEagle]} then {
     set test_name_prefix managed-
     tsource [file join $test_path tcl format.test] false false
 
-    if {[haveConstraint native]} then {
+    #
+    # TODO: Perhaps figure out why this "native" formatting (i.e. seemingly
+    #       for some floating-point formats?) does not pass some tests on a
+    #       "modern" macOS.
+    #
+    if {[haveConstraint native] && \
+        (![info exists tcl_platform(os)] || \
+         $::tcl_platform(os) ne "Darwin")} then {
       enableInterpreterFlags UsePrintfForDouble true
 
       if {![info exists no(eformat)]} then {

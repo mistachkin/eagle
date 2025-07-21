@@ -486,13 +486,34 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         //
+        // NOTE: If this value is non-zero the "TEMP" and "TMP" environment
+        //       variables may be used when searching for a suitable (base)
+        //       directory for temporary files.
+        //
+        private static bool includeSystemTemporaryEnvVars = false;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
         // NOTE: If this value is non-zero, all temporary file names returned
         //       from this class will be validated beforehand, via the method
         //       ValidatePathAsFile.
         //
         // HACK: This is purposely not read-only.
         //
-        internal static bool validateTempFileName = false;
+        private static bool validateTemporaryFileName = false;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: If this value is non-null, it will be (Path) combined with
+        //       any directory value that is being used as a base temporary
+        //       directory.
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static bool useTemporarySubPath = false;
+        private static string temporarySubPath = GlobalState.GetPackageFileNameOnly();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2984,15 +3005,105 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string GetTempFileName( /* throw */
-            string prefix /* in: OPTIONAL */
+        private static string GetTempSubPath()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (useTemporarySubPath)
+                    return temporarySubPath;
+
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void SetTempSubPath( /* NOT USED */
+            string subPath, /* in: OPTIONAL */
+            bool? enabled   /* in: OPTIONAL */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                temporarySubPath = subPath;
+
+                if (enabled != null)
+                    useTemporarySubPath = (bool)enabled;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void ApplyTempSubPath(
+            ref string path, /* in, out */
+            string subPath   /* in: OPTIONAL */
+            )
+        {
+            if (String.IsNullOrEmpty(path))
+                return;
+
+            if (!Path.IsPathRooted(path))
+                return;
+
+            if (subPath != null)
+            {
+                path = Path.Combine(path, subPath);
+                Directory.CreateDirectory(path); /* throw */
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string GetTempPath(
+            string subPath /* in: OPTIONAL */
+            )
+        {
+            try
+            {
+                string path = Path.GetTempPath();
+
+                ApplyTempSubPath(ref path, subPath);
+
+                return path;
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(PathOps).Name,
+                    TracePriority.PathError);
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: For use by the TestGetTempFileNameCallback
+        //          method only.
+        //
+        public static bool ShouldValidateTempFileName()
+        {
+            lock (syncRoot)
+            {
+                return validateTemporaryFileName;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string GetTempFileName(
+            Interpreter interpreter, /* in: OPTIONAL */
+            string prefix            /* in: OPTIONAL */
             )
         {
             GetStringValueCallback callback;
+            bool validate;
 
-            lock (syncRoot)
+            lock (syncRoot) /* TRANSACTIONAL */
             {
                 callback = getTempFileNameCallback;
+                validate = validateTemporaryFileName;
             }
 
             string result;
@@ -3011,10 +3122,10 @@ namespace Eagle._Components.Private
                         prefix, out fileNameOnly);
 
                     result = Path.Combine(
-                        Path.GetTempPath(), fileNameOnly);
+                        GetTempPath(interpreter), fileNameOnly);
                 }
 
-                if (validateTempFileName &&
+                if (validate &&
                     !ValidatePathAsFile(result, true, false))
                 {
                     throw new ScriptException(String.Format(
@@ -3043,12 +3154,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static string GetTempPathViaEnvironment(
-            Interpreter interpreter /* in: OPTIONAL */
+            Interpreter interpreter, /* in: OPTIONAL */
+            string subPath,          /* in: OPTIONAL */
+            bool includeSystem       /* in */
             )
         {
+            //
+            // HACK: Do not use the "system" environment variables that
+            //       are (normally?) involved in configuring temporary
+            //       directory locations unless the caller explicitly
+            //       allows it.
+            //
+            // WARNING: This may be a breaking change from the previous
+            //          beta releases; however, it is seen as necessary
+            //          to allow customization options to work correctly.
+            //
             foreach (string name in new string[] {
                     EnvVars.EagleTemp, EnvVars.XdgRuntimeDir,
-                    EnvVars.Temp, EnvVars.Tmp
+                    includeSystem ? EnvVars.Temp : null,
+                    includeSystem ? EnvVars.Tmp : null
                 })
             {
                 if (String.IsNullOrEmpty(name))
@@ -3061,10 +3185,24 @@ namespace Eagle._Components.Private
 
                 bool accessStatus;
 
-                FileOps.VerifyWritable(interpreter, path, out accessStatus);
+                FileOps.VerifyWritable(
+                    interpreter, path, out accessStatus);
 
-                if (accessStatus)
+                if (!accessStatus)
+                    continue;
+
+                try
+                {
+                    ApplyTempSubPath(ref path, subPath);
+
                     return path;
+                }
+                catch (Exception e)
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(PathOps).Name,
+                        TracePriority.PathError);
+                }
             }
 
             return null;
@@ -3077,10 +3215,12 @@ namespace Eagle._Components.Private
             ) /* throw */
         {
             GetStringValueCallback callback;
+            bool includeSystem;
 
-            lock (syncRoot)
+            lock (syncRoot) /* TRANSACTIONAL */
             {
                 callback = getTempPathCallback;
+                includeSystem = includeSystemTemporaryEnvVars;
             }
 
             string result;
@@ -3093,11 +3233,13 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
+                    string subPath = GetTempSubPath(); // (?)
+
                     result = GetTempPathViaEnvironment(
-                        interpreter);
+                        interpreter, subPath, includeSystem);
 
                     if (result == null)
-                        result = Path.GetTempPath(); /* throw */
+                        result = GetTempPath(subPath);
                 }
             }
             catch (Exception e)

@@ -1767,8 +1767,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsStrongNameVerified(
-            byte[] bytes,
-            bool force
+            Interpreter interpreter, /* in: OPTIONAL */
+            byte[] bytes,            /* in */
+            bool force               /* in */
             )
         {
             //
@@ -1783,7 +1784,7 @@ namespace Eagle._Components.Private
             try
             {
                 fileName = PathOps.GetTempFileName( /* throw */
-                    "esnv_"); /* Eagle Strong Name Verification */
+                    interpreter, "esnv_"); /* Eagle Strong Name Verification */
 
                 //
                 // NOTE: *SECURITY* Failure, if we cannot obtain a temporary
@@ -2120,7 +2121,7 @@ namespace Eagle._Components.Private
             try
             {
                 fileName = PathOps.GetTempFileName( /* throw */
-                    "etfc_"); /* Eagle Trusted File Checking */
+                    interpreter, "etfc_"); /* Eagle Trusted File Checking */
 
                 //
                 // NOTE: *SECURITY* Failure, if we cannot obtain a temporary
@@ -6331,7 +6332,7 @@ namespace Eagle._Components.Private
                 //       native API StrongNameSignatureVerificationEx].
                 //
                 if ((assemblyBytes != null) &&
-                    IsStrongNameVerified(assemblyBytes, true))
+                    IsStrongNameVerified(interpreter, assemblyBytes, true))
                 {
                     result |= PluginFlags.Verified;
                 }

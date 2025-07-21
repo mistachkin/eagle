@@ -2326,7 +2326,7 @@ namespace Eagle._Commands
                                         if (arguments.Count == 2)
                                         {
                                             result = PathOps.GetTempFileName(
-                                                "esc_"); /* Eagle Script Command (esc) */
+                                                interpreter, "esc_"); /* Eagle Script Command (esc) */
                                         }
                                         else
                                         {

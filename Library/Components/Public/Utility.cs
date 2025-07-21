@@ -808,7 +808,17 @@ namespace Eagle._Components.Public
             string prefix
             )
         {
-            return PathOps.GetTempFileName(prefix);
+            return PathOps.GetTempFileName(null, prefix);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetTempFileName(
+            Interpreter interpreter,
+            string prefix
+            )
+        {
+            return PathOps.GetTempFileName(interpreter, prefix);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1762,7 +1772,7 @@ namespace Eagle._Components.Public
 
         public static Version GetPackageVersion()
         {
-            return GlobalState.GetPackageVersion();
+            return GlobalState.GetPackageVersion(null);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3501,6 +3511,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode CreateTemporaryScriptFile(
+            Interpreter interpreter,
             string text,
             Encoding encoding,
             ref string fileName,
@@ -3508,7 +3519,7 @@ namespace Eagle._Components.Public
             )
         {
             return ScriptOps.CreateTemporaryFile(
-                text, encoding, ref fileName, ref error);
+                interpreter, text, encoding, ref fileName, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

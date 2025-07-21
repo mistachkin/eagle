@@ -33,6 +33,11 @@ runTest {test expr-3.1.1 {deeply nested parenthesis in expression} -body {
 
 ###############################################################################
 
+#
+# BUGFIX: (July 2025) Updated constraints to allow this test to be run on
+#         non-Windows (i.e. "Unix") platforms, including necessary native
+#         stack size checking enhancements in [checkForStackSize].
+#
 runTest {test expr-3.1.2 {deeply nested parenthesis in expression} -body {
   expr {(2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
         (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
@@ -45,7 +50,9 @@ runTest {test expr-3.1.2 {deeply nested parenthesis in expression} -body {
         (2 + (2 + (2 + (2 + (2 + (2 + (2 + 2))))))))))))))))))))))))))))))))) \
         ))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) \
         )))))))))))))))))}
-} -constraints {eagle stackSize.0x1000000} -result {240}}
+} -constraintExpression {[haveConstraint compile.WINDOWS] || \
+[haveConstraint compile.UNIX]} -constraints \
+{eagle compile.NATIVE native stackSize.0x1000000} -result {240}}
 
 ###############################################################################
 
@@ -82,6 +89,10 @@ runTest {test expr-3.2.1 {big expressions (stack overflow)} -setup {
 
 #
 # HACK: *MONO* This test is disabled on Mono 3.12.
+#
+# BUGFIX: (July 2025) Updated constraints to allow this test to be run on
+#         non-Windows (i.e. "Unix") platforms, including necessary native
+#         stack size checking enhancements in [checkForStackSize].
 #
 runTest {test expr-3.2.2 {big expressions (stack overflow)} -setup {
   proc stat { list } {
@@ -134,12 +145,18 @@ runTest {test expr-3.2.2 {big expressions (stack overflow)} -setup {
 
   rename boom ""
   rename stat ""
-} -constraints [fixConstraints {eagle dotNetCoreOrShell native windows\
-compile.NATIVE compile.WINDOWS intel.32bit tclCrash stackIntensive !mono312}] \
--result {1 {out of stack space (infinite loop?)} 1}}
+} -constraintExpression {[haveConstraint compile.WINDOWS] || \
+[haveConstraint compile.UNIX]} -constraints [fixConstraints {eagle\
+dotNetCoreOrShell native compile.NATIVE intel.32bit tclCrash stackIntensive\
+!mono312}] -result {1 {out of stack space (infinite loop?)} 1}}
 
 ###############################################################################
 
+#
+# BUGFIX: (July 2025) Updated constraints to allow this test to be run on
+#         non-Windows (i.e. "Unix") platforms, including necessary native
+#         stack size checking enhancements in [checkForStackSize].
+#
 runTest {test expr-3.3 {lots of logical OR operators} -setup {
   proc falseExprLevels {} {
     if {[isEagle] && [llength [info commands object]] > 0} then {
@@ -216,10 +233,17 @@ runTest {test expr-3.3 {lots of logical OR operators} -setup {
 } -cleanup {
   rename falseExprLevels ""
   rename zero ""
-} -constraints {stackIntensive stackSize.0x1000000} -result {false}}
+} -constraintExpression {[haveConstraint compile.WINDOWS] || \
+[haveConstraint compile.UNIX]} -constraints {compile.NATIVE native\
+stackIntensive stackSize.0x1000000} -result {false}}
 
 ###############################################################################
 
+#
+# BUGFIX: (July 2025) Updated constraints to allow this test to be run on
+#         non-Windows (i.e. "Unix") platforms, including necessary native
+#         stack size checking enhancements in [checkForStackSize].
+#
 runTest {test expr-3.4 {lots of logical AND operators} -setup {
   proc trueExprLevels {} {
     if {[isEagle] && [llength [info commands object]] > 0} then {
@@ -296,7 +320,9 @@ runTest {test expr-3.4 {lots of logical AND operators} -setup {
 } -cleanup {
   rename trueExprLevels ""
   rename one ""
-} -constraints {stackIntensive stackSize.0x1000000} -result {true}}
+} -constraintExpression {[haveConstraint compile.WINDOWS] || \
+[haveConstraint compile.UNIX]} -constraints {compile.NATIVE native\
+stackIntensive stackSize.0x1000000} -result {true}}
 
 ###############################################################################
 

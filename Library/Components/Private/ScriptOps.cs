@@ -144,11 +144,11 @@ namespace Eagle._Components.Private
 
         private static readonly string HarpyPackageIndexPattern =
             String.Format("*/{0}*{1}/*", HarpyPackageName,
-            GlobalState.GetPackageVersion());
+            GlobalState.GetPackageVersion(null));
 
         private static readonly string BadgePackageIndexPattern =
             String.Format("*/{0}*{1}/*", BadgePackageName,
-            GlobalState.GetPackageVersion());
+            GlobalState.GetPackageVersion(null));
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -4410,9 +4410,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode GetTemporaryFileName(
-            string prefix,       /* in */
-            ref string fileName, /* out */
-            ref Result error     /* out */
+            Interpreter interpreter, /* in: OPTIONAL */
+            string prefix,           /* in */
+            ref string fileName,     /* out */
+            ref Result error         /* out */
             )
         {
             ReturnCode code = ReturnCode.Error;
@@ -4424,7 +4425,8 @@ namespace Eagle._Components.Private
                 // NOTE: First, just obtain a temporary file name from the
                 //       operating system.
                 //
-                fileNames[0] = PathOps.GetTempFileName(prefix); /* throw */
+                fileNames[0] = PathOps.GetTempFileName(
+                    interpreter, prefix); /* throw */
 
                 if (!String.IsNullOrEmpty(fileNames[0]))
                 {
@@ -4510,10 +4512,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode CreateTemporaryFile(
-            string text,         /* in */
-            Encoding encoding,   /* in: OPTIONAL */
-            ref string fileName, /* out */
-            ref Result error     /* out */
+            Interpreter interpreter, /* in: OPTIONAL */
+            string text,             /* in */
+            Encoding encoding,       /* in: OPTIONAL */
+            ref string fileName,     /* out */
+            ref Result error         /* out */
             )
         {
             if (text == null)
@@ -4532,7 +4535,7 @@ namespace Eagle._Components.Private
                 //       name (i.e. with an ".eagle" extension).
                 //
                 code = GetTemporaryFileName(
-                    "etsf_", /* Eagle Temporary Script File */
+                    interpreter, "etsf_", /* Eagle Temporary Script File */
                     ref localFileName, ref error);
 
                 if (code != ReturnCode.Ok)
@@ -10442,7 +10445,7 @@ namespace Eagle._Components.Private
             }
 
             string bundleFileName = PathOps.GetTempFileName(
-                "etru_"); /* Eagle Trusted Remote Uri */
+                interpreter, "etru_"); /* Eagle Trusted Remote Uri */
 
             if (String.IsNullOrEmpty(bundleFileName) ||
                 File.Exists(bundleFileName))

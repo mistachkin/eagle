@@ -2522,7 +2522,7 @@ namespace Eagle._Components.Private
                 //       operating system.
                 //
                 fileNames[0] = PathOps.GetTempFileName( /* throw */
-                    "eitf_"); /* Eagle Isolated Test File */
+                    interpreter, "eitf_"); /* Eagle Isolated Test File */
 
                 if (!String.IsNullOrEmpty(fileNames[0]))
                 {

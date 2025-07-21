@@ -17,7 +17,13 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 
 ###############################################################################
 
-if {[isEagle] && [llength [info commands object]] > 0} then {
+#
+# BUGFIX: Make sure that per-test leak checking is not enabled; otherwise,
+#         using FastMask as the new variable mask will leak opaque object
+#         handles.
+#
+if {[isEagle] && ![shouldRecordTestStatistics runTest] && \
+    [llength [info commands object]] > 0} then {
   catch {
     set savedNewGlobalVariableFlags [enableNewGlobalVariableFlags]
     enableNewGlobalVariableFlags FastMask true
@@ -106,6 +112,14 @@ if {[isEagle] && [llength [info commands scan]] == 0} then {
 
 ###############################################################################
 
+if {[isEagle] && [shouldRecordTestStatistics runTest]} then {
+  makeProcedureFast 12days true
+  makeProcedureFast do_twelve_days true
+  makeProcedureFast scan true
+}
+
+###############################################################################
+
 runTest {test expr-3.8 {long arms & nested conds (Tcl)} -body {
   tputs $test_channel \
       "---- doing test expr-3.8 which can take several minutes to run\n"
@@ -126,20 +140,31 @@ runTest {test expr-3.98 {nested conditional expressions} -body {
 #
 # NOTE: *MONO* Disabled due to stack size differences.
 #
+# BUGFIX: (July 2025) Updated constraints to allow this test to be run on
+#         non-Windows (i.e. "Unix") platforms, including necessary native
+#         stack size checking enhancements in [checkForStackSize].
+#
 runTest {test expr-3.99 {long arms & nested conds (Eagle)} -body {
   tputs $test_channel \
       "---- doing test expr-3.99 which can take several minutes to run\n"
 
   list [do_twelve_days] [hash normal sha1 $xxx]
-} -constraints {eagle dotNetCoreOrShell dotNetOrDotNetCore native windows\
-compile.NATIVE compile.WINDOWS stackIntensive stackSize.0x1000000 timeIntensive\
-processorIntensive} -time true -result \
+} -cleanup {
+  unset -nocomplain xxx
+} -constraintExpression {[haveConstraint compile.WINDOWS] || \
+[haveConstraint compile.UNIX]} -constraints {eagle dotNetCoreOrShell\
+dotNetOrDotNetCore native compile.NATIVE stackIntensive stackSize.0x1000000\
+timeIntensive processorIntensive} -time true -result \
 {2358 89F4D8878F988F8BD650BD9E12F220391C52F42F}}
 
 ###############################################################################
 
 #
 # NOTE: *MONO* Disabled due to stack size differences.
+#
+# BUGFIX: (July 2025) Updated constraints to allow this test to be run on
+#         non-Windows (i.e. "Unix") platforms, including necessary native
+#         stack size checking enhancements in [checkForStackSize].
 #
 runTest {test expr-3.100 {long arms & nested conds (Eagle, no-ready)} -setup {
   package require Eagle.Test
@@ -157,14 +182,15 @@ runTest {test expr-3.100 {long arms & nested conds (Eagle, no-ready)} -setup {
     enableContextEngineFlags $savedContextEngineFlags
     unset -nocomplain savedContextEngineFlags
   }
-} -constraints {eagle command.object dotNetCoreOrShell dotNetOrDotNetCore\
-native windows compile.NATIVE compile.WINDOWS stackIntensive\
+
+  unset -nocomplain xxx
+} -constraintExpression {[haveConstraint compile.WINDOWS] || \
+[haveConstraint compile.UNIX]} -constraints {eagle command.object\
+dotNetCoreOrShell dotNetOrDotNetCore native compile.NATIVE stackIntensive\
 stackSize.0x1000000 timeIntensive processorIntensive} -time true -result \
 {2358 89F4D8878F988F8BD650BD9E12F220391C52F42F}}
 
 ###############################################################################
-
-catch {unset xxx}
 
 rename 12days ""
 rename do_twelve_days ""
@@ -181,7 +207,13 @@ if {[isEagle] && [llength [info commands scan]] == 1 && \
 
 ###############################################################################
 
-if {[isEagle] && [llength [info commands object]] > 0} then {
+#
+# BUGFIX: Make sure that per-test leak checking is not enabled; otherwise,
+#         using FastMask as the new variable mask will leak opaque object
+#         handles.
+#
+if {[isEagle] && ![shouldRecordTestStatistics runTest] && \
+    [llength [info commands object]] > 0} then {
   if {[info exists savedNewLocalVariableFlags]} then {
     catch {
       enableNewLocalVariableFlags $savedNewLocalVariableFlags

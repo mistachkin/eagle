@@ -51574,7 +51574,7 @@ namespace Eagle._Components.Public
 
                 if (FlagOps.HasFlags(flags, PluginFlags.VerifiedOnly, true) &&
                     (FlagOps.HasFlags(flags, PluginFlags.SkipVerified, true) ||
-                    !RuntimeOps.IsStrongNameVerified(assemblyBytes, true)))
+                    !RuntimeOps.IsStrongNameVerified(this, assemblyBytes, true)))
                 {
                     result = "plugin bytes are not strong name signed or cannot be verified";
                     return ReturnCode.Error;

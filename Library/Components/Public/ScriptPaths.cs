@@ -24,7 +24,7 @@ namespace Eagle._Components.Public
         //
         public static readonly string LoaderPackage = PathOps.GetUnixPath(
             PathOps.CombinePath(null, TclVars.Path.Lib, GlobalState.GetPackagePath(
-            PackageType.Loader, GlobalState.GetPackageVersion(), String.Empty)));
+            PackageType.Loader, GlobalState.GetPackageVersion(null), String.Empty)));
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -34,7 +34,7 @@ namespace Eagle._Components.Public
         //
         public static readonly string LibraryPackage = PathOps.GetUnixPath(
             PathOps.CombinePath(null, TclVars.Path.Lib, GlobalState.GetPackagePath(
-            PackageType.Library, GlobalState.GetPackageVersion(), String.Empty)));
+            PackageType.Library, GlobalState.GetPackageVersion(null), String.Empty)));
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -44,7 +44,7 @@ namespace Eagle._Components.Public
         //
         public static readonly string TestPackage = PathOps.GetUnixPath(
             PathOps.CombinePath(null, TclVars.Path.Lib, GlobalState.GetPackagePath(
-            PackageType.Test, GlobalState.GetPackageVersion(), String.Empty)));
+            PackageType.Test, GlobalState.GetPackageVersion(null), String.Empty)));
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -54,6 +54,6 @@ namespace Eagle._Components.Public
         //
         public static readonly string KitPackage = PathOps.GetUnixPath(
             PathOps.CombinePath(null, TclVars.Path.Lib, GlobalState.GetPackagePath(
-            PackageType.Kit, GlobalState.GetPackageVersion(), String.Empty)));
+            PackageType.Kit, GlobalState.GetPackageVersion(null), String.Empty)));
     }
 }

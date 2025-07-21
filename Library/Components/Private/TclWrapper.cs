@@ -5504,7 +5504,16 @@ namespace Eagle._Components.Private.Tcl
                         FormatOps.WrapOrNull(flags), FormatOps.DisplayName(path)));
                 }
 
-                return Directory.GetFiles(path);
+                try
+                {
+                    return Directory.GetFiles(path);
+                }
+                catch (Exception e)
+                {
+                    MaybeAddAnError(ref errors, e);
+                }
+
+                return null;
             }
 
             if (verbose)
@@ -5516,8 +5525,17 @@ namespace Eagle._Components.Private.Tcl
 
             string searchPattern = Characters.Asterisk.ToString();
 
-            return Directory.GetFiles(
-                path, searchPattern, FileOps.GetSearchOption(true));
+            try
+            {
+                return Directory.GetFiles(
+                    path, searchPattern, FileOps.GetSearchOption(true));
+            }
+            catch (Exception e)
+            {
+                MaybeAddAnError(ref errors, e);
+            }
+
+            return null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

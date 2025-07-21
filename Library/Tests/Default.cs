@@ -14879,7 +14879,7 @@ namespace Eagle._Tests
                 exists = true; /* MSDN: File name must exist. */
             }
 
-            if (PathOps.validateTempFileName &&
+            if (PathOps.ShouldValidateTempFileName() &&
                 !PathOps.ValidatePathAsFile(result, true, exists))
             {
                 throw new ScriptException(String.Format(

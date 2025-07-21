@@ -249,7 +249,7 @@ namespace eval ::Eagle {
   proc getKnownDotNetCoreVersions { {force false} } {
     #
     # NOTE: This job of this procedure is to return the list of "known"
-    #       versions of .NET Core supported by the test suite
+    #       versions of .NET Core explicitly supported by the test suite
     #       infrastructure.  This means versions of .NET Core prior to
     #       2.0 (i.e. 1.0 and 1.1) are purposely excluded.
     #
@@ -757,6 +757,50 @@ namespace eval ::Eagle {
     }
 
     if {[info exists ::no(canExecVsWhere)]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure should return non-zero if the "ulimit" tool may be
+  #       executed by the test suite infrastructure outside the context of
+  #       any specific tests.  The specific tests themselves must make use
+  #       of their own constraints to prevent its execution.
+  #
+  proc canExecUlimit {} {
+    if {[info exists ::no(exec)]} then {
+      return false
+    }
+
+    if {[info exists ::no(ulimit)]} then {
+      return false
+    }
+
+    if {[info exists ::no(canExecUlimit)]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure should return non-zero if the "cc" compiler may be
+  #       executed by the test suite infrastructure outside the context of
+  #       any specific tests.  The specific tests themselves must make use
+  #       of their own constraints to prevent its execution.
+  #
+  proc canExecCc {} {
+    if {[info exists ::no(exec)]} then {
+      return false
+    }
+
+    if {[info exists ::no(cc)]} then {
+      return false
+    }
+
+    if {[info exists ::no(canExecCc)]} then {
       return false
     }
 
@@ -1588,6 +1632,17 @@ namespace eval ::Eagle {
         if {[isWindows]} then {
           lappend result compile.WINDOWS
           addConstraint compile.WINDOWS
+        }
+      }
+
+      if {![info exists ::no(compileUnix)]} then {
+        #
+        # NOTE: If the current platform is Unix the Tcl binary must have
+        #       been compiled for Unix.
+        #
+        if {![isWindows]} then {
+          lappend result compile.UNIX
+          addConstraint compile.UNIX
         }
       }
 
@@ -3293,46 +3348,203 @@ namespace eval ::Eagle {
     }
   }
 
+  proc ulimitStackSizeToBytes { value } {
+    set default 0x4000; # (0x4000 * 1KiB) ==> 0x1000000 bytes (16MiB)
+    if {$value eq "unlimited"} then {set value $default}
+    return [expr {1024 * $value}]
+  }
+
+  proc getUlimitC99 {} {
+    return {
+      #define _POSIX_C_SOURCE 200112L
+
+      #include <errno.h>
+      #include <inttypes.h>
+      #include <stdio.h>
+      #include <stdlib.h>
+      #include <string.h>
+      #include <sys/resource.h>
+
+      static void usage(const char *prog) {
+        fprintf(stderr, "Usage: %s -s [kilobytes]\n", prog);
+        exit(EXIT_FAILURE);
+      }
+
+      static void print_limit(rlim_t lim) {
+        if (lim == RLIM_INFINITY) {
+          puts("unlimited");
+        } else {
+          printf("%" PRIuMAX "\n", (uintmax_t)(lim / 1024));
+        }
+      }
+
+      int main(int argc, char *argv[]) {
+        unsigned long long kb;
+        rlim_t new_lim;
+        char *end;
+        struct rlimit have;
+        struct rlimit want;
+
+        if ((argc != 2 && argc != 3) || strcmp(argv[1], "-s") != 0)
+          usage(argv[0]);
+
+        if (getrlimit(RLIMIT_STACK, &have) != 0) {
+          perror("getrlimit");
+          return EXIT_FAILURE;
+        }
+
+        if (argc == 2) {
+          print_limit(have.rlim_cur);
+          return EXIT_SUCCESS;
+        }
+
+        errno = 0;
+        kb = strtoull(argv[2], &end, 10);
+
+        if (errno || *end) {
+          fprintf(stderr, "invalid size: %s\n", argv[2]);
+          return EXIT_FAILURE;
+        }
+
+        new_lim = (rlim_t)kb * 1024ULL;
+        want = have;
+        want.rlim_cur = new_lim;
+
+        if (new_lim > have.rlim_max)
+          want.rlim_max = new_lim;
+
+        if (setrlimit(RLIMIT_STACK, &want) != 0) {
+          perror("setrlimit");
+          return EXIT_FAILURE;
+        }
+
+        if (getrlimit(RLIMIT_STACK, &have) != 0) {
+          perror("getrlimit");
+          return EXIT_FAILURE;
+        }
+
+        print_limit(have.rlim_cur);
+        return EXIT_SUCCESS;
+      }
+    }
+  }
+
+  proc compileViaC99 { executableFileName text } {
+    if {[isEagle]} then {
+      try {
+        set sourceFileName [appendArgs \
+            $executableFileName .c]
+
+        writeFile $sourceFileName $text
+
+        exec -success Success -- \
+            cc -std=c99 -o $executableFileName \
+            $sourceFileName; # gcc (?)
+      } finally {
+        if {[info exists sourceFileName] && \
+            [file exists $sourceFileName]} then {
+          catch {file delete $sourceFileName}
+        }
+      }
+    } else {
+      error "not implemented on this platform"
+    }
+  }
+
   proc checkForStackSize { channel } {
     tputs $channel "---- checking for stack size... "
 
-    #
-    # NOTE: Are we allowed to do stack size testing?
-    #
     if {![info exists ::no(stackSize)]} then {
       if {[isEagle]} then {
         #
-        # NOTE: Attempt to query for the executable stack size.
+        # HACK: This outer [catch] block only allows the "Return" code (2)
+        #       to be considered successful.
         #
         if {[catch {
-          set reserve [object invoke -create UIntPtr Zero]
-          set commit [object invoke -create UIntPtr Zero]
+          if {[isWindows]} then {
+            #
+            # NOTE: Attempt to query for the executable stack size.
+            #
+            # HACK: This does not use the [getShellExecutableName] script
+            #       library procedure because it must always refer to the
+            #       name of the file that started the current process.
+            #
+            set reserve [object invoke -create UIntPtr Zero]
+            set commit [object invoke -create UIntPtr Zero]
+
+            object invoke -flags +NonPublic \
+                Eagle._Components.Private.FileOps \
+                GetPeFileStackReserveAndCommit \
+                [info nameofexecutable] reserve commit; # EXEMPT
+
+            set type peFileReserve
+            return $reserve; # bytes
+          } elseif {[canExecUlimit]} then {
+            if {[catch {
+              #
+              # NOTE: Attempt to use "ulimit" command provided by the
+              #       operating system, if any.  If there is none, we
+              #       fail attempt to compile it from appropriate C99
+              #       source code.
+              #
+              string trim [exec -success Success -- ulimit -s]
+            } maximum] == 0} then {
+              set type ulimitCommand
+              return [ulimitStackSizeToBytes $maximum]
+            } elseif {[canExecCc]} then {
+              #
+              # NOTE: Attempt to compile a temporary "ulimit" command
+              #       from our C99 source code, which should work on
+              #       any "POSIX compliant" operating system with a
+              #       suitable C99 compiler.
+              #
+              try {
+                set fileName [file tempname]
+
+                compileViaC99 $fileName [getUlimitC99]
+
+                set maximum [string trim \
+                    [exec -success Success -- $fileName -s]]
+
+                set type ulimitC99Source
+                return [ulimitStackSizeToBytes $maximum]
+              } finally {
+                if {[info exists fileName] && \
+                    [file exists $fileName]} then {
+                  catch {file delete $fileName}
+                }
+              }
+            }
+          }
 
           #
-          # HACK: This does not use the [getShellExecutableName] script
-          #       library procedure because it must always refer to the
-          #       name of the file that started the current process.
+          # NOTE: Now we know the native stack size could not be (readily)
+          #       determined; therefore, raise a script error, which will
+          #       cause the stack size test constraint(s) to remain unmet.
+          #       This should only be possible when running on non-Windows
+          #       systems that do not have a "ulimit" command -AND- lack a
+          #       C99 compiler that capable of compiling one based on our
+          #       C99 source code.
           #
-          object invoke -flags +NonPublic \
-              Eagle._Components.Private.FileOps \
-              GetPeFileStackReserveAndCommit \
-              [info nameofexecutable] reserve commit; # EXEMPT
-
-          set reserve; # primitive, already numeric.
-        } stackSize] == 0 && \
+          error unavailable
+        } stackSize] == 2 && \
             [string is integer -strict $stackSize] && $stackSize > 0} then {
-          addConstraint [appendArgs stackSize.0x [format %x $stackSize]]
+          set stackSize [appendArgs 0x [format %x $stackSize]]
+          addConstraint [appendArgs stackSize. $stackSize]
 
-          tputs $channel [appendArgs "yes (" $stackSize ")\n"]
+          tputs $channel [appendArgs "yes (" $stackSize " via " $type ")\n"]
         } else {
+          addConstraint stackSize.unknown; # TODO: Fix me?
+
           tputs $channel no\n
         }
       } else {
         #
-        # NOTE: There is no cross-platform way to check this in
-        #       native Tcl.
+        # NOTE: Currently, no (cross-platform) way to check the (native)
+        #       stack size in native Tcl.
         #
         addConstraint stackSize.unlimited; # TODO: Fix me?
+        addConstraint stackSize.unknown; # TODO: Fix me?
 
         tputs $channel yes\n
       }
@@ -7235,16 +7447,17 @@ namespace eval ::Eagle {
         getRuntimeVersion getDottedVersion getDotlessVersion \
         getMajorMinorVersion loadTestSettings lpermute lcombine \
         alwaysFullInterpReady canExecComSpec canExecWhoAmI canExecTclShell \
-        canExecFossil canExecFsUtil canExecVsWhere canExecWmic getCpuStatus \
-        isTestMono isTestDotNetCore isTestAdministrator canPing \
-        cleanConstraintName cleanPackageName haveTclPlatformOsExtraUpdateName \
-        appendExecArguments tryDetectFossilRoot execFossilCommand \
-        checkForTestSuiteFiles checkForPlatform checkForWindowsVersion \
-        checkForGetInstalledUpdates checkForOperatingSystemUpdate \
-        checkForScriptLibrary checkForEnvironmentVariable checkForVariable \
-        checkForTclOptions checkForWindowsCommandProcessor checkForPackage \
-        checkForFossil checkForVisualStudioViaVsWhere checkForEagle \
-        checkForSymbols checkForLogFile checkForGaruda checkForShell \
+        canExecFossil canExecFsUtil canExecVsWhere canExecUlimit canExecCc \
+        canExecWmic getCpuStatus isTestMono isTestDotNetCore \
+        isTestAdministrator canPing cleanConstraintName cleanPackageName \
+        haveTclPlatformOsExtraUpdateName appendExecArguments \
+        tryDetectFossilRoot execFossilCommand checkForTestSuiteFiles \
+        checkForPlatform checkForWindowsVersion checkForGetInstalledUpdates \
+        checkForOperatingSystemUpdate checkForScriptLibrary \
+        checkForEnvironmentVariable checkForVariable checkForTclOptions \
+        checkForWindowsCommandProcessor checkForPackage checkForFossil \
+        checkForVisualStudioViaVsWhere checkForEagle checkForSymbols \
+        checkForLogFile checkForGaruda checkForShell \
         checkForOfficialStableReleaseInProgress checkForDebug checkForTk \
         checkForVersion checkForCommand checkForSubCommand checkForIntIsWide \
         checkForEFormat checkForNamespaces checkForTestExec \
@@ -7258,7 +7471,8 @@ namespace eval ::Eagle {
         checkForTiming checkForPerformance checkForBigLists \
         checkForProcessorIntensive checkForFileSystemIntensive \
         checkForTimeIntensive checkForFullTest checkForMemoryIntensive \
-        checkForStackIntensive checkForStackSize checkForInteractive \
+        checkForStackIntensive ulimitStackSizeToBytes getUlimitC99 \
+        compileViaC99 checkForStackSize checkForInteractive \
         checkForInteractiveFocus checkForInteractiveCommand \
         checkForUserInteraction checkForOfflineMode checkForNetwork \
         maybeDownloadFromUri checkForInternet checkForTlsOk \

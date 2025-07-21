@@ -24,6 +24,7 @@ using System.Runtime.Remoting;
 using System.Security.Policy;
 #endif
 
+using System.Text;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -333,6 +334,18 @@ namespace Eagle._Components.Private
         //
         private static readonly Version packageVersion =
             thisAssemblyVersion;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: When this value is non-zero, the full (four-part) package
+        //       version (e.g. "1.0.9999.88888") will be used whenever it
+        //       is possible and reasonable to do so (i.e. when there are
+        //       no backward compatibility breaks, etc).
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool useLongPackageVersion = false;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -5904,16 +5917,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static Version GetPackageVersion() /* THREAD-SAFE */
+        public static Version GetPackageVersion(
+            bool? shortOnly /* in: OPTIONAL, COMPAT: Eagle beta. */
+            ) /* THREAD-SAFE */
+        {
+            if (shortOnly != null)
+            {
+                return (bool)shortOnly ?
+                    GetShortPackageVersion() : GetLongPackageVersion();
+            }
+
+            return useLongPackageVersion ?
+                GetLongPackageVersion() : GetShortPackageVersion();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static Version GetShortPackageVersion() /* THREAD-SAFE */
         {
             //
             // NOTE: Package versions do not typically include the build
             //       and revision numbers; therefore, be sure they are
             //       omitted in our return value.
             //
+            return GetTwoPartVersion(GetLongPackageVersion());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static Version GetLongPackageVersion() /* THREAD-SAFE */
+        {
             return (packageVersion != null) ?
-                GetTwoPartVersion(packageVersion) :
-                GetTwoPartVersion(DefaultVersion);
+                packageVersion : DefaultVersion;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -7203,6 +7238,27 @@ namespace Eagle._Components.Private
             }
 
             return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetPackageFileNameOnly()
+        {
+            string name = GetPackageName(); /* "Eagle" */
+
+            if (String.IsNullOrEmpty(name))
+                return null;
+
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            builder.Append(name);
+
+            Version version = GetPackageVersion(null);
+
+            if (version != null)
+                builder.Append(version);
+
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
         #endregion
 
@@ -9323,7 +9379,7 @@ namespace Eagle._Components.Private
                     //       name and version for the core library.
                     //
                     string packageName = GetPackageName(); /* "Eagle" */
-                    Version packageVersion = GetPackageVersion(); /* "1.0" */
+                    Version packageVersion = GetPackageVersion(null); /* "1.0" */
 
                     //
                     // NOTE: What is the name of the file we are looking
