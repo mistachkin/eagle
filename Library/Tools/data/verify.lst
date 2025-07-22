@@ -1679,6 +1679,7 @@ set eagle_manifests(source) {
   Eagle/Shell/Configurations/dotNet/7.0/EagleShell.runtimeconfig.json
   Eagle/Shell/Configurations/dotNet/8.0/EagleShell.runtimeconfig.json
   Eagle/Shell/Configurations/dotNet/9.0/EagleShell.runtimeconfig.json
+  Eagle/Shell/Configurations/dotNet/10.0/EagleShell.runtimeconfig.json
   Eagle/Shell/Configurations/netFx/EagleShell.exe.config
   Eagle/Shell/Configurations/netFx/EagleShell.exe.mda.config
   Eagle/Shell/EagleShell.csproj

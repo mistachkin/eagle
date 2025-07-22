@@ -3,6 +3,9 @@
 
 BUGFIX: fix and/or address Coverity issues from #434153 to #523770.
 
+BUGFIX: fix the [string map -multipass] option when it is used in combination
+        with the exact match mode.
+
 BUGFIX: make sure an (empty) auto-path is available prior to the core script
         library initialization.  after the core script library initialization,
         merge the default auto-path with the modifications resulting from the
@@ -26,6 +29,8 @@ BUGFIX: always break out of script loops in progress if the [exit] command has
 
 BUGFIX: make sure to honor any IRuleSet that may be present within an instance
         of the InterpreterSettings passed into the Interpreter.Create method.
+
+REFACTOR: add preliminary support for the .NET 10.0 runtime.
 
 REFACTOR: cleanup and optimize how notifications are processed.
 

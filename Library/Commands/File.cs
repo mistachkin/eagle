@@ -2339,17 +2339,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            try
-                                            {
-                                                result = PathOps.GetTempPath(interpreter);
-                                            }
-                                            catch (Exception e)
-                                            {
-                                                Engine.SetExceptionErrorCode(interpreter, e);
-
-                                                result = e;
-                                                code = ReturnCode.Error;
-                                            }
+                                            result = PathOps.GetTempPath(interpreter);
                                         }
                                         else
                                         {

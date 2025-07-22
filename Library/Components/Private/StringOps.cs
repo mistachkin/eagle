@@ -36,6 +36,7 @@ using Eagle._Encodings;
 using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
+using SBF = Eagle._Components.Private.StringBuilderFactory;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -664,7 +665,7 @@ namespace Eagle._Components.Private
 
         public static IHaveStringBuilder NewIHaveStringBuilder()
         {
-            return NewIHaveStringBuilder(StringBuilderFactory.CreateNoCache()); /* EXEMPT */
+            return NewIHaveStringBuilder(SBF.CreateNoCache()); /* EXEMPT */
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -692,7 +693,10 @@ namespace Eagle._Components.Private
                 return NewIHaveStringBuilder((StringBuilder)@object);
 
             if (@object is string)
-                return NewIHaveStringBuilder(StringBuilderFactory.CreateNoCache((string)@object)); /* EXEMPT */
+            {
+                return NewIHaveStringBuilder(
+                    SBF.CreateNoCache((string)@object)); /* EXEMPT */
+            }
 
             if (@object is Argument)
             {
@@ -733,7 +737,7 @@ namespace Eagle._Components.Private
                 return GetStringBuilder((IHaveStringBuilder)@object);
 
             if (@object is string)
-                return StringBuilderFactory.CreateNoCache((string)@object); /* EXEMPT */
+                return SBF.CreateNoCache((string)@object); /* EXEMPT */
 
             if (@object is Argument)
             {
@@ -753,7 +757,7 @@ namespace Eagle._Components.Private
                 goto retry;
             }
 
-            return create ? StringBuilderFactory.CreateNoCache() : null; /* EXEMPT */
+            return create ? SBF.CreateNoCache() : null; /* EXEMPT */
         }
 #endif
         #endregion
@@ -767,8 +771,7 @@ namespace Eagle._Components.Private
             if (value == null)
                 return null;
 
-            StringBuilder result = StringBuilderFactory.Create(
-                value.Length);
+            StringBuilder result = SBF.Create(value.Length);
 
             result.Append(value);
 
@@ -788,7 +791,7 @@ namespace Eagle._Components.Private
 
             StringList lines = new StringList();
             int length = value.Length;
-            StringBuilder line = StringBuilderFactory.Create(length);
+            StringBuilder line = SBF.Create(length);
 
             for (int index = 0; index < length; index++)
             {
@@ -862,7 +865,7 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            StringBuilder builder = StringBuilderFactory.Create(length);
+            StringBuilder builder = SBF.Create(length);
             string[] lines = SplitLines(value, false);
 
             if (lines == null)
@@ -926,7 +929,7 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            StringBuilder builder = StringBuilderFactory.Create(length);
+            StringBuilder builder = SBF.Create(length);
             string[] lines = SplitLines(value, false);
 
             if (lines == null)
@@ -1489,7 +1492,7 @@ namespace Eagle._Components.Private
                 capacity += countString.Length;
                 capacity += 1 /* Space */ + count;
 
-                builder = StringBuilderFactory.Create(capacity);
+                builder = SBF.Create(capacity);
             }
 
             builder.Append(countString);
@@ -1969,7 +1972,7 @@ namespace Eagle._Components.Private
             if (array != null)
             {
                 int length = array.Length;
-                StringBuilder result = StringBuilderFactory.Create(length * 2);
+                StringBuilder result = SBF.Create(length * 2);
 
                 for (int index = 0; index < length; index++)
                 {
@@ -2205,7 +2208,7 @@ namespace Eagle._Components.Private
             }
 
             int result = 0;
-            StringBuilder builder = StringBuilderFactory.Create(length);
+            StringBuilder builder = SBF.Create(length);
 
             for (int index = 0; index < length; index++)
             {
@@ -2334,7 +2337,7 @@ namespace Eagle._Components.Private
             if (String.IsNullOrEmpty(value))
                 return value;
 
-            StringBuilder builder = StringBuilderFactory.Create(value);
+            StringBuilder builder = SBF.Create(value);
 
             builder.Replace(Characters.Comma, Characters.Space);
             builder.Replace(Characters.SemiColon, Characters.Space);
@@ -2359,7 +2362,7 @@ namespace Eagle._Components.Private
             // NOTE: Create a string builder instance based on the script
             //       text.
             //
-            StringBuilder builder = StringBuilderFactory.Create(text);
+            StringBuilder builder = SBF.Create(text);
 
             //
             // NOTE: Using the created string builder, modify it in-place
@@ -2646,7 +2649,7 @@ namespace Eagle._Components.Private
             ref int count
             ) /* NOT USED */
         {
-            StringBuilder result = StringBuilderFactory.Create();
+            StringBuilder result = SBF.Create();
 
             if (!String.IsNullOrEmpty(text))
             {
@@ -2948,8 +2951,7 @@ namespace Eagle._Components.Private
             ref StringBuilder builder        /* in, out */
             )
         {
-            bool evaluate = FlagOps.HasFlags(
-                mode, MatchMode.Evaluate, true);
+            bool evaluate = FlagOps.HasFlags(mode, MatchMode.Evaluate, true);
 
             mode &= ~MatchMode.FlagsMask;
 
@@ -2977,9 +2979,36 @@ namespace Eagle._Components.Private
                                 text, startIndex, pattern, 0,
                                 patternLength, comparisonType))
                         {
-                            oldLength = patternLength;
-                            oldValue = pattern;
-                            newValue = replacement;
+                            if (replace && (builder != null))
+                            {
+                                oldLength = replacementLength;
+
+                                oldValue = text.Substring(
+                                    startIndex, patternLength);
+
+                                newValue = replacement;
+
+                                builder.Remove(
+                                    startIndex, patternLength);
+
+                                builder.Insert(
+                                    startIndex, replacement);
+                            }
+                            else
+                            {
+                                oldLength = patternLength;
+                                oldValue = pattern;
+                                newValue = replacement;
+
+                                if (append && (patternLength > 0))
+                                {
+                                    if (builder == null)
+                                        builder = SBF.CreateNoCache(); /* EXEMPT */
+
+                                    builder.Append(
+                                        text, startIndex, patternLength);
+                                }
+                            }
 
                             return true;
                         }
@@ -3049,11 +3078,10 @@ namespace Eagle._Components.Private
                                     (matchIndex > startIndex))
                                 {
                                     if (builder == null)
-                                        builder = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                                        builder = SBF.CreateNoCache(); /* EXEMPT */
 
                                     builder.Append(
-                                        text, startIndex,
-                                        matchIndex - startIndex);
+                                        text, startIndex, matchIndex - startIndex);
                                 }
                             }
 
@@ -3145,7 +3173,7 @@ namespace Eagle._Components.Private
             ref int count                    /* in, out */
             )
         {
-            StringBuilder builder = StringBuilderFactory.Create(text);
+            StringBuilder builder = SBF.Create(text);
 
             if (patterns != null)
             {
@@ -3185,7 +3213,7 @@ namespace Eagle._Components.Private
                                     localStartIndex, pattern,
                                     patternLength, replacement,
                                     comparisonType, regExOptions,
-                                    subSpec, true, true,
+                                    subSpec, true, false,
                                     ref oldLength, ref builder))
                             {
                                 localStartIndex += oldLength;
@@ -3261,7 +3289,7 @@ namespace Eagle._Components.Private
 
             int length = text.Length;
             int index, index2;
-            StringBuilder builder = StringBuilderFactory.Create(length);
+            StringBuilder builder = SBF.Create(length);
 
             for (index = startIndex, index2 = startIndex; index < length; index++)
             {
@@ -3276,7 +3304,7 @@ namespace Eagle._Components.Private
                 if (StrInMap(
                         interpreter, mode, text, index, patterns,
                         comparisonType, regExOptions, false, subSpec,
-                        false, true, ref oldLength, ref oldValue,
+                        false, false, ref oldLength, ref oldValue,
                         ref newValue, ref builder))
                 {
                     //
@@ -3416,7 +3444,7 @@ namespace Eagle._Components.Private
             if (count <= 0)
                 return String.Empty;
 
-            StringBuilder result = StringBuilderFactory.Create();
+            StringBuilder result = SBF.Create();
 
             result.EnsureCapacity(count);
             result.Append(character, count);
@@ -3434,7 +3462,7 @@ namespace Eagle._Components.Private
             if (count <= 0)
                 return String.Empty;
 
-            StringBuilder result = StringBuilderFactory.Create();
+            StringBuilder result = SBF.Create();
 
             if (!String.IsNullOrEmpty(text))
             {
@@ -3455,7 +3483,7 @@ namespace Eagle._Components.Private
             char character
             )
         {
-            StringBuilder result = StringBuilderFactory.Create();
+            StringBuilder result = SBF.Create();
 
             if (!String.IsNullOrEmpty(text))
             {
@@ -3634,7 +3662,7 @@ namespace Eagle._Components.Private
         {
             if (!String.IsNullOrEmpty(text))
             {
-                StringBuilder result = StringBuilderFactory.Create(text.Length);
+                StringBuilder result = SBF.Create(text.Length);
 
                 for (int index = 0; index < text.Length; index++)
                 {
@@ -3690,7 +3718,7 @@ namespace Eagle._Components.Private
             }
             else
             {
-                StringBuilder builder = StringBuilderFactory.Create();
+                StringBuilder builder = SBF.Create();
 
                 if (!FlagOps.HasFlags(
                         textFlags, TextFlags.KeepHorizontalTabs, true))
@@ -3768,8 +3796,7 @@ namespace Eagle._Components.Private
             if (!String.IsNullOrEmpty(result) &&
                 FlagOps.HasFlags(textFlags, TextFlags.AllowEscapes, true))
             {
-                StringBuilder builder = StringBuilderFactory.Create(
-                    result);
+                StringBuilder builder = SBF.Create(result);
 
                 UnescapeWhiteSpace(builder);
 
@@ -3787,7 +3814,7 @@ namespace Eagle._Components.Private
             ref string text /* in, out */
             )
         {
-            StringBuilder builder = StringBuilderFactory.Create(text);
+            StringBuilder builder = SBF.Create(text);
 
             EscapeWhiteSpace(builder);
 
@@ -3816,7 +3843,7 @@ namespace Eagle._Components.Private
             ref string text /* in, out */
             )
         {
-            StringBuilder builder = StringBuilderFactory.Create(text);
+            StringBuilder builder = SBF.Create(text);
 
             UnescapeWhiteSpace(builder);
 
@@ -3885,7 +3912,7 @@ namespace Eagle._Components.Private
             // NOTE: Create a string builder instance based on the script
             //       text.
             //
-            StringBuilder builder = StringBuilderFactory.Create(text);
+            StringBuilder builder = SBF.Create(text);
 
             //
             // NOTE: Using the created string builder, modify it in-place
@@ -4769,7 +4796,7 @@ namespace Eagle._Components.Private
             )
         {
             if (result == null)
-                result = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                result = SBF.CreateNoCache(); /* EXEMPT */
 
             if (!String.IsNullOrEmpty(message))
             {
@@ -4892,7 +4919,7 @@ namespace Eagle._Components.Private
             int originalLength;
             int limit;
 
-            StringBuilder localResult = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+            StringBuilder localResult = SBF.CreateNoCache(); /* EXEMPT */
 
             originalLength = localResult.Length;
             limit = localResult.MaxCapacity - originalLength;
@@ -5222,7 +5249,7 @@ namespace Eagle._Components.Private
 
                 skipPadding = false;
 
-                segment = StringBuilderFactory.CreateNoCache(arguments[argumentIndex]); /* EXEMPT */
+                segment = SBF.CreateNoCache(arguments[argumentIndex]); /* EXEMPT */
 
                 if (character == Characters.i)
                     character = Characters.d;
@@ -5263,7 +5290,7 @@ namespace Eagle._Components.Private
                                 goto error;
                             }
 
-                            segment = StringBuilderFactory.CreateNoCache(
+                            segment = SBF.CreateNoCache(
                                 ConversionOps.ToChar(code).ToString()); /* EXEMPT */
 
                             break;
@@ -5405,7 +5432,7 @@ namespace Eagle._Components.Private
                                 isNegative = (intValue < 0);
                             }
 
-                            segment = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                            segment = SBF.CreateNoCache(); /* EXEMPT */
                             segmentLimit = segment.MaxCapacity;
 
                             if ((isNegative || gotPlus || gotSpace) &&
@@ -5625,7 +5652,7 @@ namespace Eagle._Components.Private
                                             numDigits = 1;
                                         }
 
-                                        StringBuilder bytes = StringBuilderFactory.CreateNoCache(
+                                        StringBuilder bytes = SBF.CreateNoCache(
                                             numDigits); /* EXEMPT */
 
                                         bytes.Length = numDigits;
@@ -5774,7 +5801,7 @@ namespace Eagle._Components.Private
 #if NATIVE
                             if (usePrintfForDouble)
                             {
-                                StringBuilder spec = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                                StringBuilder spec = SBF.CreateNoCache(); /* EXEMPT */
 
                                 spec.Append(Characters.PercentSign);
 
@@ -5808,7 +5835,7 @@ namespace Eagle._Components.Private
                                  */
 
                                 spec.Append(character);
-                                segment = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                                segment = SBF.CreateNoCache(); /* EXEMPT */
 
                                 /*
                                  * NOTE: When compiled with native code enabled,
@@ -5827,7 +5854,7 @@ namespace Eagle._Components.Private
                             else
 #endif
                             {
-                                StringBuilder spec = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                                StringBuilder spec = SBF.CreateNoCache(); /* EXEMPT */
 
                                 spec.Append(Characters.OpenBrace);
                                 spec.Append(Characters.Zero);
@@ -5840,7 +5867,7 @@ namespace Eagle._Components.Private
                                 spec.Append(usePrecision);
                                 spec.Append(Characters.CloseBrace);
 
-                                segment = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                                segment = SBF.CreateNoCache(); /* EXEMPT */
 
                                 segment.AppendFormat(
                                     spec.ToString(), doubleValue);
@@ -5910,7 +5937,7 @@ namespace Eagle._Components.Private
                                                         0, mantissaLength - 1);
                                                 }
 
-                                                segment = StringBuilderFactory.CreateNoCache(
+                                                segment = SBF.CreateNoCache(
                                                     segmentString.Length); /* EXEMPT */
 
                                                 segment.Append(mantissa);
@@ -5930,7 +5957,7 @@ namespace Eagle._Components.Private
                                                         0, segmentLength - 1);
                                                 }
 
-                                                segment = StringBuilderFactory.CreateNoCache(
+                                                segment = SBF.CreateNoCache(
                                                     segmentString); /* EXEMPT */
                                             }
                                         }
@@ -6013,7 +6040,7 @@ namespace Eagle._Components.Private
                     // case Characters.G:
                     case Characters.X:
                         {
-                            segment = StringBuilderFactory.CreateNoCache(
+                            segment = SBF.CreateNoCache(
                                 segment.ToString().ToUpper()); /* EXEMPT */
 
                             break;
@@ -6130,7 +6157,7 @@ namespace Eagle._Components.Private
                 //
                 else
                 {
-                    StringBuilder subPattern = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                    StringBuilder subPattern = SBF.CreateNoCache(); /* EXEMPT */
 
                     if (withPrefix && (prefix != null))
                         subPattern.Append(prefix);
@@ -6429,9 +6456,9 @@ namespace Eagle._Components.Private
                                 localSubPatterns = new List<StringBuilder>();
 
                             localSubPatterns.Add((subPattern != null) ?
-                                subPattern : StringBuilderFactory.CreateNoCache()); /* EXEMPT */
+                                subPattern : SBF.CreateNoCache()); /* EXEMPT */
 
-                            subPattern = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                            subPattern = SBF.CreateNoCache(); /* EXEMPT */
                         }
 
                         //
@@ -6462,9 +6489,9 @@ namespace Eagle._Components.Private
                             localSubPatterns = new List<StringBuilder>();
 
                         localSubPatterns.Add((subPattern != null) ?
-                            subPattern : StringBuilderFactory.CreateNoCache()); /* EXEMPT */
+                            subPattern : SBF.CreateNoCache()); /* EXEMPT */
 
-                        subPattern = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                        subPattern = SBF.CreateNoCache(); /* EXEMPT */
                     }
 
                     continue;
@@ -6478,7 +6505,7 @@ namespace Eagle._Components.Private
                 if (prefixIndex != Index.Invalid)
                 {
                     if (subPattern == null)
-                        subPattern = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                        subPattern = SBF.CreateNoCache(); /* EXEMPT */
 
                     subPattern.Append(character);
                 }

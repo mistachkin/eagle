@@ -378,8 +378,8 @@ runTest {test exec-2.1 {output capture stress test} -setup {
 maybeTimeIntensive file_big_exec.txt file_big_exec_raw.txt} \
 -constraintExpression {![haveConstraint dotNetCore50] && \
 ![haveConstraint dotNetCore60] && ![haveConstraint dotNetCore70] && \
-![haveConstraint dotNetCore80] && ![haveConstraint dotNetCore90]} -time true \
--result {{} True}}
+![haveConstraint dotNetCore80] && ![haveConstraint dotNetCore90] && \
+![haveConstraint dotNetCore100]} -time true -result {{} True}}
 
 ###############################################################################
 

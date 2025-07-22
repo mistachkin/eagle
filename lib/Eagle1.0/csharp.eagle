@@ -231,7 +231,8 @@ namespace eval ::Eagle {
       if {[info exists ::compileCSharp(dotNetStandardVersions)]} then {
         set standardVersions $::compileCSharp(dotNetStandardVersions)
       } else {
-        if {[string match 9.* $targetVersion] || \
+        if {[string match 10.* $targetVersion] || \
+            [string match 9.* $targetVersion] || \
             [string match 8.* $targetVersion] || \
             [string match 7.* $targetVersion] || \
             [string match 6.* $targetVersion] || \

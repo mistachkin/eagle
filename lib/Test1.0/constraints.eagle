@@ -266,7 +266,7 @@ namespace eval ::Eagle {
     if {$force || ![info exists ::no(dotNetCoreVersions)]} then {
       return [list [list 2 0] [list 2 1] [list 2 2] [list 3 0] \
           [list 3 1] [list 5 0] [list 6 0] [list 7 0] [list 8 0] \
-          [list 9 0]]
+          [list 9 0] [list 10 0]]
     } else {
       return [list]
     }

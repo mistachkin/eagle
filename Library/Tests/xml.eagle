@@ -32,9 +32,9 @@ runTest {test xml-1.1.1 {serialize/deserialize} -body {
 } -constraints {eagle command.object  command.xml compile.XML} \
 -constraintExpression {([haveConstraint dotNetOrDotNetCore] && \
 ![haveConstraint dotNetCore60] && ![haveConstraint dotNetCore70] && \
-![haveConstraint dotNetCore80] && ![haveConstraint dotNetCore90]) || \
-[haveConstraint mono42OrHigher]} -result [string map [list \r\n \n] \
-{{<?xml version="1.0"?>
+![haveConstraint dotNetCore80] && ![haveConstraint dotNetCore90] && \
+![haveConstraint dotNetCore100]) || [haveConstraint mono42OrHigher]} -result \
+[string map [list \r\n \n] {{<?xml version="1.0"?>
 <int>123456789</int>} 123456789}]}
 
 ###############################################################################
@@ -49,9 +49,9 @@ runTest {test xml-1.1.2 {serialize/deserialize} -body {
 } -constraints {eagle command.object command.xml compile.XML} \
 -constraintExpression {[haveConstraint dotNetCore60] || \
 [haveConstraint dotNetCore70] || [haveConstraint dotNetCore80] || \
-[haveConstraint dotNetCore90] || ([haveConstraint mono] && \
-![haveConstraint mono42OrHigher])} -match regexp -result \
-{\{.?<\?xml version="1\.0" encoding=".*"\?>\n?<int>123456789</int>\}\
+[haveConstraint dotNetCore90] || [haveConstraint dotNetCore100] || \
+([haveConstraint mono] && ![haveConstraint mono42OrHigher])} -match regexp \
+-result {\{.?<\?xml version="1\.0" encoding=".*"\?>\n?<int>123456789</int>\}\
 123456789$}}
 
 ###############################################################################

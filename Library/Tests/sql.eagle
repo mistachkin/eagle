@@ -910,7 +910,8 @@ runTest {test sql-1.19 {custom SQLite function} -setup {
       [haveConstraint dotNetCore60] || \
       [haveConstraint dotNetCore70] || \
       [haveConstraint dotNetCore80] || \
-      [haveConstraint dotNetCore90])} then {
+      [haveConstraint dotNetCore90] || \
+      [haveConstraint dotNetCore100])} then {
     set assembly [object load -loadtype file [file join \
         $core_bin_path System.Data.SQLite.dll]]
 

@@ -449,7 +449,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Unique Path Constants
-        private static readonly string DefaultWindowsUniquePrefix = "eiq";
+        private static readonly string DefaultWindowsUniquePrefix = "eiq-";
         private static readonly string DefaultUnixUniquePrefix = "eagle-unique-path-";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3264,7 +3264,7 @@ namespace Eagle._Components.Private
 
         public static string GetUniquePath(
             Interpreter interpreter, /* in: OPTIONAL */
-            string directory,        /* in */
+            string directory,        /* in: OPTIONAL */
             string prefix,           /* in: OPTIONAL */
             string suffix,           /* in: OPTIONAL */
             ref Result error         /* out */
@@ -3272,8 +3272,13 @@ namespace Eagle._Components.Private
         {
             if (String.IsNullOrEmpty(directory))
             {
-                error = "invalid directory";
-                return null;
+                directory = GetTempPath(interpreter);
+
+                if (String.IsNullOrEmpty(directory))
+                {
+                    error = "invalid temporary directory";
+                    return null;
+                }
             }
 
             if (!Directory.Exists(directory))

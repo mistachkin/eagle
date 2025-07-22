@@ -2269,6 +2269,7 @@ runTest {test encoding-100.1 {encoding names (built-in)} -setup {
               [haveConstraint dotNetCore70] || \
               [haveConstraint dotNetCore80] || \
               [haveConstraint dotNetCore90] || \
+              [haveConstraint dotNetCore100] || \
           [lsearch -exact -- $names utf-7] != -1}] \
       [expr {[lsearch -exact -- $names utf-8] != -1}] \
       [expr {[lsearch -exact -- $names utf-16] != -1}] \
@@ -2456,9 +2457,9 @@ runTest {test hash-1.1.2 {hash algorithms (.NET Core before 7)} -body {
 } -cleanup {
   unset -nocomplain name type pair result text
 } -constraints \
-[fixConstraints {eagle dotNetCore !dotNetCore70 !dotNetCore80 !dotNetCore90}] \
--result "\{mac HMACMD5 55CD9EE051258D537966F6914B2907CB\} \{mac HMACSHA1\
-457B0A2E4834FF8AA0F9BFAD83F7CA51EA9272B5\} \{mac HMACSHA256\
+[fixConstraints {eagle dotNetCore !dotNetCore70 !dotNetCore80 !dotNetCore90\
+!dotNetCore100}] -result "\{mac HMACMD5 55CD9EE051258D537966F6914B2907CB\}\
+\{mac HMACSHA1 457B0A2E4834FF8AA0F9BFAD83F7CA51EA9272B5\} \{mac HMACSHA256\
 F4BB7209D8015710EC185E78F36C26B143DE6E891D42B0C83038BBA7EB65FE06\} \{mac\
 HMACSHA384 [appendArgs F0253DF25F461FC75D997FF45DAEEDCB5242E7B5D94ECD76608EE7A \
 6D6B0701AF147E5CF1D5C9A0A2DF0CCC379432C6B]\} \{mac HMACSHA512 [appendArgs 089B \

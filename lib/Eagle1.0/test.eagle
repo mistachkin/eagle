@@ -6224,6 +6224,12 @@ namespace eval ::Eagle {
   }
 
   proc shouldRecordTestStatistics { type } {
+    #
+    # NOTE: Has the user explicitly forbid recording test
+    #       (resource) statistics of some type, e.g. for
+    #       [runTest] (e.g. via "::no(leak,runTest)"), et
+    #       al?
+    #
     if {![info exists ::no(leak)] && \
         ![info exists ::no(leak,$type)]} then {
       return true
@@ -6233,6 +6239,10 @@ namespace eval ::Eagle {
   }
 
   proc shouldReportTestStatistics { type } {
+    #
+    # NOTE: Has the user explicitly forbid reporting test
+    #       (resource) statistics of some type?
+    #
     if {![info exists ::no(runStatistics)] && \
         ![info exists ::no(runStatistics,$type)]} then {
       return true

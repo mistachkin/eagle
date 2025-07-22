@@ -58,7 +58,8 @@ proc enableHostRead { interp enable } {
       [haveConstraint dotNetCore60] || \
       [haveConstraint dotNetCore70] || \
       [haveConstraint dotNetCore80] || \
-      [haveConstraint dotNetCore90])} then {
+      [haveConstraint dotNetCore90] || \
+      [haveConstraint dotNetCore100])} then {
     interp eval $interp [string map [list %enable% $enable] {
       package require Eagle.Test
 
