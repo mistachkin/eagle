@@ -2979,6 +2979,13 @@ namespace Eagle._Components.Private
                                 text, startIndex, pattern, 0,
                                 patternLength, comparisonType))
                         {
+                            if (evaluate && !EvaluateScriptReplacement(
+                                    interpreter, ref replacement,
+                                    ref replacementLength))
+                            {
+                                return false;
+                            }
+
                             if (replace && (builder != null))
                             {
                                 oldLength = replacementLength;

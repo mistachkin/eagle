@@ -4,7 +4,8 @@
 BUGFIX: fix and/or address Coverity issues from #434153 to #523770.
 
 BUGFIX: fix the [string map -multipass] option when it is used in combination
-        with the exact match mode.
+        with the exact match mode.  also, honor the -evaluate option for this
+        situation as well.
 
 BUGFIX: make sure an (empty) auto-path is available prior to the core script
         library initialization.  after the core script library initialization,
