@@ -8518,6 +8518,64 @@ namespace eval ::Eagle {
     }
   }
 
+  proc getRemoteMessageDirectory {} {
+    if {[info exist ::env(XDG_STATE_HOME)]} then {
+      set directory $::env(XDG_STATE_HOME)
+
+      if {[string length $directory] == 0} then {
+        error "invalid state home"
+      }
+
+      if {![file isdirectory $directory]} then {
+        error [appendArgs \
+            "state home must be a directory: " $directory]
+      }
+
+      if {![file writable $directory]} then {
+        error [appendArgs \
+            "state home must be writable: " $directory]
+      }
+    } else {
+      set directory [getTemporaryPath]
+
+      if {[string length $directory] == 0} then {
+        error "invalid temporary path"
+      }
+
+      if {![file isdirectory $directory]} then {
+        error [appendArgs \
+            "temporary path must be a directory: " $directory]
+      }
+
+      if {![file writable $directory]} then {
+        error [appendArgs \
+            "temporary path must be writable: " $directory]
+      }
+    }
+
+    set directory [file join $directory LRMQ]; # logRemoteMessageQueue
+    file mkdir $directory; # NOTE: Must exist prior to return.
+
+    return $directory
+  }
+
+  proc getRemoteMessageFileName { {directory ""} } {
+    if {[string length $directory] == 0} then {
+      set directory [getRemoteMessageDirectory]
+    }
+
+    set pattern [file join [file normalize $directory] *.lrm]
+    set count [llength [glob -nocomplain -- $pattern]]
+
+    return [file join $directory [appendArgs [pid] - [format \
+        %04x [expr {$count + 1}]] - [file rootname [file tail \
+        [getTemporaryFileName]]] .lrm]]
+  }
+
+  proc isLogRemoteMessageOk { value } {
+    return [regexp -- {^OK \d+$} $value]; # VERIFY OK
+  }
+
   proc logRemoteMessage {
           message {uri ""} {apiKey ""} {password ""} {channel stdout}
           {quiet false} } {
@@ -8630,7 +8688,7 @@ namespace eval ::Eagle {
             -timeouttype network -inline -retries $retries \
             -data $query -- $uri]]
 
-        if {[regexp -- {^OK \d+$} $result]} then {; # VERIFY OK
+        if {[isLogRemoteMessageOk $result]} then {
           set ok true
         } else {
           set message [appendArgs \
@@ -8650,6 +8708,18 @@ namespace eval ::Eagle {
 
         return $result
       } finally {
+        catch {
+          #
+          # HACK: If the message was not logged successfully (to
+          #       the remote server), write it to the local queue
+          #       directory, for possible later (external to this
+          #       process?) retries.
+          #
+          if {!$ok} then {
+            writeFile [getRemoteMessageFileName] $message
+          }
+        }
+
         catch {
           if {[info exists start]} then {
             set stop [clock now -gmt true]
@@ -8684,6 +8754,42 @@ namespace eval ::Eagle {
     }
   }
 
+  proc logRemoteMessageFile {
+          fileName {uri ""} {apiKey ""} {password ""} {channel stdout}
+          {quiet false} {autoDelete true} } {
+    set result [logRemoteMessageWrapper \
+        [readFile $fileName] $uri $apiKey $password $channel $quiet]
+
+    if {$autoDelete && [isLogRemoteMessageOk $result]} then {
+      file delete $fileName
+    }
+
+    return $result
+  }
+
+  proc logRemoteMessageQueue {
+          directory {uri ""} {apiKey ""} {password ""} {channel stdout}
+          {quiet false} {stopOnError false} } {
+    if {[string length $directory] == 0 || \
+        ![file isdirectory $directory] || \
+        ![file writable $directory]} then {
+      error [appendArgs \
+          "invalid remote message queue directory: " $directory]
+    }
+
+    set pattern [file join \
+        [file normalize $directory] *.lrm]; # logRemoteMessage
+
+    foreach fileName [lsort [glob -nocomplain -- $pattern]] {
+      set result [logRemoteMessageFile \
+          $fileName $uri $apiKey $password $channel $quiet]
+
+      if {$stopOnError && ![isLogRemoteMessageOk $result]} then {
+        error [appendArgs "logRemoteMessageQueue: " $result]
+      }
+    }
+  }
+
   proc logRemoteMessageWrapper {
           message {uri ""} {apiKey ""} {password ""} {channel stdout}
           {quiet false} {useLevel false} {milliseconds ""} } {
@@ -8698,14 +8804,16 @@ namespace eval ::Eagle {
 
     if {[info exists ::no(NoSynchronousRemoteMessage)] || \
         [info exists ::env(NoSynchronousRemoteMessage)]} then {
+      writeFile [getRemoteMessageFileName] $message
+
       return [execTestShell \
           [list -success Success] \
           -noArgumentsFileNames -initialize -postInitialize \
           [appendArgs \" [list package require Eagle.Test] \"] \
           -postInitialize \
           [appendArgs \" "delayForTest " $milliseconds \"] \
-          -evaluate [appendArgs \" [list logRemoteMessage \
-          $message $uri $apiKey $password $channel $quiet] \"] &]
+          -evaluate [appendArgs \" [list logRemoteMessageFile \
+          $fileName $uri $apiKey $password $channel $quiet] \"] &]
     } else {
       delayForTest $milliseconds
 
@@ -8904,7 +9012,7 @@ namespace eval ::Eagle {
       }
     }
 
-    after $milliseconds
+    after [expr {$milliseconds + int(rand() * $defaultMilliseconds)}]
     return true
   }
 
@@ -12916,7 +13024,9 @@ namespace eval ::Eagle {
         configureTcltest machineToPlatform architectureForPlatform \
         calculateTestConstraintCounts getRemoteMessageRaiseError \
         getRemoteMessageLimit getRemoteMessageRetries encodeRemoteMessage \
-        logRemoteMessage logRemoteMessageWrapper getRemoteMessageHeader \
+        getRemoteMessageDirectory getRemoteMessageFileName \
+        isLogRemoteMessageOk logRemoteMessage logRemoteMessageFile \
+        logRemoteMessageQueue logRemoteMessageWrapper getRemoteMessageHeader \
         getRemoteTestResults logRemoteTestResults logRemoteTestRunMessage \
         getPassedPercentage getSkippedPercentage testCheckOverallResult \
         reportTestResultCounts getTestSnippets lmissing getTestAppDomains] \
