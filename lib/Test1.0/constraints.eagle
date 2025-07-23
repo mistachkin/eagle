@@ -3283,12 +3283,14 @@ namespace eval ::Eagle {
           set totalPhysical [getDictionaryValue $memory totalPhysical]
 
           if {[string length $totalPhysical] == 0} then {
+            addConstraint maybeMemoryIntensive
             addConstraint memoryIntensive
 
             tputs $channel "yes (unknown)\n"
           } else {
             if {[string is wideinteger -strict $totalPhysical] && \
                 $totalPhysical >= $memoryThreshold} then {
+              addConstraint maybeMemoryIntensive
               addConstraint memoryIntensive
 
               tputs $channel yes\n
@@ -3304,6 +3306,7 @@ namespace eval ::Eagle {
         # HACK: This is either native Tcl -OR- memory threshold
         #       checks have been explicitly disabled.
         #
+        addConstraint maybeMemoryIntensive
         addConstraint memoryIntensive
 
         tputs $channel "yes (skipped)\n"

@@ -846,17 +846,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region System.Console Support Methods for [host screen] Sub-Command
+        #region System.Console Support Methods for [host *] Sub-Commands
         //
         // BUGBUG: This only works for interpreters that are known from this
         //         AppDomain.
         //
-        public static void ResetAllInterpreterStandardInputChannels()
+        public static void ResetAllInterpreterStandardChannels(
+            ChannelType channelType /* in */
+            )
         {
-            IEnumerable<Interpreter> interpreters = GlobalState.GetInterpreters();
+            IEnumerable<Interpreter> interpreters =
+                GlobalState.GetInterpreters();
 
             if (interpreters == null)
                 return;
+
+            channelType |= ChannelType.AllowExist |
+                ChannelType.UseCurrent | ChannelType.UseHost;
 
             foreach (Interpreter interpreter in interpreters)
             {
@@ -867,39 +873,7 @@ namespace Eagle._Components.Private
                 Result error = null;
 
                 code = interpreter.ModifyStandardChannels(
-                    null, null, ChannelType.Input | ChannelType.AllowExist |
-                    ChannelType.UseCurrent | ChannelType.UseHost, ref error);
-
-                if (code != ReturnCode.Ok)
-                    DebugOps.Complain(interpreter, code, error);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        //
-        // BUGBUG: This only works for interpreters that are known from this
-        //         AppDomain.
-        //
-        public static void ResetAllInterpreterStandardOutputChannels()
-        {
-            IEnumerable<Interpreter> interpreters = GlobalState.GetInterpreters();
-
-            if (interpreters == null)
-                return;
-
-            foreach (Interpreter interpreter in interpreters)
-            {
-                if (interpreter == null)
-                    continue;
-
-                ReturnCode code;
-                Result error = null;
-
-                code = interpreter.ModifyStandardChannels(
-                    null, null, ChannelType.Output | ChannelType.Error |
-                    ChannelType.AllowExist | ChannelType.UseCurrent |
-                    ChannelType.UseHost, ref error);
+                    null, null, channelType, ref error);
 
                 if (code != ReturnCode.Ok)
                     DebugOps.Complain(interpreter, code, error);
@@ -2871,7 +2845,11 @@ namespace Eagle._Components.Private
                 code = ConsoleOps.ResetInputBufferSize(ref error);
 
                 if (code == ReturnCode.Ok)
-                    ResetAllInterpreterStandardInputChannels();
+                {
+                    /* NO RESULT */
+                    ResetAllInterpreterStandardChannels(
+                        ChannelType.Input);
+                }
 
                 if ((code != ReturnCode.Ok) && !quiet)
                     DebugOps.Complain(interpreter, code, error);

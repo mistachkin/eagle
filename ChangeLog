@@ -7,6 +7,9 @@ BUGFIX: fix the [string map -multipass] option when it is used in combination
         with the exact match mode.  also, honor the -evaluate option for this
         situation as well.
 
+BUGFIX: make sure the [host open] sub-command refreshes the standard channels
+        within all active interpreters within its AppDomain.
+
 BUGFIX: make sure an (empty) auto-path is available prior to the core script
         library initialization.  after the core script library initialization,
         merge the default auto-path with the modifications resulting from the

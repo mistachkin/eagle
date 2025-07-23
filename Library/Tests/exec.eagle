@@ -375,7 +375,8 @@ runTest {test exec-2.1 {output capture stress test} -setup {
 
   unset -nocomplain count j t i arg gcc errors
 } -constraints {eagle testExec fossil_version fossil_repository_file\
-maybeTimeIntensive file_big_exec.txt file_big_exec_raw.txt} \
+maybeTimeIntensive maybeMemoryIntensive file_big_exec.txt\
+file_big_exec_raw.txt} \
 -constraintExpression {![haveConstraint dotNetCore50] && \
 ![haveConstraint dotNetCore60] && ![haveConstraint dotNetCore70] && \
 ![haveConstraint dotNetCore80] && ![haveConstraint dotNetCore90] && \

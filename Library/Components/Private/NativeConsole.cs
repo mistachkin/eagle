@@ -1194,7 +1194,10 @@ namespace Eagle._Components.Private
                     return false;
                 }
 
-                HostOps.ResetAllInterpreterStandardOutputChannels();
+                /* NO RESULT */
+                HostOps.ResetAllInterpreterStandardChannels(
+                    ChannelType.Output | ChannelType.Error);
+
                 return true;
             }
             catch (Exception e)
@@ -2165,6 +2168,11 @@ namespace Eagle._Components.Private
                 {
                     return ReturnCode.Error;
                 }
+
+                /* NO RESULT */
+                HostOps.ResetAllInterpreterStandardChannels(
+                    ChannelType.Input | ChannelType.Output |
+                    ChannelType.Error);
 
                 return ReturnCode.Ok;
             }
