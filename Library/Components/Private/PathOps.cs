@@ -490,6 +490,10 @@ namespace Eagle._Components.Private
         //       variables may be used when searching for a suitable (base)
         //       directory for temporary files.
         //
+        // HACK: These are purposely not read-only.
+        //
+        private static bool includeTestTemporaryEnvVars = true;
+        private static bool includeXdgTemporaryEnvVars = false;
         private static bool includeSystemTemporaryEnvVars = false;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3156,6 +3160,8 @@ namespace Eagle._Components.Private
         private static string GetTempPathViaEnvironment(
             Interpreter interpreter, /* in: OPTIONAL */
             string subPath,          /* in: OPTIONAL */
+            bool includeTest,        /* in */
+            bool includeXdg,         /* in */
             bool includeSystem       /* in */
             )
         {
@@ -3170,7 +3176,9 @@ namespace Eagle._Components.Private
             //          to allow customization options to work correctly.
             //
             foreach (string name in new string[] {
-                    EnvVars.EagleTemp, EnvVars.XdgRuntimeDir,
+                    includeTest ? EnvVars.EagleTestTemp : null,
+                    includeTest ? EnvVars.EagleTemp : null,
+                    includeXdg ? EnvVars.XdgRuntimeDir : null,
                     includeSystem ? EnvVars.Temp : null,
                     includeSystem ? EnvVars.Tmp : null
                 })
@@ -3215,11 +3223,15 @@ namespace Eagle._Components.Private
             ) /* throw */
         {
             GetStringValueCallback callback;
+            bool includeTest;
+            bool includeXdg;
             bool includeSystem;
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 callback = getTempPathCallback;
+                includeTest = includeTestTemporaryEnvVars;
+                includeXdg = includeXdgTemporaryEnvVars;
                 includeSystem = includeSystemTemporaryEnvVars;
             }
 
@@ -3236,7 +3248,8 @@ namespace Eagle._Components.Private
                     string subPath = GetTempSubPath(); // (?)
 
                     result = GetTempPathViaEnvironment(
-                        interpreter, subPath, includeSystem);
+                        interpreter, subPath, includeTest,
+                        includeXdg, includeSystem);
 
                     if (result == null)
                         result = GetTempPath(subPath);

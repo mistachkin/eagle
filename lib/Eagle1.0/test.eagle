@@ -8554,6 +8554,11 @@ namespace eval ::Eagle {
     }
 
     set directory [file join $directory LRMQ]; # logRemoteMessageQueue
+
+    if {[hasRuntimeOption remoteMessagePidDirectory]} then {
+      set directory [file join $directory [pid]]
+    }
+
     file mkdir $directory; # NOTE: Must exist prior to return.
 
     return $directory
@@ -8567,9 +8572,19 @@ namespace eval ::Eagle {
     set pattern [file join [file normalize $directory] *.lrm]
     set count [llength [glob -nocomplain -- $pattern]]
 
-    return [file join $directory [appendArgs [pid] - [format \
-        %04x [expr {$count + 1}]] - [file rootname [file tail \
-        [getTemporaryFileName]]] .lrm]]
+    if {[isEagle]} then {
+      if {[hasRuntimeOption remoteMessageCtxFileName]} then {
+        set id [info context]
+      } else {
+        set id [info tid]
+      }
+    } else {
+      set id [pid]
+    }
+
+    return [file join $directory [appendArgs $id - [format \
+        %04x [expr {$count + 1}]] - [file rootname [file \
+        tail [getTemporaryFileName]]] .lrm]]
   }
 
   proc isLogRemoteMessageOk { value } {
