@@ -248,8 +248,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static readonly string XdgRuntimeDir = "XDG_RUNTIME_DIR";
-        public static readonly string XdgShellsDir = "XDG_SHELLS_DIR";
-        public static readonly string XdgRuleSetDir = "XDG_RULESET_DIR";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static readonly string XdgStateHome = "XDG_STATE_HOME";
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -266,6 +268,11 @@ namespace Eagle._Components.Public
 
         public static readonly string XdgKeyRingHome = "XDG_KEYRING_HOME";
         public static readonly string XdgKeyRingDirs = "XDG_KEYRING_DIRS";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static readonly string XdgShellsDir = "XDG_SHELLS_DIR";
+        public static readonly string XdgRuleSetDir = "XDG_RULESET_DIR";
         #endregion
         #endregion
 
