@@ -413,28 +413,52 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static string MaybeAdjustHelpItemTopic(
-            string topic,         /* in */
-            string defaultPrefix, /* in */
-            TextFlags textFlags,  /* in */
-            out string prefix     /* out */
+            Interpreter interpreter, /* in */
+            string topic,            /* in */
+            string defaultPrefix,    /* in */
+            TextFlags textFlags,     /* in */
+            out string prefix        /* out */
             )
         {
             string helpType;
 
             return MaybeAdjustHelpItemTopic(
-                topic, defaultPrefix, textFlags, out prefix, out helpType);
+                interpreter, topic, defaultPrefix, textFlags,
+                out prefix, out helpType);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static string MaybeAdjustHelpItemTopic(
-            string topic,         /* in */
-            string defaultPrefix, /* in */
-            TextFlags textFlags,  /* in */
-            out string prefix,    /* out */
-            out string helpType   /* out */
+            Interpreter interpreter, /* in */
+            string topic,            /* in */
+            string defaultPrefix,    /* in */
+            TextFlags textFlags,     /* in */
+            out string prefix,       /* out */
+            out string helpType      /* out */
             )
         {
+            //
+            // HACK: If the specified "help item topic" actually
+            //       points to any IExecute instance within the
+            //       interpreter, return it verbatim, along with
+            //       setting the necessary output parameters.
+            //
+            IExecute execute = null;
+
+            if (GetIExecuteViaResolvers(interpreter,
+                    topic, ref execute) == ReturnCode.Ok)
+            {
+                prefix = null;
+
+                if (execute is IProcedure)
+                    helpType = "procedure";
+                else
+                    helpType = "command";
+
+                return topic;
+            }
+
             if (!String.IsNullOrEmpty(topic))
             {
                 string[] prefixes = ShellOps.InteractiveCommandPrefixes;
@@ -528,16 +552,10 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
 
             string topic = list[0]; /* COMMAND (?) */
+            IExecute execute = null;
 
-            EngineFlags engineFlags =
-                interpreter.GetResolveEngineFlagsNoLock(true);
-
-            IExecute localExecute = null;
-
-            if ((interpreter.InternalGetIExecuteViaResolvers(
-                    engineFlags, topic, null, LookupFlags.HelpNoVerbose,
-                    ref localExecute) != ReturnCode.Ok) ||
-                (localExecute == null))
+            if (GetIExecuteViaResolvers(interpreter,
+                    topic, ref execute) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
             }
@@ -548,7 +566,7 @@ namespace Eagle._Components.Private
 
                 if (!String.IsNullOrEmpty(subTopic))
                 {
-                    IEnsemble ensemble = localExecute as IEnsemble;
+                    IEnsemble ensemble = execute as IEnsemble;
 
                     if (ensemble != null)
                     {
@@ -580,6 +598,30 @@ namespace Eagle._Components.Private
 
         private static ReturnCode GetIExecuteViaResolvers(
             Interpreter interpreter, /* in */
+            string topic,            /* in */
+            ref IExecute execute     /* out */
+            )
+        {
+            if ((interpreter == null) || (topic == null))
+                return ReturnCode.Error;
+
+            EngineFlags engineFlags =
+                interpreter.GetResolveEngineFlagsNoLock(true);
+
+            if ((interpreter.InternalGetIExecuteViaResolvers(
+                    engineFlags, topic, null, LookupFlags.HelpNoVerbose,
+                    ref execute) != ReturnCode.Ok) || (execute == null))
+            {
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetIExecuteViaResolvers(
+            Interpreter interpreter, /* in */
             string topic1,           /* in */
             string topic2,           /* in */
             ref string name,         /* out */
@@ -589,16 +631,10 @@ namespace Eagle._Components.Private
             if (interpreter == null)
                 return ReturnCode.Error;
 
-            IExecute localExecute; /* REUSED */
+            IExecute localExecute = null; /* REUSED */
 
-            EngineFlags engineFlags =
-                interpreter.GetResolveEngineFlagsNoLock(true);
-
-            localExecute = null;
-
-            if (interpreter.InternalGetIExecuteViaResolvers(
-                    engineFlags, topic1, null, LookupFlags.HelpNoVerbose,
-                    ref localExecute) == ReturnCode.Ok)
+            if (GetIExecuteViaResolvers(interpreter,
+                    topic1, ref localExecute) == ReturnCode.Ok)
             {
                 name = topic1;
                 execute = localExecute;
@@ -608,9 +644,8 @@ namespace Eagle._Components.Private
 
             localExecute = null;
 
-            if (interpreter.InternalGetIExecuteViaResolvers(
-                    engineFlags, topic2, null, LookupFlags.HelpNoVerbose,
-                    ref localExecute) == ReturnCode.Ok)
+            if (GetIExecuteViaResolvers(interpreter,
+                    topic2, ref localExecute) == ReturnCode.Ok)
             {
                 name = topic2;
                 execute = localExecute;
@@ -974,8 +1009,9 @@ namespace Eagle._Components.Private
             string localTopic;
             string prefix;
 
-            localTopic = MaybeAdjustHelpItemTopic(topic, noPrefix ?
-                null : ShellOps.DefaultInteractiveCommandPrefix,
+            localTopic = MaybeAdjustHelpItemTopic(
+                interpreter, topic, noPrefix ? null :
+                ShellOps.DefaultInteractiveCommandPrefix,
                 textFlags, out prefix);
 
             if (localTopic == null)
@@ -6144,7 +6180,8 @@ namespace Eagle._Components.Private
             string helpType;
 
             pattern = MaybeAdjustHelpItemTopic(
-                topic, null, textFlags, out prefix, out helpType);
+                interpreter, topic, null, textFlags,
+                out prefix, out helpType);
 
             bool localShowGroups;
 

@@ -6302,6 +6302,14 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
+    if {[hasRuntimeOption globForListedLeaks]} then {
+      set mode -glob
+    } else {
+      set mode -exact
+    }
+
+    ###########################################################################
+
     if {![info exists ::no(query,afters)]} then {
       set list [after info]
     } else {
@@ -6311,7 +6319,7 @@ namespace eval ::Eagle {
     set array(afters,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) afters] != -1} then {
+        [lsearch $mode $array(listed,$index) afters] != -1} then {
       set array(afters,$index,list) $list
     }
 
@@ -6326,7 +6334,7 @@ namespace eval ::Eagle {
     set array(variables,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) variables] != -1} then {
+        [lsearch $mode $array(listed,$index) variables] != -1} then {
       set array(variables,$index,list) $list
     }
 
@@ -6341,7 +6349,7 @@ namespace eval ::Eagle {
     set array(commands,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) commands] != -1} then {
+        [lsearch $mode $array(listed,$index) commands] != -1} then {
       set array(commands,$index,list) $list
     }
 
@@ -6356,7 +6364,7 @@ namespace eval ::Eagle {
     set array(procedures,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) procedures] != -1} then {
+        [lsearch $mode $array(listed,$index) procedures] != -1} then {
       set array(procedures,$index,list) $list
     }
 
@@ -6375,7 +6383,7 @@ namespace eval ::Eagle {
     set array(namespaces,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) namespaces] != -1} then {
+        [lsearch $mode $array(listed,$index) namespaces] != -1} then {
       set array(namespaces,$index,list) $list
     }
 
@@ -6395,7 +6403,7 @@ namespace eval ::Eagle {
     set array(files,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) files] != -1} then {
+        [lsearch $mode $array(listed,$index) files] != -1} then {
       set array(files,$index,list) $list
     }
 
@@ -6415,7 +6423,7 @@ namespace eval ::Eagle {
     set array(binaryFiles,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) binaryFiles] != -1} then {
+        [lsearch $mode $array(listed,$index) binaryFiles] != -1} then {
       set array(binaryFiles,$index,list) $list
     }
 
@@ -6440,7 +6448,7 @@ namespace eval ::Eagle {
     set array(temporaryFiles,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) temporaryFiles] != -1} then {
+        [lsearch $mode $array(listed,$index) temporaryFiles] != -1} then {
       set array(temporaryFiles,$index,list) $list
     }
 
@@ -6455,7 +6463,7 @@ namespace eval ::Eagle {
     set array(channels,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) channels] != -1} then {
+        [lsearch $mode $array(listed,$index) channels] != -1} then {
       set array(channels,$index,list) $list
     }
 
@@ -6470,7 +6478,7 @@ namespace eval ::Eagle {
     set array(aliases,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) aliases] != -1} then {
+        [lsearch $mode $array(listed,$index) aliases] != -1} then {
       set array(aliases,$index,list) $list
     }
 
@@ -6484,7 +6492,7 @@ namespace eval ::Eagle {
     set array(interpreters,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) interpreters] != -1} then {
+        [lsearch $mode $array(listed,$index) interpreters] != -1} then {
       set array(interpreters,$index,list) $list
     }
 
@@ -6499,7 +6507,7 @@ namespace eval ::Eagle {
     set array(environment,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) environment] != -1} then {
+        [lsearch $mode $array(listed,$index) environment] != -1} then {
       set array(environment,$index,list) $list
     }
 
@@ -6514,7 +6522,7 @@ namespace eval ::Eagle {
     set array(loaded,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
-        [lsearch -exact $array(listed,$index) loaded] != -1} then {
+        [lsearch $mode $array(listed,$index) loaded] != -1} then {
       set array(loaded,$index,list) $list
     }
 
@@ -6553,7 +6561,7 @@ namespace eval ::Eagle {
       set array(previousPid,$index) [expr {$list != 0}]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) previousPid] != -1} then {
+          [lsearch $mode $array(listed,$index) previousPid] != -1} then {
         set array(previousPid,$index,list) $list
       }
 
@@ -6567,7 +6575,7 @@ namespace eval ::Eagle {
       set array(scopes,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) scopes] != -1} then {
+          [lsearch $mode $array(listed,$index) scopes] != -1} then {
         set array(scopes,$index,list) $list
       }
 
@@ -6581,7 +6589,7 @@ namespace eval ::Eagle {
       set array(snippets,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) snippets] != -1} then {
+          [lsearch $mode $array(listed,$index) snippets] != -1} then {
         set array(snippets,$index,list) $list
       }
 
@@ -6595,7 +6603,7 @@ namespace eval ::Eagle {
       set array(assemblies,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) assemblies] != -1} then {
+          [lsearch $mode $array(listed,$index) assemblies] != -1} then {
         set array(assemblies,$index,list) $list
       }
 
@@ -6609,7 +6617,7 @@ namespace eval ::Eagle {
       set array(processes,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) processes] != -1} then {
+          [lsearch $mode $array(listed,$index) processes] != -1} then {
         set array(processes,$index,list) $list
       }
 
@@ -6623,7 +6631,7 @@ namespace eval ::Eagle {
       set array(appDomains,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) appDomains] != -1} then {
+          [lsearch $mode $array(listed,$index) appDomains] != -1} then {
         set array(appDomains,$index,list) $list
       }
 
@@ -6637,7 +6645,7 @@ namespace eval ::Eagle {
       set array(objects,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) objects] != -1} then {
+          [lsearch $mode $array(listed,$index) objects] != -1} then {
         set array(objects,$index,list) $list
       }
 
@@ -6651,7 +6659,7 @@ namespace eval ::Eagle {
       set array(objectCallbacks,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) objectCallbacks] != -1} then {
+          [lsearch $mode $array(listed,$index) objectCallbacks] != -1} then {
         set array(objectCallbacks,$index,list) $list
       }
 
@@ -6665,7 +6673,7 @@ namespace eval ::Eagle {
       set array(objectTypes,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) objectTypes] != -1} then {
+          [lsearch $mode $array(listed,$index) objectTypes] != -1} then {
         set array(objectTypes,$index,list) $list
       }
 
@@ -6679,7 +6687,7 @@ namespace eval ::Eagle {
       set array(objectInterfaces,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) objectInterfaces] != -1} then {
+          [lsearch $mode $array(listed,$index) objectInterfaces] != -1} then {
         set array(objectInterfaces,$index,list) $list
       }
 
@@ -6693,7 +6701,7 @@ namespace eval ::Eagle {
       set array(objectNamespaces,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) objectNamespaces] != -1} then {
+          [lsearch $mode $array(listed,$index) objectNamespaces] != -1} then {
         set array(objectNamespaces,$index,list) $list
       }
 
@@ -6714,7 +6722,7 @@ namespace eval ::Eagle {
       set array(connections,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) connections] != -1} then {
+          [lsearch $mode $array(listed,$index) connections] != -1} then {
         set array(connections,$index,list) $list
       }
 
@@ -6728,7 +6736,7 @@ namespace eval ::Eagle {
       set array(transactions,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) transactions] != -1} then {
+          [lsearch $mode $array(listed,$index) transactions] != -1} then {
         set array(transactions,$index,list) $list
       }
 
@@ -6742,7 +6750,7 @@ namespace eval ::Eagle {
       set array(modules,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) modules] != -1} then {
+          [lsearch $mode $array(listed,$index) modules] != -1} then {
         set array(modules,$index,list) $list
       }
 
@@ -6756,7 +6764,7 @@ namespace eval ::Eagle {
       set array(delegates,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) delegates] != -1} then {
+          [lsearch $mode $array(listed,$index) delegates] != -1} then {
         set array(delegates,$index,list) $list
       }
 
@@ -6774,7 +6782,7 @@ namespace eval ::Eagle {
       set array(tcl,$index) $list; # verbatim
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) tcl] != -1} then {
+          [lsearch $mode $array(listed,$index) tcl] != -1} then {
         set array(tcl,$index,list) $list
       }
 
@@ -6788,7 +6796,7 @@ namespace eval ::Eagle {
       set array(tclInterps,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) tclInterps] != -1} then {
+          [lsearch $mode $array(listed,$index) tclInterps] != -1} then {
         set array(tclInterps,$index,list) $list
       }
 
@@ -6802,7 +6810,7 @@ namespace eval ::Eagle {
       set array(tclThreads,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) tclThreads] != -1} then {
+          [lsearch $mode $array(listed,$index) tclThreads] != -1} then {
         set array(tclThreads,$index,list) $list
       }
 
@@ -6816,7 +6824,7 @@ namespace eval ::Eagle {
       set array(tclCommands,$index) [llength $list]
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) tclCommands] != -1} then {
+          [lsearch $mode $array(listed,$index) tclCommands] != -1} then {
         set array(tclCommands,$index,list) $list
       }
 
@@ -6836,7 +6844,7 @@ namespace eval ::Eagle {
       set array(scriptThreads,$index) $list; # verbatim
 
       if {[info exists array(listed,$index)] && \
-          [lsearch -exact $array(listed,$index) scriptThreads] != -1} then {
+          [lsearch $mode $array(listed,$index) scriptThreads] != -1} then {
         set array(scriptThreads,$index,list) $list
       }
 
@@ -6897,6 +6905,10 @@ namespace eval ::Eagle {
     set count 0; upvar 1 $statsVarName array
     set statistics [getNamesForTestStatistics]
 
+    if {![info exists ::eagle_debugger(leakedNames)]} then {
+      set ::eagle_debugger(leakedNames) [list]
+    }
+
     maybeInvokeForTester ::beforeReportTestStatistics; # HOOK
 
     foreach statistic $statistics {
@@ -6922,6 +6934,8 @@ namespace eval ::Eagle {
 
       if {$array($statistic,after) > $array($statistic,before)} then {
         lappend array(statistics,leaked) $statistic
+        lappend ::eagle_debugger(leakedNames) $name $statistic
+
         maybeInvokeForTester [appendArgs ::leaked_ $statistic]; # HOOK
 
         if {!$quiet} then {
@@ -7060,6 +7074,27 @@ namespace eval ::Eagle {
     } else {
       return ""
     }
+  }
+
+  proc formatLeakedNames { list {default ""} } {
+    foreach {testName statisticName} $list {
+      if {[string length $testName] > 0} then {
+        if {[file exists $testName] || \
+            [file exists [file dirname $testName]]} then {
+          set testName [file tail $testName]
+        }
+      }
+
+      lappend map($testName) $statisticName
+    }
+
+    set result [list]
+
+    foreach testName [lsort [array names map]] {
+      lappend result $testName $map($testName)
+    }
+
+    return $result
   }
 
   proc pathToRegexp { path {list false} } {
@@ -11551,6 +11586,23 @@ namespace eval ::Eagle {
       }
 
       #
+      # NOTE: If any tests leaked (tracked) resources, always show that in
+      #       the summary as well.
+      #
+      if {[info exists ::eagle_debugger(leakedNames)]} then {
+        set leakedNames $::eagle_debugger(leakedNames)
+        set leaked [expr {[llength $leakedNames] / 2}]
+
+        tresult [expr {$leaked > 0 ? "Error" : "Ok"}] \
+            [appendArgs "LEAKED: " $leaked \n]
+
+        if {$leaked > 0} then {
+          tresult Error [appendArgs \
+              "LEAKED: " [formatLeakedNames $leakedNames] \n]
+        }
+      }
+
+      #
       # NOTE: Check if this build (i.e. of Eagle) has support for tracking
       #       statistics of tests that contain the "knownBug" constraint.
       #
@@ -12895,8 +12947,28 @@ namespace eval ::Eagle {
     }
 
     proc reportTestResultCounts { channel {varName ""} } {
+      #
+      # NOTE: Does the caller want to change the percent to an appropriate
+      #       value based on the overall test results?
+      #
       if {[string length $varName] > 0} then {
         upvar 1 $varName percent
+      }
+
+      #
+      # NOTE: If any tests leaked (tracked) resources, always show that in
+      #       the summary as well.
+      #
+      if {[info exists ::eagle_debugger(leakedNames)]} then {
+        set leakedNames $::eagle_debugger(leakedNames)
+        set leaked [expr {[llength $leakedNames] / 2}]
+
+        tputs $channel [appendArgs "LEAKED: " $leaked \n]
+
+        if {$leaked > 0} then {
+          tputs $channel [appendArgs \
+              "LEAKED: " [formatLeakedNames $leakedNames] \n]
+        }
       }
 
       if {$::tcltest::numTests(Passed) > 0} then {
@@ -13031,12 +13103,13 @@ namespace eval ::Eagle {
         shouldRecordTestStatistics shouldReportTestStatistics \
         maybeRecordTestStatistics maybeReportTestStatistics \
         recordTestStatistics getNamesForTestStatistics reportTestStatistics \
-        formatList formatListAsDict pathToRegexp assemblyNameToRegexp \
-        maybeGetOption inverseLsearchGlob removePathFromFileNames \
-        formatDecimal clearTestPercent reportTestPercent reportArrayGet \
-        reportTestStatisticCounts runAllTests isTestSuiteRunning \
-        getTestChannelOrDefault tryVerifyTestPath checkForAndSetTestPath \
-        configureTcltest machineToPlatform architectureForPlatform \
+        formatList formatListAsDict formatLeakedNames pathToRegexp \
+        assemblyNameToRegexp maybeGetOption inverseLsearchGlob \
+        removePathFromFileNames formatDecimal clearTestPercent \
+        reportTestPercent reportArrayGet reportTestStatisticCounts \
+        runAllTests isTestSuiteRunning getTestChannelOrDefault \
+        tryVerifyTestPath checkForAndSetTestPath configureTcltest \
+        machineToPlatform architectureForPlatform \
         calculateTestConstraintCounts getRemoteMessageRaiseError \
         getRemoteMessageLimit getRemoteMessageRetries encodeRemoteMessage \
         getRemoteMessageDirectory getRemoteMessageFileName \
