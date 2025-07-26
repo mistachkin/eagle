@@ -83,6 +83,11 @@ namespace Eagle._Interfaces.Public
         ReturnCode DoesScopeExist(string name);
         ReturnCode DoesTraceExist(string name);
 
+#if DATA
+        ReturnCode DoesDbConnectionExist(string name);
+        ReturnCode DoesDbTransactionExist(string name);
+#endif
+
 #if EMIT && NATIVE && LIBRARY
         ReturnCode DoesDelegateExist(string name);
         ReturnCode DoesModuleExist(string name);

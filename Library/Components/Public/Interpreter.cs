@@ -13170,6 +13170,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if DATA
+        public ReturnCode DoesDbConnectionExist(
+            string name /* in */
+            )
+        {
+            CheckDisposed();
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return PrivateDoesDbConnectionExist(name);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode DoesDbTransactionExist(
+            string name /* in */
+            )
+        {
+            CheckDisposed();
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return PrivateDoesDbTransactionExist(name);
+            }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if EMIT && NATIVE && LIBRARY
         public ReturnCode DoesDelegateExist(
             string name /* in */
@@ -29771,6 +29801,32 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private
+        private ReturnCode PrivateDoesDbConnectionExist(
+            string name /* in */
+            )
+        {
+            IDbConnection connection = null; /* NOT USED */
+            Result error = null; /* NOT USED */
+
+            return PrivateGetDbConnection(
+                name, LookupFlags.Exists, ref connection, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ReturnCode PrivateDoesDbTransactionExist(
+            string name /* in */
+            )
+        {
+            IDbTransaction transaction = null; /* NOT USED */
+            Result error = null; /* NOT USED */
+
+            return PrivateGetDbTransaction(
+                name, LookupFlags.Exists, ref transaction, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: This method assumes the lock is already held.
         //

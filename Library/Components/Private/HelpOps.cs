@@ -449,12 +449,24 @@ namespace Eagle._Components.Private
             if (GetIExecuteViaResolvers(interpreter,
                     topic, ref execute) == ReturnCode.Ok)
             {
-                prefix = null;
+#if false
+                int nextIndex = Index.Invalid;
 
-                if (execute is IProcedure)
-                    helpType = "procedure";
+                if (ShellOps.LooksLikeAnyInteractiveCommand(
+                        topic, ref nextIndex))
+                {
+                    prefix = topic.Substring(0, nextIndex);
+                }
                 else
-                    helpType = "command";
+                {
+                    prefix = null;
+                }
+#else
+                prefix = null;
+#endif
+
+                helpType = GetTopicTypeForIExecute(
+                    execute, topic, null, false);
 
                 return topic;
             }

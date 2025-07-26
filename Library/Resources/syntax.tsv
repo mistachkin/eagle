@@ -590,6 +590,8 @@ sql close	sql close connection
 sql connection	sql connection connection
 sql execute	sql execute ?options? connection string ?{paramName ?paramType? ?paramValue? ?paramSize? ?paramValueFlags?} ...?
 sql foreach	sql foreach ?options? connection string ?{paramName ?paramType? ?paramValue? ?paramSize? ?paramValueFlags?} ...? body
+sql hasbegun	sql hasbegun transaction
+sql isopen	sql isopen connection
 sql open	sql open ?options? connectionString
 sql transaction	#begin commit rollback
 sql transaction begin	sql transaction ?options? begin object

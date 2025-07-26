@@ -1945,7 +1945,7 @@ namespace Eagle._Components.Private
             string text
             )
         {
-            int nextIndex = 0;
+            int nextIndex = Index.Invalid; /* NOT USED */
 
             return LooksLikeAnyInteractiveCommand(text, ref nextIndex);
         }
@@ -1957,48 +1957,36 @@ namespace Eagle._Components.Private
             ref int nextIndex
             )
         {
-            return LooksLikeInteractiveCommand(text, ref nextIndex) ||
-                LooksLikeInteractiveSystemCommand(text, ref nextIndex);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static bool LooksLikeInteractiveCommand(
-            string text
-            )
-        {
-            int nextIndex = 0;
-
-            return LooksLikeInteractiveCommand(text, ref nextIndex);
+            return LooksLikeInteractiveCommand(
+                text, InteractiveSystemCommandPrefix, ref nextIndex) ||
+            LooksLikeInteractiveCommand(
+                text, InteractiveCommandPrefix, ref nextIndex);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static bool LooksLikeInteractiveCommand(
             string text,
+            string prefix,
             ref int nextIndex
             )
         {
-            if (!String.IsNullOrEmpty(text))
+            if (!String.IsNullOrEmpty(text) &&
+                !String.IsNullOrEmpty(prefix))
             {
-                string prefix = InteractiveCommandPrefix;
+                int prefixLength = prefix.Length;
+                string localText = text.Trim();
 
-                if (!String.IsNullOrEmpty(prefix))
+                if (localText.StartsWith(prefix,
+                        SharedStringOps.SystemNoCaseComparisonType))
                 {
-                    int prefixLength = prefix.Length;
-                    string localText = text.Trim();
+                    int localIndex = text.IndexOf(prefix,
+                        SharedStringOps.SystemNoCaseComparisonType);
 
-                    if (localText.StartsWith(prefix,
-                            SharedStringOps.SystemNoCaseComparisonType))
-                    {
-                        int localIndex = text.IndexOf(prefix,
-                            SharedStringOps.SystemNoCaseComparisonType);
+                    if (localIndex != Index.Invalid)
+                        nextIndex = localIndex + prefixLength;
 
-                        if (localIndex != Index.Invalid)
-                            nextIndex = localIndex + prefixLength;
-
-                        return true;
-                    }
+                    return true;
                 }
             }
 
@@ -2007,46 +1995,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: For use by the InteractiveOps.CanExecuteCommand
+        //          method only.
+        //
         public static bool LooksLikeInteractiveSystemCommand(
             string text
             )
         {
-            int nextIndex = 0;
+            int nextIndex = Index.Invalid; /* NOT USED */
 
-            return LooksLikeInteractiveSystemCommand(text, ref nextIndex);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool LooksLikeInteractiveSystemCommand(
-            string text,
-            ref int nextIndex
-            )
-        {
-            if (!String.IsNullOrEmpty(text))
-            {
-                string prefix = InteractiveSystemCommandPrefix;
-
-                if (!String.IsNullOrEmpty(prefix))
-                {
-                    int prefixLength = prefix.Length;
-                    string localText = text.Trim();
-
-                    if (localText.StartsWith(prefix,
-                            SharedStringOps.SystemNoCaseComparisonType))
-                    {
-                        int localIndex = text.IndexOf(prefix,
-                            SharedStringOps.SystemNoCaseComparisonType);
-
-                        if (localIndex != Index.Invalid)
-                            nextIndex = localIndex + prefixLength;
-
-                        return true;
-                    }
-                }
-            }
-
-            return false;
+            return LooksLikeInteractiveCommand(
+                text, InteractiveSystemCommandPrefix, ref nextIndex);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2109,14 +2069,21 @@ namespace Eagle._Components.Private
             if (String.IsNullOrEmpty(text))
                 return text;
 
-            int nextIndex = 0;
+            int nextIndex = Index.Invalid;
 
-            if (!LooksLikeInteractiveSystemCommand(text, ref nextIndex))
+            if (!LooksLikeInteractiveCommand(text,
+                    InteractiveSystemCommandPrefix, ref nextIndex))
+            {
                 return text;
-            else if (!LooksLikeInteractiveCommand(text, ref nextIndex))
+            }
+            else if (!LooksLikeInteractiveCommand(
+                    text, InteractiveCommandPrefix, ref nextIndex))
+            {
                 return text;
+            }
 
-            int index = text.IndexOfAny(Characters.WhiteSpaceChars, nextIndex);
+            int index = text.IndexOfAny(
+                Characters.WhiteSpaceChars, nextIndex);
 
             if (index == Index.Invalid)
                 return text;

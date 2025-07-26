@@ -60,6 +60,8 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
 
+FEATURE: add the [sql hasbegun] and [sql isopen] sub-commands.
+
 FEATURE: add the [debug write] sub-command to write a (diagnostic?) message to
          wherever it possibly can.
 

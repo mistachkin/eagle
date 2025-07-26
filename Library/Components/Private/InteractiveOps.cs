@@ -888,7 +888,7 @@ namespace Eagle._Components.Private
                 out interactiveEventFlags, out interactiveExpressionFlags);
 
             //
-            // NOTE: Make sure the subsitution step succeededs, if any.
+            // NOTE: Make sure the substitution step succeeded, if any.
             //
             if (!MaybeSubstituteString(
                     interpreter, text, engineFlags, interactiveEngineFlags,
@@ -1112,7 +1112,7 @@ namespace Eagle._Components.Private
             }
             else if (CanExecuteCommand(
                     text, interactiveCommandsEnabled) &&
-                ShellOps.LooksLikeInteractiveCommand(text))
+                ShellOps.LooksLikeAnyInteractiveCommand(text))
             {
                 //
                 // NOTE: Does the text end in a new line character?

@@ -78,7 +78,8 @@ namespace Eagle._Commands
         #region IEnsemble Members
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "close", "connection", "execute", "foreach",
-            "open", "transaction", "types"
+            "hasbegun", "isopen", "open", "transaction",
+            "types"
         });
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1003,6 +1004,48 @@ namespace Eagle._Commands
                                                 "wrong # args: should be \"{0} {1} ?options? connection string ?{3}paramName ?paramType? ?paramValue? ?paramSize? ?paramValueFlags?{4} ...? body\"",
                                                 this.Name, subCommand, null, Characters.OpenBrace, Characters.CloseBrace);
 
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "hasbegun":
+                                    {
+                                        if (arguments.Count == 3)
+                                        {
+                                            if (interpreter.DoesDbTransactionExist(
+                                                    arguments[2]) == ReturnCode.Ok)
+                                            {
+                                                result = true;
+                                            }
+                                            else
+                                            {
+                                                result = false;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"sql hasbegun transaction\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "isopen":
+                                    {
+                                        if (arguments.Count == 3)
+                                        {
+                                            if (interpreter.DoesDbConnectionExist(
+                                                    arguments[2]) == ReturnCode.Ok)
+                                            {
+                                                result = true;
+                                            }
+                                            else
+                                            {
+                                                result = false;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"sql isopen connection\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
