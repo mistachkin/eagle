@@ -7078,11 +7078,15 @@ namespace eval ::Eagle {
 
   proc formatLeakedNames { list {default ""} } {
     foreach {testName statisticName} $list {
-      if {[string length $testName] > 0} then {
-        if {[file exists $testName] || \
-            [file exists [file dirname $testName]]} then {
-          set testName [file tail $testName]
-        }
+      if {[string length $testName] == 0} then {
+        set testName <noName>
+      } elseif {[file exists $testName] || \
+          [file exists [file dirname $testName]]} then {
+        set testName [file tail $testName]
+      }
+
+      if {[string length $statisticName] == 0} then {
+        set statisticName <noValue>
       }
 
       lappend map($testName) $statisticName
