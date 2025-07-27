@@ -221,7 +221,7 @@
                      Exists('$(EagleLibraryToolsDir)ResGen.exe')"
           Inputs="Resources\packages.resx;Resources\sample.eagle"
           Outputs="Resources\packages.resources">
-    <Exec Command="&quot;$(EagleLibraryToolsDir)ResGen.exe&quot; Resources\packages.resx Resources\packages.resources &quot;$(MSBuildProjectDirectory)\Resources&quot;" />
+    <Exec Command="&quot;$(EagleLibraryToolsDir)ResGen.exe&quot; Resources\packages.resx Resources\packages.resources &quot;$(MSBuildProjectDirectory)&quot;" />
   </Target>
 
   <!--
