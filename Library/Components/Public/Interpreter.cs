@@ -29827,6 +29827,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal ReturnCode InternalGetDbConnection(
+            string name,
+            LookupFlags lookupFlags,
+            ref IDbConnection connection
+            )
+        {
+            Result error = null;
+
+            return PrivateGetDbConnection(
+                name, LookupFlags.Exists, ref connection, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal ReturnCode InternalGetDbTransaction(
+            string name,
+            LookupFlags lookupFlags,
+            ref IDbTransaction transaction
+            )
+        {
+            Result error = null;
+
+            return PrivateGetDbTransaction(
+                name, LookupFlags.Exists, ref transaction, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: This method assumes the lock is already held.
         //
@@ -29847,7 +29875,16 @@ namespace Eagle._Components.Public
                 {
                     if (connections.TryGetValue(name, out connection))
                     {
-                        return ReturnCode.Ok;
+                        if ((connection == null) && FlagOps.HasFlags(
+                                lookupFlags, LookupFlags.Validate, true))
+                        {
+                            error = "invalid connection";
+                            return ReturnCode.Error;
+                        }
+                        else
+                        {
+                            return ReturnCode.Ok;
+                        }
                     }
                     else
                     {
@@ -29890,7 +29927,16 @@ namespace Eagle._Components.Public
                 {
                     if (transactions.TryGetValue(name, out transaction))
                     {
-                        return ReturnCode.Ok;
+                        if ((transaction == null) && FlagOps.HasFlags(
+                                lookupFlags, LookupFlags.Validate, true))
+                        {
+                            error = "invalid transaction";
+                            return ReturnCode.Error;
+                        }
+                        else
+                        {
+                            return ReturnCode.Ok;
+                        }
                     }
                     else
                     {

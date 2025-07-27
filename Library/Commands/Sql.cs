@@ -1010,21 +1010,51 @@ namespace Eagle._Commands
                                     }
                                 case "hasbegun":
                                     {
-                                        if (arguments.Count == 3)
+                                        if ((arguments.Count == 3) || (arguments.Count == 4))
                                         {
-                                            if (interpreter.DoesDbTransactionExist(
-                                                    arguments[2]) == ReturnCode.Ok)
+                                            if (arguments.Count == 4)
                                             {
-                                                result = true;
+                                                IDbTransaction transaction = null;
+                                                IDbConnection connection = null;
+
+                                                if ((interpreter.InternalGetDbTransaction(
+                                                        arguments[2], LookupFlags.Default,
+                                                        ref transaction) == ReturnCode.Ok) &&
+                                                    (interpreter.InternalGetDbConnection(
+                                                        arguments[3], LookupFlags.Default,
+                                                        ref connection) == ReturnCode.Ok))
+                                                {
+                                                    if (Object.ReferenceEquals(
+                                                            transaction.Connection, connection))
+                                                    {
+                                                        result = true;
+                                                    }
+                                                    else
+                                                    {
+                                                        result = false;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    result = false;
+                                                }
                                             }
                                             else
                                             {
-                                                result = false;
+                                                if (interpreter.DoesDbTransactionExist(
+                                                        arguments[2]) == ReturnCode.Ok)
+                                                {
+                                                    result = true;
+                                                }
+                                                else
+                                                {
+                                                    result = false;
+                                                }
                                             }
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"sql hasbegun transaction\"";
+                                            result = "wrong # args: should be \"sql hasbegun transaction ?connection?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
