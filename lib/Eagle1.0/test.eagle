@@ -29,7 +29,7 @@
 #
 namespace eval ::Eagle {
   proc s_proc { name {args ""} {command ""} } {; # NOTE: "args" not last.
-    # stub_proc
+    # stub_procedure
     if {[string length $command] == 0} then {
       set command proc
     }
@@ -56,7 +56,7 @@ namespace eval ::Eagle {
   }
 
   proc f_proc { name args body {command ""} } {; # NOTE: "args" not last.
-    # flexible_proc
+    # flexible_procedure
     if {[string length $command] == 0} then {
       if {[isEagle] && \
           [llength [info commands nproc]] > 0} then {
