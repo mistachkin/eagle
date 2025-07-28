@@ -21471,9 +21471,9 @@ namespace Eagle._Tests
                             }
                             break;
                         }
-#if EMIT && NATIVE && LIBRARY
                     case IdentifierKind.NativeModule:
                         {
+#if EMIT && NATIVE && LIBRARY
                             if (interpreter.InternalRemoveModule(
                                     token, clientData, ref name,
                                     ref dispose,
@@ -21483,9 +21483,14 @@ namespace Eagle._Tests
                                 return ReturnCode.Error;
                             }
                             break;
+#else
+                            error = "not implemented";
+                            return ReturnCode.Error;
+#endif
                         }
                     case IdentifierKind.NativeDelegate:
                         {
+#if EMIT && NATIVE && LIBRARY
                             if (interpreter.InternalRemoveDelegate(
                                     token, clientData, ref name,
                                     ref dispose,
@@ -21495,8 +21500,11 @@ namespace Eagle._Tests
                                 return ReturnCode.Error;
                             }
                             break;
-                        }
+#else
+                            error = "not implemented";
+                            return ReturnCode.Error;
 #endif
+                        }
                     case IdentifierKind.Alias:
                         {
                             if (interpreter.InternalRemoveAlias(
@@ -21566,6 +21574,8 @@ namespace Eagle._Tests
                     case IdentifierKind.TrustedUri:
                     case IdentifierKind.TrustedType:
                     case IdentifierKind.TrustedHash:
+                    case IdentifierKind.DbConnection:
+                    case IdentifierKind.DbTransaction:
                         {
                             error = "identifier kind not supported";
                             return ReturnCode.Error;
@@ -21765,9 +21775,51 @@ namespace Eagle._Tests
                             }
                             break;
                         }
-#if EMIT && NATIVE && LIBRARY
+                    case IdentifierKind.DbConnection:
+                        {
+#if DATA
+                            if (interpreter.RemoveDbConnection(name))
+                            {
+                                token = 0; /* There is no token. */
+                            }
+                            else
+                            {
+                                error = String.Format(
+                                    "could not remove connection {0}",
+                                    FormatOps.WrapOrNull(name));
+
+                                return ReturnCode.Error;
+                            }
+                            break;
+#else
+                            error = "not implemented";
+                            return ReturnCode.Error;
+#endif
+                        }
+                    case IdentifierKind.DbTransaction:
+                        {
+#if DATA
+                            if (interpreter.RemoveDbTransaction(name))
+                            {
+                                token = 0; /* There is no token. */
+                            }
+                            else
+                            {
+                                error = String.Format(
+                                    "could not remove transaction {0}",
+                                    FormatOps.WrapOrNull(name));
+
+                                return ReturnCode.Error;
+                            }
+                            break;
+#else
+                            error = "not implemented";
+                            return ReturnCode.Error;
+#endif
+                        }
                     case IdentifierKind.NativeModule:
                         {
+#if EMIT && NATIVE && LIBRARY
                             if (interpreter.InternalRemoveModule(
                                     name, clientData, ref token,
                                     ref dispose,
@@ -21777,9 +21829,14 @@ namespace Eagle._Tests
                                 return ReturnCode.Error;
                             }
                             break;
+#else
+                            error = "not implemented";
+                            return ReturnCode.Error;
+#endif
                         }
                     case IdentifierKind.NativeDelegate:
                         {
+#if EMIT && NATIVE && LIBRARY
                             if (interpreter.InternalRemoveDelegate(
                                     name, clientData, ref token,
                                     ref dispose,
@@ -21789,8 +21846,11 @@ namespace Eagle._Tests
                                 return ReturnCode.Error;
                             }
                             break;
-                        }
+#else
+                            error = "not implemented";
+                            return ReturnCode.Error;
 #endif
+                        }
                     case IdentifierKind.Alias:
                         {
                             if (interpreter.InternalRemoveAlias(

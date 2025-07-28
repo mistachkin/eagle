@@ -3306,7 +3306,7 @@ namespace Eagle._Hosts
             resourceNames = new StringDictionary();
 
             foreach (string name in assembly.GetManifestResourceNames())
-                resourceNames[name] = assembly.ToString();
+                resourceNames[name] = assemblyString;
 
             return true;
         }

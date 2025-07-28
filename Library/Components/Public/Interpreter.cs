@@ -6422,8 +6422,10 @@ namespace Eagle._Components.Public
             bool noComplain = FlagOps.HasFlags(
                 cancelFlags, CancelFlags.NoComplain, true);
 
+#if false
             bool trace = FlagOps.HasFlags(
                 cancelFlags, CancelFlags.Trace, true);
+#endif
 
             //
             // NOTE: Cancel any outstanding script in the interpreter.
@@ -15135,6 +15137,46 @@ namespace Eagle._Components.Public
                         }
                         break;
                     }
+                case IdentifierKind.DbConnection:
+                    {
+#if DATA
+                        IDbConnection connection = null;
+
+                        if (GetDbConnection(
+                                name, lookupFlags, ref connection,
+                                ref error) == ReturnCode.Ok)
+                        {
+                            identifier = new FakeIdentifier(
+                                kind, name, new ClientData(
+                                connection, true));
+
+                            return ReturnCode.Ok;
+                        }
+#else
+                        error = "not implemented";
+#endif
+                        break;
+                    }
+                case IdentifierKind.DbTransaction:
+                    {
+#if DATA
+                        IDbTransaction transaction = null;
+
+                        if (GetDbTransaction(
+                                name, lookupFlags, ref transaction,
+                                ref error) == ReturnCode.Ok)
+                        {
+                            identifier = new FakeIdentifier(
+                                kind, name, new ClientData(
+                                transaction, true));
+
+                            return ReturnCode.Ok;
+                        }
+#else
+                        error = "not implemented";
+#endif
+                        break;
+                    }
                 case IdentifierKind.Package:
                     {
                         IPackage package = null;
@@ -15728,6 +15770,99 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private
+        #region Fake Identifier Helper Class
+#if SERIALIZATION
+        [Serializable()]
+#endif
+        [ObjectId("de4ea52c-324f-4c5f-9c3a-1cb8de2fd23d")]
+        private sealed class FakeIdentifier : IIdentifier
+        {
+            #region Public Constructors
+            public FakeIdentifier()
+                : this(IdentifierKind.None, null, null)
+            {
+                // do nothing.
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public FakeIdentifier(
+                IdentifierKind kind,   /* in */
+                string name,           /* in: OPTIONAL */
+                IClientData clientData /* in: OPTIONAL */
+                )
+            {
+                this.kind = kind;
+                this.id = AttributeOps.GetObjectId(this);
+                this.name = name;
+                this.clientData = clientData;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IIdentifierName Members
+            private string name;
+            public string Name
+            {
+                get { return name; }
+                set { throw new NotSupportedException(); }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IIdentifierBase Members
+            private IdentifierKind kind;
+            public IdentifierKind Kind
+            {
+                get { return kind; }
+                set { throw new NotSupportedException(); }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private Guid id;
+            public Guid Id
+            {
+                get { return id; }
+                set { throw new NotSupportedException(); }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IIdentifier Members
+            public string Group
+            {
+                get { throw new NotImplementedException(); }
+                set { throw new NotImplementedException(); }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public string Description
+            {
+                get { throw new NotImplementedException(); }
+                set { throw new NotImplementedException(); }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IGetClientData / ISetClientData Members
+            private IClientData clientData;
+            public IClientData ClientData
+            {
+                get { return clientData; }
+                set { throw new NotSupportedException(); }
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: This method is designed to lookup and return a named
         //       ICommand that derives from the "_Commands.Ensemble"
@@ -16268,6 +16403,70 @@ namespace Eagle._Components.Public
 
                             names = localNames;
                             return ReturnCode.Ok;
+                        }
+                    case IdentifierKind.DbConnection:
+                        {
+#if DATA
+                            if (connections == null)
+                            {
+                                error = "connections unavailable";
+                                return ReturnCode.Error;
+                            }
+
+                            localNames = new StringList(connections.Keys);
+                            return ReturnCode.Ok;
+#else
+                            error = "not implemented";
+                            return ReturnCode.Error;
+#endif
+                        }
+                    case IdentifierKind.DbTransaction:
+                        {
+#if DATA
+                            if (transactions == null)
+                            {
+                                error = "transactions unavailable";
+                                return ReturnCode.Error;
+                            }
+
+                            localNames = new StringList(transactions.Keys);
+                            return ReturnCode.Ok;
+#else
+                            error = "not implemented";
+                            return ReturnCode.Error;
+#endif
+                        }
+                    case IdentifierKind.NativeModule:
+                        {
+#if EMIT && NATIVE && LIBRARY
+                            if (modules == null)
+                            {
+                                error = "modules unavailable";
+                                return ReturnCode.Error;
+                            }
+
+                            localNames = new StringList(modules.Keys);
+                            return ReturnCode.Ok;
+#else
+                            error = "not implemented";
+                            return ReturnCode.Error;
+#endif
+                        }
+                    case IdentifierKind.NativeDelegate:
+                        {
+#if EMIT && NATIVE && LIBRARY
+                            if (delegates == null)
+                            {
+                                error = "delegates unavailable";
+                                return ReturnCode.Error;
+                            }
+
+                            localNames = new StringList(delegates.Keys);
+                            return ReturnCode.Ok;
+#else
+                            error = "not implemented";
+                            return ReturnCode.Error;
+#endif
                         }
                     case IdentifierKind.Snippet:
                         {

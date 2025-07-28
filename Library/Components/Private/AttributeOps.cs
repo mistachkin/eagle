@@ -377,8 +377,10 @@ namespace Eagle._Components.Private
             )
         {
 #pragma warning disable 162 // NOTE: Used to be struct, now class?
+#pragma warning disable 472 // NOTE: Used to be struct, now class?
             if (typedArgument == null)
                 return false;
+#pragma warning restore 472
 #pragma warning restore 162
 
             if (parameterTypes != null)
