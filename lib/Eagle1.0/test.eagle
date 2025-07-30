@@ -8756,6 +8756,12 @@ namespace eval ::Eagle {
         #
         if {$failSafe} then {
           writeFile $fileName $message; # throw (?)
+
+          set error [appendArgs \
+              "logRemoteMessage: FAIL-SAFE CREATED: " $fileName]
+
+          host result Break [appendArgs \
+              "---- " $error \n]; # NOTE: Not really an error.
         }
 
         set result [string trim [uri upload \
@@ -8765,10 +8771,10 @@ namespace eval ::Eagle {
         if {[isLogRemoteMessageOk $result]} then {
           set ok true
         } else {
-          set message [appendArgs \
+          set error [appendArgs \
               "logRemoteMessage: BAD RESULT: " $result]
 
-          host result Exception [appendArgs "---- " $message \n]
+          host result Exception [appendArgs "---- " $error \n]
 
           #
           # TODO: By default, an error will be raised here unless
@@ -8776,7 +8782,7 @@ namespace eval ::Eagle {
           #       changing this default?
           #
           if {![info exists ::no(NoErrorRemoteMessage)]} then {
-            error $message; # FAIL-SAFE
+            error $error; # FAIL-SAFE
           }
         }
 
@@ -8814,6 +8820,12 @@ namespace eval ::Eagle {
             if {$failSafe && [file exists $fileName]} then {
               catch {file delete $fileName}; # safe-to-delete
               catch {file rmdir $directory}; # maybe empty (?)
+
+              set error [appendArgs \
+                  "logRemoteMessage: FAIL-SAFE DELETED: " $fileName]
+
+              host result Ok [appendArgs \
+                  "---- " $error \n]; # NOTE: Not really an error.
             }
           } else {
             #
@@ -8822,7 +8834,23 @@ namespace eval ::Eagle {
             #       directory, for possible later (external to this
             #       process?) retries.
             #
-            writeFile $fileName $message; # throw (?)
+            if {$failSafe && [file exists $fileName]} then {
+              set error [appendArgs \
+                  "logRemoteMessage: FAIL-SAFE RETAINED: " $fileName]
+
+              host result Error [appendArgs \
+                  "---- " $error \n]; # NOTE: This is really an error.
+            } else {
+              writeFile $fileName $message; # throw (?)
+
+              if {$failSafe && [file exists $fileName]} then {
+                set error [appendArgs \
+                    "logRemoteMessage: FAIL-SAFE CREATED: " $fileName]
+
+                host result Error [appendArgs \
+                    "---- " $error \n]; # NOTE: This is really an error.
+              }
+            }
           }
         }
       }
