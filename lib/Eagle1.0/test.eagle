@@ -8603,7 +8603,7 @@ namespace eval ::Eagle {
     return $directory
   }
 
-  proc getRemoteMessageFileName { {directory ""} } {
+  proc getRemoteMessageFileName { {directory ""} {prefix ""} } {
     if {[string length $directory] == 0} then {
       set directory [getRemoteMessageDirectory]
     }
@@ -8621,9 +8621,16 @@ namespace eval ::Eagle {
       set id [pid]
     }
 
-    return [file join $directory [appendArgs $id - [format \
-        %04x [expr {$count + 1}]] - [file rootname [file \
-        tail [getTemporaryFileName]]] .lrm]]
+    if {[string length $prefix] > 0 && \
+        [regexp -nocase -- {^[_0-9A-Z]+$} $prefix]} then {
+      append prefix -
+    } else {
+      set prefix ""
+    }
+
+    return [file join $directory [appendArgs $prefix $id - \
+        [format %04x [expr {$count + 1}]] - [file rootname \
+        [file tail [getTemporaryFileName]]] .lrm]]
   }
 
   proc isLogRemoteMessageOk { value } {
@@ -8734,10 +8741,23 @@ namespace eval ::Eagle {
         set start [clock now -gmt true]
       }
 
+      set failSafe [hasRuntimeOption logRemoteMessageFailSafe]
+      set directory [getRemoteMessageDirectory]
+      set fileName [getRemoteMessageFileName $directory $hash]
       set retries [getRemoteMessageRetries]
       set ok false
 
       try {
+        #
+        # HACK: If "fail-safe" mode has been enabled (by the user),
+        #       write the message to the local queue directory and
+        #       then possible delete later if it actually ends up
+        #       logged successfully to the remote server.
+        #
+        if {$failSafe} then {
+          writeFile $fileName $message; # throw (?)
+        }
+
         set result [string trim [uri upload \
             -timeouttype network -inline -retries $retries \
             -data $query -- $uri]]
@@ -8763,18 +8783,6 @@ namespace eval ::Eagle {
         return $result
       } finally {
         catch {
-          #
-          # HACK: If the message was not logged successfully (to
-          #       the remote server), write it to the local queue
-          #       directory, for possible later (external to this
-          #       process?) retries.
-          #
-          if {!$ok} then {
-            writeFile [getRemoteMessageFileName] $message
-          }
-        }
-
-        catch {
           if {[info exists start]} then {
             set stop [clock now -gmt true]
             set prefix [expr {$ok ? "SUCCESS" : "FAILURE"}]
@@ -8792,6 +8800,29 @@ namespace eval ::Eagle {
                   ", BACKWARD time travel from " $start \
                   " to " $stop \n]
             }
+          }
+        }
+
+        catch {; # REDUNDANT (?)
+          if {$ok} then {
+            #
+            # HACK: If the message was logged successfully (to the
+            #       remote server), delete the local queue message
+            #       file if it exists (i.e. because it was written
+            #       prior to attempting the remote logging).
+            #
+            if {$failSafe && [file exists $fileName]} then {
+              catch {file delete $fileName}; # safe-to-delete
+              catch {file rmdir $directory}; # maybe empty (?)
+            }
+          } else {
+            #
+            # HACK: If the message was not logged successfully (to
+            #       the remote server), write it to the local queue
+            #       directory, for possible later (external to this
+            #       process?) retries.
+            #
+            writeFile $fileName $message; # throw (?)
           }
         }
       }

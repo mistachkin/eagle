@@ -2984,8 +2984,14 @@
   ******************************************************************************
   -->
 
+  <!--
+      HACK: This target is purposely disabled for Mono, due to its incorrect
+            handling of the UseSourcePath semantics, which causes referenced
+            file names to contain an extra "Resources" directory, etc.
+  -->
   <Target Name="EagleMessagesResGen"
-          Condition="'$(EagleMessagesResGen)' != 'false'"
+          Condition="'$(EagleMessagesResGen)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild'"
           Inputs="Resources\messages.resx"
           Outputs="Resources\messages.resources">
     <GenerateResource Sources="Resources\messages.resx"
@@ -2996,9 +3002,15 @@
   ******************************************************************************
   -->
 
+  <!--
+      HACK: This target is purposely disabled for Mono, due to its incorrect
+            handling of the UseSourcePath semantics, which causes referenced
+            file names to contain an extra "Resources" directory, etc.
+  -->
   <Target Name="EagleMessagesResGenExternals"
           Condition="'$(EagleMessagesResGen)' == 'false' And
                      '$(EagleMessagesResGenExternals)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild' And
                      ((('$(MSBuildToolsVersion)' == '4.0' Or
                         '$(MSBuildToolsVersion)' == '12.0' Or
                         '$(MSBuildToolsVersion)' == '14.0' Or
@@ -3031,9 +3043,15 @@
   ******************************************************************************
   -->
 
+  <!--
+      HACK: This target is purposely disabled for Mono, due to its incorrect
+            handling of the UseSourcePath semantics, which causes referenced
+            file names to contain an extra "Resources" directory, etc.
+  -->
   <Target Name="EagleLibraryResGen"
           Condition="'$(EagleLibraryResGen)' != 'false' And
-                     '$(EagleEmbeddedLibrary)' != 'false'"
+                     '$(EagleEmbeddedLibrary)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild'"
           Inputs="Resources\library.resx;@(LibraryResourceFilesItem)"
           Outputs="Resources\library.resources">
     <GenerateResource Sources="Resources\library.resx"
@@ -3044,10 +3062,16 @@
   ******************************************************************************
   -->
 
+  <!--
+      HACK: This target is purposely disabled for Mono, due to its incorrect
+            handling of the UseSourcePath semantics, which causes referenced
+            file names to contain an extra "Resources" directory, etc.
+  -->
   <Target Name="EagleLibraryResGenExternals"
           Condition="'$(EagleLibraryResGen)' == 'false' And
                      '$(EagleLibraryResGenExternals)' != 'false' And
                      '$(EagleEmbeddedLibrary)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild' And
                      ((('$(MSBuildToolsVersion)' == '4.0' Or
                         '$(MSBuildToolsVersion)' == '12.0' Or
                         '$(MSBuildToolsVersion)' == '14.0' Or
@@ -3080,9 +3104,15 @@
   ******************************************************************************
   -->
 
+  <!--
+      HACK: This target is purposely disabled for Mono, due to its incorrect
+            handling of the UseSourcePath semantics, which causes referenced
+            file names to contain an extra "Resources" directory, etc.
+  -->
   <Target Name="EaglePackagesResGen"
           Condition="'$(EaglePackagesResGen)' != 'false' And
-                     '$(EagleEmbeddedLibrary)' != 'false'"
+                     '$(EagleEmbeddedLibrary)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild'"
           Inputs="Resources\packages.resx;@(PackagesResourceFilesItem)"
           Outputs="Resources\packages.resources">
     <GenerateResource Sources="Resources\packages.resx"
@@ -3093,10 +3123,16 @@
   ******************************************************************************
   -->
 
+  <!--
+      HACK: This target is purposely disabled for Mono, due to its incorrect
+            handling of the UseSourcePath semantics, which causes referenced
+            file names to contain an extra "Resources" directory, etc.
+  -->
   <Target Name="EaglePackagesResGenExternals"
           Condition="'$(EaglePackagesResGen)' == 'false' And
                      '$(EaglePackagesResGenExternals)' != 'false' And
                      '$(EagleEmbeddedLibrary)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild' And
                      ((('$(MSBuildToolsVersion)' == '4.0' Or
                         '$(MSBuildToolsVersion)' == '12.0' Or
                         '$(MSBuildToolsVersion)' == '14.0' Or
@@ -3129,9 +3165,15 @@
   ******************************************************************************
   -->
 
+  <!--
+      HACK: This target is purposely disabled for Mono, due to its incorrect
+            handling of the UseSourcePath semantics, which causes referenced
+            file names to contain an extra "Resources" directory, etc.
+  -->
   <Target Name="EagleKitResGen"
           Condition="'$(EagleKitResGen)' != 'false' And
-                     '$(EagleEmbeddedLibrary)' != 'false'"
+                     '$(EagleEmbeddedLibrary)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild'"
           Inputs="Resources\kit.resx;@(KitResourceFilesItem)"
           Outputs="Resources\kit.resources">
     <GenerateResource Sources="Resources\kit.resx"
@@ -3142,10 +3184,16 @@
   ******************************************************************************
   -->
 
+  <!--
+      HACK: This target is purposely disabled for Mono, due to its incorrect
+            handling of the UseSourcePath semantics, which causes referenced
+            file names to contain an extra "Resources" directory, etc.
+  -->
   <Target Name="EagleKitResGenExternals"
           Condition="'$(EagleKitResGen)' == 'false' And
                      '$(EagleKitResGenExternals)' != 'false' And
                      '$(EagleEmbeddedLibrary)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild' And
                      ((('$(MSBuildToolsVersion)' == '4.0' Or
                         '$(MSBuildToolsVersion)' == '12.0' Or
                         '$(MSBuildToolsVersion)' == '14.0' Or

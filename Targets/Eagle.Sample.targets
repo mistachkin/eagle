@@ -71,8 +71,14 @@
             file "Sample\Resources\packages.resx" if any files are added to the
             sample script packages.
   -->
+  <!--
+      HACK: This target is purposely disabled for Mono, due to its incorrect
+            handling of the UseSourcePath semantics, which causes referenced
+            file names to contain an extra "Resources" directory, etc.
+  -->
   <Target Name="EagleSamplePackagesResGen"
-          Condition="'$(EagleSamplePackagesResGen)' != 'false'"
+          Condition="'$(EagleSamplePackagesResGen)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild'"
           Inputs="Resources\packages.resx;Resources\sample.eagle"
           Outputs="Resources\packages.resources">
     <GenerateResource Sources="Resources\packages.resx"
@@ -89,9 +95,15 @@
             file "Sample\Resources\packages.resx" if any files are added to the
             sample script packages.
   -->
+  <!--
+      HACK: This target is purposely disabled for Mono, due to its incorrect
+            handling of the UseSourcePath semantics, which causes referenced
+            file names to contain an extra "Resources" directory, etc.
+  -->
   <Target Name="EagleSamplePackagesResGenExternals"
           Condition="'$(EagleSamplePackagesResGen)' == 'false' And
                      '$(EagleSamplePackagesResGenExternals)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild' And
                      ((('$(MSBuildToolsVersion)' == '4.0' Or
                         '$(MSBuildToolsVersion)' == '12.0' Or
                         '$(MSBuildToolsVersion)' == '14.0' Or
