@@ -8743,7 +8743,8 @@ namespace eval ::Eagle {
 
       set failSafe [hasRuntimeOption logRemoteMessageFailSafe]
       set directory [getRemoteMessageDirectory]
-      set fileName [getRemoteMessageFileName $directory $hash]
+      set messageFileName [getRemoteMessageFileName $directory $hash]
+      set resultFileName [appendArgs $messageFileName .rst]
       set retries [getRemoteMessageRetries]
       set ok false
 
@@ -8755,18 +8756,34 @@ namespace eval ::Eagle {
         #       logged successfully to the remote server.
         #
         if {$failSafe} then {
-          writeFile $fileName $message; # throw (?)
+          writeFile $messageFileName $message; # throw (?)
 
           set error [appendArgs \
-              "logRemoteMessage: FAIL-SAFE CREATED: " $fileName]
+              "logRemoteMessage: FAIL-SAFE CREATED: " $messageFileName]
 
           host result Break [appendArgs \
               "---- " $error \n]; # NOTE: Not really an error.
         }
 
-        set result [string trim [uri upload \
-            -timeouttype network -inline -retries $retries \
-            -data $query -- $uri]]
+        #
+        # HACK: At first, the [catch] usage here is a bit puzzling,
+        #       e.g. a script error is caught into a local variable
+        #       (result) and then immediately re-raised?  This is
+        #       done so the resulting (error?) message is available
+        #       from inside the finally block (below), which is part
+        #       of our containing [try] command.
+        #
+        if {[catch {
+          if {[hasRuntimeOption simulateLogRemoteMessageFailure]} then {
+            error "logRemoteMessageSimulateFailure option active"
+          }
+
+          string trim [uri upload \
+              -timeouttype network -inline -retries $retries \
+              -data $query -- $uri]
+        } result]} then {
+          error $result
+        }
 
         if {[isLogRemoteMessageOk $result]} then {
           set ok true
@@ -8817,12 +8834,12 @@ namespace eval ::Eagle {
             #       file if it exists (i.e. because it was written
             #       prior to attempting the remote logging).
             #
-            if {$failSafe && [file exists $fileName]} then {
-              catch {file delete $fileName}; # safe-to-delete
+            if {$failSafe && [file exists $messageFileName]} then {
+              catch {file delete $messageFileName}; # safe-to-delete
               catch {file rmdir $directory}; # maybe empty (?)
 
               set error [appendArgs \
-                  "logRemoteMessage: FAIL-SAFE DELETED: " $fileName]
+                  "logRemoteMessage: FAIL-SAFE DELETED: " $messageFileName]
 
               host result Ok [appendArgs \
                   "---- " $error \n]; # NOTE: Not really an error.
@@ -8834,21 +8851,33 @@ namespace eval ::Eagle {
             #       directory, for possible later (external to this
             #       process?) retries.
             #
-            if {$failSafe && [file exists $fileName]} then {
+            if {$failSafe && [file exists $messageFileName]} then {
               set error [appendArgs \
-                  "logRemoteMessage: FAIL-SAFE RETAINED: " $fileName]
+                  "logRemoteMessage: FAIL-SAFE RETAINED: " $messageFileName]
 
               host result Error [appendArgs \
                   "---- " $error \n]; # NOTE: This is really an error.
             } else {
-              writeFile $fileName $message; # throw (?)
+              writeFile $messageFileName $message; # throw (?)
 
-              if {$failSafe && [file exists $fileName]} then {
-                set error [appendArgs \
-                    "logRemoteMessage: FAIL-SAFE CREATED: " $fileName]
+              if {[info exists result] && \
+                  [hasRuntimeOption logRemoteMessageResultFile]} then {
+                writeFile $resultFileName $result; # throw (?)
+              }
 
-                host result Error [appendArgs \
-                    "---- " $error \n]; # NOTE: This is really an error.
+              if {$failSafe} then {
+                if {[file exists $resultFileName]} then {
+                  set error [appendArgs \
+                      "logRemoteMessage: RESULT CREATED: " $resultFileName]
+                }
+
+                if {[file exists $messageFileName]} then {
+                  set error [appendArgs \
+                      "logRemoteMessage: FAIL-SAFE CREATED: " $messageFileName]
+
+                  host result Error [appendArgs \
+                      "---- " $error \n]; # NOTE: This is really an error.
+                }
               }
             }
           }
@@ -8868,13 +8897,24 @@ namespace eval ::Eagle {
   }
 
   proc logRemoteMessageFile {
-          fileName {uri ""} {apiKey ""} {password ""} {channel stdout}
+          messageFileName {uri ""} {apiKey ""} {password ""} {channel stdout}
           {quiet false} {autoDelete true} } {
     set result [logRemoteMessageWrapper \
-        [readFile $fileName] $uri $apiKey $password $channel $quiet]
+        [readFile $messageFileName] $uri $apiKey $password $channel $quiet]
 
     if {$autoDelete && [isLogRemoteMessageOk $result]} then {
-      file delete $fileName
+      host result Ok [appendArgs \
+          "---- logRemoteMessageFile: POSTED OK: " $messageFileName \n]
+
+      if {[file exists $messageFileName]} then {
+        file delete $messageFileName
+      }
+
+      set resultFileName [appendArgs $messageFileName .rst]
+
+      if {[file exists $resultFileName]} then {
+        file delete $resultFileName
+      }
     }
 
     return $result
@@ -8893,14 +8933,16 @@ namespace eval ::Eagle {
     set pattern [file join \
         [file normalize $directory] *.lrm]; # logRemoteMessage
 
-    foreach fileName [lsort [glob -nocomplain -- $pattern]] {
+    foreach messageFileName [lsort [glob -nocomplain -- $pattern]] {
       set result [logRemoteMessageFile \
-          $fileName $uri $apiKey $password $channel $quiet]
+          $messageFileName $uri $apiKey $password $channel $quiet]
 
       if {$stopOnError && ![isLogRemoteMessageOk $result]} then {
         error [appendArgs "logRemoteMessageQueue: " $result]
       }
     }
+
+    catch {file rmdir $directory}; # maybe empty (?)
   }
 
   proc logRemoteMessageWrapper {
@@ -8917,7 +8959,8 @@ namespace eval ::Eagle {
 
     if {[info exists ::no(NoSynchronousRemoteMessage)] || \
         [info exists ::env(NoSynchronousRemoteMessage)]} then {
-      writeFile [getRemoteMessageFileName] $message
+      set messageFileName [getRemoteMessageFileName]
+      writeFile $messageFileName $message
 
       return [execTestShell \
           [list -success Success] \
@@ -8926,7 +8969,8 @@ namespace eval ::Eagle {
           -postInitialize \
           [appendArgs \" "delayForTest " $milliseconds \"] \
           -evaluate [appendArgs \" [list logRemoteMessageFile \
-          $fileName $uri $apiKey $password $channel $quiet] \"] &]
+          $messageFileName $uri $apiKey $password $channel \
+          $quiet] \"] &]
     } else {
       delayForTest $milliseconds
 

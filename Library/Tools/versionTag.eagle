@@ -270,7 +270,8 @@ if {$argc >= 2 && $argc <= 4} then {
   #
   if {[info exists env(XDG_STARTUP_HOME)]} then {
     set settingsFileName [file join \
-        $env(XDG_STARTUP_HOME) [appendArgs $rootName .settings.eagle]]
+        $env(XDG_STARTUP_HOME) Tools Settings \
+        [appendArgs $rootName .settings.eagle]]
 
     if {[file exists $settingsFileName]} then {
       source $settingsFileName
