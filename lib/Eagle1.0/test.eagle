@@ -8869,6 +8869,9 @@ namespace eval ::Eagle {
                 if {[file exists $resultFileName]} then {
                   set error [appendArgs \
                       "logRemoteMessage: RESULT CREATED: " $resultFileName]
+
+                  host result Error [appendArgs \
+                      "---- " $error \n]; # NOTE: This is really an error.
                 }
 
                 if {[file exists $messageFileName]} then {
