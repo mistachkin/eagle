@@ -305,8 +305,12 @@ namespace eval ::Eagle {
   #       names match.  An empty string matches any name (including an empty
   #       string).
   #
-  proc matchUpdateName { name1 name2 } {
-    return [expr {[string length $name1] == 0 || $name1 eq $name2}]
+  proc matchUpdateName { name1 name2 {exactOnly false} } {
+    return [expr {
+      [string length $name1] == 0 || \
+      $name1 eq $name2 || \
+      (!$exactOnly && [string match $name1 $name2])
+    }]
   }
 
   #
@@ -314,8 +318,12 @@ namespace eval ::Eagle {
   #       match.  An empty string matches any culture name (including an
   #       empty string).
   #
-  proc matchUpdateCulture { culture1 culture2 } {
-    return [expr {[string length $culture1] == 0 || $culture1 eq $culture2}]
+  proc matchUpdateCulture { culture1 culture2 {exactOnly false} } {
+    return [expr {
+      [string length $culture1] == 0 || \
+      $culture1 eq $culture2 || \
+      (!$exactOnly && [string match $culture1 $culture2])
+    }]
   }
 
   #
@@ -331,16 +339,16 @@ namespace eval ::Eagle {
   # NOTE: This procedure returns non-zero if the specified product / update
   #       name matches the Eagle script engine.
   #
-  proc matchEngineName { name } {
-    return [matchUpdateName $name [info engine Name]]
+  proc matchEngineName { name {exactOnly false} } {
+    return [matchUpdateName $name [info engine Name] $exactOnly]
   }
 
   #
   # NOTE: This procedure returns non-zero if the specified culture name
   #       matches the one in use by the Eagle script engine.
   #
-  proc matchEngineCulture { culture } {
-    return [matchUpdateCulture $culture [info engine Culture]]
+  proc matchEngineCulture { culture {exactOnly false} } {
+    return [matchUpdateCulture $culture [info engine Culture] $exactOnly]
   }
 
   #

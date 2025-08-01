@@ -8628,9 +8628,9 @@ namespace eval ::Eagle {
       set prefix ""
     }
 
-    return [file join $directory [appendArgs $prefix $id - \
-        [format %04x [expr {$count + 1}]] - [file rootname \
-        [file tail [getTemporaryFileName]]] .lrm]]
+    return [file join $directory [appendArgs $id - [format %04x \
+        [expr {$count + 1}]] - $prefix [file rootname [file tail \
+        [getTemporaryFileName]]] .lrm]]
   }
 
   proc isLogRemoteMessageOk { value } {
@@ -8768,10 +8768,10 @@ namespace eval ::Eagle {
         #
         # HACK: At first, the [catch] usage here is a bit puzzling,
         #       e.g. a script error is caught into a local variable
-        #       (result) and then immediately re-raised?  This is
-        #       done so the resulting (error?) message is available
-        #       from inside the finally block (below), which is part
-        #       of our containing [try] command.
+        #       (result) and then eventually re-raised?  This is so
+        #       so the resulting (error?) message is available from
+        #       inside the finally block (below), which is part of
+        #       our containing [try] command.
         #
         if {[catch {
           if {[hasRuntimeOption simulateLogRemoteMessageFailure]} then {
@@ -8782,7 +8782,7 @@ namespace eval ::Eagle {
               -timeouttype network -inline -retries $retries \
               -data $query -- $uri]
         } result]} then {
-          error $result
+          set result [appendArgs "CAUGHT: " $result]
         }
 
         if {[isLogRemoteMessageOk $result]} then {
@@ -8798,7 +8798,8 @@ namespace eval ::Eagle {
           #       we are forbidden from doing so.  Maybe consider
           #       changing this default?
           #
-          if {![info exists ::no(NoErrorRemoteMessage)]} then {
+          if {![info exists ::no(NoLogRemoteMessageError)] && \
+              ![info exists ::env(NoLogRemoteMessageError)]} then {
             error $error; # FAIL-SAFE
           }
         }
@@ -8918,6 +8919,12 @@ namespace eval ::Eagle {
       if {[file exists $resultFileName]} then {
         file delete $resultFileName
       }
+
+      set directory [file dirname $messageFileName]
+
+      if {[file exists $directory]} then {
+        catch {file rmdir $directory}; # maybe empty (?)
+      }
     }
 
     return $result
@@ -8945,7 +8952,17 @@ namespace eval ::Eagle {
       }
     }
 
-    catch {file rmdir $directory}; # maybe empty (?)
+    #
+    # HACK: Even if there were no (message) files in the message
+    #       queue directory, we should (still) try to delete an
+    #       empty (?) message queue directory.  This is why this
+    #       [file rmdir] command is being used at this point, in
+    #       addition to being used in the [logRemoteMessageFile]
+    #       procedure itself.
+    #
+    if {[file exists $directory]} then {
+      catch {file rmdir $directory}; # maybe empty (?)
+    }
   }
 
   proc logRemoteMessageWrapper {
@@ -8963,6 +8980,7 @@ namespace eval ::Eagle {
     if {[info exists ::no(NoSynchronousRemoteMessage)] || \
         [info exists ::env(NoSynchronousRemoteMessage)]} then {
       set messageFileName [getRemoteMessageFileName]
+
       writeFile $messageFileName $message
 
       return [execTestShell \
