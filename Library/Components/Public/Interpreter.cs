@@ -11281,7 +11281,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal long CommandCount
+        internal long InternalCommandCount
         {
             get { lock (syncRoot) { return CommandCountNoLock; } }
         }
@@ -29106,6 +29106,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public ReturnCode GetChannelVirtualOutput(
+            string name,               /* in */
+            bool copy,                 /* in */
+            ref StringBuilder builder, /* out */
+            ref Result error           /* out */
+            )
+        {
+            CheckDisposed();
+
+            return InternalGetChannelVirtualOutput(
+                name, copy, ref builder, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode SetChannelVirtualOutput(
+            string name,      /* in */
+            bool enable,      /* in */
+            ref Result result /* out */
+            )
+        {
+            CheckDisposed();
+
+            return InternalSetChannelVirtualOutput(
+                name, enable, ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Private
         private ReturnCode AddChannel(
             string name,
@@ -34158,7 +34187,7 @@ namespace Eagle._Components.Public
             StringBuilder builder = null;
             Result error = null;
 
-            if (GetChannelVirtualOutput(
+            if (InternalGetChannelVirtualOutput(
                     name, false, ref builder,
                     ref error) == ReturnCode.Ok)
             {
@@ -34170,7 +34199,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal ReturnCode GetChannelVirtualOutput(
+        internal ReturnCode InternalGetChannelVirtualOutput(
             string name,
             bool copy,
             ref StringBuilder builder,
@@ -34202,7 +34231,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal ReturnCode SetChannelVirtualOutput(
+        internal ReturnCode InternalSetChannelVirtualOutput(
             string name,
             bool enable,
             ref Result result
@@ -41667,6 +41696,13 @@ namespace Eagle._Components.Public
         public long CreateCount
         {
             get { CheckDisposed(); /* NO-LOCK */ return PrivateCreateCount; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public long CommandCount
+        {
+            get { CheckDisposed(); /* NO-LOCK */ return InternalCommandCount; }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

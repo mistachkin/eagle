@@ -5956,14 +5956,14 @@ namespace Eagle._Commands
                                                     interpreter.InternalCultureInfo, ref enabled, ref result);
 
                                                 if (code == ReturnCode.Ok)
-                                                    code = interpreter.SetChannelVirtualOutput(
+                                                    code = interpreter.InternalSetChannelVirtualOutput(
                                                         channelId, enabled, ref result);
                                             }
                                             else
                                             {
                                                 StringBuilder builder = null;
 
-                                                code = interpreter.GetChannelVirtualOutput(
+                                                code = interpreter.InternalGetChannelVirtualOutput(
                                                     channelId, true, ref builder, ref result);
 
                                                 if (code == ReturnCode.Ok)

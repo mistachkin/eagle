@@ -8494,7 +8494,7 @@ namespace Eagle._Components.Private
 
                     if (localCode == ReturnCode.Ok)
                     {
-                        localCode = interpreter.SetChannelVirtualOutput(
+                        localCode = interpreter.InternalSetChannelVirtualOutput(
                             channelId, enabled, ref localResult);
                     }
                 }
@@ -8502,7 +8502,7 @@ namespace Eagle._Components.Private
                 {
                     StringBuilder builder = null;
 
-                    localCode = interpreter.GetChannelVirtualOutput(
+                    localCode = interpreter.InternalGetChannelVirtualOutput(
                         channelId, true, ref builder, ref localResult);
 
                     if (localCode == ReturnCode.Ok)

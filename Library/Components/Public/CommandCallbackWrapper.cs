@@ -17,6 +17,9 @@ using Eagle._Components.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+using CallbackDictionary = System.Collections.Generic.Dictionary<
+    object, Eagle._Interfaces.Public.ICallback>;
+
 namespace Eagle._Components.Public
 {
     //
@@ -59,8 +62,8 @@ namespace Eagle._Components.Public
         //       CommandCallbackWrapper instances to their CommandCallback
         //       (as ICallback) instances.
         //
-        private static readonly IDictionary<object, ICallback> callbacks =
-            new Dictionary<object, ICallback>();
+        private static readonly CallbackDictionary callbacks =
+            new CallbackDictionary();
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -155,14 +158,14 @@ namespace Eagle._Components.Public
             ICallback callback
             )
         {
-            IDictionary<object, ICallback> localCallbacks;
+            CallbackDictionary localCallbacks;
 
             lock (syncRoot)
             {
                 if (callbacks == null)
                     return 0;
 
-                localCallbacks = new Dictionary<object, ICallback>(callbacks);
+                localCallbacks = new CallbackDictionary(callbacks);
             }
 
             int count = 0;

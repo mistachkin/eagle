@@ -38,6 +38,7 @@ namespace Eagle._Interfaces.Public
         long Id { get; }
         long GroupId { get; }
         long CreateCount { get; }
+        long CommandCount { get; }
         DateTime Created { get; }
         long ThreadId { get; }
         Thread Thread { get; }

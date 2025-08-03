@@ -44,6 +44,10 @@ REFACTOR: improvements to build tools to harmonize / minimize differences with
 REFACTOR: add the InteractiveScriptLevels property to the IInteractiveContext
           interface.
 
+REFACTOR: make the GetChannelVirtualOutput and SetChannelVirtualOutput methods
+          public via the IInterpreter interface.  also, make the CommandCount
+          property public via the IInterpreter interface.
+
 REFACTOR: *BREAKING CHANGE* change the method signature for the trace filter
           callback delegate.
 

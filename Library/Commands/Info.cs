@@ -567,7 +567,7 @@ namespace Eagle._Commands
                                                 }
                                                 else
                                                 {
-                                                    result = childInterpreter.CommandCount;
+                                                    result = childInterpreter.InternalCommandCount;
                                                 }
                                             }
                                         }

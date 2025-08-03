@@ -1117,6 +1117,19 @@ namespace Eagle._Interfaces.Public
             ref Result error
             );
 
+        ReturnCode GetChannelVirtualOutput(
+            string name,
+            bool copy,
+            ref StringBuilder builder,
+            ref Result error
+            );
+
+        ReturnCode SetChannelVirtualOutput(
+            string name,
+            bool enable,
+            ref Result result
+            );
+
         ///////////////////////////////////////////////////////////////////////
 
         ReturnCode GetScope(

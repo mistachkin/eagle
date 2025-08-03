@@ -70,6 +70,10 @@ namespace eval ::Eagle {
       error "procedure command must be \[proc\] or \[nproc\]"
     }
 
+    if {[info exists ::eagle_debugger(flexibleProcedureBody)]} then {
+      append body \n\n $::eagle_debugger(flexibleProcedureBody)
+    }
+
     return [uplevel 1 [list $command $name $args $body]]
   }
 
