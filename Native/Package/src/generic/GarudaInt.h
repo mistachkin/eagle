@@ -467,6 +467,4 @@ typedef struct ClrConfigInfo {
 #define PACKAGE_INTERN
 #endif
 
-PACKAGE_INTERN void	SetPackageModule(HANDLE hModule);
-
 #endif /* _GARUDA_INT_H_ */

@@ -390,6 +390,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\generic\Garuda.c" />
+    <ClCompile Include="src\generic\GarudaClr.c" />
     <ClCompile Include="src\win\DllMain.c" />
   </ItemGroup>
   <ItemGroup>
@@ -419,12 +420,13 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\generic\Garuda.h" />
+    <ClInclude Include="src\generic\GarudaDecl.h" />
     <ClInclude Include="src\generic\GarudaInt.h" />
     <ClInclude Include="src\generic\GarudaPre.h" />
     <ClInclude Include="src\generic\pkgVersion.h" />
     <ClInclude Include="src\generic\rcVersion.h" />
+    <ClInclude Include="src\generic\stubs.h" />
     <ClInclude Include="src\win\fakeSal.h" />
-    <ClInclude Include="src\win\stubs.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Tcl\include\tcl.h" />

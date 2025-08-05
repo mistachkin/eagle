@@ -1561,6 +1561,96 @@ namespace Eagle._Tests
             return (tokens.Count == 0) ?
                 ReturnCode.Ok : ReturnCode.Error;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestCleanupIdentifiers(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            IdentifierKind kind,     /* in */
+            ref int count,           /* in, out */
+            ref ResultList errors    /* in, out */
+            )
+        {
+            if (interpreter == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid interpreter");
+                return ReturnCode.Error;
+            }
+
+            int errorCount = 0;
+            Result error; /* REUSED */
+
+            if (FlagOps.HasFlags(kind, IdentifierKind.Command, true))
+            {
+                error = null;
+
+                if (interpreter.RemoveCommands(
+                        clientData, null, CommandFlags.Core, false,
+                        false, ref count, ref error) != ReturnCode.Ok)
+                {
+                    if (error != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(error);
+                    }
+
+                    errorCount++;
+                }
+            }
+
+            if (FlagOps.HasFlags(kind, IdentifierKind.Procedure, true))
+            {
+                error = null;
+
+                if (interpreter.RemoveProcedures(
+                        clientData, null, ProcedureFlags.Library, false,
+                        false, ref count, ref error) != ReturnCode.Ok)
+                {
+                    if (error != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(error);
+                    }
+
+                    errorCount++;
+                }
+            }
+
+            if (FlagOps.HasFlags(kind, IdentifierKind.Variable, true))
+            {
+                ICallFrame frame = interpreter.CurrentGlobalFrame;
+
+                if (frame == null)
+                    frame = interpreter.GlobalFrame;
+
+                error = null;
+
+                if (interpreter.RemoveVariables(
+                        frame, null, VariableFlags.System, false, false,
+                        true, ref count, ref error) != ReturnCode.Ok)
+                {
+                    if (error != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(error);
+                    }
+
+                    errorCount++;
+                }
+            }
+
+            return (errorCount > 0) ? ReturnCode.Error : ReturnCode.Ok;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

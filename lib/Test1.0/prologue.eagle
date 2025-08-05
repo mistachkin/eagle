@@ -1641,6 +1641,10 @@ if {![info exists no([file tail [info script]])]} then {
           checkForCompileOption $test_channel NET_CORE_30
         }
 
+        if {![info exists no(compileNetCore50)]} then {
+          checkForCompileOption $test_channel NET_CORE_50
+        }
+
         if {![info exists no(compileMono)]} then {
           #
           # NOTE: For test "object-4.13".

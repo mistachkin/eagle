@@ -36,6 +36,13 @@ BOOL WINAPI		DllMain(HINSTANCE hInstance, DWORD reason,
 			    LPVOID reserved);
 
 /*
+ * NOTE: The package module handle.  This is needed to obtain the full path
+ *       to the package module file name.
+ */
+
+static volatile HMODULE hPackageModule = NULL;
+
+/*
  * NOTE: The global mutex that we create and hold while this DLL is loaded.
  *       This mutex should be visible in all user sessions.
  */
@@ -47,6 +54,61 @@ static volatile HANDLE globalMutex = NULL;
  */
 
 static volatile HANDLE mutex = NULL;
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * GetPackageModule --
+ *
+ *	This function returns the saved package module handle.
+ *
+ * Results:
+ *	The saved package module handle -OR- NULL if it is not available.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+HMODULE GetPackageModule(void)
+{
+    /*
+     * BUGBUG: We are not using any locking primitives here.
+     */
+
+    return hPackageModule;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * SetPackageModule --
+ *
+ *	This function sets the saved package module handle to the
+ *	specified value.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void SetPackageModule(
+    HMODULE hModule)		/* The new package module handle. */
+{
+    /*
+     * BUGBUG: This function is called via DllMain; therefore, we must
+     *         not use any locking primitives here.  Also, the package
+     *         mutex cannot be created and initialized until Tcl stubs
+     *         are available.
+     */
+
+    hPackageModule = hModule;
+}
 
 /*
  *----------------------------------------------------------------------

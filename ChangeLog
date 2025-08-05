@@ -48,6 +48,9 @@ REFACTOR: make the GetChannelVirtualOutput and SetChannelVirtualOutput methods
           public via the IInterpreter interface.  also, make the CommandCount
           property public via the IInterpreter interface.
 
+REFACTOR: *BREAKING CHANGE* rename Eagle Package for Tcl (Garuda), sub-command
+          [garuda bridgerunning] to [garuda clrbridgerunning].
+
 REFACTOR: *BREAKING CHANGE* change the method signature for the trace filter
           callback delegate.
 

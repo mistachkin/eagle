@@ -138,6 +138,10 @@ namespace Sample
             "NET_CORE_30",
 #endif
 
+#if NET_CORE_50
+            "NET_CORE_50",
+#endif
+
 #if NET_STANDARD_20
             "NET_STANDARD_20",
 #endif

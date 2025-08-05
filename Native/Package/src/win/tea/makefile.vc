@@ -267,7 +267,8 @@ PRJ_TEMP_DIR						= $(TEMP)\$(PROJECT)Temp
 ### The header files, both public and private, for this project.
 PRJ_GENERIC_HEADERS			= Garuda.h GarudaInt.h GarudaPre.h
 PRJ_GENERIC_HEADERS			= $(PRJ_GENERIC_HEADERS) pkgVersion.h rcVersion.h
-PRJ_WIN_HEADERS					= fakeSal.h stubs.h
+PRJ_GENERIC_HEADERS			= $(PRJ_GENERIC_HEADERS) stubs.h
+PRJ_WIN_HEADERS					= fakeSal.h
 
 ### Fallback on the default Tcl shell file name only if the one set
 ### appears to be invalid.

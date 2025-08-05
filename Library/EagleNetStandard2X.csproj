@@ -148,7 +148,13 @@
                                '$(TargetFramework)' != 'netcoreapp2.1' And
                                '$(TargetFramework)' != 'netcoreapp2.2' And
                                '$(TargetFramework)' != 'netcoreapp3.0' And
-                               '$(TargetFramework)' != 'netcoreapp3.1'"
+                               '$(TargetFramework)' != 'netcoreapp3.1' And
+                               '$(TargetFramework)' != 'net5.0' And
+                               '$(TargetFramework)' != 'net6.0' And
+                               '$(TargetFramework)' != 'net7.0' And
+                               '$(TargetFramework)' != 'net8.0' And
+                               '$(TargetFramework)' != 'net9.0' And
+                               '$(TargetFramework)' != 'net10.0'"
                     Value="$(DefineConstants);NET_20">
       <Output TaskParameter="Value" PropertyName="DefineConstants" />
     </CreateProperty>
@@ -164,7 +170,13 @@
                                '$(TargetFramework)' != 'netcoreapp2.1' And
                                '$(TargetFramework)' != 'netcoreapp2.2' And
                                '$(TargetFramework)' != 'netcoreapp3.0' And
-                               '$(TargetFramework)' != 'netcoreapp3.1'"
+                               '$(TargetFramework)' != 'netcoreapp3.1' And
+                               '$(TargetFramework)' != 'net5.0' And
+                               '$(TargetFramework)' != 'net6.0' And
+                               '$(TargetFramework)' != 'net7.0' And
+                               '$(TargetFramework)' != 'net8.0' And
+                               '$(TargetFramework)' != 'net9.0' And
+                               '$(TargetFramework)' != 'net10.0'"
                     Value="false">
       <Output TaskParameter="Value" PropertyName="EagleDetectNetFx20Sp" />
     </CreateProperty>
@@ -182,7 +194,13 @@
                                '$(TargetFramework)' == 'netcoreapp2.1' Or
                                '$(TargetFramework)' == 'netcoreapp2.2' Or
                                '$(TargetFramework)' == 'netcoreapp3.0' Or
-                               '$(TargetFramework)' == 'netcoreapp3.1'"
+                               '$(TargetFramework)' == 'netcoreapp3.1' Or
+                               '$(TargetFramework)' == 'net5.0' Or
+                               '$(TargetFramework)' == 'net6.0' Or
+                               '$(TargetFramework)' == 'net7.0' Or
+                               '$(TargetFramework)' == 'net8.0' Or
+                               '$(TargetFramework)' == 'net9.0' Or
+                               '$(TargetFramework)' == 'net10.0'"
                     Value="$(DefineConstants);NET_40">
       <Output TaskParameter="Value" PropertyName="DefineConstants" />
     </CreateProperty>
@@ -200,7 +218,13 @@
                                '$(TargetFramework)' == 'netcoreapp2.1' Or
                                '$(TargetFramework)' == 'netcoreapp2.2' Or
                                '$(TargetFramework)' == 'netcoreapp3.0' Or
-                               '$(TargetFramework)' == 'netcoreapp3.1'"
+                               '$(TargetFramework)' == 'netcoreapp3.1' Or
+                               '$(TargetFramework)' == 'net5.0' Or
+                               '$(TargetFramework)' == 'net6.0' Or
+                               '$(TargetFramework)' == 'net7.0' Or
+                               '$(TargetFramework)' == 'net8.0' Or
+                               '$(TargetFramework)' == 'net9.0' Or
+                               '$(TargetFramework)' == 'net10.0'"
                     Value="$(DefineConstants);NET_461">
       <Output TaskParameter="Value" PropertyName="DefineConstants" />
     </CreateProperty>
@@ -1283,7 +1307,13 @@
                         '$(TargetFramework)' == 'netcoreapp2.1' Or
                         '$(TargetFramework)' == 'netcoreapp2.2' Or
                         '$(TargetFramework)' == 'netcoreapp3.0' Or
-                        '$(TargetFramework)' == 'netcoreapp3.1'">
+                        '$(TargetFramework)' == 'netcoreapp3.1' Or
+                        '$(TargetFramework)' == 'net5.0' Or
+                        '$(TargetFramework)' == 'net6.0' Or
+                        '$(TargetFramework)' == 'net7.0' Or
+                        '$(TargetFramework)' == 'net8.0' Or
+                        '$(TargetFramework)' == 'net9.0' Or
+                        '$(TargetFramework)' == 'net10.0'">
    <Compile Include="Functions\Entier.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleCacheStatistics)' != 'false'">
@@ -2657,6 +2687,7 @@
       EagleCopyToNetCoreApp22;
       EagleCopyToNetCoreApp30;
       EagleCopyToNetCoreApp31;
+      EagleCopyToNetCoreApp50;
       EagleCopyToBuildTasks;
       GetDoneFiles;
       UpdateDoneFiles;

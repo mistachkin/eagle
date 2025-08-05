@@ -8213,13 +8213,14 @@ namespace Eagle._Components.Public
     {
         None = 0x0,
         Invalid = 0x1,
+
         Interpreter = 0x2,
         AppDomain = 0x4,
         AppDomainOrInterpreter = 0x8,
 
-        Process = 0x10,
-        Session = 0x20,
-        Machine = 0x40,
+        Process = 0x100, /* NOT YET IMPLEMENTED */
+        Session = 0x200, /* NOT YET IMPLEMENTED */
+        Machine = 0x400, /* NOT YET IMPLEMENTED */
 
 #if ISOLATED_INTERPRETERS
         Maximum = AppDomain,
@@ -8227,7 +8228,7 @@ namespace Eagle._Components.Public
         Maximum = AppDomainOrInterpreter,
 #endif
 
-        Isolated = 0x1000, /* INTERNAL USE ONLY */
+        Isolated = 0x10000, /* INTERNAL USE ONLY */
 
         BaseMask = Interpreter | AppDomain | AppDomainOrInterpreter,
 

@@ -425,6 +425,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\src\generic\GarudaClr.c"
+				>
+			</File>
+			<File
 				RelativePath=".\src\win\Garuda.def"
 				>
 			</File>
@@ -436,6 +440,10 @@
 			>
 			<File
 				RelativePath=".\src\generic\Garuda.h"
+				>
+			</File>
+			<File
+				RelativePath=".\src\generic\GarudaDecl.h"
 				>
 			</File>
 			<File
@@ -455,11 +463,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\src\win\fakeSal.h"
+				RelativePath=".\src\generic\stubs.h"
 				>
 			</File>
 			<File
-				RelativePath=".\src\win\stubs.h"
+				RelativePath=".\src\win\fakeSal.h"
 				>
 			</File>
 		</Filter>

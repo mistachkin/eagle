@@ -16,7 +16,7 @@ package require Garuda
 
 wm withdraw .
 
-if {![info exists i]} then { set i 0 }; incr i
+if {![info exists i]} then {set i 0}; incr i
 
 set toplevel [toplevel .example$i]
 

@@ -23998,6 +23998,25 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
+            int count = 0; /* NOT USED */
+
+            return RemoveCommands(
+                clientData, hasFlags, notHasFlags, hasAll, notHasAll,
+                ref count, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal ReturnCode RemoveCommands(
+            IClientData clientData,
+            CommandFlags? hasFlags,
+            CommandFlags? notHasFlags,
+            bool hasAll,
+            bool notHasAll,
+            ref int count,
+            ref Result error
+            )
+        {
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 // if (!IsModifiable(false, ref error))
@@ -24048,7 +24067,11 @@ namespace Eagle._Components.Public
 
                         if (InternalRemoveCommand(
                                 token, clientData, ref name,
-                                ref result) != ReturnCode.Ok)
+                                ref result) == ReturnCode.Ok)
+                        {
+                            count++;
+                        }
+                        else
                         {
                             if (errors == null)
                                 errors = new ResultList();
@@ -28709,6 +28732,94 @@ namespace Eagle._Components.Public
 
             return ReturnCode.Error;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if TEST
+        internal ReturnCode RemoveProcedures(
+            IClientData clientData,
+            ProcedureFlags? hasFlags,
+            ProcedureFlags? notHasFlags,
+            bool hasAll,
+            bool notHasAll,
+            ref int count,
+            ref Result error
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                // if (!IsModifiable(false, ref error))
+                //     return ReturnCode.Error;
+
+                if (!PrivateHasProcedures(ref error))
+                    return ReturnCode.Error;
+
+                LongList tokens = null;
+
+                foreach (ProcedurePair pair in procedures)
+                {
+                    IProcedure procedure = pair.Value;
+
+                    if (procedure == null)
+                        continue;
+
+                    ProcedureFlags procedureFlags = procedure.Flags;
+
+                    if ((hasFlags != null) && !FlagOps.HasFlags(
+                            procedureFlags, (ProcedureFlags)hasFlags,
+                            hasAll))
+                    {
+                        continue;
+                    }
+
+                    if ((notHasFlags != null) && FlagOps.HasFlags(
+                            procedureFlags, (ProcedureFlags)notHasFlags,
+                            notHasAll))
+                    {
+                        continue;
+                    }
+
+                    if (tokens == null)
+                        tokens = new LongList();
+
+                    tokens.Add(procedure.Token);
+                }
+
+                if (tokens != null)
+                {
+                    ResultList errors = null;
+
+                    foreach (long token in tokens)
+                    {
+                        string name = null; /* NOT USED */
+                        Result result = null;
+
+                        if (InternalRemoveProcedure(
+                                token, clientData, ref name,
+                                ref result) == ReturnCode.Ok)
+                        {
+                            count++;
+                        }
+                        else
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(result);
+                        }
+                    }
+
+                    if (errors != null)
+                    {
+                        error = errors;
+                        return ReturnCode.Error;
+                    }
+                }
+
+                return ReturnCode.Ok;
+            }
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -71243,6 +71354,103 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if TEST
+        internal ReturnCode RemoveVariables(
+            ICallFrame frame,
+            VariableFlags? hasFlags,
+            VariableFlags? notHasFlags,
+            bool hasAll,
+            bool notHasAll,
+            bool errorOnMissing,
+            ref int count,
+            ref Result error
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (frame == null)
+                {
+                    if (errorOnMissing)
+                    {
+                        error = "invalid call frame";
+                        return ReturnCode.Error;
+                    }
+                    else
+                    {
+                        return ReturnCode.Ok;
+                    }
+                }
+
+                VariableDictionary variables = frame.Variables;
+
+                if (variables == null)
+                {
+                    if (errorOnMissing)
+                    {
+                        error = "call frame does not support variables";
+                        return ReturnCode.Error;
+                    }
+                    else
+                    {
+                        return ReturnCode.Ok;
+                    }
+                }
+
+                StringList keys = null;
+
+                foreach (VariablePair pair in variables)
+                {
+                    string key = pair.Key;
+
+                    if (key == null) /* IMPOSSIBLE (?) */
+                        continue;
+
+                    IVariable variable = pair.Value;
+
+                    if (variable == null) /* IMPOSSIBLE (?) */
+                        continue;
+
+                    VariableFlags variableFlags = variable.Flags;
+
+                    if ((hasFlags != null) && !FlagOps.HasFlags(
+                            variableFlags, (VariableFlags)hasFlags,
+                            hasAll))
+                    {
+                        continue;
+                    }
+
+                    if ((notHasFlags != null) && FlagOps.HasFlags(
+                            variableFlags, (VariableFlags)notHasFlags,
+                            notHasAll))
+                    {
+                        continue;
+                    }
+
+                    if (keys == null)
+                        keys = new StringList();
+
+                    keys.Add(key);
+                }
+
+                if (keys != null)
+                {
+                    foreach (string key in keys)
+                    {
+                        if (key == null)
+                            continue;
+
+                        if (variables.Remove(key))
+                            count++;
+                    }
+                }
+
+                return ReturnCode.Ok;
+            }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal ReturnCode UnsetLibraryVariable(
             VariableFlags flags,
             string name,
@@ -78318,7 +78526,7 @@ namespace Eagle._Components.Public
         private void PreSetupCallFramesPhase1()
         {
             CallStack = new CallStack(this.PrivateRecursionLimit, false);
-            GlobalFrame = NewGlobalCallFrame(CallStack);
+            GlobalFrame = NewGlobalCallFrame(CallStack); /* EXEMPT */
         }
 #endif
 
@@ -104611,7 +104819,6 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        #region Dead Code
         internal ICallFrame GlobalFrame /* THREAD-SAFE */
         {
             get
@@ -104645,7 +104852,6 @@ namespace Eagle._Components.Public
 #endif
             }
         }
-        #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 

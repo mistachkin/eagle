@@ -66,6 +66,9 @@
     <ClCompile Include="src\generic\Garuda.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\generic\GarudaClr.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\win\DllMain.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -121,6 +124,9 @@
     <ClInclude Include="src\generic\Garuda.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\generic\GarudaDecl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\generic\GarudaInt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -133,10 +139,10 @@
     <ClInclude Include="src\generic\rcVersion.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\win\fakeSal.h">
+    <ClInclude Include="src\generic\stubs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\win\stubs.h">
+    <ClInclude Include="src\win\fakeSal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

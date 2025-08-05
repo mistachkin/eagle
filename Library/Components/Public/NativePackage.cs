@@ -13,6 +13,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Private;
@@ -1417,6 +1418,126 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: These methods must conform to the following native signature:
+        //
+        //       #include <coreclr_delegates.h>
+        //
+        //       typedef int (
+        //         CORECLR_DELEGATE_CALLTYPE *component_entry_point_fn
+        //       )(
+        //         void *arg, int32_t arg_size_in_bytes
+        //       );
+        //
+        #region Public CoreCLR Native API Integration Methods
+#if NET_STANDARD_21
+        //
+        // WARNING: This method is used to integrate with native code via the
+        //          native CoreCLR API.
+        //
+#if NET_CORE_50
+        [UnmanagedCallersOnly(EntryPoint = "Startup",
+            CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
+        public static int Startup(
+            IntPtr arg,           /* in */
+            int arg_size_in_bytes /* in */
+            )
+        {
+            TraceOps.DebugTrace(String.Format(
+                "Startup: entered, arg = {0}", FormatOps.WrapOrNull(arg)),
+                typeof(NativePackage).Name, TracePriority.NativeDebug);
+
+            if (arg == IntPtr.Zero)
+                return (int)ReturnCode.Error;
+
+            return Startup(Marshal.PtrToStringUTF8(arg, arg_size_in_bytes));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This method is used to integrate with native code via the
+        //          native CoreCLR API.
+        //
+#if NET_CORE_50
+        [UnmanagedCallersOnly(EntryPoint = "Control",
+            CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
+        public static int Control(
+            IntPtr arg,           /* in */
+            int arg_size_in_bytes /* in */
+            )
+        {
+            TraceOps.DebugTrace(String.Format(
+                "Control: entered, arg = {0}", FormatOps.WrapOrNull(arg)),
+                typeof(NativePackage).Name, TracePriority.NativeDebug);
+
+            if (arg == IntPtr.Zero)
+                return (int)ReturnCode.Error;
+
+            return Control(Marshal.PtrToStringUTF8(arg, arg_size_in_bytes));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This method is used to integrate with native code via the
+        //          native CoreCLR API.
+        //
+#if NET_CORE_50
+        [UnmanagedCallersOnly(EntryPoint = "Detach",
+            CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
+        public static int Detach(
+            IntPtr arg,           /* in */
+            int arg_size_in_bytes /* in */
+            )
+        {
+            TraceOps.DebugTrace(String.Format(
+                "Detach: entered, arg = {0}", FormatOps.WrapOrNull(arg)),
+                typeof(NativePackage).Name, TracePriority.NativeDebug);
+
+            if (arg == IntPtr.Zero)
+                return (int)ReturnCode.Error;
+
+            return Detach(Marshal.PtrToStringUTF8(arg, arg_size_in_bytes));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This method is used to integrate with native code via the
+        //          native CoreCLR API.
+        //
+#if NET_CORE_50
+        [UnmanagedCallersOnly(EntryPoint = "Shutdown",
+            CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
+        public static int Shutdown(
+            IntPtr arg,           /* in */
+            int arg_size_in_bytes /* in */
+            )
+        {
+            TraceOps.DebugTrace(String.Format(
+                "Shutdown: entered, arg = {0}", FormatOps.WrapOrNull(arg)),
+                typeof(NativePackage).Name, TracePriority.NativeDebug);
+
+            if (arg == IntPtr.Zero)
+                return (int)ReturnCode.Error;
+
+            return Shutdown(Marshal.PtrToStringUTF8(arg, arg_size_in_bytes));
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: These methods must conform to the following native signature:
+        //
+        //       static int pwzMethodName (String pwzArgument);
+        //
         #region Public CLR Native API Integration Methods
         //
         // WARNING: This method is used to integrate with native code via the
@@ -1757,7 +1878,7 @@ namespace Eagle._Components.Public
                                     //
                                     // NOTE: Create the TclApi object based on the
                                     //       provided Tcl library module handle.  If
-                                    //       the supplied module handle is invaild in
+                                    //       the supplied module handle is invalid in
                                     //       some way, this is where the failure will
                                     //       likely be [noticed first].
                                     //

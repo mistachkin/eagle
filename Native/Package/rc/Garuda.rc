@@ -83,11 +83,13 @@ BEGIN
 #else
             VALUE "TclStubs", "library"
 #endif /* defined(USE_TCL_PRIVATE_STUBS) */
-#if defined(USE_CLR_40)
-            VALUE "ClrVersion", CLR_VERSION_V4
+#if defined(USE_CORE_CLR)
+            VALUE "ClrVersion", "CoreCLR " CORE_CLR_VERSION_V3
+#elif defined(USE_CLR_40)
+            VALUE "ClrVersion", "CLR " CLR_VERSION_V4
 #else
-            VALUE "ClrVersion", CLR_VERSION_V2
-#endif /* defined(USE_CLR_40) */
+            VALUE "ClrVersion", "CLR " CLR_VERSION_V2
+#endif /* defined(USE_CORE_CLR) */
         END
     END
     BLOCK "VarFileInfo"

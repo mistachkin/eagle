@@ -525,7 +525,13 @@
                                '$(TargetFramework)' == 'netcoreapp2.1' Or
                                '$(TargetFramework)' == 'netcoreapp2.2' Or
                                '$(TargetFramework)' == 'netcoreapp3.0' Or
-                               '$(TargetFramework)' == 'netcoreapp3.1'"
+                               '$(TargetFramework)' == 'netcoreapp3.1' Or
+                               '$(TargetFramework)' == 'net5.0' Or
+                               '$(TargetFramework)' == 'net6.0' Or
+                               '$(TargetFramework)' == 'net7.0' Or
+                               '$(TargetFramework)' == 'net8.0' Or
+                               '$(TargetFramework)' == 'net9.0' Or
+                               '$(TargetFramework)' == 'net10.0'"
                     Value="DotNetCore">
       <Output TaskParameter="Value" PropertyName="BuildTool" />
     </CreateProperty>
@@ -645,7 +651,13 @@
                                 '$(TargetFramework)' == 'netcoreapp2.1' Or
                                 '$(TargetFramework)' == 'netcoreapp2.2' Or
                                 '$(TargetFramework)' == 'netcoreapp3.0' Or
-                                '$(TargetFramework)' == 'netcoreapp3.1')"
+                                '$(TargetFramework)' == 'netcoreapp3.1' Or
+                                '$(TargetFramework)' == 'net5.0' Or
+                                '$(TargetFramework)' == 'net6.0' Or
+                                '$(TargetFramework)' == 'net7.0' Or
+                                '$(TargetFramework)' == 'net8.0' Or
+                                '$(TargetFramework)' == 'net9.0' Or
+                                '$(TargetFramework)' == 'net10.0')"
                     Value="$(DefineConstants);NET_CORE_REFERENCES">
       <Output TaskParameter="Value" PropertyName="DefineConstants" />
     </CreateProperty>
@@ -662,7 +674,13 @@
                                 '$(TargetFramework)' == 'netcoreapp2.1' Or
                                 '$(TargetFramework)' == 'netcoreapp2.2' Or
                                 '$(TargetFramework)' == 'netcoreapp3.0' Or
-                                '$(TargetFramework)' == 'netcoreapp3.1')"
+                                '$(TargetFramework)' == 'netcoreapp3.1' Or
+                                '$(TargetFramework)' == 'net5.0' Or
+                                '$(TargetFramework)' == 'net6.0' Or
+                                '$(TargetFramework)' == 'net7.0' Or
+                                '$(TargetFramework)' == 'net8.0' Or
+                                '$(TargetFramework)' == 'net9.0' Or
+                                '$(TargetFramework)' == 'net10.0')"
                     Value="$(DefineConstants);NET_CORE_20">
       <Output TaskParameter="Value" PropertyName="DefineConstants" />
     </CreateProperty>
@@ -676,8 +694,32 @@
           Condition="'$(EagleDetectNetCore30)' != 'false'">
     <CreateProperty Condition="'$(EagleNetCore30)' != 'false' And
                                ('$(TargetFramework)' == 'netcoreapp3.0' Or
-                                '$(TargetFramework)' == 'netcoreapp3.1')"
+                                '$(TargetFramework)' == 'netcoreapp3.1' Or
+                                '$(TargetFramework)' == 'net5.0' Or
+                                '$(TargetFramework)' == 'net6.0' Or
+                                '$(TargetFramework)' == 'net7.0' Or
+                                '$(TargetFramework)' == 'net8.0' Or
+                                '$(TargetFramework)' == 'net9.0' Or
+                                '$(TargetFramework)' == 'net10.0')"
                     Value="$(DefineConstants);NET_CORE_30">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetCore50"
+          Condition="'$(EagleDetectNetCore50)' != 'false'">
+    <CreateProperty Condition="'$(EagleNetCore50)' != 'false' And
+                               ('$(TargetFramework)' == 'net5.0' Or
+                                '$(TargetFramework)' == 'net6.0' Or
+                                '$(TargetFramework)' == 'net7.0' Or
+                                '$(TargetFramework)' == 'net8.0' Or
+                                '$(TargetFramework)' == 'net9.0' Or
+                                '$(TargetFramework)' == 'net10.0')"
+                    Value="$(DefineConstants);NET_CORE_50">
       <Output TaskParameter="Value" PropertyName="DefineConstants" />
     </CreateProperty>
   </Target>
@@ -699,7 +741,13 @@
                                '$(TargetFramework)' != 'netcoreapp2.1' And
                                '$(TargetFramework)' != 'netcoreapp2.2' And
                                '$(TargetFramework)' != 'netcoreapp3.0' And
-                               '$(TargetFramework)' != 'netcoreapp3.1'"
+                               '$(TargetFramework)' != 'netcoreapp3.1' And
+                               '$(TargetFramework)' != 'net5.0' And
+                               '$(TargetFramework)' != 'net6.0' And
+                               '$(TargetFramework)' != 'net7.0' And
+                               '$(TargetFramework)' != 'net8.0' And
+                               '$(TargetFramework)' != 'net9.0' And
+                               '$(TargetFramework)' != 'net10.0'"
                     Value="$(DefineConstants);NET_20">
       <Output TaskParameter="Value" PropertyName="DefineConstants" />
     </CreateProperty>
@@ -715,7 +763,13 @@
                                '$(TargetFramework)' != 'netcoreapp2.1' And
                                '$(TargetFramework)' != 'netcoreapp2.2' And
                                '$(TargetFramework)' != 'netcoreapp3.0' And
-                               '$(TargetFramework)' != 'netcoreapp3.1'"
+                               '$(TargetFramework)' != 'netcoreapp3.1' And
+                               '$(TargetFramework)' != 'net5.0' And
+                               '$(TargetFramework)' != 'net6.0' And
+                               '$(TargetFramework)' != 'net7.0' And
+                               '$(TargetFramework)' != 'net8.0' And
+                               '$(TargetFramework)' != 'net9.0' And
+                               '$(TargetFramework)' != 'net10.0'"
                     Value="false">
       <Output TaskParameter="Value" PropertyName="EagleDetectNetFx20Sp" />
     </CreateProperty>
@@ -2171,9 +2225,7 @@
   <Target Name="EagleCopyToNetCoreApp20"
           Condition="'$(EagleCopyToNetCoreApp20)' != 'false' And
                      ('$(TargetFramework)' == 'netstandard2.0' Or
-                      '$(TargetFramework)' == 'netcoreapp2.0' Or
-                      '$(TargetFramework)' == 'netcoreapp2.1' Or
-                      '$(TargetFramework)' == 'netcoreapp2.2') And
+                      '$(TargetFramework)' == 'netcoreapp2.0') And
                      '$(OutputPath)' != '' And
                      HasTrailingSlash('$(OutputPath)') And
                      Exists('$(OutputPath)')"
@@ -2203,10 +2255,7 @@
   -->
   <Target Name="EagleCopyToNetCoreApp21"
           Condition="'$(EagleCopyToNetCoreApp21)' != 'false' And
-                     ('$(TargetFramework)' == 'netstandard2.0' Or
-                      '$(TargetFramework)' == 'netcoreapp2.0' Or
-                      '$(TargetFramework)' == 'netcoreapp2.1' Or
-                      '$(TargetFramework)' == 'netcoreapp2.2') And
+                     ('$(TargetFramework)' == 'netcoreapp2.1') And
                      '$(OutputPath)' != '' And
                      HasTrailingSlash('$(OutputPath)') And
                      Exists('$(OutputPath)')"
@@ -2236,10 +2285,7 @@
   -->
   <Target Name="EagleCopyToNetCoreApp22"
           Condition="'$(EagleCopyToNetCoreApp22)' != 'false' And
-                     ('$(TargetFramework)' == 'netstandard2.0' Or
-                      '$(TargetFramework)' == 'netcoreapp2.0' Or
-                      '$(TargetFramework)' == 'netcoreapp2.1' Or
-                      '$(TargetFramework)' == 'netcoreapp2.2') And
+                     ('$(TargetFramework)' == 'netcoreapp2.2') And
                      '$(OutputPath)' != '' And
                      HasTrailingSlash('$(OutputPath)') And
                      Exists('$(OutputPath)')"
@@ -2270,8 +2316,7 @@
   <Target Name="EagleCopyToNetCoreApp30"
           Condition="'$(EagleCopyToNetCoreApp30)' != 'false' And
                      ('$(TargetFramework)' == 'netstandard2.1' Or
-                      '$(TargetFramework)' == 'netcoreapp3.0' Or
-                      '$(TargetFramework)' == 'netcoreapp3.1') And
+                      '$(TargetFramework)' == 'netcoreapp3.0') And
                      '$(OutputPath)' != '' And
                      HasTrailingSlash('$(OutputPath)') And
                      Exists('$(OutputPath)')"
@@ -2301,9 +2346,7 @@
   -->
   <Target Name="EagleCopyToNetCoreApp31"
           Condition="'$(EagleCopyToNetCoreApp31)' != 'false' And
-                     ('$(TargetFramework)' == 'netstandard2.1' Or
-                      '$(TargetFramework)' == 'netcoreapp3.0' Or
-                      '$(TargetFramework)' == 'netcoreapp3.1') And
+                     ('$(TargetFramework)' == 'netcoreapp3.1') And
                      '$(OutputPath)' != '' And
                      HasTrailingSlash('$(OutputPath)') And
                      Exists('$(OutputPath)')"
@@ -2320,6 +2363,41 @@
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyToNetCoreApp31.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp50"
+          Condition="'$(EagleCopyToNetCoreApp50)' != 'false' And
+                     ('$(TargetFramework)' == 'net5.0' Or
+                      '$(TargetFramework)' == 'net6.0' Or
+                      '$(TargetFramework)' == 'net7.0' Or
+                      '$(TargetFramework)' == 'net8.0' Or
+                      '$(TargetFramework)' == 'net9.0' Or
+                      '$(TargetFramework)' == 'net10.0') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp50.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\net5.0"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\net5.0\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp50.done" />
   </Target>
 
   <!--
@@ -2448,6 +2526,16 @@
           SourceFiles="@(EagleCopySQLite3X64Item)"
           DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.1\x64" />
 
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net5.0')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net5.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net5.0')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net5.0\x64" />
+
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopySQLite3.done" />
   </Target>
@@ -2537,6 +2625,11 @@
           SourceFiles="@(EagleCopySystemDataSQLiteItem4)"
           DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.1" />
 
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net5.0')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net5.0" />
+
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopySystemDataSQLite.done" />
   </Target>
@@ -2625,6 +2718,11 @@
                      Exists('$(EagleBinaryOutputPath)netcoreapp3.1')"
           SourceFiles="@(EagleCopyNewtonsoftJsonItem4)"
           DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.1" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net5.0')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net5.0" />
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyNewtonsoftJson.done" />

@@ -134,7 +134,14 @@ REM
 REM HACK: Remove the .NET Core output directory names from the source.  This
 REM       is necessary to make the release process consistent.
 REM
-FOR %%D IN (netcoreapp2.0 netcoreapp2.1 netcoreapp2.2 netcoreapp3.0 netcoreapp3.1 netstandard2.0 netstandard2.1) DO (
+SET NETCOREDIRS=netcoreapp2.0 netcoreapp2.1 netcoreapp2.2 netcoreapp3.0
+SET NETCOREDIRS=%NETCOREDIRS% netcoreapp3.1 net5.0 net6.0 net7.0 net8.0
+SET NETCOREDIRS=%NETCOREDIRS% net9.0 net10.0
+SET NETCOREDIRS=%NETCOREDIRS% netstandard2.0 netstandard2.1
+
+%_VECHO% NetCoreDirs = '%NETCOREDIRS%'
+
+FOR %%D IN (%NETCOREDIRS%) DO (
   IF EXIST "%SOURCE%\bin\%CONFIGURATION%\bin\%%D\*.dll" (
     %__ECHO% MOVE /Y "%SOURCE%\bin\%CONFIGURATION%\bin\%%D\*" "%SOURCE%\bin\%CONFIGURATION%\bin\"
 

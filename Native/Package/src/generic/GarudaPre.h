@@ -31,18 +31,23 @@
 /*
  * NOTE: For now, only enable use of the latest version of the CLR if we are
  *       compiling with the MSVC compiler that shipped with Visual Studio 2010
- *       or higher -AND- the CLR_40 compile-time option is enabled.
+ *       or higher -AND- the CLR_40 compile-time option is enabled; otherwise,
+ *       we probably want to use the CoreCLR.
  */
 
-#if defined(_MSC_VER) && _MSC_VER >= 1600 && defined(CLR_40)
-  #define USE_CLR_40
-#elif defined(RC_MSC_VER) && RC_MSC_VER >= 1600 && defined(CLR_40)
-  #define USE_CLR_40
+#if defined(CORE_CLR)
+#  define USE_CORE_CLR
+#elif defined(CLR_40)
+#  if defined(_MSC_VER) && _MSC_VER >= 1600
+#    define USE_CLR_40
+#  elif defined(RC_MSC_VER) && RC_MSC_VER >= 1600
+#    define USE_CLR_40
+#  endif
 #endif
 
 /*
- * NOTE: These are the primary (major) versions of the CLR that this package
- *       knows about.
+ * NOTE: These are the primary (major) versions of the CLR and CoreCLR that
+ *       this package knows about.
  */
 
 #ifndef CLR_VERSION_V2
@@ -51,6 +56,10 @@
 
 #ifndef CLR_VERSION_V4
 #  define CLR_VERSION_V4			"v4.0.30319"
+#endif
+
+#ifndef CORE_CLR_VERSION_V3
+#  define CORE_CLR_VERSION_V3			"v3.0+"
 #endif
 
 #endif /* _GARUDA_PRE_H_ */

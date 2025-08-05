@@ -670,7 +670,7 @@ runTest {test tclLoad-5.1.2 {Garuda status (Eagle)} -body {
 ###############################################################################
 
 runTest {test tclLoad-6.1.1 {Garuda status (Tcl)} -body {
-  garuda bridgerunning
+  garuda clrbridgerunning
 } -constraints {tcl garuda} -match regexp -result {^0|1$}}
 
 ###############################################################################
@@ -680,7 +680,7 @@ runTest {test tclLoad-6.1.2 {Garuda status (Eagle)} -body {
   # NOTE: The bridge must be running since this test is constrained to
   #       run only in Eagle; therefore, the result must always be "1".
   #
-  tcl eval [tcl primary] garuda bridgerunning
+  tcl eval [tcl primary] garuda clrbridgerunning
 } -constraints {eagle garuda} -result {1}}
 
 ###############################################################################
@@ -756,7 +756,7 @@ runTest {test tclLoad-11.1.1 {Garuda state (Tcl)} -body {
 } -constraints {tcl garuda} -match regexp -result {^packageMutex 0x[0-9A-F]+\
 hPackageModule 0x[0-9A-F]+ packageFileName \{.*\} lTclStubs \d+ hTclModule\
 0x[0-9A-F]+ pTclStubs 0x[0-9A-F]+(?: pClrMetaHost 0x[0-9A-F]+ pClrRuntimeInfo\
-0x[0-9A-F]+)? pClrRuntimeHost 0x[0-9A-F]+ bClrStarted (?:0|1) bBridgeStarted\
+0x[0-9A-F]+)? pClrRuntimeHost 0x[0-9A-F]+ bClrStarted (?:0|1) bClrBridgeStarted\
 (?:0|1)$}}
 
 ###############################################################################
@@ -766,7 +766,7 @@ runTest {test tclLoad-11.1.2 {Garuda state (Eagle)} -body {
 } -constraints {eagle garuda} -match regexp -result {^packageMutex 0x[0-9A-F]+\
 hPackageModule 0x[0-9A-F]+ packageFileName \{.*\} lTclStubs \d+ hTclModule\
 0x[0-9A-F]+ pTclStubs 0x[0-9A-F]+(?: pClrMetaHost 0x[0-9A-F]+ pClrRuntimeInfo\
-0x[0-9A-F]+)? pClrRuntimeHost 0x[0-9A-F]+ bClrStarted (?:0|1) bBridgeStarted\
+0x[0-9A-F]+)? pClrRuntimeHost 0x[0-9A-F]+ bClrStarted (?:0|1) bClrBridgeStarted\
 (?:0|1)$}}
 
 ###############################################################################
@@ -924,7 +924,7 @@ runTest {test tclLoad-12.1 {Garuda auto-start with SafeBase (Tcl)} -setup {
       [catch {$interp eval package present Garuda} msg] $msg \
       [catch {$interp eval package require Garuda} msg] $msg \
       [catch {$interp eval package present Garuda} msg] $msg \
-      [catch {$interp eval garuda bridgerunning} msg] $msg \
+      [catch {$interp eval garuda clrbridgerunning} msg] $msg \
       [catch {$interp eval eagle clock seconds} msg] $msg \
       [catch {$interp eval eagle pwd} msg] $msg
 } -cleanup {
@@ -1005,7 +1005,7 @@ runTest {test tclLoad-12.2 {Garuda command with SafeBase (Tcl)} -setup {
       [catch {$interp eval package present Garuda} msg] $msg \
       [catch {$interp eval garuda packageid} msg] $msg \
       [catch {$interp eval garuda clrrunning} msg] $msg \
-      [catch {$interp eval garuda bridgerunning} msg] $msg \
+      [catch {$interp eval garuda clrbridgerunning} msg] $msg \
       [catch {$interp eval garuda clrversion} msg] $msg \
       [catch {$interp eval garuda clrappdomainid} msg] $msg \
       [catch {

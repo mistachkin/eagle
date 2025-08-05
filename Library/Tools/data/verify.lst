@@ -1492,14 +1492,16 @@ set eagle_manifests(source) {
   Eagle/Native/Package/Scripts/ex_winForms.tcl
   Eagle/Native/Package/src/generic/Garuda.c
   Eagle/Native/Package/src/generic/Garuda.h
+  Eagle/Native/Package/src/generic/GarudaClr.c
+  Eagle/Native/Package/src/generic/GarudaDecls.h
   Eagle/Native/Package/src/generic/GarudaInt.h
   Eagle/Native/Package/src/generic/GarudaPre.h
   Eagle/Native/Package/src/generic/pkgVersion.h
   Eagle/Native/Package/src/generic/rcVersion.h
+  Eagle/Native/Package/src/generic/stubs.h
   Eagle/Native/Package/src/win/DllMain.c
   Eagle/Native/Package/src/win/fakeSal.h
   Eagle/Native/Package/src/win/Garuda.def
-  Eagle/Native/Package/src/win/stubs.h
   Eagle/Native/Package/src/win/tea/coffbase.txt
   Eagle/Native/Package/src/win/tea/makefile.vc
   Eagle/Native/Package/src/win/tea/nmakehlp.c

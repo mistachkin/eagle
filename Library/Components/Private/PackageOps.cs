@@ -138,7 +138,7 @@ namespace Eagle._Components.Private
         public static int VersionCompare(
             Version version1,
             Version version2
-            )
+            ) /* ENTRY-POINT */
         {
             if ((version1 != null) && (version2 != null))
                 return version1.CompareTo(version2);
@@ -156,7 +156,7 @@ namespace Eagle._Components.Private
             Version version1,
             Version version2,
             bool exact
-            )
+            ) /* ENTRY-POINT */
         {
             if (exact)
                 return (VersionCompare(version1, version2) == 0);
@@ -169,7 +169,7 @@ namespace Eagle._Components.Private
         public static bool MaybeSwapVersion(
             ref Version version1,
             ref Version version2
-            )
+            ) /* ENTRY-POINT */
         {
             if (VersionCompare(version1, version2) == 1)
             {
@@ -198,7 +198,7 @@ namespace Eagle._Components.Private
             PackageFlags flags,
             Version loaded,
             VersionStringDictionary ifNeeded
-            )
+            ) /* ENTRY-POINT */
         {
             return new _Packages.Core(new PackageData(
                 name, group, description, clientData, indexFileName,
@@ -242,7 +242,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static bool IsDirectory(
+        private static bool IsDirectory(
             Interpreter interpreter,   /* in: OPTIONAL */
             string directory,          /* in */
             PackageIfNeededFlags flags /* in */
@@ -362,7 +362,7 @@ namespace Eagle._Components.Private
         // HACK: This method cannot (currently) fail.  The error parameter
         //       is here just in case this needs to change in the future.
         //
-        public static string GetLoadCommand(
+        private static string GetLoadCommand(
             Interpreter interpreter, /* in: NOT USED */
             string commandName,      /* in: OPTIONAL */
             byte[] publicKeyToken,   /* in: OPTIONAL */
@@ -408,7 +408,7 @@ namespace Eagle._Components.Private
         // HACK: This method cannot (currently) fail.  The error parameter
         //       is here just in case this needs to change in the future.
         //
-        public static string GetIfNeededCommand(
+        private static string GetIfNeededCommand(
             Interpreter interpreter, /* in: NOT USED */
             string commandName,      /* in: OPTIONAL */
             string packageName,      /* in: OPTIONAL */
@@ -749,7 +749,7 @@ namespace Eagle._Components.Private
             CultureInfo cultureInfo,          /* in: OPTIONAL */
             PackageIfNeededFlags flags,       /* in */
             ref Result result                 /* out */
-            )
+            ) /* ENTRY-POINT */
         {
             if (mappings == null)
             {
@@ -780,7 +780,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode CreateAndEvaluateIfNeededScript(
+        private static ReturnCode CreateAndEvaluateIfNeededScript(
             Interpreter interpreter,    /* in */
             string fileNameOnly,        /* in */
             StringList typeNames,       /* in */
@@ -909,7 +909,7 @@ namespace Eagle._Components.Private
             string commandName,      /* in: OPTIONAL */
             PathList paths,          /* in: OPTIONAL */
             ref Result error         /* out: NOT USED */
-            )
+            ) /* ENTRY-POINT */
         {
             //
             // TODO: This method contains several hard-coded option names
@@ -970,7 +970,7 @@ namespace Eagle._Components.Private
             string name,                           /* in, script name */
             PathComparisonType pathComparisonType, /* in */
             bool verbose                           /* in */
-            )
+            ) /* ENTRY-POINT */
         {
             string fileName = null;
             Result error = null;
@@ -1006,7 +1006,7 @@ namespace Eagle._Components.Private
             PathComparisonType pathComparisonType, /* in */
             ref string fileName,                   /* out */
             ref Result error                       /* out */
-            )
+            ) /* ENTRY-POINT */
         {
             if (interpreter == null)
             {
@@ -2978,7 +2978,7 @@ namespace Eagle._Components.Private
             PackageIndexFlags packageIndexFlags,   /* in */
             PathComparisonType pathComparisonType, /* in */
             ref Result error                       /* out */
-            )
+            ) /* ENTRY-POINT */
         {
             PackageIndexDictionary packageIndexes = null;
 
@@ -2997,7 +2997,7 @@ namespace Eagle._Components.Private
             PathComparisonType pathComparisonType,     /* in */
             ref PackageIndexDictionary packageIndexes, /* in, out */
             ref Result error                           /* out */
-            )
+            ) /* ENTRY-POINT */
         {
             PackageContextClientData packageContext = null;
 
@@ -3016,7 +3016,7 @@ namespace Eagle._Components.Private
             ref PackageIndexDictionary packageIndexes,   /* in, out */
             ref PackageContextClientData packageContext, /* in, out */
             ref Result error                             /* out */
-            )
+            ) /* ENTRY-POINT */
         {
             bool host = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.HostMask, false);
@@ -3606,7 +3606,7 @@ namespace Eagle._Components.Private
             IPlugin plugin,
             IRuleSet ruleSet,
             ref Result error
-            )
+            ) /* ENTRY-POINT */
         {
             if (interpreter == null)
             {
@@ -3756,7 +3756,7 @@ namespace Eagle._Components.Private
             IPlugin plugin,
             IRuleSet ruleSet,
             ref Result error
-            )
+            ) /* ENTRY-POINT */
         {
             if (interpreter == null)
             {
