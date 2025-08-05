@@ -6331,6 +6331,22 @@ namespace eval ::Eagle {
 
     if {![info exists ::no(query,globals)]} then {
       set list [info globals]
+
+      #
+      # HACK: There are "special" variables that are created by the
+      #       test suite itself, e.g. "test_suite_errors", that are
+      #       NEVER to be considered as "leaked", i.e. even if they
+      #       are missing in the "before" list -AND- present in the
+      #       "after" list.
+      #
+      if {$index eq "after" && \
+          ![info exists ::no(fixup,globals)]} then {
+        set varIndex [lsearch -exact $list test_suite_errors]
+
+        if {$varIndex != -1} then {
+          set list [lreplace $list $varIndex $varIndex]
+        }
+      }
     } else {
       set list [list]
     }
