@@ -5996,18 +5996,28 @@ namespace eval ::Eagle {
           $script
 
       #
-      # NOTE: If this test failed and the stop-on-failure flag is set,
-      #       raise an error now.  If we are being run from inside
-      #       [runAllTests], this will also serve to signal it to stop
-      #       processing further test files.
+      # NOTE: Upon success -OR- failure, invoke the appropriate test
+      #       hooks, if any.
       #
-      if {$code != 0 && [isStopOnFailure]} then {
-        tresult Error "OVERALL RESULT: STOP-ON-FAILURE\n"
-        maybeInvokeForTester ::beforeStopOnFailure; # HOOK
+      if {$code == 0} then {
+        maybeInvokeForTester ::testSuccess; # HOOK
+      } else {
+        #
+        # NOTE: If this test failed and the stop-on-failure flag is
+        #       set, raise an error now.  If we are being run from
+        #       inside [runAllTests], this will also serve to signal
+        #       it to stop processing further test files.
+        #
+        maybeInvokeForTester ::testFailure; # HOOK
 
-        unset -nocomplain ::test_suite_running
-        if {[isEagle]} then {igap MaybeResetLastError}
-        error ""; # no message
+        if {[isStopOnFailure]} then {
+          tresult Error "OVERALL RESULT: STOP-ON-FAILURE\n"
+          maybeInvokeForTester ::beforeStopOnFailure; # HOOK
+
+          unset -nocomplain ::test_suite_running
+          if {[isEagle]} then {igap MaybeResetLastError}
+          error ""; # no message
+        }
       }
     } else {
       if {$error} then {
