@@ -71,6 +71,7 @@ Components: Application\Core\x64; Source: ..\Externals\MSVCPP\vcredist_x64_{#VcR
 #endif
 
 Components: Application\Core\{#Processor}; Source: {#SrcBinDir}\Garuda.dll; DestDir: {app}; Flags: restartreplace uninsrestartdelete
+Components: Application\Core\{#Processor}; Source: {#SrcCoreBinDir}\GarudaCore.dll; DestDir: {app}; Flags: restartreplace uninsrestartdelete
 Components: Application\Core\{#Processor} and Application\Diagnostic\Symbols; Source: {#SrcBinDir}\Garuda.pdb; DestDir: {app}; Flags: restartreplace uninsrestartdelete
 Components: Application\Core\Library; Source: {#SrcLibDir}\*; DestDir: {app}; Flags: restartreplace uninsrestartdelete recursesubdirs createallsubdirs
 Components: Application; Source: ..\license.terms; DestDir: {app}\doc; Flags: restartreplace uninsrestartdelete

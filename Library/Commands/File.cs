@@ -112,7 +112,7 @@ namespace Eagle._Commands
             "readable", "rename", "rights", "rmdir", "rootname",
             "rootpath", "same", "sddl", "separator", "size",
             "split", "stat", "system", "tail", "tempname", "temppath",
-            "touch", "trusted", "type", "under", "validname", "verified",
+            "tildeexpand", "touch", "trusted", "type", "under", "validname", "verified",
             "version", "volumes", "writable"
         }); 
 
@@ -2344,6 +2344,30 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"file temppath\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "tildeexpand":
+                                    {
+                                        if (arguments.Count == 3)
+                                        {
+                                            string path = PathOps.TildeSubstitution(
+                                                interpreter, arguments[2], true, true);
+
+                                            if (path != null)
+                                            {
+                                                result = path;
+                                            }
+                                            else
+                                            {
+                                                result = "tilde expansion failed";
+                                                code = ReturnCode.Error;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"file tildeexpand path\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

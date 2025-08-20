@@ -9,17 +9,28 @@
  * RCS: @(#) $Id: $
  */
 
-#include <stdio.h>	/* NOTE: For fprintf, swprintf, va_list, etc. */
-#include <string.h>	/* NOTE: For memset, wcslen, wcsncpy, etc. */
+#include "GarudaPre.h"		/* NOTE: For private header setup. */
+#include <stdio.h>		/* NOTE: For fprintf, swprintf, va_list, etc. */
+#include <string.h>		/* NOTE: For memset, wcslen, wcsncpy, etc. */
 
-#include "GarudaPre.h"	/* NOTE: For private header setup. */
-#include "tcl.h"	/* NOTE: For public Tcl API. */
-#include "tclInt.h"	/* HACK: For internal Tcl API. */
-#include "stubs.h"	/* NOTE: #define and #pragma magic for stubs. */
-#include "pkgVersion.h"	/* NOTE: Package version information. */
-#include "GarudaInt.h"	/* NOTE: For private package API. */
-#include "Garuda.h"	/* NOTE: For public package API. */
-#include "GarudaDecl.h"	/* NOTE: For private package declarations. */
+#if !defined(_MSC_VER)
+#  include <limits.h>		/* NOTE: For INT_MAX, etc. */
+#  include <wchar.h>		/* NOTE: For wchar_t, etc. */
+#endif
+
+#include "tcl.h"		/* NOTE: For public Tcl API. */
+#include "tclInt.h"		/* HACK: For internal Tcl API. */
+#include "stubs.h"		/* NOTE: #define and #pragma magic for stubs. */
+#include "GarudaPal.h"		/* HACK: For portability API. */
+#include "pkgVersion.h"		/* NOTE: Package version information. */
+#include "Garuda.h"		/* NOTE: For public package API. */
+#include "GarudaInt.h"		/* NOTE: For private package API. */
+#include "GarudaDecls.h"	/* NOTE: For private package declarations. */
+
+#if !defined(_WIN32)
+#  include "ConvertUTF_v2.h"	/* NOTE: Unicode UTF-* reference conversions. */
+#  include "GarudaStr.h"	/* NOTE: For private string API. */
+#endif
 
 /*
  * NOTE: Private functions defined in this file that are only included when
@@ -39,7 +50,6 @@ static BOOL		GetPackageModuleFileName(HMODULE hModule,
 			    LPWSTR *pFileName);
 static BOOL		SetClrTclStubs(ClrTclStubs *pTclStubs, BOOL bTip285,
 			    BOOL bTip335, BOOL bTip336);
-static int		TracePrintf(LPCSTR format, ...);
 static LPCWSTR		GetTclErrorMessage(LPCWSTR source, int code);
 static LPCWSTR		GetResultValue(Tcl_Interp *interp);
 static LPWSTR		GetStringObjectValue(Tcl_Interp *interp,
@@ -63,11 +73,11 @@ static int		GetClrConfigInfo(Tcl_Interp *interp, BOOL bForLogOnly,
 static void		FreeClrConfigInfo(ClrConfigInfo **ppConfigInfo);
 static void		MaybeCombineMethodFlags(ClrConfigInfo *pConfigInfo,
 			    MethodFlags *pMethodFlags);
-static int		GetAndExecuteClrMethod(HANDLE hModule,
+static int		GetAndExecuteClrMethod(HMODULE hModule,
 			    ClrTclStubs *pTclStubs, ClrConfigInfo *pConfigInfo,
 			    Tcl_Interp *interp, LPCWSTR argument,
 			    MethodFlags methodFlags);
-static int		DemandExecuteClrMethod(HANDLE hModule,
+static int		DemandExecuteClrMethod(HMODULE hModule,
 			    ClrTclStubs *pTclStubs, ClrConfigInfo *pConfigInfo,
 			    Tcl_Interp *interp, Tcl_Obj *assemblyPathPtr,
 			    Tcl_Obj *typeNamePtr, Tcl_Obj *methodNamePtr,
@@ -114,7 +124,7 @@ static volatile LONG lTclStubs = 0;
  *       from the [already] loaded Tcl library.
  */
 
-static volatile HANDLE hTclModule = NULL;
+static volatile HMODULE hTclModule = NULL;
 
 /*
  * NOTE: The Tcl C API function pointers required by the Eagle native Tcl
@@ -124,6 +134,57 @@ static volatile HANDLE hTclModule = NULL;
  */
 
 static ClrTclStubs uTclStubs = { 0 };
+
+#if !defined(_WIN32)
+/*
+ *----------------------------------------------------------------------
+ *
+ * GetPackageModule --
+ *
+ *	This function returns a value that should be used in place of
+ *	the package module handle on non-Windows operating systems.
+ *
+ * Results:
+ *	The package module handle -OR- NULL if it is not available.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+HMODULE GetPackageModule(void)
+{
+    return (HMODULE)Garuda_Init;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * SetPackageModule --
+ *
+ *	This function sets the package module handle to the specified
+ *	value.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void SetPackageModule(
+    HMODULE hModule)		/* The new package module handle. */
+{
+    /*
+     * HACK: This function does not actually do anything.  It is
+     *       included for consistency, because it is declared in
+     *       the "GarudaDecls.h" header file.
+     */
+}
+#endif
 
 #if defined(USE_TCL_PRIVATE_STUBS)
 /*
@@ -234,7 +295,7 @@ static BOOL GetPackageModuleFileName(
      */
 
     size = UNICODE_STRING_MAX_CHARS;
-    result[0] = (LPWSTR) attemptckalloc((size + 1) * sizeof(WCHAR));
+    result[0] = (LPWSTR)attemptckalloc((size + 1) * sizeof(WCHAR));
 
     if (result[0] == NULL) {
 	*pFileName = NULL;
@@ -251,7 +312,12 @@ static BOOL GetPackageModuleFileName(
      */
 
     memset(result[0], 0, (size + 1) * sizeof(WCHAR));
+
+#if defined(_WIN32)
     size = GetModuleFileNameW(hModule, result[0], size); /* NON-PORTABLE */
+#else
+    Cvt_get_module_file_name(size, hModule, result[0], size);
+#endif
 
     if (size == 0) {
 	ckfree((LPVOID) result[0]);
@@ -266,7 +332,7 @@ static BOOL GetPackageModuleFileName(
      *       to the caller.
      */
 
-    result[1] = (LPWSTR) attemptckalloc((size + 1) * sizeof(WCHAR));
+    result[1] = (LPWSTR)attemptckalloc((size + 1) * sizeof(WCHAR));
 
     if (result[1] == NULL) {
 	ckfree((LPVOID) result[0]);
@@ -286,6 +352,12 @@ static BOOL GetPackageModuleFileName(
     ckfree((LPVOID) result[0]);
     *pFileName = result[1];
     return TRUE;
+
+#if !defined(_WIN32)
+done:
+
+    return FALSE;
+#endif
 }
 
 /*
@@ -417,7 +489,7 @@ static BOOL SetClrTclStubs(
  *----------------------------------------------------------------------
  */
 
-static int TracePrintf(
+int TracePrintf(
     LPCSTR format,		/* The "printf-style" format string. */
     ...)			/* The extra arguments, if any. */
 {
@@ -550,7 +622,11 @@ void TclLog(
     if ((interp == NULL) || (logCommand == NULL))
 	return;
 
+#if defined(_WIN32)
     objv[0] = Tcl_NewUnicodeObj(logCommand, -1);
+#else
+    Cvt_NewUnicodeObj(objv[0], logCommand, -1);
+#endif
 
     if (objv[0] == NULL)
 	goto done;
@@ -568,10 +644,16 @@ void TclLog(
 
     while (1) {
 	LPCWSTR arg = va_arg(argList, LPCWSTR);
+
 	if (arg == NULL) {
 	    break;
 	}
+
+#if defined(_WIN32)
 	Tcl_AppendUnicodeToObj(objv[1], arg, -1);
+#else
+	Cvt_AppendUnicodeToObj(objv[1], arg, -1);
+#endif
     }
 
     va_end(argList);
@@ -583,17 +665,25 @@ void TclLog(
     if (code == TCL_OK) {
 	LPCWSTR args;
 
+#if defined(_WIN32)
 	Tcl_AppendUnicodeToObj(objv[1], L"\n", -1);
 	args = Tcl_GetUnicode(objv[1]);
-
-#if defined(_WIN32)
-	OutputDebugStringW(args); /* NON-PORTABLE */
 #else
-	fwprintf(stderr, L"%s", args);
+	Cvt_AppendUnicodeToObj(objv[1], L"\n", -1);
+	Cvt_GetUnicode(args, objv[1], 0);
 #endif
+
+	if (args != NULL) {
+#if defined(_WIN32)
+	    OutputDebugStringW(args); /* NON-PORTABLE */
+#else
+	    fwprintf(stderr, L"%s", args);
+#endif
+	}
     }
 
 done:
+
     if (objv[1] != NULL) {
 	Tcl_DecrRefCount(objv[1]);
 	objv[1] = NULL;
@@ -627,10 +717,20 @@ done:
 static LPCWSTR GetResultValue(
     Tcl_Interp *interp)	/* Current Tcl interpreter. */
 {
+    LPCWSTR result = NULL;
+
     if (interp == NULL)
 	return NULL;
 
-    return Tcl_GetUnicode(Tcl_GetObjResult(interp));
+#if defined(_WIN32)
+    result = Tcl_GetUnicode(Tcl_GetObjResult(interp));
+#else
+    Cvt_GetUnicode(result, Tcl_GetObjResult(interp), 0);
+
+done:
+#endif
+
+    return result;
 }
 
 /*
@@ -661,20 +761,24 @@ static LPWSTR GetStringObjectValue(
 			 * stored.  If NULL, no length is stored. */
 {
     int length = 0;
-    LPCWSTR objValue;
+    LPCWSTR objValue = NULL;
     LPWSTR result = NULL;
 
     if (interp == NULL)
 	return NULL;
 
+#if defined(_WIN32)
     objValue = Tcl_GetUnicodeFromObj(objPtr, &length);
+#else
+    Cvt_GetUnicodeFromObj(objValue, objPtr, &length);
+#endif
 
     if ((objValue == NULL) || (length < 0)) {
 	Tcl_AppendResult(interp, "object value is invalid\n", NULL);
 	goto done;
     }
 
-    result = (LPWSTR) attemptckalloc((length + 1) * sizeof(WCHAR));
+    result = (LPWSTR)attemptckalloc((length + 1) * sizeof(WCHAR));
 
     if (result == NULL) {
 	Tcl_AppendResult(interp, "out of memory: objValue\n", NULL);
@@ -688,6 +792,7 @@ static LPWSTR GetStringObjectValue(
 	*lengthPtr = length;
 
 done:
+
     return result;
 }
 
@@ -732,7 +837,11 @@ static LPWSTR GetStringVariableValue(
 	return NULL;
     }
 
+#if defined(_WIN32)
     part1Ptr = Tcl_NewUnicodeObj(varName, -1);
+#else
+    Cvt_NewUnicodeObj(part1Ptr, varName, -1);
+#endif
 
     if (part1Ptr != NULL) {
 	Tcl_IncrRefCount(part1Ptr);
@@ -747,21 +856,37 @@ static LPWSTR GetStringVariableValue(
 	Tcl_IncrRefCount(objPtr);
     } else {
 	Tcl_AppendResult(interp, "variable not found: ", NULL);
+
+#if defined(_WIN32)
 	Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#else
+	Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#endif
+
 	Tcl_AppendResult(interp, "\n", NULL);
 	goto done;
     }
 
+#if defined(_WIN32)
     varValue = Tcl_GetUnicodeFromObj(objPtr, &length);
+#else
+    Cvt_GetUnicodeFromObj(varValue, objPtr, &length);
+#endif
 
     if ((varValue == NULL) || (length < 0)) {
 	Tcl_AppendResult(interp, "variable value is invalid: ", NULL);
+
+#if defined(_WIN32)
 	Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#else
+	Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#endif
+
 	Tcl_AppendResult(interp, "\n", NULL);
 	goto done;
     }
 
-    result = (LPWSTR) attemptckalloc((length + 1) * sizeof(WCHAR));
+    result = (LPWSTR)attemptckalloc((length + 1) * sizeof(WCHAR));
 
     if (result == NULL) {
 	Tcl_AppendResult(interp, "out of memory: varValue\n", NULL);
@@ -775,6 +900,7 @@ static LPWSTR GetStringVariableValue(
 	*lengthPtr = length;
 
 done:
+
     if (objPtr != NULL) {
 	Tcl_DecrRefCount(objPtr);
 	objPtr = NULL;
@@ -825,7 +951,11 @@ static BOOL GetBooleanVariableValue(
 	return result;
     }
 
+#if defined(_WIN32)
     part1Ptr = Tcl_NewUnicodeObj(varName, -1);
+#else
+    Cvt_NewUnicodeObj(part1Ptr, varName, -1);
+#endif
 
     if (part1Ptr != NULL) {
 	Tcl_IncrRefCount(part1Ptr);
@@ -840,7 +970,13 @@ static BOOL GetBooleanVariableValue(
 	Tcl_IncrRefCount(objPtr);
     } else {
 	Tcl_AppendResult(interp, "variable not found: ", NULL);
+
+#if defined(_WIN32)
 	Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#else
+	Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#endif
+
 	Tcl_AppendResult(interp, "\n", NULL);
 	goto done;
     }
@@ -849,12 +985,19 @@ static BOOL GetBooleanVariableValue(
 
     if (code != TCL_OK) {
 	Tcl_AppendResult(interp, "variable value is invalid: ", NULL);
+
+#if defined(_WIN32)
 	Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#else
+	Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#endif
+
 	Tcl_AppendResult(interp, "\n", NULL);
 	goto done;
     }
 
 done:
+
     if (objPtr != NULL) {
 	Tcl_DecrRefCount(objPtr);
 	objPtr = NULL;
@@ -905,7 +1048,11 @@ static int GetIntegerVariableValue(
 	return result;
     }
 
+#if defined(_WIN32)
     part1Ptr = Tcl_NewUnicodeObj(varName, -1);
+#else
+    Cvt_NewUnicodeObj(part1Ptr, varName, -1);
+#endif
 
     if (part1Ptr != NULL) {
 	Tcl_IncrRefCount(part1Ptr);
@@ -920,7 +1067,13 @@ static int GetIntegerVariableValue(
 	Tcl_IncrRefCount(objPtr);
     } else {
 	Tcl_AppendResult(interp, "variable not found: ", NULL);
+
+#if defined(_WIN32)
 	Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#else
+	Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#endif
+
 	Tcl_AppendResult(interp, "\n", NULL);
 	goto done;
     }
@@ -929,12 +1082,19 @@ static int GetIntegerVariableValue(
 
     if (code != TCL_OK) {
 	Tcl_AppendResult(interp, "variable value is invalid: ", NULL);
+
+#if defined(_WIN32)
 	Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#else
+	Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp), varName, -1);
+#endif
+
 	Tcl_AppendResult(interp, "\n", NULL);
 	goto done;
     }
 
 done:
+
     if (objPtr != NULL) {
 	Tcl_DecrRefCount(objPtr);
 	objPtr = NULL;
@@ -988,7 +1148,7 @@ static int CreateClrMethodInfo(
 	return TCL_ERROR;
     }
 
-    *ppMethodInfo = (ClrMethodInfo *) attemptckalloc(sizeof(ClrMethodInfo));
+    *ppMethodInfo = (ClrMethodInfo *)attemptckalloc(sizeof(ClrMethodInfo));
 
     if (*ppMethodInfo == NULL) {
 	Tcl_AppendResult(interp, "out of memory: ClrMethodInfo\n", NULL);
@@ -1072,7 +1232,7 @@ static int GetClrMethodInfo(
 	return TCL_ERROR;
     }
 
-    *ppMethodInfo = (ClrMethodInfo *) attemptckalloc(sizeof(ClrMethodInfo));
+    *ppMethodInfo = (ClrMethodInfo *)attemptckalloc(sizeof(ClrMethodInfo));
 
     if (*ppMethodInfo == NULL) {
 	Tcl_AppendResult(interp, "out of memory: ClrMethodInfo\n", NULL);
@@ -1237,7 +1397,7 @@ static int GetClrConfigInfo(
 	return TCL_ERROR;
     }
 
-    *ppConfigInfo = (ClrConfigInfo *) attemptckalloc(sizeof(ClrConfigInfo));
+    *ppConfigInfo = (ClrConfigInfo *)attemptckalloc(sizeof(ClrConfigInfo));
 
     if (*ppConfigInfo == NULL) {
 	Tcl_AppendResult(interp, "out of memory: ClrConfigInfo\n", NULL);
@@ -1287,6 +1447,16 @@ static int GetClrConfigInfo(
 	(*ppConfigInfo)->bNoNormalize = GetBooleanVariableValue(interp,
 	    PACKAGE_UNICODE_NO_NORMALIZE_VAR_NAME, FALSE);
 
+	(*ppConfigInfo)->runtimeConfigPath = GetStringVariableValue(interp,
+	    PACKAGE_UNICODE_RUNTIME_CONFIG_PATH_VAR_NAME, &length);
+
+	if (((*ppConfigInfo)->runtimeConfigPath == NULL) || (length <= 0)) {
+	    Tcl_AppendResult(interp,
+		"invalid runtime configuration path\n", NULL);
+
+	    return TCL_ERROR;
+	}
+
 	(*ppConfigInfo)->bLoadClr = GetBooleanVariableValue(interp,
 	    PACKAGE_UNICODE_LOAD_CLR_VAR_NAME, FALSE);
 
@@ -1333,8 +1503,13 @@ static void FreeClrConfigInfo(
 	return;
 
     if ((*ppConfigInfo)->logCommand != NULL) {
-	ckfree((LPVOID) (*ppConfigInfo)->logCommand);
+	ckfree((LPVOID)(*ppConfigInfo)->logCommand);
 	(*ppConfigInfo)->logCommand = NULL;
+    }
+
+    if ((*ppConfigInfo)->runtimeConfigPath != NULL) {
+	ckfree((LPVOID)(*ppConfigInfo)->runtimeConfigPath);
+	(*ppConfigInfo)->runtimeConfigPath = NULL;
     }
 
     FreeClrMethodInfo(&(*ppConfigInfo)->pShutdownMethod);
@@ -1431,7 +1606,7 @@ static void MaybeCombineMethodFlags(
  */
 
 static int GetAndExecuteClrMethod(
-    HANDLE hModule,		/* Tcl library module handle. */
+    HMODULE hModule,		/* Tcl library module handle. */
     ClrTclStubs *pTclStubs,	/* Tcl C API stub function pointer table. */
     ClrConfigInfo *pConfigInfo, /* The configuration information. */
     Tcl_Interp *interp,		/* Current Tcl interpreter. */
@@ -1462,7 +1637,11 @@ static int GetAndExecuteClrMethod(
      *	     use it to execute any code.
      */
 
+#if defined(USE_CORE_CLR)
+    if (!CanExecuteCoreClrCode(interp)) {
+#else
     if (!CanExecuteClrCode(interp)) {
+#endif
 	if (methodFlags & METHOD_STRICT_CLR)
 	    code = TCL_ERROR;
 
@@ -1486,9 +1665,15 @@ static int GetAndExecuteClrMethod(
      * NOTE: Attempt to execute the CLR method.
      */
 
+#if defined(USE_CORE_CLR)
+    code = ExecuteCoreClrMethod(hModule, pTclStubs, interp,
+	pConfigInfo->logCommand, pMethodInfo, argument, methodFlags,
+	&returnValue);
+#else
     code = ExecuteClrMethod(hModule, pTclStubs, interp,
 	pConfigInfo->logCommand, pMethodInfo, argument, methodFlags,
 	&returnValue);
+#endif
 
     if (code != TCL_OK)
 	goto done;
@@ -1543,8 +1728,13 @@ static int GetAndExecuteClrMethod(
 		L"\"%s\"\0", methodTypeName, pMethodInfo->typeName,
 		pMethodInfo->methodName, pMethodInfo->assemblyPath);
 
+#if defined(_WIN32)
 	    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 		GetTclErrorMessage(buffer, returnValue), -1);
+#else
+	    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		GetTclErrorMessage(buffer, returnValue), -1);
+#endif
 	}
 
 	code = TCL_ERROR;
@@ -1552,8 +1742,8 @@ static int GetAndExecuteClrMethod(
     }
 
 done:
-    FreeClrMethodInfo(&pMethodInfo);
 
+    FreeClrMethodInfo(&pMethodInfo);
     return code;
 }
 
@@ -1576,7 +1766,7 @@ done:
  */
 
 static int DemandExecuteClrMethod(
-    HANDLE hModule,		/* Tcl library module handle. */
+    HMODULE hModule,		/* Tcl library module handle. */
     ClrTclStubs *pTclStubs,	/* Tcl C API stub function pointer table. */
     ClrConfigInfo *pConfigInfo, /* The configuration information. */
     Tcl_Interp *interp,		/* Current Tcl interpreter. */
@@ -1622,16 +1812,22 @@ static int DemandExecuteClrMethod(
      * NOTE: Attempt to execute the CLR method.
      */
 
+#if defined(USE_CORE_CLR)
+    code = ExecuteCoreClrMethod(hModule, pTclStubs, interp,
+	pConfigInfo->logCommand, pMethodInfo, NULL, methodFlags,
+	pReturnValue);
+#else
     code = ExecuteClrMethod(hModule, pTclStubs, interp,
 	pConfigInfo->logCommand, pMethodInfo, NULL, methodFlags,
 	pReturnValue);
+#endif
 
     if (code != TCL_OK)
 	goto done;
 
 done:
-    FreeClrMethodInfo(&pMethodInfo);
 
+    FreeClrMethodInfo(&pMethodInfo);
     return code;
 }
 
@@ -1759,8 +1955,12 @@ int Garuda_Init(
      */
 
     if (hTclModule == NULL) {
+#if defined(_WIN32)
 	/* NON-PORTABLE */
 	hTclModule = TclWinGetTclInstance(); /* HACK: Requires "tclInt.h". */
+#else
+	hTclModule = get_tcl_module_handle(); /* HACK: Requires "dladdr". */
+#endif
     }
 
     if (hTclModule == NULL) {
@@ -1785,15 +1985,27 @@ int Garuda_Init(
      *       package (i.e. in another Tcl interpreter)?
      */
 
+#if defined(USE_CORE_CLR)
+    bClrWasLoaded = GetCoreClrWasLoaded();
+    bClrWasStarted = GetCoreClrWasStarted();
+#else
     bClrWasLoaded = GetClrWasLoaded();
     bClrWasStarted = GetClrWasStarted();
+#endif
 
     /*
      * NOTE: Load [and possibly start] the CLR now.
      */
 
-    code = LoadAndStartTheClr(interp, logCommand, pConfigInfo->bLoadClr,
+#if defined(USE_CORE_CLR)
+    code = LoadAndStartTheCoreClr(interp, logCommand,
+	pConfigInfo->runtimeConfigPath, pConfigInfo->bLoadClr,
 	pConfigInfo->bUseMinimumClr, pConfigInfo->bStartClr, FALSE);
+#else
+    code = LoadAndStartTheClr(interp, logCommand,
+	pConfigInfo->runtimeConfigPath, pConfigInfo->bLoadClr,
+	pConfigInfo->bUseMinimumClr, pConfigInfo->bStartClr, FALSE);
+#endif
 
     if (code != TCL_OK)
 	goto done;
@@ -1813,7 +2025,11 @@ int Garuda_Init(
 	if (code != TCL_OK)
 	    goto done;
 
+#if defined(USE_CORE_CLR)
+	SetCoreClrBridgeStarted(TRUE);
+#else
 	SetClrBridgeStarted(TRUE);
+#endif
     }
 
     /*
@@ -1854,6 +2070,7 @@ int Garuda_Init(
     code = Tcl_PkgProvide(interp, PACKAGE_ALTERNATE_NAME, PACKAGE_VERSION);
 
 done:
+
     /*
      * NOTE: If possible, log this attempt to initialize the package, including
      *       the saved package module handle, the associated module file name,
@@ -2063,7 +2280,11 @@ int Garuda_Unload(
 	 *       is loaded and started).
 	 */
 
+#if defined(USE_CORE_CLR)
+	if (GetCoreClrBridgeStarted()) {
+#else
 	if (GetClrBridgeStarted()) {
+#endif
 	    /*
 	     * NOTE: Try to execute the CLR method to shutdown the bridge
 	     *       between Eagle and Tcl now.  If the CLR is not started
@@ -2104,8 +2325,13 @@ int Garuda_Unload(
 	    if (code != TCL_OK)
 		goto done;
 
-	    if (bShutdown)
+	    if (bShutdown) {
+#if defined(USE_CORE_CLR)
+		SetCoreClrBridgeStarted(FALSE);
+#else
 		SetClrBridgeStarted(FALSE);
+#endif
+	    }
 
 	    /*
 	     * NOTE: Remove any stray Tcl interpreter result that may have
@@ -2130,7 +2356,11 @@ int Garuda_Unload(
      */
 
     if (bShutdown && bStopClr) {
+#if defined(USE_CORE_CLR)
+	code = StopAndReleaseTheCoreClr(interp, NULL, TRUE, FALSE);
+#else
 	code = StopAndReleaseTheClr(interp, NULL, TRUE, FALSE);
+#endif
 
 	if (code != TCL_OK)
 	    goto done;
@@ -2170,6 +2400,7 @@ int Garuda_Unload(
 	Tcl_DeleteExitHandler(GarudaExitProc, NULL);
 
 done:
+
     /*
      * NOTE: If possible, log this attempt to unload the package, including
      *       the saved package module handle, the associated module file name,
@@ -2339,7 +2570,11 @@ static int GarudaObjCmd(
 		goto done;
 	    }
 
-	    hResult = GetCurrentAppDomainId(&appDomainId);
+#if defined(USE_CORE_CLR)
+	    hResult = GetCurrentCoreClrAppDomainId(&appDomainId);
+#else
+	    hResult = GetCurrentClrAppDomainId(&appDomainId);
+#endif
 
 	    if (SUCCEEDED(hResult)) {
 		Tcl_Obj *objPtr = Tcl_NewLongObj(appDomainId);
@@ -2354,10 +2589,17 @@ static int GarudaObjCmd(
 		Tcl_SetObjResult(interp, objPtr);
 		Tcl_DecrRefCount(objPtr);
 	    } else {
+#if defined(_WIN32)
 		Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 		    GetClrErrorMessage(
 			L"ICLRRuntimeHost_GetCurrentAppDomainId",
 			hResult), -1);
+#else
+		Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		    GetClrErrorMessage(
+			L"ICLRRuntimeHost_GetCurrentAppDomainId",
+			hResult), -1);
+#endif
 
 		code = TCL_ERROR;
 		goto done;
@@ -2373,7 +2615,11 @@ static int GarudaObjCmd(
 		goto done;
 	    }
 
+#if defined(USE_CORE_CLR)
+	    objPtr = Tcl_NewIntObj(GetCoreClrBridgeStarted());
+#else
 	    objPtr = Tcl_NewIntObj(GetClrBridgeStarted());
+#endif
 
 	    if (objPtr == NULL) {
 		Tcl_AppendResult(interp, "out of memory: objPtr\n", NULL);
@@ -2438,7 +2684,11 @@ static int GarudaObjCmd(
 		goto done;
 	    }
 
+#if defined(USE_CORE_CLR)
+	    objPtr = Tcl_NewIntObj(GetCoreClrWasStarted());
+#else
 	    objPtr = Tcl_NewIntObj(GetClrWasStarted());
+#endif
 
 	    if (objPtr == NULL) {
 		Tcl_AppendResult(interp, "out of memory: objPtr\n", NULL);
@@ -2471,8 +2721,13 @@ static int GarudaObjCmd(
 	    if (code != TCL_OK)
 		goto done;
 
-	    code = LoadAndStartTheClr(interp, pConfigInfo->logCommand, TRUE,
-		FALSE, FALSE, TRUE);
+#if defined(USE_CORE_CLR)
+	    code = LoadAndStartTheCoreClr(interp, pConfigInfo->logCommand,
+		pConfigInfo->runtimeConfigPath, TRUE, FALSE, FALSE, TRUE);
+#else
+	    code = LoadAndStartTheClr(interp, pConfigInfo->logCommand,
+		pConfigInfo->runtimeConfigPath, TRUE, FALSE, FALSE, TRUE);
+#endif
 
 	    break;
 	}
@@ -2496,8 +2751,13 @@ static int GarudaObjCmd(
 	    if (code != TCL_OK)
 		goto done;
 
-	    code = LoadAndStartTheClr(interp, pConfigInfo->logCommand, FALSE,
-		FALSE, TRUE, TRUE);
+#if defined(USE_CORE_CLR)
+	    code = LoadAndStartTheCoreClr(interp, pConfigInfo->logCommand,
+		pConfigInfo->runtimeConfigPath, FALSE, FALSE, TRUE, TRUE);
+#else
+	    code = LoadAndStartTheClr(interp, pConfigInfo->logCommand,
+		pConfigInfo->runtimeConfigPath, FALSE, FALSE, TRUE, TRUE);
+#endif
 
 	    break;
 	}
@@ -2527,8 +2787,13 @@ static int GarudaObjCmd(
 	     *       in the process once it has been stopped or unloaded.
 	     */
 
+#if defined(USE_CORE_CLR)
+	    code = StopAndReleaseTheCoreClr(interp, pConfigInfo->logCommand,
+		FALSE, TRUE);
+#else
 	    code = StopAndReleaseTheClr(interp, pConfigInfo->logCommand,
 		FALSE, TRUE);
+#endif
 
 	    break;
 	}
@@ -2544,10 +2809,21 @@ static int GarudaObjCmd(
 	    }
 
 	    length = PACKAGE_RESULT_SIZE;
+
+#if defined(USE_CORE_CLR)
+	    hResult = GetCoreClrVersion(buffer, &length);
+#else
 	    hResult = GetClrVersion(buffer, &length);
+#endif
 
 	    if (SUCCEEDED(hResult)) {
-		Tcl_Obj *objPtr = Tcl_NewUnicodeObj(buffer, -1);
+		Tcl_Obj *objPtr;
+
+#if defined(_WIN32)
+		objPtr = Tcl_NewUnicodeObj(buffer, -1);
+#else
+		Cvt_NewUnicodeObj(objPtr, buffer, -1);
+#endif
 
 		if (objPtr == NULL) {
 		    Tcl_AppendResult(interp, "out of memory: objPtr\n", NULL);
@@ -2559,12 +2835,28 @@ static int GarudaObjCmd(
 		Tcl_SetObjResult(interp, objPtr);
 		Tcl_DecrRefCount(objPtr);
 	    } else {
+#if defined(_WIN32)
 		Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
-#if defined(USE_CLR_40)
+#if defined(USE_CORE_CLR)
+		    GetClrErrorMessage(L"hostfxr_get_dotnet_environment_info",
+			hResult), -1);
+#elif defined(USE_CLR_40)
 		    GetClrErrorMessage(L"ICLRRuntimeInfo_GetVersionString",
 			hResult), -1);
 #else
 		    GetClrErrorMessage(L"GetCORVersion", hResult), -1);
+#endif
+#else
+		Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+#if defined(USE_CORE_CLR)
+		    GetClrErrorMessage(L"hostfxr_get_dotnet_environment_info",
+			hResult), -1);
+#elif defined(USE_CLR_40)
+		    GetClrErrorMessage(L"ICLRRuntimeInfo_GetVersionString",
+			hResult), -1);
+#else
+		    GetClrErrorMessage(L"GetCORVersion", hResult), -1);
+#endif
 #endif
 
 		code = TCL_ERROR;
@@ -2573,6 +2865,8 @@ static int GarudaObjCmd(
 	    break;
 	}
 	case OPT_CONTROL: {
+	    LPCWSTR argument = NULL;
+
 	    if (Tcl_IsSafe(interp)) {
 		Tcl_AppendResult(interp, "permission denied: safe interp\n",
 		    NULL);
@@ -2597,9 +2891,16 @@ static int GarudaObjCmd(
 	    if (code != TCL_OK)
 		goto done;
 
+	    if (listPtr != NULL) {
+#if defined(_WIN32)
+		argument = Tcl_GetUnicode(listPtr);
+#else
+		Cvt_GetUnicode(argument, listPtr, 0);
+#endif
+	    }
+
 	    code = GetAndExecuteClrMethod(hTclModule, &uTclStubs, pConfigInfo,
-		interp, (listPtr != NULL) ? Tcl_GetUnicode(listPtr) : NULL,
-		METHOD_TYPE_CONTROL | METHOD_VIA_COMMAND);
+		interp, argument, METHOD_TYPE_CONTROL | METHOD_VIA_COMMAND);
 
 	    break;
 	}
@@ -2650,12 +2951,22 @@ static int GarudaObjCmd(
 
 	    length = PACKAGE_RESULT_SIZE;
 
-	    hResult = DumpState(
+#if defined(USE_CORE_CLR)
+	    hResult = DumpCoreClrState(
 		packageFileName, lTclStubs, hTclModule, &uTclStubs, buffer,
 		&length);
+#else
+	    hResult = DumpClrState(
+		packageFileName, lTclStubs, hTclModule, &uTclStubs, buffer,
+		&length);
+#endif
 
 	    if (SUCCEEDED(hResult)) {
+#if defined(_WIN32)
 		objPtr = Tcl_NewUnicodeObj(buffer, -1);
+#else
+		Cvt_NewUnicodeObj(objPtr, buffer, -1);
+#endif
 
 		if (objPtr == NULL) {
 		    Tcl_AppendResult(interp, "out of memory: objPtr\n", NULL);
@@ -2667,8 +2978,13 @@ static int GarudaObjCmd(
 		Tcl_SetObjResult(interp, objPtr);
 		Tcl_DecrRefCount(objPtr);
 	    } else {
+#if defined(_WIN32)
 		Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
-		    GetClrErrorMessage(L"DumpState", hResult), -1);
+		    GetClrErrorMessage(L"DumpClrState", hResult), -1);
+#else
+		Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		    GetClrErrorMessage(L"DumpClrState", hResult), -1);
+#endif
 
 		code = TCL_ERROR;
 		goto done;
@@ -2710,8 +3026,13 @@ static int GarudaObjCmd(
 	    code = GetAndExecuteClrMethod(hTclModule, &uTclStubs, pConfigInfo,
 		interp, NULL, METHOD_TYPE_SHUTDOWN | METHOD_VIA_COMMAND);
 
-	    if (code == TCL_OK)
+	    if (code == TCL_OK) {
+#if defined(USE_CORE_CLR)
+		SetCoreClrBridgeStarted(FALSE);
+#else
 		SetClrBridgeStarted(FALSE);
+#endif
+	    }
 
 	    break;
 	}
@@ -2738,8 +3059,13 @@ static int GarudaObjCmd(
 	    code = GetAndExecuteClrMethod(hTclModule, &uTclStubs, pConfigInfo,
 		interp, NULL, METHOD_TYPE_STARTUP | METHOD_VIA_COMMAND);
 
-	    if (code == TCL_OK)
+	    if (code == TCL_OK) {
+#if defined(USE_CORE_CLR)
+		SetCoreClrBridgeStarted(TRUE);
+#else
 		SetClrBridgeStarted(TRUE);
+#endif
+	    }
 
 	    break;
 	}
@@ -2751,6 +3077,7 @@ static int GarudaObjCmd(
     }
 
 done:
+
     if (listPtr != NULL) {
 	Tcl_DecrRefCount(listPtr);
 	listPtr = NULL;

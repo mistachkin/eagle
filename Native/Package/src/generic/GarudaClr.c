@@ -9,20 +9,24 @@
  * RCS: @(#) $Id: $
  */
 
-#include <stdio.h>	/* NOTE: For fprintf, swprintf, va_list, etc. */
-#include <string.h>	/* NOTE: For memset, wcslen, wcsncpy, etc. */
+#include "GarudaPre.h"		/* NOTE: For private header setup. */
 
-#include "GarudaPre.h"	/* NOTE: For private header setup. */
-#include "MSCorEE.h"	/* NOTE: For native CLR v2 API. */
+#if !defined(USE_CORE_CLR)
+#include <stdio.h>		/* NOTE: For fprintf, swprintf, va_list, etc. */
+#include <string.h>		/* NOTE: For memset, wcslen, wcsncpy, etc. */
+
+#include "MSCorEE.h"		/* NOTE: For native CLR v2 API. */
 
 #if defined(USE_CLR_40)
-#include "MetaHost.h"	/* NOTE: For native CLR v4 API. */
+#  include "MetaHost.h"		/* NOTE: For native CLR v4 API. */
 #endif
 
-#include "tcl.h"	/* NOTE: For public Tcl API. */
-#include "pkgVersion.h"	/* NOTE: Package version information. */
-#include "GarudaInt.h"	/* NOTE: For private package API. */
-#include "GarudaDecl.h"	/* NOTE: For internal API. */
+#include "tcl.h"		/* NOTE: For public Tcl API. */
+#include "GarudaPal.h"		/* NOTE: For platform abstraction API. */
+#include "pkgVersion.h"		/* NOTE: Package version information. */
+#include "GarudaInt.h"		/* NOTE: For private package API. */
+#include "GarudaClr.h"		/* NOTE: For private package CLR API. */
+#include "GarudaDecls.h"	/* NOTE: For private package declarations. */
 
 /*
  * NOTE: These are the CLR v4 metadata host and runtime introspection interface
@@ -79,7 +83,13 @@ static volatile BOOL bClrBridgeStarted = FALSE;
 
 BOOL GetClrWasLoaded(void)
 {
-    return (pClrRuntimeHost != NULL);
+    BOOL bResult;
+
+    Tcl_MutexLock(&packageMutex);
+    bResult = (pClrRuntimeHost != NULL);
+    Tcl_MutexUnlock(&packageMutex);
+
+    return bResult;
 }
 
 /*
@@ -101,7 +111,13 @@ BOOL GetClrWasLoaded(void)
 
 BOOL GetClrWasStarted(void)
 {
-    return bClrStarted;
+    BOOL bResult;
+
+    Tcl_MutexLock(&packageMutex);
+    bResult = bClrStarted;
+    Tcl_MutexUnlock(&packageMutex);
+
+    return bResult;
 }
 
 /*
@@ -123,7 +139,13 @@ BOOL GetClrWasStarted(void)
 
 BOOL GetClrBridgeStarted(void)
 {
-    return bClrBridgeStarted;
+    BOOL bResult;
+
+    Tcl_MutexLock(&packageMutex);
+    bResult = bClrBridgeStarted;
+    Tcl_MutexUnlock(&packageMutex);
+
+    return bResult;
 }
 
 /*
@@ -146,7 +168,9 @@ BOOL GetClrBridgeStarted(void)
 void SetClrBridgeStarted(
     BOOL bStarted)	    /* Non-zero if the bridge was started. */
 {
+    Tcl_MutexLock(&packageMutex);
     bClrBridgeStarted = bStarted;
+    Tcl_MutexUnlock(&packageMutex);
 }
 
 /*
@@ -168,14 +192,16 @@ void SetClrBridgeStarted(
  */
 
 int LoadAndStartTheClr(
-    Tcl_Interp *interp,	    /* Current Tcl interpreter. */
-    LPCWSTR logCommand,	    /* The Tcl command used to log the CLR method
-			     * execution, if any. */
-    BOOL bLoad,		    /* Load the CLR if necessary? */
-    BOOL bUseMinimumClr,    /* Force using minimum supported CLR
-			     * version? */
-    BOOL bStart,	    /* Start the CLR after loading it? */
-    BOOL bStrict)	    /* Fail if already loaded and/or started? */
+    Tcl_Interp *interp,		/* Current Tcl interpreter. */
+    LPCWSTR logCommand,		/* The Tcl command used to log the CLR
+				 * method execution, if any. */
+    LPCWSTR runtimeConfigPath,	/* The CLR runtime configuration file
+				 * path, if any. */
+    BOOL bLoad,			/* Load the CLR if necessary? */
+    BOOL bUseMinimumClr,	/* Force using minimum supported CLR
+				 * version? */
+    BOOL bStart,		/* Start the CLR after loading it? */
+    BOOL bStrict)		/* Fail if already loaded and/or started? */
 {
     int code = TCL_OK;
     WCHAR buffer[PACKAGE_RESULT_SIZE + 1] = {0};
@@ -492,6 +518,7 @@ start:
     }
 
 done:
+
     Tcl_MutexUnlock(&packageMutex);
     return code;
 }
@@ -534,12 +561,12 @@ int StopAndReleaseTheClr(
 	    HRESULT hResult = S_OK;
 
 	    /* NON-PORTABLE */
-	    SetEnvironmentVariableW(CLR_STOPPING_ENVVAR_NAME, L"1");
+	    SetEnvironmentVariableW(UNICODE_CLR_STOPPING_ENVVAR_NAME, L"1");
 
 	    hResult = ICLRRuntimeHost_Stop(pClrRuntimeHost);
 
 	    /* NON-PORTABLE */
-	    SetEnvironmentVariableW(CLR_STOPPING_ENVVAR_NAME, NULL);
+	    SetEnvironmentVariableW(UNICODE_CLR_STOPPING_ENVVAR_NAME, NULL);
 
 	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
@@ -678,6 +705,7 @@ BOOL CanExecuteClrCode(
     bResult = TRUE;
 
 done:
+
     Tcl_MutexUnlock(&packageMutex);
     return bResult;
 }
@@ -700,7 +728,7 @@ done:
  */
 
 int ExecuteClrMethod(
-    HANDLE hModule,		/* Tcl library module handle. */
+    HMODULE hModule,		/* Tcl library module handle. */
     ClrTclStubs *pTclStubs,	/* Tcl C API stub function pointer table. */
     Tcl_Interp *interp,		/* Current Tcl interpreter. */
     LPCWSTR logCommand,		/* The Tcl command used to log the CLR method
@@ -813,7 +841,7 @@ int ExecuteClrMethod(
 
 	    length += wcslen(protocolRevision); /* "vX.0_rY.0", etc */
 	    length += 2; /* space before and after protocol revision */
-	    length += (sizeof(HANDLE) * 2) + 3; /* "0x" + handleAsStr + " " */
+	    length += (sizeof(HMODULE) * 2) + 3; /* "0x" + handleAsStr + " " */
 	    length += (sizeof(LPVOID) * 2) + 3; /* "0x" + hexPtrAsStr + " " */
 	    length += 2; /* strlen("1 "), "safe", note trailing space */
 	}
@@ -922,6 +950,7 @@ int ExecuteClrMethod(
     }
 
 done:
+
     if ((newArgument != NULL) && (newArgument != pMethodInfo->argument)) {
 	ckfree((LPVOID) newArgument);
 	newArgument = NULL;
@@ -934,10 +963,10 @@ done:
 /*
  *----------------------------------------------------------------------
  *
- * GetCurrentAppDomainId --
+ * GetCurrentClrAppDomainId --
  *
  *	This function attempts to query the integer identifier for the
- *	current application domain.
+ *	current application domain of the CLR.
  *
  * Results:
  *	A standard COM result.
@@ -948,25 +977,37 @@ done:
  *----------------------------------------------------------------------
  */
 
-HRESULT GetCurrentAppDomainId(
+HRESULT GetCurrentClrAppDomainId(
     LPDWORD pAppDomainId)	/* Upon success, will contain an integer
 				 * identifier for the current application
 				 * domain. */
 {
+    HRESULT hResult;
+
+    Tcl_MutexLock(&packageMutex);
+
     if (pAppDomainId == NULL) {
-	return E_POINTER;
+	hResult = E_POINTER;
+	goto done;
     }
 
     if (pClrRuntimeHost == NULL) {
-	return E_NOINTERFACE;
+	hResult = E_NOINTERFACE;
+	goto done;
     }
 
     if (!bClrStarted) {
-	return HRESULT_FROM_WIN32(ERROR_SERVICE_NEVER_STARTED);
+	hResult = HRESULT_FROM_WIN32(ERROR_SERVICE_NEVER_STARTED);
+	goto done;
     }
 
-    return ICLRRuntimeHost_GetCurrentAppDomainId(pClrRuntimeHost,
+    hResult = ICLRRuntimeHost_GetCurrentAppDomainId(pClrRuntimeHost,
 	pAppDomainId);
+
+done:
+
+    Tcl_MutexUnlock(&packageMutex);
+    return hResult;
 }
 
 /*
@@ -993,28 +1034,37 @@ HRESULT GetClrVersion(
 				 * buffer.  Upon success, will contain
 				 * the length of the resulting string. */
 {
+    HRESULT hResult;
+
+    Tcl_MutexLock(&packageMutex);
+
     if ((pVersion == NULL) || (pLength == NULL)) {
-	return E_POINTER;
+	hResult = E_POINTER;
+	goto done;
     }
 
 #if defined(USE_CLR_40)
     if (pClrRuntimeInfo == NULL) {
-	return E_NOINTERFACE;
+	hResult = E_NOINTERFACE;
+	goto done;
     }
 
-    return ICLRRuntimeInfo_GetVersionString(pClrRuntimeInfo, pVersion,
-	pLength);
+    hResult = ICLRRuntimeInfo_GetVersionString(pClrRuntimeInfo,
+	pVersion, pLength);
 #else
-    DWORD length = *pLength;
-
-    return GetCORVersion(pVersion, length, pLength);
+    hResult = GetCORVersion(pVersion, *pLength, pLength);
 #endif
+
+done:
+
+    Tcl_MutexUnlock(&packageMutex);
+    return hResult;
 }
 
 /*
  *----------------------------------------------------------------------
  *
- * DumpState --
+ * DumpClrState --
  *
  *	This function attempts to debugging information for this
  *	package.  Generally, this information is only useful for
@@ -1029,13 +1079,13 @@ HRESULT GetClrVersion(
  *----------------------------------------------------------------------
  */
 
-HRESULT DumpState(
+HRESULT DumpClrState(
     LPWSTR fileName,		/* The (fully qualified) file name of
 				 * the (dynamic) shared library that
 				 * contains this code. */
     LONG lTclStubs,		/* Non-zero if the Tcl stubs mechanism
 				 * has been initialized. */
-    HANDLE hTclModule,		/* The handle of the (dynamic) shared
+    HMODULE hTclModule,		/* The handle of the (dynamic) shared
 				 * library module for Tcl. */
     ClrTclStubs *pTclStubs,	/* Pointer to structure that contains
 				 * the set of function pointers to be
@@ -1046,8 +1096,13 @@ HRESULT DumpState(
 				 * buffer.  Upon success, will contain
 				 * the length of the resulting string. */
 {
+    HRESULT hResult;
+
+    Tcl_MutexLock(&packageMutex);
+
     if ((pState == NULL) || (pLength == NULL)) {
-	return E_POINTER;
+	hResult = E_POINTER;
+	goto done;
     }
 
     gwprintf(pState, *pLength, L"packageMutex "
@@ -1070,5 +1125,11 @@ HRESULT DumpState(
 	pClrRuntimeHost,
 	bClrStarted, bClrBridgeStarted);
 
-    return S_OK;
+    hResult = S_OK;
+
+done:
+
+    Tcl_MutexUnlock(&packageMutex);
+    return hResult;
 }
+#endif /* !defined(USE_CORE_CLR) */

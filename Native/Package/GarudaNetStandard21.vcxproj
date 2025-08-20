@@ -33,47 +33,47 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>Garuda</ProjectName>
-    <ProjectGuid>{FA589B06-D939-4258-ACAC-4583E9F64F6D}</ProjectGuid>
-    <RootNamespace>Garuda</RootNamespace>
+    <ProjectName>GarudaNetStandard21</ProjectName>
+    <ProjectGuid>{C34A4C70-15F1-4BA2-AB25-4FB11537350E}</ProjectGuid>
+    <RootNamespace>GarudaCore</RootNamespace>
     <Keyword>Win32Proj</Keyword>
-    <TargetName>Garuda</TargetName>
+    <TargetName>GarudaCore</TargetName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|ARM'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WindowsSDKDesktopARMSupport>true</WindowsSDKDesktopARMSupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|ARM'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WindowsSDKDesktopARMSupport>true</WindowsSDKDesktopARMSupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="Eagle">
@@ -92,8 +92,8 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_TRACE;_DEBUG;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);$(DEBUG_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(CORECLR_X86_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_TRACE;_DEBUG;_WINDOWS;_USRDLL;$(CORECLR_DEFINES);$(COMMON_DEFINES);$(TCL_DEFINES);$(DEBUG_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>StackFrameRuntimeCheck</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -105,11 +105,11 @@
       <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <AdditionalDependencies>nethost.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
-      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
+      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);$(CORECLR_X86_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(CORECLR_OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -121,11 +121,11 @@
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(CORECLR_OUTPUT_FILE), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).bsc</OutputFile>
     </Bscmake>
     <PreBuildEvent>
       <Command>$(TAG_BUILD_COMMAND)</Command>
@@ -141,8 +141,8 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|ARM'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_TRACE;_DEBUG;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);$(DEBUG_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(CORECLR_ARM_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_TRACE;_DEBUG;_WINDOWS;_USRDLL;$(CORECLR_DEFINES);$(COMMON_DEFINES);$(TCL_DEFINES);$(DEBUG_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>StackFrameRuntimeCheck</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -154,11 +154,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <AdditionalDependencies>nethost.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
-      <AdditionalLibraryDirectories>$(LIBRARY_ARM_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
+      <AdditionalLibraryDirectories>$(LIBRARY_ARM_DIRECTORIES);$(CORECLR_ARM_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(CORECLR_OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -170,11 +170,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=arm, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(CORECLR_OUTPUT_FILE), processorArchitecture=arm, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).bsc</OutputFile>
     </Bscmake>
     <PreBuildEvent>
       <Command>$(TAG_BUILD_COMMAND)</Command>
@@ -190,8 +190,8 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|x64'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;x64;_TRACE;_DEBUG;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);$(DEBUG_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(CORECLR_X64_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;x64;_TRACE;_DEBUG;_WINDOWS;_USRDLL;$(CORECLR_DEFINES);$(COMMON_DEFINES);$(TCL_DEFINES);$(DEBUG_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>StackFrameRuntimeCheck</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -203,11 +203,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <AdditionalDependencies>nethost.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
-      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
+      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);$(CORECLR_X64_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(CORECLR_OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -219,11 +219,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(CORECLR_OUTPUT_FILE), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).bsc</OutputFile>
     </Bscmake>
     <PreBuildEvent>
       <Command>$(TAG_BUILD_COMMAND)</Command>
@@ -241,8 +241,8 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <Optimization>Full</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_TRACE;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(CORECLR_X86_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_TRACE;_WINDOWS;_USRDLL;$(CORECLR_DEFINES);$(COMMON_DEFINES);$(TCL_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -254,11 +254,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <AdditionalDependencies>nethost.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
-      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
+      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);$(CORECLR_X86_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(CORECLR_OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -270,11 +270,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(CORECLR_OUTPUT_FILE), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).bsc</OutputFile>
     </Bscmake>
     <PreBuildEvent>
       <Command>$(TAG_BUILD_COMMAND)</Command>
@@ -292,8 +292,8 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <Optimization>Full</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_TRACE;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(CORECLR_ARM_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_TRACE;_WINDOWS;_USRDLL;$(CORECLR_DEFINES);$(COMMON_DEFINES);$(TCL_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -305,11 +305,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <AdditionalDependencies>nethost.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
-      <AdditionalLibraryDirectories>$(LIBRARY_ARM_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
+      <AdditionalLibraryDirectories>$(LIBRARY_ARM_DIRECTORIES);$(CORECLR_ARM_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(CORECLR_OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -321,11 +321,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=arm, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(CORECLR_OUTPUT_FILE), processorArchitecture=arm, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).bsc</OutputFile>
     </Bscmake>
     <PreBuildEvent>
       <Command>$(TAG_BUILD_COMMAND)</Command>
@@ -343,8 +343,8 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <Optimization>Full</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;x64;NDEBUG;_TRACE;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(CORECLR_X64_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;x64;NDEBUG;_TRACE;_WINDOWS;_USRDLL;$(CORECLR_DEFINES);$(COMMON_DEFINES);$(TCL_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -356,11 +356,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <AdditionalDependencies>nethost.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
-      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
+      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);$(CORECLR_X64_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(CORECLR_OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -372,11 +372,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(CORECLR_OUTPUT_FILE), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
-      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+      <OutputFile>$(OutDir)$(CORECLR_OUTPUT_FILE).bsc</OutputFile>
     </Bscmake>
     <PreBuildEvent>
       <Command>$(TAG_BUILD_COMMAND)</Command>
@@ -476,7 +476,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="rc\Garuda.rc">
-      <PreprocessorDefinitions>RESOURCE_INCLUDED;WIN32;_UNICODE;UNICODE;RC_MSC_VER=1910;$(COMMON_DEFINES);$(TCL_DEFINES);OUTPUT_FILE=$(OUTPUT_FILE);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>RESOURCE_INCLUDED;WIN32;_UNICODE;UNICODE;$(CORECLR_DEFINES);RC_MSC_VER=1920;$(COMMON_DEFINES);$(TCL_DEFINES);OUTPUT_FILE=$(CORECLR_OUTPUT_FILE);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);$(NETFXKitsDir)\include\um;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
   </ItemGroup>

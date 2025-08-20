@@ -1,0 +1,1273 @@
+/*
+ * GarudaCoreClr.c -- Eagle Package for Tcl (Garuda)
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ */
+
+#include "GarudaPre.h"	    /* NOTE: For private header setup. */
+
+#if defined(USE_CORE_CLR)
+#include <stdio.h>	    /* NOTE: For fprintf, swprintf, va_list, etc. */
+#include <string.h>	    /* NOTE: For memset, wcslen, wcsncpy, etc. */
+
+#if !defined(_MSC_VER)
+#  include <stdlib.h>	    /* NOTE: For setenv, unsetenv, etc. */
+#  include <limits.h>	    /* NOTE: For INT_MAX, etc. */
+#  include <wchar.h>	    /* NOTE: For wchar_t, etc. */
+#endif
+
+#if defined(_WIN32)
+#  include <windows.h>	    /* NOTE: For LoadLibraryW, etc. */
+#else
+#  include <errno.h>	    /* NOTE: For errno, etc. */
+#  include <dlfcn.h>	    /* NOTE: For dlopen, dladdr, Dl_info, etc. */
+#endif
+
+/*
+ * HACK: The following three typedef's are required due to a misfeature of the
+ *       "hostfxr.h" header file.  It appears to assume that the including file
+ *       is being compiled in C++, which would allow a typedef name to be used
+ *       as a complete type before its own declaration.
+ */
+
+#if !defined(NO_HOSTFXR_TYPEDEF_HACK)
+typedef struct hostfxr_dotnet_environment_info
+               hostfxr_dotnet_environment_info;
+
+typedef struct hostfxr_dotnet_environment_sdk_info
+               hostfxr_dotnet_environment_sdk_info;
+
+typedef struct hostfxr_dotnet_environment_framework_info
+               hostfxr_dotnet_environment_framework_info;
+#endif
+
+#include <nethost.h>		/* NOTE: For get_hostfxr_path, etc. */
+#include <hostfxr.h>		/* NOTE: For "hostfxr_*" .NET (Core), etc. */
+#include <coreclr_delegates.h>	/* NOTE: For load_<asm>_and_get_<fn_ptr>. */
+
+#include "tcl.h"		/* NOTE: For public Tcl API. */
+#include "GarudaPal.h"		/* NOTE: For platform abstraction API. */
+#include "pkgVersion.h"		/* NOTE: Package version information. */
+#include "GarudaInt.h"		/* NOTE: For private package API. */
+#include "GarudaCoreClr.h"	/* NOTE: For private package CoreCLR API. */
+#include "GarudaDecls.h"	/* NOTE: For private package declarations. */
+
+#if !defined(_WIN32)
+#  include "ConvertUTF_v2.h"	/* NOTE: Unicode UTF-* reference conversions. */
+#  include "GarudaStr.h"	/* NOTE: For private string API. */
+#endif
+
+/*
+ * NOTE: Private functions defined in this file.
+ */
+
+static void HOSTFXR_CALLTYPE GetCoreClrVersionCallback(
+			const struct hostfxr_dotnet_environment_info *info,
+			void *context);
+
+/*
+ * NOTE: This is the shared library module handle for the CoreCLR.  This
+ *       variable will be non-NULL if the CoreCLR has been loaded into the
+ *       current process by this package.
+ */
+
+static volatile HMODULE pCoreClr = NULL;
+
+/*
+ * NOTE: These are the function pointers to the CoreCLR APIs necessary to
+ *       start, use, and stop the CoreCLR.
+ */
+
+static volatile CoreClrFunctions uCoreClrFunctions = { 0 };
+
+/*
+ * NOTE: This variable will be non-NULL after the CoreCLR has been started
+ *       for the current process by this package.
+ */
+
+static volatile hostfxr_handle pCoreClrContext = NULL;
+
+/*
+ * NOTE: This variable will be TRUE if the CoreCLR bridge was successfully
+ *       started and has not been subsequently shutdown.
+ */
+
+static volatile BOOL bCoreClrBridgeStarted = FALSE;
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * GetCoreClrWasLoaded --
+ *
+ *	This function returns a boolean value that indicates whether
+ *	or not the CoreCLR has been loaded.
+ *
+ * Results:
+ *	Non-zero if the CoreCLR has been loaded; otherwise, zero.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+BOOL GetCoreClrWasLoaded(void)
+{
+    BOOL bResult;
+
+    Tcl_MutexLock(&packageMutex);
+    bResult = (pCoreClr != NULL);
+    Tcl_MutexUnlock(&packageMutex);
+
+    return bResult;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * GetCoreClrWasStarted --
+ *
+ *	This function returns a boolean value that indicates whether
+ *	or not the CoreCLR has been started.
+ *
+ * Results:
+ *	Non-zero if the CoreCLR has been started; otherwise, zero.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+BOOL GetCoreClrWasStarted(void)
+{
+    BOOL bResult;
+
+    Tcl_MutexLock(&packageMutex);
+    bResult = (pCoreClrContext != NULL);
+    Tcl_MutexUnlock(&packageMutex);
+
+    return bResult;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * GetCoreClrBridgeStarted --
+ *
+ *	This function returns a boolean value that indicates whether
+ *	or not the bridge between Tcl and the CoreCLR has been started.
+ *
+ * Results:
+ *	Non-zero if the bridge has been started; otherwise, zero.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+BOOL GetCoreClrBridgeStarted(void)
+{
+    BOOL bResult;
+
+    Tcl_MutexLock(&packageMutex);
+    bResult = bCoreClrBridgeStarted;
+    Tcl_MutexUnlock(&packageMutex);
+
+    return bResult;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * SetCoreClrBridgeStarted --
+ *
+ *	This function sets a boolean value that indicates whether or
+ *	not the bridge between Tcl and the CoreCLR has been started.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void SetCoreClrBridgeStarted(
+    BOOL bStarted)	    /* Non-zero if the bridge was started. */
+{
+    Tcl_MutexLock(&packageMutex);
+    bCoreClrBridgeStarted = bStarted;
+    Tcl_MutexUnlock(&packageMutex);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * LoadAndStartTheCoreClr --
+ *
+ *	This function loads and optionally starts the latest version of
+ *	the CoreCLR supported by this package.
+ *
+ * Results:
+ *	A standard Tcl result.
+ *
+ * Side effects:
+ *	Since the CoreCLR may execute startup code, this function may
+ *	have arbitrary side-effects.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int LoadAndStartTheCoreClr(
+    Tcl_Interp *interp,		/* Current Tcl interpreter. */
+    LPCWSTR logCommand,		/* The Tcl command used to log the
+				 * CoreCLR method execution, if any. */
+    LPCWSTR runtimeConfigPath,	/* The CoreCLR runtime configuration
+				 * file path, if any. */
+    BOOL bLoad,			/* Load the CoreCLR if necessary? */
+    BOOL bUseMinimumClr,	/* Force using minimum supported CoreCLR
+				 * version? */
+    BOOL bStart,		/* Start the CoreCLR after loading it? */
+    BOOL bStrict)		/* Fail if already loaded and/or started? */
+{
+    int code = TCL_OK;
+    HMODULE hModule = NULL;
+    CoreClrFunctions uFunctions;
+    hostfxr_handle pContext = NULL;
+    WCHAR buffer[PACKAGE_RESULT_SIZE + 1] = { 0 };
+    int rc;
+
+    Tcl_MutexLock(&packageMutex);
+
+    memset(&uFunctions, 0, sizeof(CoreClrFunctions));
+    uFunctions.sizeOf = sizeof(CoreClrFunctions);
+
+    if (bLoad) {
+	if (pCoreClr == NULL) {
+	    char_t runtimeLibraryFileName[PATH_MAX + 1];
+	    size_t runtimeLibraryNameSize = PATH_MAX;
+
+	    memset(runtimeLibraryFileName, 0,
+		(runtimeLibraryNameSize + 1) * sizeof(char_t));
+
+	    rc = get_hostfxr_path(
+		runtimeLibraryFileName, &runtimeLibraryNameSize, NULL);
+
+	    if (rc != 0) {
+		if (interp != NULL) {
+#if defined(_WIN32)
+		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"get_hostfxr_path",
+			    HRESULT_FROM_WIN32(rc)), -1);
+#else
+		    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"get_hostfxr_path",
+			    HRESULT_FROM_WIN32(rc)), -1);
+#endif
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
+
+#if defined(_WIN32)
+	    hModule = LoadLibraryW(runtimeLibraryFileName);
+#else
+	    hModule = dlopen(runtimeLibraryFileName, RTLD_LAZY | RTLD_LOCAL);
+#endif
+
+	    if (hModule == NULL) {
+		if (interp != NULL) {
+#if defined(_WIN32)
+		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"LoadLibraryW",
+			    HRESULT_FROM_WIN32(GetLastError())), -1);
+#else
+		    Tcl_AppendResult(interp, dlerror(), NULL);
+#endif
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
+
+#if defined(_WIN32)
+	    uFunctions.pGetDotNetEnvInfo =
+		(hostfxr_get_dotnet_environment_info_fn)GetProcAddress(
+		hModule, "hostfxr_get_dotnet_environment_info");
+
+	    uFunctions.pInitForRuntimeConfig =
+		(hostfxr_initialize_for_runtime_config_fn)GetProcAddress(
+		hModule, "hostfxr_initialize_for_runtime_config");
+
+	    uFunctions.pGetRuntimeDelegate =
+		(hostfxr_get_runtime_delegate_fn)GetProcAddress(
+		hModule, "hostfxr_get_runtime_delegate");
+
+	    uFunctions.pClose = (hostfxr_close_fn)GetProcAddress(
+		hModule, "hostfxr_close");
+#else
+	    uFunctions.pGetDotNetEnvInfo =
+		(hostfxr_get_dotnet_environment_info_fn)dlsym(
+		    hModule, "hostfxr_get_dotnet_environment_info");
+
+	    uFunctions.pInitForRuntimeConfig =
+		(hostfxr_initialize_for_runtime_config_fn)dlsym(
+		    hModule, "hostfxr_initialize_for_runtime_config");
+
+	    uFunctions.pGetRuntimeDelegate =
+		(hostfxr_get_runtime_delegate_fn)dlsym(
+		    hModule, "hostfxr_get_runtime_delegate");
+
+	    uFunctions.pClose = (hostfxr_close_fn)dlsym(
+		hModule, "hostfxr_close");
+#endif
+	} else if (bStrict) {
+	    if (interp != NULL) {
+		Tcl_AppendResult(interp, "CoreCLR already loaded\n", NULL);
+	    }
+
+	    code = TCL_ERROR;
+	    goto done;
+	}
+    }
+
+    if (bStart) {
+	if (hModule == NULL) {
+	    if (interp != NULL) {
+		Tcl_AppendResult(interp,
+		    "invalid CoreCLR module handle\n", NULL);
+	    }
+
+	    code = TCL_ERROR;
+	    goto done;
+	}
+
+	if ((uFunctions.pInitForRuntimeConfig == NULL) ||
+		(uFunctions.pGetRuntimeDelegate == NULL) ||
+		(uFunctions.pClose == NULL)) {
+	    if (interp != NULL) {
+		Tcl_AppendResult(interp,
+		    "invalid CoreCLR function pointers\n", NULL);
+	    }
+
+	    code = TCL_ERROR;
+	    goto done;
+	}
+
+	if (uFunctions.pLoadAssemblyAndGetFuncPtr == NULL) {
+	    if (runtimeConfigPath != NULL) {
+#if defined(_WIN32)
+		rc = uFunctions.pInitForRuntimeConfig(
+		    runtimeConfigPath, NULL, &pContext);
+#else
+		Cvt_pInitForRuntimeConfig(
+		    rc, runtimeConfigPath, NULL, &pContext);
+#endif
+	    } else {
+#if defined(_WIN32)
+		WCHAR runtimeConfigFileName[PATH_MAX + 1];
+		size_t runtimeConfigNameSize = PATH_MAX;
+
+		memset(runtimeConfigFileName, 0,
+		    (runtimeConfigNameSize + 1) * sizeof(WCHAR));
+
+		runtimeConfigNameSize = GetModuleFileNameW(NULL,
+		    runtimeConfigFileName, (DWORD)runtimeConfigNameSize);
+
+		if (runtimeConfigNameSize == 0) {
+		    if (interp != NULL) {
+#if defined(_WIN32)
+			Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			    GetClrErrorMessage(L"GetModuleFileNameW",
+				HRESULT_FROM_WIN32(GetLastError())), -1);
+#else
+			Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			    GetClrErrorMessage(L"GetModuleFileNameW",
+				HRESULT_FROM_WIN32(GetLastError())), -1);
+#endif
+		    }
+
+		    code = TCL_ERROR;
+		    goto done;
+		}
+
+		wcsncat(runtimeConfigFileName, UNICODE_RUNTIMECONFIG_SUFFIX,
+		    PATH_MAX - 1);
+#else
+		HRESULT hResult;
+		char runtimeConfigFileName[PATH_MAX + 1];
+		size_t runtimeConfigNameSize = PATH_MAX;
+
+		memset(runtimeConfigFileName, 0,
+		    (runtimeConfigNameSize + 1) * sizeof(char));
+
+		hResult = build_runtimeconfig_file_name(
+		    runtimeConfigFileName, runtimeConfigNameSize);
+
+		if (FAILED(hResult)) {
+		    if (interp != NULL) {
+#if defined(_WIN32)
+			Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			    GetClrErrorMessage(
+				L"build_runtimeconfig_file_name",
+				hResult), -1);
+#else
+			Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			    GetClrErrorMessage(
+				L"build_runtimeconfig_file_name",
+				hResult), -1);
+#endif
+		    }
+
+		    code = TCL_ERROR;
+		    goto done;
+		}
+#endif
+
+		rc = uFunctions.pInitForRuntimeConfig(
+		    runtimeConfigFileName, NULL, &pContext);
+	    }
+
+	    if ((rc != 0) || (pContext == NULL)) {
+		if (interp != NULL) {
+#if defined(_WIN32)
+		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"pInitForRuntimeConfig",
+			    HRESULT_FROM_WIN32(rc)), -1);
+#else
+		    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"pInitForRuntimeConfig",
+			    HRESULT_FROM_WIN32(rc)), -1);
+#endif
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
+
+	    rc = uFunctions.pGetRuntimeDelegate(
+		pContext, hdt_load_assembly_and_get_function_pointer,
+		(void **)&uFunctions.pLoadAssemblyAndGetFuncPtr);
+
+	    if ((rc != 0) ||
+		    (uFunctions.pLoadAssemblyAndGetFuncPtr == NULL)) {
+		if (interp != NULL) {
+#if defined(_WIN32)
+		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"pLoadAssemblyAndGetFuncPtr",
+			    HRESULT_FROM_WIN32(rc)), -1);
+#else
+		    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"pLoadAssemblyAndGetFuncPtr",
+			    HRESULT_FROM_WIN32(rc)), -1);
+#endif
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
+	} else if (bStrict) {
+	    if (interp != NULL) {
+		Tcl_AppendResult(interp, "CoreCLR already started\n", NULL);
+	    }
+
+	    code = TCL_ERROR;
+	    goto done;
+	}
+    }
+
+done:
+
+    if (code == TCL_OK) {
+	pCoreClrContext = pContext;
+
+	memcpy((void*)&uCoreClrFunctions, &uFunctions,
+	    sizeof(CoreClrFunctions));
+
+	pCoreClr = hModule;
+    } else {
+	if ((uFunctions.pClose != NULL) && (pContext != NULL)) {
+	    rc = uFunctions.pClose(pContext);
+
+	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
+		gwprintf(buffer, PACKAGE_RESULT_SIZE,
+		    L"pClose(rc = {%d})", rc);
+
+		TclLog(interp, logCommand, buffer, NULL);
+	    }
+
+	    pContext = NULL;
+	}
+
+	if (hModule != NULL) {
+	    BOOL bResult;
+
+#if defined(_WIN32)
+	    bResult = FreeLibrary(hModule);
+#else
+	    bResult = (dlclose(hModule) == 0);
+#endif
+
+	    hModule = NULL;
+
+	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
+#if defined(_WIN32)
+		gwprintf(buffer, PACKAGE_RESULT_SIZE,
+		    L"FreeLibrary(bResult = {%d}, lastError = {%lu})",
+		    bResult, GetLastError());
+#else
+		gwprintf(buffer, PACKAGE_RESULT_SIZE,
+		    L"dlclose(bResult = {%d}, lastError = {%s})",
+		    bResult, dlerror());
+#endif
+
+		TclLog(interp, logCommand, buffer, NULL);
+	    }
+	}
+    }
+
+    Tcl_MutexUnlock(&packageMutex);
+    return code;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * StopAndReleaseTheCoreClr --
+ *
+ *	This function stops and releases the CoreCLR.
+ *
+ * Results:
+ *	A standard Tcl result.
+ *
+ * Side effects:
+ *	Since the CoreCLR may execute cleanup code, this function may have
+ *	arbitrary side-effects.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int StopAndReleaseTheCoreClr(
+    Tcl_Interp *interp,	    /* Current Tcl interpreter. */
+    LPCWSTR logCommand,	    /* The Tcl command used to log the CLR method
+			     * execution, if any. */
+    BOOL bRelease,	    /* Release the CLR after stopping it? */
+    BOOL bStrict)	    /* Fail if already stopped and/or released? */
+{
+    int code = TCL_OK;
+    WCHAR buffer[PACKAGE_RESULT_SIZE + 1] = { 0 };
+
+    Tcl_MutexLock(&packageMutex);
+
+    if (pCoreClr != NULL) {
+	/*
+	 * NOTE: If we were previously able to start the CLR, stop it now.
+	 */
+
+	if ((uCoreClrFunctions.pClose != NULL) && (pCoreClrContext != NULL)) {
+	    HRESULT hResult = S_OK;
+
+#if defined(_WIN32)
+	    SetEnvironmentVariableW(UNICODE_CLR_STOPPING_ENVVAR_NAME, L"1");
+#else
+	    setenv(CLR_STOPPING_ENVVAR_NAME, "1", 1);
+#endif
+
+	    hResult = uCoreClrFunctions.pClose(pCoreClrContext);
+
+#if defined(_WIN32)
+	    SetEnvironmentVariableW(UNICODE_CLR_STOPPING_ENVVAR_NAME, NULL);
+#else
+	    unsetenv(CLR_STOPPING_ENVVAR_NAME);
+#endif
+
+	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
+		gwprintf(buffer, PACKAGE_RESULT_SIZE,
+		    L"ICLRRuntimeHost_Stop(hResult = {0x%lX})", hResult);
+
+		TclLog(interp, logCommand, buffer, NULL);
+	    }
+
+	    if (SUCCEEDED(hResult)) {
+		pCoreClrContext = NULL;
+	    } else {
+		if (interp != NULL) {
+#if defined(_WIN32)
+		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"ICLRRuntimeHost_Stop", hResult),
+			-1);
+#else
+		    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"ICLRRuntimeHost_Stop", hResult),
+			-1);
+#endif
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
+	} else if (bStrict) {
+	    if (interp != NULL) {
+		Tcl_AppendResult(interp, "CoreCLR not started\n", NULL);
+	    }
+
+	    code = TCL_ERROR;
+	    goto done;
+	}
+
+	/*
+	 * NOTE: Should we also release the DLL reference to the CoreCLR
+	 *       runtime host?
+	 */
+
+	if (bRelease) {
+	    BOOL bResult;
+
+#if defined(_WIN32)
+	    bResult = FreeLibrary(pCoreClr);
+#else
+	    bResult = (dlclose(pCoreClr) == 0);
+#endif
+
+	    pCoreClr = NULL;
+
+	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
+#if defined(_WIN32)
+		gwprintf(buffer, PACKAGE_RESULT_SIZE,
+		    L"FreeLibrary(bResult = {%d}, lastError = {%lu})",
+		    bResult, GetLastError());
+#else
+		gwprintf(buffer, PACKAGE_RESULT_SIZE,
+		    L"dlclose(bResult = {%d}, lastError = {%s})",
+		    bResult, dlerror());
+#endif
+
+		TclLog(interp, logCommand, buffer, NULL);
+	    }
+	}
+    } else if (bStrict) {
+	if (interp != NULL) {
+	    Tcl_AppendResult(interp, "CoreCLR not loaded\n", NULL);
+	}
+
+	code = TCL_ERROR;
+	goto done;
+    }
+
+done:
+
+    /*
+     * BUGFIX: If the CLR has been stopped, then the bridge cannot be
+     *         running either.
+     */
+
+    if ((code == TCL_OK) && bCoreClrBridgeStarted) {
+	bCoreClrBridgeStarted = FALSE;
+
+	if (PACKAGE_CAN_LOG(interp, logCommand)) {
+	    TclLog(interp, logCommand,
+		L"WARNING: CoreCLR was stopped with bridge running.", NULL);
+	}
+    }
+
+    Tcl_MutexUnlock(&packageMutex);
+    return code;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * CanExecuteCoreClrCode --
+ *
+ *	This function checks if CoreCLR code can safely be executed by this
+ *	package.
+ *
+ * Results:
+ *	Non-zero if CoreCLR code can be safely executed by this package,
+ *	zero otherwise.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+BOOL CanExecuteCoreClrCode(
+    Tcl_Interp *interp)			/* Current Tcl interpreter. */
+{
+    BOOL bResult = FALSE;
+
+    Tcl_MutexLock(&packageMutex);
+
+    if (pCoreClr == NULL) {
+	if (interp != NULL) {
+	    Tcl_AppendResult(interp, "CoreCLR not loaded\n", NULL);
+	}
+
+	goto done;
+    }
+
+    if (pCoreClrContext == NULL) {
+	if (interp != NULL) {
+	    Tcl_AppendResult(interp, "CoreCLR not started\n", NULL);
+	}
+
+	goto done;
+    }
+
+    bResult = TRUE;
+
+done:
+
+    Tcl_MutexUnlock(&packageMutex);
+    return bResult;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * ExecuteCoreClrMethod --
+ *
+ *	This function executes the specified CoreCLR method.
+ *
+ * Results:
+ *	A standard Tcl result.
+ *
+ * Side effects:
+ *	Since third-party code is executed during this function, there
+ *	may be arbitrary side-effects.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int ExecuteCoreClrMethod(
+    HMODULE hModule,		/* Tcl library module handle. */
+    ClrTclStubs *pTclStubs,	/* Tcl C API stub function pointer table. */
+    Tcl_Interp *interp,		/* Current Tcl interpreter. */
+    LPCWSTR logCommand,		/* The Tcl command used to log the CoreCLR method
+				 * execution, if any. */
+    ClrMethodInfo *pMethodInfo, /* Contains the information necessary for this
+				 * function to execute the CoreCLR method. */
+    LPCWSTR argument,		/* Extra argument to the method, if any. */
+    MethodFlags methodFlags,	/* Flags that control logging, arguments, etc.
+				 * See the MethodFlags enum for details. */
+    LPDWORD pReturnValue)	/* Location where the return value should be
+				 * stored or NULL if the return value is not
+				 * required. */
+{
+    int code = TCL_OK;
+    BOOL bUseProtocolR1;
+    BOOL bUseProtocolR2;
+    BOOL bLegacyProtocol;
+    BOOL bUseIsolation;
+    BOOL bUseSafeInterp;
+    BOOL bLogExecute;
+    LPWSTR protocolRevision = NULL;
+    LPWSTR newArgument = NULL;
+    HRESULT hResult;
+    DWORD returnValue = TCL_OK;
+    size_t length = 0;
+    component_entry_point_fn pManaged = NULL;
+
+    if (pMethodInfo == NULL) {
+	if (interp != NULL) {
+	    Tcl_AppendResult(interp, "invalid method information\n", NULL);
+	}
+
+	return TCL_ERROR;
+    }
+
+    Tcl_MutexLock(&packageMutex);
+
+    /*
+     * NOTE: If the CLR is either not loaded -OR- not started, then we cannot
+     *	     use it to execute any code.
+     */
+
+    if (!CanExecuteCoreClrCode(interp)) {
+	code = TCL_ERROR;
+	goto done;
+    }
+
+    bUseProtocolR1 = (methodFlags & METHOD_PROTOCOL_V1R1);
+    bUseProtocolR2 = (methodFlags & METHOD_PROTOCOL_V1R2);
+    bLegacyProtocol = (methodFlags & METHOD_PROTOCOL_LEGACY);
+    bUseIsolation = (methodFlags & METHOD_USE_ISOLATION);
+    bUseSafeInterp = (methodFlags & METHOD_USE_SAFE_INTERP);
+
+    if ((argument != NULL) || bUseProtocolR1) {
+	/*
+	 * NOTE: If an argument is present in the method information (i.e. this
+	 *       method has been configured by the package to use it), add the
+	 *       entire length of the argument plus one space to separate it
+	 *       from the rest of the final argument string.
+	 */
+
+	if (pMethodInfo->argument != NULL)
+	    length += wcslen(pMethodInfo->argument) + 1; /* argument + space. */
+
+	/*
+	 * NOTE: If an extra argument was supplied by the caller, add the
+	 *       entire length of the argument plus one space to separate it
+	 *       from the rest of the final argument string.
+	 */
+
+	if (argument != NULL)
+	    length += wcslen(argument) + 1; /* argument + space. */
+
+	/*
+	 * NOTE: Do we need to prepend additional information required by our
+	 *       native-to-managed code protocol (V1)?  The reason a "protocol"
+	 *       is required at all is because the native CLR API only allows
+	 *       us to pass one string argument to the target CLR method;
+	 *       therefore, we have to make the most of it.
+	 */
+
+	if (bUseProtocolR1) {
+	    /*
+	     * HACK: Build the final argument string to pass to CLR method.  We
+	     *       need to include the Tcl library module handle and a pointer
+	     *       to the Tcl interpreter here in order for Eagle to build a
+	     *       bridge back to us.  Since the type signature of the method
+	     *       only allows us to pass a single string argument, we must
+	     *       convert the Tcl library module handle and the Tcl
+	     *       interpreter pointer to strings and then add any arguments
+	     *       supplied by the configuration or our immediate caller
+	     *       after that.  The final argument string MUST parse as a
+	     *       valid list; otherwise, the CLR method MAY simply refuse to
+	     *       process it.  We also include a prefix indicating the
+	     *       version of the "protocol" that is in use (currently
+	     *       "Garuda_v1.0" or "Garuda_v1.0_r2.0") and a Tcl interpreter
+	     *       "safety indicator" (i.e. logical boolean) after the Tcl
+	     *       interpreter pointer.
+	     */
+
+	    length += wcslen(PACKAGE_UNICODE_NAME) + 1; /* strlen(" Garuda") */
+
+	    if (bUseProtocolR2) {
+		protocolRevision = PACKAGE_UNICODE_PROTOCOL_V1R2;
+	    } else if (bLegacyProtocol) {
+		protocolRevision = PACKAGE_UNICODE_PROTOCOL_V1R0;
+	    } else {
+		protocolRevision = PACKAGE_UNICODE_PROTOCOL_V1R1;
+	    }
+
+	    length += wcslen(protocolRevision); /* "vX.0_rY.0", etc */
+	    length += 2; /* space before and after protocol revision */
+	    length += (sizeof(HMODULE) * 2) + 3; /* "0x" + handleAsStr + " " */
+	    length += (sizeof(LPVOID) * 2) + 3; /* "0x" + hexPtrAsStr + " " */
+	    length += 2; /* strlen("1 "), "safe", note trailing space */
+	}
+
+	/*
+	 * NOTE: Do we need to prepend additional information required by our
+	 *       native-to-managed code protocol (R2)?
+	 */
+
+	if (bUseProtocolR2) {
+	    /*
+	     * HACK: Include a pointer to the structure containing the Tcl C
+	     *       API function pointers.
+	     */
+
+	    length += (sizeof(LPVOID) * 2) + 3; /* "0x" + hexPtrAsStr + " " */
+	    length += 2; /* strlen("1 "), "isolation", note trailing space */
+	}
+
+	length++; /* NUL terminator character. */
+	newArgument = (LPWSTR)attemptckalloc(length * sizeof(WCHAR));
+
+	if (newArgument == NULL) {
+	    if (interp != NULL) {
+		Tcl_AppendResult(interp, "out of memory: newArgument\n", NULL);
+	    }
+
+	    code = TCL_ERROR;
+	    goto done;
+	}
+
+	memset(newArgument, 0, length * sizeof(WCHAR));
+
+	if (bUseProtocolR1) {
+	    if (bUseProtocolR2) {
+		gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL,
+		    L"%s_%s " PACKAGE_UNICODE_PTR_FMT L" "
+		    PACKAGE_UNICODE_PTR_FMT L" " PACKAGE_UNICODE_PTR_FMT
+		    L" %s %s %s %s\0", PACKAGE_UNICODE_NAME,
+		    protocolRevision, hModule, pTclStubs, interp,
+		    bUseIsolation ? L"1 " : L"0 ",
+		    bUseSafeInterp ? L"1 " : L"0 ",
+		    (pMethodInfo->argument != NULL) ? pMethodInfo->argument :
+		    L"", (argument != NULL) ? argument : L"");
+	    } else {
+		gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL,
+		    L"%s_%s " PACKAGE_UNICODE_PTR_FMT L" "
+		    PACKAGE_UNICODE_PTR_FMT L" %s %s %s\0",
+		    PACKAGE_UNICODE_NAME, protocolRevision, hModule, interp,
+		    bUseSafeInterp ? L"1 " : L"0 ",
+		    (pMethodInfo->argument != NULL) ? pMethodInfo->argument :
+		    L"", (argument != NULL) ? argument : L"");
+	    }
+	} else {
+	    gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL, L"%s %s\0",
+		(pMethodInfo->argument != NULL) ? pMethodInfo->argument : L"",
+		(argument != NULL) ? argument : L"");
+	}
+    } else {
+	newArgument = (LPWSTR)pMethodInfo->argument;
+    }
+
+    bLogExecute = (methodFlags & METHOD_LOG_EXECUTE);
+
+    if (bLogExecute && PACKAGE_CAN_LOG(interp, logCommand)) {
+	/*
+	 * NOTE: Verbose mode is enabled; show all the information about the
+	 *       CLR method we are about to execute.
+	 */
+
+	TclLog(interp, logCommand, L"BEFORE ",
+	    L"pLoadAssemblyAndGetFuncPtr(assemblyPath = {",
+	    pMethodInfo->assemblyPath, L"}, typeName = {",
+	    pMethodInfo->typeName, L"}, methodName = {",
+	    pMethodInfo->methodName, L"}, argument = {",
+	    newArgument, L"})", NULL);
+    }
+
+#if defined(_WIN32)
+    hResult = uCoreClrFunctions.pLoadAssemblyAndGetFuncPtr(
+	pMethodInfo->assemblyPath, pMethodInfo->typeName,
+	pMethodInfo->methodName, NULL, NULL, (void**)&pManaged);
+#else
+    Cvt_pLoadAssemblyAndGetFuncPtr(
+	hResult, pMethodInfo->assemblyPath, pMethodInfo->typeName,
+	pMethodInfo->methodName, NULL, NULL, (void**)&pManaged);
+#endif
+
+    if (SUCCEEDED(hResult)) {
+	if (pManaged != NULL) {
+	    returnValue = pManaged(newArgument, (int32_t)length);
+	} else {
+	    hResult = HRESULT_FROM_WIN32(ERROR_FUNCTION_NOT_CALLED);
+
+	    if (interp != NULL) {
+#if defined(_WIN32)
+		Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		    GetClrErrorMessage(
+			L"pLoadAssemblyAndGetFuncPtr",
+			hResult), -1);
+#else
+		Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		    GetClrErrorMessage(
+			L"pLoadAssemblyAndGetFuncPtr",
+			hResult), -1);
+#endif
+	    }
+	}
+    }
+
+    if (bLogExecute && PACKAGE_CAN_LOG(interp, logCommand)) {
+	WCHAR buffer[PACKAGE_RESULT_SIZE + 1] = { 0 };
+
+	gwprintf(buffer, PACKAGE_RESULT_SIZE, L"AFTER "
+	    L"pLoadAssemblyAndGetFuncPtr(hResult = {0x%lX}, "
+	    L"pManaged = {" PACKAGE_UNICODE_PTR_FMT  "}, "
+	    L"returnValue = {%d})", hResult, pManaged,
+	    returnValue);
+
+	TclLog(interp, logCommand, buffer, NULL);
+    }
+
+    if (SUCCEEDED(hResult)) {
+	if (pReturnValue != NULL)
+	    *pReturnValue = returnValue;
+    } else {
+	if (interp != NULL) {
+#if defined(_WIN32)
+	    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		GetClrErrorMessage(
+		    L"ICLRRuntimeHost_ExecuteInDefaultAppDomain",
+		    hResult), -1);
+#else
+	    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		GetClrErrorMessage(
+		    L"ICLRRuntimeHost_ExecuteInDefaultAppDomain",
+		    hResult), -1);
+#endif
+	}
+
+	code = TCL_ERROR;
+	goto done;
+    }
+
+done:
+
+    if ((newArgument != NULL) &&
+	    (newArgument != pMethodInfo->argument)) {
+	ckfree((LPVOID)newArgument);
+	newArgument = NULL;
+    }
+
+    Tcl_MutexUnlock(&packageMutex);
+    return code;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * GetCurrentCoreClrAppDomainId --
+ *
+ *	This function attempts to query the integer identifier for the
+ *	current application domain of the CoreCLR.
+ *
+ * Results:
+ *	A standard COM result.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+HRESULT GetCurrentCoreClrAppDomainId(
+    LPDWORD pAppDomainId)	/* Upon success, will contain an integer
+				 * identifier for the current application
+				 * domain. */
+{
+    HRESULT hResult;
+
+    Tcl_MutexLock(&packageMutex);
+
+    if (pAppDomainId == NULL) {
+	hResult = E_POINTER;
+	goto done;
+    }
+
+    if (pCoreClrContext == NULL) {
+	hResult = HRESULT_FROM_WIN32(ERROR_SERVICE_NEVER_STARTED);
+	goto done;
+    }
+
+    *pAppDomainId = 1;
+    hResult = S_OK;
+
+done:
+
+    Tcl_MutexUnlock(&packageMutex);
+    return hResult;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * GetCoreClrVersionCallback --
+ *
+ *	This function handles the version information callbacks from
+ *	the currently loaded CoreCLR.  The resulting information for
+ *	the user command is stored in the context structure.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static void HOSTFXR_CALLTYPE GetCoreClrVersionCallback(
+    const struct hostfxr_dotnet_environment_info *info,
+    void *context)
+{
+    if ((info != NULL) && (context != NULL)) {
+	CoreClrVersionInfo *pVersionInfo = context;
+	Tcl_Obj *result = pVersionInfo->result;
+
+	pVersionInfo->count++;
+
+	if (result == NULL) {
+	    result = Tcl_NewObj();
+
+	    if (result == NULL)
+		return;
+
+	    pVersionInfo->result = result;
+	    Tcl_IncrRefCount(result);
+	}
+
+#if defined(_WIN32)
+	Tcl_AppendUnicodeToObj(result, L"version ", -1);
+	Tcl_AppendUnicodeToObj(result, info->hostfxr_version, -1);
+	Tcl_AppendUnicodeToObj(result, L" commit_hash ", -1);
+	Tcl_AppendUnicodeToObj(result, info->hostfxr_commit_hash, -1);
+#else
+	Tcl_AppendToObj(result, "version ", -1);
+	Tcl_AppendToObj(result, info->hostfxr_version, -1);
+	Tcl_AppendToObj(result, " commit_hash ", -1);
+	Tcl_AppendToObj(result, info->hostfxr_commit_hash, -1);
+#endif
+    }
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * GetCoreClrVersion --
+ *
+ *	This function attempts to query version information for the
+ *	currently loaded CoreCLR.
+ *
+ * Results:
+ *	A standard COM result.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+HRESULT GetCoreClrVersion(
+    LPWSTR pVersion,		/* Upon success, will contain a string
+				 * with CLR version information. */
+    LPDWORD pLength)		/* Upon entry, the length of the state
+				 * buffer.  Upon success, will contain
+				 * the length of the resulting string. */
+{
+    HRESULT hResult = S_OK;
+    CoreClrVersionInfo uVersionInfo;
+    int32_t rc;
+    LPWSTR result;
+    int length;
+
+    Tcl_MutexLock(&packageMutex);
+
+    memset(&uVersionInfo, 0, sizeof(CoreClrVersionInfo));
+    uVersionInfo.sizeOf = sizeof(CoreClrVersionInfo);
+
+    if ((pVersion == NULL) || (pLength == NULL)) {
+	hResult = E_POINTER;
+	goto done;
+    }
+
+    if (uCoreClrFunctions.pGetDotNetEnvInfo == NULL) {
+	hResult = E_NOTIMPL;
+	goto done;
+    }
+
+    rc = uCoreClrFunctions.pGetDotNetEnvInfo(
+	NULL, NULL, GetCoreClrVersionCallback, &uVersionInfo);
+
+    if (rc != 0) {
+	hResult = HRESULT_FROM_WIN32(rc);
+	goto done;
+    }
+
+    if (uVersionInfo.result == NULL) {
+	hResult = E_FAIL;
+	goto done;
+    }
+
+#if defined(_WIN32)
+    result = Tcl_GetUnicodeFromObj(uVersionInfo.result, &length);
+#else
+    Cvt_GetUnicodeFromObj(result, uVersionInfo.result, &length);
+#endif
+
+    if (result == NULL) {
+	hResult = E_OUTOFMEMORY;
+	goto done;
+    }
+
+    if ((DWORD)length >= *pLength) {
+	hResult = DISP_E_OVERFLOW;
+	goto done;
+    }
+
+    wcsncpy(pVersion, result, *pLength);
+    *pLength = length;
+
+done:
+
+    if (uVersionInfo.result != NULL) {
+	Tcl_DecrRefCount(uVersionInfo.result);
+	uVersionInfo.result = NULL;
+    }
+
+    Tcl_MutexUnlock(&packageMutex);
+    return hResult;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * DumpCoreClrState --
+ *
+ *	This function attempts to debugging information for this
+ *	package.  Generally, this information is only useful for
+ *	advanced troubleshooting.
+ *
+ * Results:
+ *	A standard COM result.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+HRESULT DumpCoreClrState(
+    LPWSTR fileName,		/* The (fully qualified) file name of
+				 * the (dynamic) shared library that
+				 * contains this code. */
+    LONG lTclStubs,		/* Non-zero if the Tcl stubs mechanism
+				 * has been initialized. */
+    HMODULE hTclModule,		/* The handle of the (dynamic) shared
+				 * library module for Tcl. */
+    ClrTclStubs *pTclStubs,	/* Pointer to structure that contains
+				 * the set of function pointers to be
+				 * passed to the managed code. */
+    LPWSTR pState,		/* Upon success, will contain a string
+				 * with package debugging information. */
+    LPDWORD pLength)		/* Upon entry, the length of the state
+				 * buffer.  Upon success, will contain
+				 * the length of the resulting string. */
+{
+    HRESULT hResult;
+
+    Tcl_MutexLock(&packageMutex);
+
+    if ((pState == NULL) || (pLength == NULL)) {
+	hResult = E_POINTER;
+	goto done;
+    }
+
+    gwprintf(pState, *pLength,
+	L"packageMutex " PACKAGE_UNICODE_PTR_FMT
+	L" hPackageModule " PACKAGE_UNICODE_PTR_FMT
+	L" packageFileName {%s} lTclStubs %ld hTclModule "
+	PACKAGE_UNICODE_PTR_FMT L" pTclStubs "
+	PACKAGE_UNICODE_PTR_FMT L" pCoreClr "
+	PACKAGE_UNICODE_PTR_FMT L" uCoreClrFunctions "
+	PACKAGE_UNICODE_PTR_FMT L" pCoreClrContext "
+	PACKAGE_UNICODE_PTR_FMT L" bClrBridgeStarted %d",
+	packageMutex,
+	GetPackageModule(), fileName, lTclStubs, hTclModule,
+	pTclStubs, pCoreClr, &uCoreClrFunctions,
+	pCoreClrContext, bCoreClrBridgeStarted);
+
+    hResult = S_OK;
+
+done:
+
+    Tcl_MutexUnlock(&packageMutex);
+    return hResult;
+}
+#endif /* defined(USE_CORE_CLR) */

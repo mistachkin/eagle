@@ -1490,18 +1490,27 @@ set eagle_manifests(source) {
   Eagle/Native/Package/rc/Garuda.rc
   Eagle/Native/Package/README
   Eagle/Native/Package/Scripts/ex_winForms.tcl
+  Eagle/Native/Package/src/external/generic/ConvertUTF_v2.c
+  Eagle/Native/Package/src/external/generic/ConvertUTF_v2.h
   Eagle/Native/Package/src/generic/Garuda.c
   Eagle/Native/Package/src/generic/Garuda.h
   Eagle/Native/Package/src/generic/GarudaClr.c
+  Eagle/Native/Package/src/generic/GarudaClr.h
+  Eagle/Native/Package/src/generic/GarudaCoreClr.c
+  Eagle/Native/Package/src/generic/GarudaCoreClr.h
   Eagle/Native/Package/src/generic/GarudaDecls.h
   Eagle/Native/Package/src/generic/GarudaInt.h
+  Eagle/Native/Package/src/generic/GarudaPal.c
+  Eagle/Native/Package/src/generic/GarudaPal.h
   Eagle/Native/Package/src/generic/GarudaPre.h
+  Eagle/Native/Package/src/generic/GarudaStr.h
   Eagle/Native/Package/src/generic/pkgVersion.h
   Eagle/Native/Package/src/generic/rcVersion.h
   Eagle/Native/Package/src/generic/stubs.h
   Eagle/Native/Package/src/win/DllMain.c
   Eagle/Native/Package/src/win/fakeSal.h
   Eagle/Native/Package/src/win/Garuda.def
+  Eagle/Native/Package/src/win/GarudaCore.def
   Eagle/Native/Package/src/win/tea/coffbase.txt
   Eagle/Native/Package/src/win/tea/makefile.vc
   Eagle/Native/Package/src/win/tea/nmakehlp.c
@@ -1518,6 +1527,7 @@ set eagle_manifests(source) {
   Eagle/Native/Package/Tcl/include/tclPort.h
   Eagle/Native/Package/Tcl/include/tclTomMath.h
   Eagle/Native/Package/Tcl/include/tclTomMathDecls.h
+  Eagle/Native/Package/Tcl/include/tclUnixPort.h
   Eagle/Native/Package/Tcl/include/tclWinPort.h
   Eagle/Native/Package/Tcl/lib/ARM/v110/tclstub86.lib
   Eagle/Native/Package/Tcl/lib/ARM/v120/tclstub86.lib
@@ -4076,6 +4086,7 @@ set eagle_manifests(nuGetSource) {
 #
 set garuda_manifests(binaryCore) {
   Garuda1.0/Garuda.dll
+  Garuda1.0/GarudaCore.dll
   Garuda1.0/dotnet.tcl
   Garuda1.0/helper.tcl
   Garuda1.0/pkgIndex.tcl
@@ -4088,6 +4099,7 @@ set garuda_manifests(binaryCore) {
 #
 set garuda_manifests(binaryX64Core) {
   Garuda1.0/x64/Garuda.dll
+  Garuda1.0/x64/GarudaCore.dll
 }
 
 ###############################################################################
@@ -4097,6 +4109,7 @@ set garuda_manifests(binaryX64Core) {
 #
 set garuda_manifests(binaryArmCore) {
   Garuda1.0/ARM/Garuda.dll
+  Garuda1.0/ARM/GarudaCore.dll
 }
 
 ###############################################################################
@@ -4154,6 +4167,7 @@ set garuda_manifests(binaryExtra) {
 #
 set garuda_manifests(setupFull) {
   {{app}\Garuda.dll}
+  {{app}\GarudaCore.dll}
   {{app}\Garuda.pdb}
   {{app}\dotnet.tcl}
   {{app}\helper.tcl}

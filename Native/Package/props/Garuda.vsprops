@@ -32,6 +32,11 @@
 		PerformEnvironmentSet="true"
 	/>
 	<UserMacro
+		Name="CORECLR_DEFINES"
+		Value="CORE_CLR"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
 		Name="TCL_DEFINES"
 		Value="TCL_THREADS;USE_TCL_STUBS"
 		PerformEnvironmentSet="true"
@@ -43,7 +48,7 @@
 	/>
 	<UserMacro
 		Name="WIN32_WARNINGS"
-		Value="4005;4100;4127;4201"
+		Value="4005;4100;4127;4201;4206;4996"
 		PerformEnvironmentSet="true"
 	/>
 	<UserMacro
@@ -53,7 +58,22 @@
 	/>
 	<UserMacro
 		Name="INCLUDE_DIRECTORIES"
-		Value="src\generic;src\win;Tcl\include"
+		Value="src\generic;src\win;Tcl\include;src\external\generic"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="CORECLR_X86_DIRECTORIES"
+		Value="$(DOTNET_SDK_PACKS_DIR)\Microsoft.NETCore.App.Host.win-x86\$(DOTNET_SDK_VERSION)\runtimes\win-x86\native"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="CORECLR_X64_DIRECTORIES"
+		Value="$(DOTNET_SDK_PACKS_DIR)\Microsoft.NETCore.App.Host.win-x64\$(DOTNET_SDK_VERSION)\runtimes\win-x64\native"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="CORECLR_ARM_DIRECTORIES"
+		Value="$(DOTNET_SDK_PACKS_DIR)\Microsoft.NETCore.App.Host.win-arm\$(DOTNET_SDK_VERSION)\runtimes\win-arm\native"
 		PerformEnvironmentSet="true"
 	/>
 	<UserMacro
@@ -69,6 +89,11 @@
 	<UserMacro
 		Name="OUTPUT_FILE"
 		Value="$(ProjectName)"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="CORECLR_OUTPUT_FILE"
+		Value="$(TargetName)"
 		PerformEnvironmentSet="true"
 	/>
 	<UserMacro

@@ -10,6 +10,13 @@
  */
 
 #include "GarudaPre.h"
+
+#if defined(USE_CORE_CLR)
+#  include "GarudaCoreClr.h"
+#else
+#  include "GarudaClr.h"
+#endif
+
 #include "tcl.h"
 #include "pkgVersion.h"
 #include "rcVersion.h"
@@ -84,12 +91,14 @@ BEGIN
             VALUE "TclStubs", "library"
 #endif /* defined(USE_TCL_PRIVATE_STUBS) */
 #if defined(USE_CORE_CLR)
-            VALUE "ClrVersion", "CoreCLR " CORE_CLR_VERSION_V3
-#elif defined(USE_CLR_40)
-            VALUE "ClrVersion", "CLR " CLR_VERSION_V4
-#else
-            VALUE "ClrVersion", "CLR " CLR_VERSION_V2
-#endif /* defined(USE_CORE_CLR) */
+            VALUE "CoreClrVersion", CORE_CLR_VERSION_V3
+#else /* defined(USE_CORE_CLR) */
+#  if defined(USE_CLR_40)
+            VALUE "ClrVersion", CLR_VERSION_V4
+#  else
+            VALUE "ClrVersion", CLR_VERSION_V2
+#  endif /* defined(USE_CLR_40) */
+#endif
         END
     END
     BLOCK "VarFileInfo"

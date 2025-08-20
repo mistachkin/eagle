@@ -4307,7 +4307,7 @@ namespace Eagle._Components.Private
                                 if (!IsDirectoryChar(builder[builder.Length - 1]))
                                     builder.Append(separator);
 
-                                builder.Append(MaybeTrim(trimPath));
+                                builder.Append(MaybeTrim(trimPath, true));
                             }
                             else if ((trimPath.Length == 1) &&
                                 IsDirectoryChar(trimPath[0]))

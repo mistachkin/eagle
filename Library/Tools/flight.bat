@@ -195,7 +195,11 @@ IF DEFINED NONETFX40 (
                   IF DEFINED NONETFX472 (
                     IF DEFINED NONETFX48 (
                       IF DEFINED NONETFX481 (
-                        SET NOPACKAGE=1
+                        IF DEFINED NONETSTANDARD20 (
+                          IF DEFINED NONETSTANDARD21 (
+                            SET NOPACKAGE=1
+                          )
+                        )
                       )
                     )
                   )
@@ -280,7 +284,7 @@ SET MANAGEDIMAGEFILES=%MANAGEDIMAGEFILES% Hippogriff.exe
 
 IF DEFINED NATIVEIMAGEFILES GOTO skip_nativeImageFiles
 
-SET NATIVEIMAGEFILES=Garuda.dll Spilornis.dll
+SET NATIVEIMAGEFILES=Garuda.dll GarudaCore.dll Spilornis.dll
 
 :skip_nativeImageFiles
 
@@ -817,7 +821,15 @@ IF NOT DEFINED NONETFX40 (
                       IF NOT DEFINED NONETFX481 (
                         SET GARUDA_DLL=%ROOT%\bin\%PACKAGE_PLATFORM%\%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%\Garuda.dll
                       ) ELSE (
-                        CALL :fn_UnsetVariable GARUDA_DLL
+                        IF NOT DEFINED NONETSTANDARD20 (
+                          SET GARUDA_DLL=%ROOT%\bin\%PACKAGE_PLATFORM%\%NATIVE_CONFIGURATION%%NETSTANDARD20_SUFFIX%\GarudaCore.dll
+                        ) ELSE (
+                          IF NOT DEFINED NONETSTANDARD21 (
+                            SET GARUDA_DLL=%ROOT%\bin\%PACKAGE_PLATFORM%\%NATIVE_CONFIGURATION%%NETSTANDARD21_SUFFIX%\GarudaCore.dll
+                          ) ELSE (
+                            CALL :fn_UnsetVariable GARUDA_DLL
+                          )
+                        )
                       )
                     )
                   )

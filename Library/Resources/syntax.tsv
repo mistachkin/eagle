@@ -205,6 +205,7 @@ file system	file system ?name?
 file tail	file tail name
 file tempname	file tempname
 file temppath	file temppath
+file tildeexpand	file tildeexpand path
 file touch	file touch path
 file trusted	file trusted path
 file type	file type name

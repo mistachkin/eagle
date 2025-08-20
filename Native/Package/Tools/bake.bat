@@ -134,6 +134,7 @@ SET EAGLEBINDIR=%EAGLEBINDIR:All=%
 SET EAGLEBINDIR=%EAGLEBINDIR:Dll=%
 
 SET SRCBINDIR=%~dp0\..\..\..\bin\%PLATFORM%\%CONFIGURATION%
+SET SRCCOREBINDIR=%~dp0\..\..\..\bin\%PLATFORM%\%CONFIGURATION%
 SET SRCLIBDIR=%~dp0\..\lib
 SET SRCTESTDIR=%~dp0\..\Tests
 SET SRCISSFILE=%~dp0\..\..\..\Setup\Garuda.iss
@@ -303,8 +304,8 @@ IF NOT DEFINED URL (
 
 %_VECHO% Url = '%URL%'
 
-%_CECHO% ISCC.exe "%SRCISSFILE%" "/dAppId=%APPID%" "/dPlatform=%PLATFORM%" "/dConfiguration=%CONFIGURATION%" "/dProcessor=%PROCESSOR%" "/dVcRuntimeX86=%VCRUNTIMEX86%" "/dVcRuntimeX64=%VCRUNTIMEX64%" "/dVcRuntimeArm=%VCRUNTIMEARM%" "/dSuffix=%SUFFIX%" "/dSigned=%SIGNED%" "/dSrcBinDir=%SRCBINDIR%" "/dSrcLibDir=%SRCLIBDIR%" "/dSrcTestDir=%SRCTESTDIR%" "/dIsNetFx2=%ISNETFX2%" "/dIsNetFx4=%ISNETFX4%" "/dNeedActiveTcl=%NEEDACTIVETCL%" "/dNeedEagle=%NEEDEAGLE%" "/dNeedVcRuntimes=%NEEDVCRUNTIMES%" "/dAppFullVersion=%PACKAGE_PATCHLEVEL%" "/dAppMajorMinorVersion=%MAJORMINOR%" "/dAppURL=%URL%"
-%__ECHO% ISCC.exe "%SRCISSFILE%" "/dAppId=%APPID%" "/dPlatform=%PLATFORM%" "/dConfiguration=%CONFIGURATION%" "/dProcessor=%PROCESSOR%" "/dVcRuntimeX86=%VCRUNTIMEX86%" "/dVcRuntimeX64=%VCRUNTIMEX64%" "/dVcRuntimeArm=%VCRUNTIMEARM%" "/dSuffix=%SUFFIX%" "/dSigned=%SIGNED%" "/dSrcBinDir=%SRCBINDIR%" "/dSrcLibDir=%SRCLIBDIR%" "/dSrcTestDir=%SRCTESTDIR%" "/dIsNetFx2=%ISNETFX2%" "/dIsNetFx4=%ISNETFX4%" "/dNeedActiveTcl=%NEEDACTIVETCL%" "/dNeedEagle=%NEEDEAGLE%" "/dNeedVcRuntimes=%NEEDVCRUNTIMES%" "/dAppFullVersion=%PACKAGE_PATCHLEVEL%" "/dAppMajorMinorVersion=%MAJORMINOR%" "/dAppURL=%URL%"
+%_CECHO% ISCC.exe "%SRCISSFILE%" "/dAppId=%APPID%" "/dPlatform=%PLATFORM%" "/dConfiguration=%CONFIGURATION%" "/dProcessor=%PROCESSOR%" "/dVcRuntimeX86=%VCRUNTIMEX86%" "/dVcRuntimeX64=%VCRUNTIMEX64%" "/dVcRuntimeArm=%VCRUNTIMEARM%" "/dSuffix=%SUFFIX%" "/dSigned=%SIGNED%" "/dSrcBinDir=%SRCBINDIR%" "/dSrcCoreBinDir=%SRCCOREBINDIR%" "/dSrcLibDir=%SRCLIBDIR%" "/dSrcTestDir=%SRCTESTDIR%" "/dIsNetFx2=%ISNETFX2%" "/dIsNetFx4=%ISNETFX4%" "/dNeedActiveTcl=%NEEDACTIVETCL%" "/dNeedEagle=%NEEDEAGLE%" "/dNeedVcRuntimes=%NEEDVCRUNTIMES%" "/dAppFullVersion=%PACKAGE_PATCHLEVEL%" "/dAppMajorMinorVersion=%MAJORMINOR%" "/dAppURL=%URL%"
+%__ECHO% ISCC.exe "%SRCISSFILE%" "/dAppId=%APPID%" "/dPlatform=%PLATFORM%" "/dConfiguration=%CONFIGURATION%" "/dProcessor=%PROCESSOR%" "/dVcRuntimeX86=%VCRUNTIMEX86%" "/dVcRuntimeX64=%VCRUNTIMEX64%" "/dVcRuntimeArm=%VCRUNTIMEARM%" "/dSuffix=%SUFFIX%" "/dSigned=%SIGNED%" "/dSrcBinDir=%SRCBINDIR%" "/dSrcCoreBinDir=%SRCCOREBINDIR%" "/dSrcLibDir=%SRCLIBDIR%" "/dSrcTestDir=%SRCTESTDIR%" "/dIsNetFx2=%ISNETFX2%" "/dIsNetFx4=%ISNETFX4%" "/dNeedActiveTcl=%NEEDACTIVETCL%" "/dNeedEagle=%NEEDEAGLE%" "/dNeedVcRuntimes=%NEEDVCRUNTIMES%" "/dAppFullVersion=%PACKAGE_PATCHLEVEL%" "/dAppMajorMinorVersion=%MAJORMINOR%" "/dAppURL=%URL%"
 
 IF %ERRORLEVEL% NEQ 0 (
   ECHO Failed to compile setup.

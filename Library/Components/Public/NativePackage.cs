@@ -13,7 +13,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+
+#if NET_STANDARD_20
 using System.Runtime.InteropServices;
+#endif
+
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Private;
@@ -36,7 +40,9 @@ namespace Eagle._Components.Public
         //       that will be bridged to the Eagle interpreter (i.e. the native
         //       endpoint).
         //
-        private static readonly string nativeCommandName =
+        // HACK: This is purposely not read-only.
+        //
+        private static string nativeCommandName =
             GlobalState.GetPackageNameNoCase();
 
         //
@@ -44,7 +50,9 @@ namespace Eagle._Components.Public
         //       interpreter that will be bridged to the Tcl interpreter
         //       (i.e. the managed endpoint).
         //
-        private static readonly string managedCommandName =
+        // HACK: This is purposely not read-only.
+        //
+        private static string managedCommandName =
             ScriptOps.TypeNameToEntityName(typeof(_Commands.Eval));
 
         //
@@ -1408,12 +1416,47 @@ namespace Eagle._Components.Public
                 }
             }
 
+            if (list.Count >= 4)
+            {
+                if (Value.GetInterpreter(
+                        localInterpreter, list[3], InterpreterType.Default,
+                        ref localInterpreter, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+            }
+
             interpreter = localInterpreter;
             packageName = localPackageName;
             version = localVersion;
 
             return ReturnCode.Ok;
         }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private CoreCLR Native API Support Methods
+#if NET_STANDARD_20
+        private static string MarshalArgument(
+            IntPtr arg,           /* in */
+            int arg_size_in_bytes /* in */
+            )
+        {
+            if (PlatformOps.IsWindowsOperatingSystem())
+            {
+                return Marshal.PtrToStringUni(arg, arg_size_in_bytes);
+            }
+            else
+            {
+#if NET_STANDARD_21
+                return Marshal.PtrToStringUTF8(arg, arg_size_in_bytes);
+#else
+                return Marshal.PtrToStringAnsi(arg, arg_size_in_bytes);
+#endif
+            }
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -1430,28 +1473,30 @@ namespace Eagle._Components.Public
         //       );
         //
         #region Public CoreCLR Native API Integration Methods
-#if NET_STANDARD_21
+#if NET_STANDARD_20
         //
         // WARNING: This method is used to integrate with native code via the
         //          native CoreCLR API.
         //
 #if NET_CORE_50
-        [UnmanagedCallersOnly(EntryPoint = "Startup",
+        [UnmanagedCallersOnly(EntryPoint = "StartupCoreClr",
             CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-        public static int Startup(
+        public static int StartupCoreClr(
             IntPtr arg,           /* in */
             int arg_size_in_bytes /* in */
             )
         {
             TraceOps.DebugTrace(String.Format(
-                "Startup: entered, arg = {0}", FormatOps.WrapOrNull(arg)),
-                typeof(NativePackage).Name, TracePriority.NativeDebug);
+                "StartupCoreClr: entered, arg = {0}",
+                FormatOps.WrapOrNull(arg)),
+                typeof(NativePackage).Name,
+                TracePriority.NativeDebug);
 
             if (arg == IntPtr.Zero)
                 return (int)ReturnCode.Error;
 
-            return Startup(Marshal.PtrToStringUTF8(arg, arg_size_in_bytes));
+            return StartupClr(MarshalArgument(arg, arg_size_in_bytes));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1461,22 +1506,24 @@ namespace Eagle._Components.Public
         //          native CoreCLR API.
         //
 #if NET_CORE_50
-        [UnmanagedCallersOnly(EntryPoint = "Control",
+        [UnmanagedCallersOnly(EntryPoint = "ControlCoreClr",
             CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-        public static int Control(
+        public static int ControlCoreClr(
             IntPtr arg,           /* in */
             int arg_size_in_bytes /* in */
             )
         {
             TraceOps.DebugTrace(String.Format(
-                "Control: entered, arg = {0}", FormatOps.WrapOrNull(arg)),
-                typeof(NativePackage).Name, TracePriority.NativeDebug);
+                "ControlCoreClr: entered, arg = {0}",
+                FormatOps.WrapOrNull(arg)),
+                typeof(NativePackage).Name,
+                TracePriority.NativeDebug);
 
             if (arg == IntPtr.Zero)
                 return (int)ReturnCode.Error;
 
-            return Control(Marshal.PtrToStringUTF8(arg, arg_size_in_bytes));
+            return ControlClr(MarshalArgument(arg, arg_size_in_bytes));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1486,22 +1533,24 @@ namespace Eagle._Components.Public
         //          native CoreCLR API.
         //
 #if NET_CORE_50
-        [UnmanagedCallersOnly(EntryPoint = "Detach",
+        [UnmanagedCallersOnly(EntryPoint = "DetachCoreClr",
             CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-        public static int Detach(
+        public static int DetachCoreClr(
             IntPtr arg,           /* in */
             int arg_size_in_bytes /* in */
             )
         {
             TraceOps.DebugTrace(String.Format(
-                "Detach: entered, arg = {0}", FormatOps.WrapOrNull(arg)),
-                typeof(NativePackage).Name, TracePriority.NativeDebug);
+                "DetachCoreClr: entered, arg = {0}",
+                FormatOps.WrapOrNull(arg)),
+                typeof(NativePackage).Name,
+                TracePriority.NativeDebug);
 
             if (arg == IntPtr.Zero)
                 return (int)ReturnCode.Error;
 
-            return Detach(Marshal.PtrToStringUTF8(arg, arg_size_in_bytes));
+            return DetachClr(MarshalArgument(arg, arg_size_in_bytes));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1511,22 +1560,24 @@ namespace Eagle._Components.Public
         //          native CoreCLR API.
         //
 #if NET_CORE_50
-        [UnmanagedCallersOnly(EntryPoint = "Shutdown",
+        [UnmanagedCallersOnly(EntryPoint = "ShutdownCoreClr",
             CallConvs = new[] { typeof(CallConvCdecl) })]
 #endif
-        public static int Shutdown(
+        public static int ShutdownCoreClr(
             IntPtr arg,           /* in */
             int arg_size_in_bytes /* in */
             )
         {
             TraceOps.DebugTrace(String.Format(
-                "Shutdown: entered, arg = {0}", FormatOps.WrapOrNull(arg)),
-                typeof(NativePackage).Name, TracePriority.NativeDebug);
+                "ShutdownCoreClr: entered, arg = {0}",
+                FormatOps.WrapOrNull(arg)),
+                typeof(NativePackage).Name,
+                TracePriority.NativeDebug);
 
             if (arg == IntPtr.Zero)
                 return (int)ReturnCode.Error;
 
-            return Shutdown(Marshal.PtrToStringUTF8(arg, arg_size_in_bytes));
+            return ShutdownClr(MarshalArgument(arg, arg_size_in_bytes));
         }
 #endif
         #endregion
@@ -1543,7 +1594,7 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CLR API.
         //
-        public static int Startup(
+        public static int StartupClr(
             string argument /* This is the value of the "pwzArgument" argument
                              * as it was passed to native CLR API method
                              * ICLRRuntimeHost.ExecuteInDefaultAppDomain. */
@@ -1564,7 +1615,7 @@ namespace Eagle._Components.Public
                 Result result = null;
 
                 TraceOps.DebugTrace(String.Format(
-                    "Startup: entered, argument = {0}",
+                    "StartupClr: entered, argument = {0}",
                     FormatOps.WrapOrNull(true, true, argument)),
                     typeof(NativePackage).Name, TracePriority.NativeDebug);
 
@@ -1647,7 +1698,7 @@ namespace Eagle._Components.Public
                         if (interpreter == null)
                         {
                             TraceOps.DebugTrace(String.Format(
-                                "Startup: appDomain = {0}",
+                                "StartupClr: appDomain = {0}",
                                 FormatOps.DisplayAppDomain()),
                                 typeof(NativePackage).Name,
                                 TracePriority.NativeDebug);
@@ -1804,7 +1855,7 @@ namespace Eagle._Components.Public
                             //       the information associated with it.
                             //
                             TraceOps.DebugTrace(String.Format(
-                                "Startup: interpreter {0}, " +
+                                "StartupClr: interpreter {0}, " +
                                 "interpreter = {1}, args = {2}, " +
                                 "createFlags = {3}, hostCreateFlags = {4}, " +
                                 "libraryPath = {5}, code = {6}, result = {7}",
@@ -1896,7 +1947,7 @@ namespace Eagle._Components.Public
                                             created[1] = true; /* NOTE: Owned. */
 
                                             TraceOps.DebugTrace(String.Format(
-                                                "Startup: tclApi {0}, " +
+                                                "StartupClr: tclApi {0}, " +
                                                 "interpreter = {1}, " +
                                                 "module = {2}, stubs = {3}, " +
                                                 "code = {4}, result = {5}",
@@ -1992,7 +2043,7 @@ namespace Eagle._Components.Public
                                             created[2] = true; /* NOTE: Owned. */
 
                                             TraceOps.DebugTrace(String.Format(
-                                                "Startup: tclBridge {0}, " +
+                                                "StartupClr: tclBridge {0}, " +
                                                 "interpreter = {1}, execute = {2}, " +
                                                 "interp = {3}, name = {4}, " +
                                                 "code = {5}, result = {6}",
@@ -2138,7 +2189,7 @@ namespace Eagle._Components.Public
                 DebugTclInterpreters(null, "Startup exited", false);
 
                 TraceOps.DebugTrace(String.Format(
-                    "Startup: exited, protocolId = {0}, module = {1}, " +
+                    "StartupClr: exited, protocolId = {0}, module = {1}, " +
                     "stubs = {2}, interp = {3}, isolated = {4}, safe = {5}, " +
                     "list = {6}, code = {7}, result = {8}",
                     FormatOps.WrapOrNull(true, true, protocolId), module,
@@ -2161,7 +2212,7 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CLR API.
         //
-        public static int Control(
+        public static int ControlClr(
             string argument /* This is the value of the "pwzArgument" argument
                              * as it was passed to native CLR API method
                              * ICLRRuntimeHost.ExecuteInDefaultAppDomain. */
@@ -2182,7 +2233,7 @@ namespace Eagle._Components.Public
                 Result result = null;
 
                 TraceOps.DebugTrace(String.Format(
-                    "Control: entered, argument = {0}",
+                    "ControlClr: entered, argument = {0}",
                     FormatOps.WrapOrNull(true, true, argument)),
                     typeof(NativePackage).Name,
                     TracePriority.NativeDebug);
@@ -2259,7 +2310,7 @@ namespace Eagle._Components.Public
                 DebugTclInterpreters(null, "Control exited", false);
 
                 TraceOps.DebugTrace(String.Format(
-                    "Control: exited, protocolId = {0}, module = {1}, " +
+                    "ControlClr: exited, protocolId = {0}, module = {1}, " +
                     "stubs = {2}, interp = {3}, isolated = {4}, safe = {5}, " +
                     "list = {6}, code = {7}, result = {8}",
                     FormatOps.WrapOrNull(true, true, protocolId), module,
@@ -2282,7 +2333,7 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CLR API.
         //
-        public static int Detach(
+        public static int DetachClr(
             string argument /* This is the value of the "pwzArgument" argument
                              * as it was passed to native CLR API method
                              * ICLRRuntimeHost.ExecuteInDefaultAppDomain. */
@@ -2303,7 +2354,7 @@ namespace Eagle._Components.Public
                 Result result = null;
 
                 TraceOps.DebugTrace(String.Format(
-                    "Detach: entered, argument = {0}",
+                    "DetachClr: entered, argument = {0}",
                     FormatOps.WrapOrNull(true, true, argument)),
                     typeof(NativePackage).Name,
                     TracePriority.NativeDebug);
@@ -2379,7 +2430,7 @@ namespace Eagle._Components.Public
                                 if (count != 1)
                                 {
                                     TraceOps.DebugTrace(String.Format(
-                                        "Detach: expected to remove 1 " +
+                                        "DetachClr: expected to remove 1 " +
                                         "Tcl interpreter from Eagle " +
                                         "interpreter {0} matching {1}, " +
                                         "actually removed {2}",
@@ -2420,7 +2471,7 @@ namespace Eagle._Components.Public
                                     if (count != 1)
                                     {
                                         TraceOps.DebugTrace(String.Format(
-                                            "Detach: expected to remove 1 " +
+                                            "DetachClr: expected to remove 1 " +
                                             "Tcl interpreter matching {0}, " +
                                             "actually removed {1}",
                                             interp, count),
@@ -2452,7 +2503,7 @@ namespace Eagle._Components.Public
                 DebugTclInterpreters(null, "Detach exited", false);
 
                 TraceOps.DebugTrace(String.Format(
-                    "Detach: exited, protocolId = {0}, module = {1}, " +
+                    "DetachClr: exited, protocolId = {0}, module = {1}, " +
                     "stubs = {2}, interp = {3}, isolated = {4}, safe = {5}, " +
                     "list = {6}, code = {7}, result = {8}",
                     FormatOps.WrapOrNull(true, true, protocolId), module,
@@ -2475,7 +2526,7 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CLR API.
         //
-        public static int Shutdown(
+        public static int ShutdownClr(
             string argument /* This is the value of the "pwzArgument" argument
                              * as it was passed to native CLR API method
                              * ICLRRuntimeHost.ExecuteInDefaultAppDomain. */
@@ -2496,7 +2547,7 @@ namespace Eagle._Components.Public
                 Result result = null;
 
                 TraceOps.DebugTrace(String.Format(
-                    "Shutdown: entered, argument = {0}",
+                    "ShutdownClr: entered, argument = {0}",
                     FormatOps.WrapOrNull(true, true, argument)),
                     typeof(NativePackage).Name,
                     TracePriority.NativeDebug);
@@ -2553,7 +2604,7 @@ namespace Eagle._Components.Public
                 DebugTclInterpreters(null, "Shutdown exited", false);
 
                 TraceOps.DebugTrace(String.Format(
-                    "Shutdown: exited, protocolId = {0}, module = {1}, " +
+                    "ShutdownClr: exited, protocolId = {0}, module = {1}, " +
                     "stubs = {2}, interp = {3}, isolated = {4}, safe = {5}, " +
                     "list = {6}, code = {7}, result = {8}",
                     FormatOps.WrapOrNull(true, true, protocolId), module,

@@ -37,6 +37,7 @@
     <ProjectGuid>{FA589B06-D939-4258-ACAC-4583E9F64F6D}</ProjectGuid>
     <RootNamespace>Garuda</RootNamespace>
     <Keyword>Win32Proj</Keyword>
+    <TargetName>Garuda</TargetName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'" Label="Configuration">
@@ -108,7 +109,7 @@
       <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
       <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(TargetName).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -120,7 +121,7 @@
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(ProjectName), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
@@ -157,7 +158,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
       <AdditionalLibraryDirectories>$(LIBRARY_ARM_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -169,7 +170,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(ProjectName), processorArchitecture=arm, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=arm, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
@@ -206,7 +207,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
       <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -218,7 +219,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(ProjectName), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
@@ -257,7 +258,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
       <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -269,7 +270,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(ProjectName), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
@@ -308,7 +309,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
       <AdditionalLibraryDirectories>$(LIBRARY_ARM_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -320,7 +321,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(ProjectName), processorArchitecture=arm, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=arm, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
@@ -359,7 +360,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
       <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
       <Version>$(LINKER_VERSION)</Version>
       <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(OUTPUT_FILE).def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -371,7 +372,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </Link>
     <Manifest>
       <VerboseOutput>true</VerboseOutput>
-      <AssemblyIdentity>$(ProjectName), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <AssemblyIdentity>$(OUTPUT_FILE), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
       <UpdateFileHashes>true</UpdateFileHashes>
     </Manifest>
     <Bscmake>
@@ -389,8 +390,11 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     </BuildLog>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\external\generic\ConvertUTF_v2.c" />
     <ClCompile Include="src\generic\Garuda.c" />
     <ClCompile Include="src\generic\GarudaClr.c" />
+    <ClCompile Include="src\generic\GarudaCoreClr.c" />
+    <ClCompile Include="src\generic\GarudaPal.c" />
     <ClCompile Include="src\win\DllMain.c" />
   </ItemGroup>
   <ItemGroup>
@@ -400,6 +404,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     <None Include="props\Garuda.props" />
     <None Include="Scripts\ex_winForms.tcl" />
     <None Include="src\win\Garuda.def" />
+    <None Include="src\win\GarudaCore.def" />
     <None Include="Tests\all.tcl" />
     <None Include="Tools\bake.bat" />
     <None Include="..\Common\Tools\common.tcl">
@@ -419,10 +424,15 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     <None Include="Tools\update.bat" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\external\generic\ConvertUTF_v2.h" />
     <ClInclude Include="src\generic\Garuda.h" />
-    <ClInclude Include="src\generic\GarudaDecl.h" />
+    <ClInclude Include="src\generic\GarudaClr.h" />
+    <ClInclude Include="src\generic\GarudaCoreClr.h" />
+    <ClInclude Include="src\generic\GarudaDecls.h" />
     <ClInclude Include="src\generic\GarudaInt.h" />
+    <ClInclude Include="src\generic\GarudaPal.h" />
     <ClInclude Include="src\generic\GarudaPre.h" />
+    <ClInclude Include="src\generic\GarudaStr.h" />
     <ClInclude Include="src\generic\pkgVersion.h" />
     <ClInclude Include="src\generic\rcVersion.h" />
     <ClInclude Include="src\generic\stubs.h" />
@@ -438,6 +448,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     <None Include="Tcl\include\tclPort.h" />
     <None Include="Tcl\include\tclTomMath.h" />
     <None Include="Tcl\include\tclTomMathDecls.h" />
+    <None Include="Tcl\include\tclUnixPort.h" />
     <None Include="Tcl\include\tclWinPort.h" />
   </ItemGroup>
   <ItemGroup>

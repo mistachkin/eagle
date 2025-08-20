@@ -7006,28 +7006,36 @@ namespace eval ::Eagle {
     maybeInvokeForTester ::afterReportTestStatistics; # HOOK
 
     #
-    # NOTE: Make sure this file name is recorded in the list of file names
-    #       with leaking tests.
+    # NOTE: Were any resource leaks detected during the (current) test
+    #       run?
     #
-    upvar 1 $namesVarName names
-
-    if {$count > 0 && \
-        [lsearch -exact $names [file tail $name]] == -1} then {
-      lappend names [file tail $name]
-    }
-
-    #
-    # NOTE: Disable test suite interaction in "quiet" mode.  Just return the
-    #       leak count.
-    #
-    if {!$quiet} then {
+    if {$count > 0} then {
       #
-      # NOTE: If we are supposed to stop or break into the debugger whenever
-      #       a leak is detected, do it now.
+      # NOTE: Some kind of resource was leaked by the test.  Invoke the
+      #       (optional) test suite hook now, before doing anything else.
       #
-      if {$count > 0} then {
+      maybeInvokeForTester ::testLeaked; # HOOK
+
+      #
+      # NOTE: Make sure the name is recorded in the list of names that
+      #       leaked something.
+      #
+      upvar 1 $namesVarName names
+
+      if {[lsearch -exact $names [file tail $name]] == -1} then {
+        lappend names [file tail $name]
+      }
+
+      #
+      # NOTE: Disable test suite interaction in quiet mode.  Just return
+      #       the leak count.
+      #
+      if {!$quiet} then {
         #
-        # BUGFIX: Is we are already stopping (e.g. due to a test failure),
+        # NOTE: If we are supposed to stop (or break into the debugger)
+        #       whenever a test leak is detected, do it now.
+        #
+        # BUGFIX: If we are already stopping (e.g. due to test failure),
         #         do not try to stop again.
         #
         if {!$stop && [isStopOnLeak]} then {
@@ -7041,6 +7049,12 @@ namespace eval ::Eagle {
           testDebugBreak 1
         }
       }
+    } else {
+      #
+      # NOTE: No (tracked) resources were leaked by the test.  Invoke the
+      #       (optional) test suite hook now, before doing anything else.
+      #
+      maybeInvokeForTester ::testNotLeaked; # HOOK
     }
 
     return [list leak $count]
@@ -12783,6 +12797,16 @@ namespace eval ::Eagle {
         }
 
         #
+        # NOTE: The shared library is built specifically for .NET Core
+        #       or the .NET Framework, use the right one.
+        #
+        if {[isDotNetCore]} then {
+          set prefix GarudaCore
+        } else {
+          set prefix Garuda
+        }
+
+        #
         # NOTE: Get the effective test suffix.  This is allowed to be an
         #       empty string.
         #
@@ -12805,7 +12829,7 @@ namespace eval ::Eagle {
         #
         return [file join $::base_path bin \
             [machineToPlatform $machine] [appendArgs $configuration Dll \
-            $suffix] [appendArgs Garuda [info sharedlibextension]]]
+            $suffix] [appendArgs $prefix [info sharedlibextension]]]
       } else {
         #
         # NOTE: We are missing the base path, return nothing.

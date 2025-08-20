@@ -15,6 +15,9 @@
 #define UNICODE_TEXT(x)			UNICODE_TEXT1(x)
 #define UNICODE_TEXT1(x)		L##x
 
+#define JOIN_TEXT(a,b)			JOIN_TEXT1(a,b)
+#define JOIN_TEXT1(a,b)			a b
+
 #define PACKAGE_UNICODE_NAME		UNICODE_TEXT(PACKAGE_NAME)
 #define PACKAGE_UNICODE_PROTOCOL_V1R0	UNICODE_TEXT(PACKAGE_PROTOCOL_V1R0)
 #define PACKAGE_UNICODE_PROTOCOL_V1R1	UNICODE_TEXT(PACKAGE_PROTOCOL_V1R1)
@@ -42,13 +45,13 @@
  */
 
 #if !defined(_MSC_VER) || _MSC_VER >= 1500
-  #define gwprintf				swprintf
-  #define gsnprintf				vsnprintf
-  #define GWPRINTF_LENGTH_HAS_NUL		(0)
+#  define gwprintf				swprintf
+#  define gsnprintf				vsnprintf
+#  define GWPRINTF_LENGTH_HAS_NUL		(0)
 #else
-  #define gwprintf				_snwprintf
-  #define gsnprintf				_vsnprintf
-  #define GWPRINTF_LENGTH_HAS_NUL		(1)
+#  define gwprintf				_snwprintf
+#  define gsnprintf				_vsnprintf
+#  define GWPRINTF_LENGTH_HAS_NUL		(1)
 #endif
 
 /*
@@ -56,7 +59,7 @@
  */
 
 #ifndef PACKAGE_TRACE_BUFFER_SIZE
-  #define PACKAGE_TRACE_BUFFER_SIZE		((size_t)(4096-sizeof(DWORD)))
+#  define PACKAGE_TRACE_BUFFER_SIZE		((size_t)(4096-sizeof(DWORD)))
 #endif
 
 /*
@@ -66,11 +69,11 @@
  */
 
 #ifndef PACKAGE_TRACE
-  #ifdef _TRACE
-    #define PACKAGE_TRACE(x)			TracePrintf x
-  #else
-    #define PACKAGE_TRACE(x)
-  #endif
+#  ifdef _TRACE
+#    define PACKAGE_TRACE(x)			TracePrintf x
+#  else
+#    define PACKAGE_TRACE(x)
+#  endif
 #endif
 
 /*
@@ -88,13 +91,13 @@
  */
 
 #ifdef PACKAGE_DEBUG
-  #ifdef _DEBUG
-    #define PACKAGE_PANIC(x)			Tcl_Panic x
-  #else
-    #define PACKAGE_PANIC(x)			printf x
-  #endif
+#  ifdef _DEBUG
+#    define PACKAGE_PANIC(x)			Tcl_Panic x
+#  else
+#    define PACKAGE_PANIC(x)			printf x
+#  endif
 #else
-  #define PACKAGE_PANIC(x)
+#  define PACKAGE_PANIC(x)
 #endif
 
 /*
@@ -105,58 +108,64 @@
  */
 
 #define PACKAGE_UNICODE_ASSEMBLY_PATH_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(ASSEMBLY_PATH_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(ASSEMBLY_PATH_VAR_NAME))
 
 #define PACKAGE_UNICODE_TYPE_NAME_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(TYPE_NAME_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(TYPE_NAME_VAR_NAME))
 
 #define PACKAGE_UNICODE_STARTUP_METHOD_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(STARTUP_METHOD_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(STARTUP_METHOD_VAR_NAME))
 
 #define PACKAGE_UNICODE_CONTROL_METHOD_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(CONTROL_METHOD_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(CONTROL_METHOD_VAR_NAME))
 
 #define PACKAGE_UNICODE_DETACH_METHOD_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(DETACH_METHOD_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(DETACH_METHOD_VAR_NAME))
 
 #define PACKAGE_UNICODE_SHUTDOWN_METHOD_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(SHUTDOWN_METHOD_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(SHUTDOWN_METHOD_VAR_NAME))
 
 #define PACKAGE_UNICODE_METHOD_ARGUMENTS_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(METHOD_ARGUMENTS_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(METHOD_ARGUMENTS_VAR_NAME))
 
 #define PACKAGE_UNICODE_METHOD_FLAGS_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(METHOD_FLAGS_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(METHOD_FLAGS_VAR_NAME))
 
 #define PACKAGE_UNICODE_VERBOSE_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(VERBOSE_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(VERBOSE_VAR_NAME))
 
 #define PACKAGE_UNICODE_LOAD_CLR_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(LOAD_CLR_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(LOAD_CLR_VAR_NAME))
 
 #define PACKAGE_UNICODE_START_CLR_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(START_CLR_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(START_CLR_VAR_NAME))
 
 #define PACKAGE_UNICODE_START_BRIDGE_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(START_BRIDGE_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(START_BRIDGE_VAR_NAME))
 
 #define PACKAGE_UNICODE_STOP_CLR_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(STOP_CLR_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(STOP_CLR_VAR_NAME))
 
 #define PACKAGE_UNICODE_LOG_COMMAND_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(LOG_COMMAND_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(LOG_COMMAND_VAR_NAME))
 
 #define PACKAGE_UNICODE_NO_NORMALIZE_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(NO_NORMALIZE_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(NO_NORMALIZE_VAR_NAME))
+
+#define PACKAGE_UNICODE_RUNTIME_CONFIG_PATH_VAR_NAME \
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(RUNTIME_CONFIG_PATH_VAR_NAME))
+
+#define PACKAGE_UNICODE_USE_CORE_CLR_VAR_NAME \
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(USE_CORE_CLR_VAR_NAME))
 
 #define PACKAGE_UNICODE_USE_MINIMUM_CLR_VAR_NAME \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(USE_MINIMUM_CLR_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(USE_MINIMUM_CLR_VAR_NAME))
 
 #define PACKAGE_UNICODE_USE_ISOLATION \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(USE_ISOLATION_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(USE_ISOLATION_VAR_NAME))
 
 #define PACKAGE_UNICODE_USE_SAFE_INTERP \
-    JOIN(PACKAGE_UNICODE_NAME, UNICODE_TEXT(USE_SAFE_INTERP_VAR_NAME))
+    JOIN_TEXT(PACKAGE_UNICODE_NAME, UNICODE_TEXT(USE_SAFE_INTERP_VAR_NAME))
 
 /*
  * NOTE: This is the latest version of the CLR that we know about.  This is
@@ -168,11 +177,11 @@
  */
 
 #if defined(USE_CLR_40)
-  #define CLR_MODULE_NAME			"MSCorEE"
-  #define CLR_PROC_NAME				"CLRCreateInstance"
-  #define CLR_VERSION_ENVVAR_NAME		"UseMinimumClr"
-  #define CLR_VERSION_MINIMUM			CLR_VERSION_V2
-  #define CLR_VERSION_LATEST			CLR_VERSION_V4
+#  define CLR_MODULE_NAME			"MSCorEE"
+#  define CLR_PROC_NAME				"CLRCreateInstance"
+#  define CLR_MINIMUM_ENVVAR_NAME		"UseMinimumClr"
+#  define CLR_VERSION_MINIMUM			CLR_VERSION_V2
+#  define CLR_VERSION_LATEST			CLR_VERSION_V4
 #endif
 
 /*
@@ -180,18 +189,21 @@
  *       stopped.
  */
 
-#define CLR_STOPPING_ENVVAR_NAME		L"EAGLE_CLR_STOPPING"
+#define CLR_STOPPING_ENVVAR_NAME		"EAGLE_CLR_STOPPING"
+
+#define UNICODE_CLR_STOPPING_ENVVAR_NAME	\
+    UNICODE_TEXT(CLR_STOPPING_ENVVAR_NAME)
 
 /*
  * NOTE: Flag values for the <pkg>_Unload callback function (Tcl 8.5+).
  */
 
 #if !defined(TCL_UNLOAD_DETACH_FROM_INTERPRETER)
-  #define TCL_UNLOAD_DETACH_FROM_INTERPRETER	(1<<0)
+#  define TCL_UNLOAD_DETACH_FROM_INTERPRETER	(1<<0)
 #endif
 
 #if !defined(TCL_UNLOAD_DETACH_FROM_PROCESS)
-  #define TCL_UNLOAD_DETACH_FROM_PROCESS	(1<<1)
+#  define TCL_UNLOAD_DETACH_FROM_PROCESS	(1<<1)
 #endif
 
 /*
@@ -202,7 +214,7 @@
  */
 
 #if !defined(TCL_UNLOAD_FROM_INIT)
-  #define TCL_UNLOAD_FROM_INIT			(1<<2)
+#  define TCL_UNLOAD_FROM_INIT			(1<<2)
 #endif
 
 /*
@@ -214,7 +226,7 @@
  */
 
 #if !defined(TCL_UNLOAD_FROM_CMD_DELETE)
-  #define TCL_UNLOAD_FROM_CMD_DELETE		(1<<3)
+#  define TCL_UNLOAD_FROM_CMD_DELETE		(1<<3)
 #endif
 
 /*
@@ -338,7 +350,7 @@ typedef struct PrivateTclInterp {
  */
 
 typedef struct ClrTclStubs {
-    size_t sizeOf;		    /* The size of this structure, in bytes. */
+    size_t sizeOf;		    /* Size of this structure, in bytes. */
     void (*tcl_GetVersion) (int *, int *, int *, int *);
     void (*tcl_FindExecutable) (const char *);
     Tcl_Interp *(*tcl_CreateInterp) (void);
@@ -398,7 +410,7 @@ typedef struct ClrTclStubs {
  */
 
 typedef struct ClrMethodInfo {
-    size_t sizeOf;	    /* The size of this structure, in bytes. */
+    size_t sizeOf;	    /* Size of this structure, in bytes. */
     LPCWSTR assemblyPath;   /* The fully qualified path and file name of the
 			     * assembly containing the method to execute. */
     LPCWSTR typeName;	    /* The fully qualified type name of the type
@@ -415,7 +427,7 @@ typedef struct ClrMethodInfo {
  */
 
 typedef struct ClrConfigInfo {
-    size_t sizeOf;		    /* The size of this structure, in bytes. */
+    size_t sizeOf;		    /* Size of this structure, in bytes. */
     ClrMethodInfo *pStartupMethod;  /* The [cached] CLR method used to startup
 				     * the bridge between Eagle and Tcl, if
 				     * any. */
@@ -440,6 +452,8 @@ typedef struct ClrConfigInfo {
 				     * bug in Tcl where it resolves junctions
 				     * as part of the path normalization
 				     * process.*/
+    LPCWSTR runtimeConfigPath;	    /* The full path to the CoreCLR runtime
+				     * configuration file to use. */
     BOOL bUseMinimumClr;	    /* Force using the minimum supported CLR
 				     * version? */
     BOOL bLoadClr;		    /* Load the CLR immediately upon loading
@@ -457,14 +471,5 @@ typedef struct ClrConfigInfo {
 				     * created?  When non-zero, will cause the
 				     * associated MethodFlags to be set. */
 } ClrConfigInfo;
-
-/*
- * NOTE: These are the functions used internally by this library (i.e. they are
- *       shared by several files).
- */
-
-#ifndef PACKAGE_INTERN
-#define PACKAGE_INTERN
-#endif
 
 #endif /* _GARUDA_INT_H_ */

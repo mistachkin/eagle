@@ -79,7 +79,7 @@
 				Version="$(LINKER_VERSION)"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(LIBRARY_DIRECTORIES)"
-				ModuleDefinitionFile="$(ProjectDir)src\win\$(ProjectName).def"
+				ModuleDefinitionFile="$(ProjectDir)src\win\$(OUTPUT_FILE).def"
 				GenerateDebugInformation="true"
 				GenerateMapFile="true"
 				MapExports="true"
@@ -94,7 +94,7 @@
 			<Tool
 				Name="VCManifestTool"
 				VerboseOutput="true"
-				AssemblyIdentity="$(ProjectName), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32"
+				AssemblyIdentity="$(OUTPUT_FILE), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32"
 				UpdateFileHashes="true"
 			/>
 			<Tool
@@ -175,7 +175,7 @@
 				Version="$(LINKER_VERSION)"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(LIBRARY_DIRECTORIES)"
-				ModuleDefinitionFile="$(ProjectDir)src\win\$(ProjectName).def"
+				ModuleDefinitionFile="$(ProjectDir)src\win\$(OUTPUT_FILE).def"
 				GenerateDebugInformation="true"
 				GenerateMapFile="true"
 				MapExports="true"
@@ -190,7 +190,7 @@
 			<Tool
 				Name="VCManifestTool"
 				VerboseOutput="true"
-				AssemblyIdentity="$(ProjectName), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32"
+				AssemblyIdentity="$(OUTPUT_FILE), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32"
 				UpdateFileHashes="true"
 			/>
 			<Tool
@@ -273,7 +273,7 @@
 				Version="$(LINKER_VERSION)"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(LIBRARY_DIRECTORIES)"
-				ModuleDefinitionFile="$(ProjectDir)src\win\$(ProjectName).def"
+				ModuleDefinitionFile="$(ProjectDir)src\win\$(OUTPUT_FILE).def"
 				GenerateDebugInformation="true"
 				GenerateMapFile="true"
 				MapExports="true"
@@ -289,7 +289,7 @@
 			<Tool
 				Name="VCManifestTool"
 				VerboseOutput="true"
-				AssemblyIdentity="$(ProjectName), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32"
+				AssemblyIdentity="$(OUTPUT_FILE), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32"
 				UpdateFileHashes="true"
 			/>
 			<Tool
@@ -372,7 +372,7 @@
 				Version="$(LINKER_VERSION)"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(LIBRARY_DIRECTORIES)"
-				ModuleDefinitionFile="$(ProjectDir)src\win\$(ProjectName).def"
+				ModuleDefinitionFile="$(ProjectDir)src\win\$(OUTPUT_FILE).def"
 				GenerateDebugInformation="true"
 				GenerateMapFile="true"
 				MapExports="true"
@@ -388,7 +388,7 @@
 			<Tool
 				Name="VCManifestTool"
 				VerboseOutput="true"
-				AssemblyIdentity="$(ProjectName), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32"
+				AssemblyIdentity="$(OUTPUT_FILE), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32"
 				UpdateFileHashes="true"
 			/>
 			<Tool
@@ -421,6 +421,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\src\external\generic\ConvertUTF_v2.c"
+				>
+			</File>
+			<File
 				RelativePath=".\src\generic\Garuda.c"
 				>
 			</File>
@@ -429,7 +433,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\src\generic\GarudaCoreClr.c"
+				>
+			</File>
+			<File
+				RelativePath=".\src\generic\GarudaPal.c"
+				>
+			</File>
+			<File
 				RelativePath=".\src\win\Garuda.def"
+				>
+			</File>
+			<File
+				RelativePath=".\src\win\GarudaCore.def"
 				>
 			</File>
 		</Filter>
@@ -439,11 +455,15 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
+				RelativePath=".\src\external\generic\ConvertUTF_v2.h"
+				>
+			</File>
+			<File
 				RelativePath=".\src\generic\Garuda.h"
 				>
 			</File>
 			<File
-				RelativePath=".\src\generic\GarudaDecl.h"
+				RelativePath=".\src\generic\GarudaDecls.h"
 				>
 			</File>
 			<File
@@ -451,7 +471,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\src\generic\GarudaPal.h"
+				>
+			</File>
+			<File
 				RelativePath=".\src\generic\GarudaPre.h"
+				>
+			</File>
+			<File
+				RelativePath=".\src\generic\GarudaStr.h"
 				>
 			</File>
 			<File
@@ -542,6 +570,10 @@
 			</File>
 			<File
 				RelativePath=".\Tcl\include\tclTomMathDecls.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Tcl\include\tclUnixPort.h"
 				>
 			</File>
 			<File

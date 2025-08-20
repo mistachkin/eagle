@@ -21,11 +21,11 @@
  *       while the DLL is loaded.
  */
 
-#define PACKAGE_MUTEX_NAME	    JOIN(PACKAGE_UNICODE_NAME, \
+#define PACKAGE_MUTEX_NAME	    JOIN_TEXT(PACKAGE_UNICODE_NAME, \
 				    UNICODE_TEXT("_Setup"))
 
-#define PACKAGE_GLOBAL_MUTEX_NAME   JOIN(UNICODE_TEXT("Global\\"), \
-				    JOIN(PACKAGE_UNICODE_NAME, \
+#define PACKAGE_GLOBAL_MUTEX_NAME   JOIN_TEXT(UNICODE_TEXT("Global\\"), \
+				    JOIN_TEXT(PACKAGE_UNICODE_NAME, \
 				    UNICODE_TEXT("_Setup")))
 
 /*
@@ -205,6 +205,7 @@ BOOL WINAPI DllMain(
     }
 
 done:
+
     if ((reason == DLL_PROCESS_DETACH) ||
 	(!result && (reason == DLL_PROCESS_ATTACH))) {
 	/*

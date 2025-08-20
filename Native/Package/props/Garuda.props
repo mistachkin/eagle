@@ -16,14 +16,19 @@
     <LINKER_VERSION>1.0</LINKER_VERSION>
     <MANIFEST_VERSION>1.0.0.0</MANIFEST_VERSION>
     <COMMON_DEFINES>_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;COBJMACROS;CINTERFACE;CLR_40</COMMON_DEFINES>
+    <CORECLR_DEFINES>CORE_CLR</CORECLR_DEFINES>
     <TCL_DEFINES>TCL_THREADS;USE_TCL_STUBS</TCL_DEFINES>
     <DEBUG_DEFINES />
-    <WIN32_WARNINGS>4005;4100;4127;4201</WIN32_WARNINGS>
+    <WIN32_WARNINGS>4005;4100;4127;4201;4206;4996</WIN32_WARNINGS>
     <X64_WARNINGS />
-    <INCLUDE_DIRECTORIES>src\generic;src\win;Tcl\include</INCLUDE_DIRECTORIES>
+    <INCLUDE_DIRECTORIES>src\generic;src\win;Tcl\include;src\external\generic</INCLUDE_DIRECTORIES>
+    <CORECLR_X86_DIRECTORIES>$(DOTNET_SDK_PACKS_DIR)\Microsoft.NETCore.App.Host.win-x86\$(DOTNET_SDK_VERSION)\runtimes\win-x86\native</CORECLR_X86_DIRECTORIES>
+    <CORECLR_X64_DIRECTORIES>$(DOTNET_SDK_PACKS_DIR)\Microsoft.NETCore.App.Host.win-x64\$(DOTNET_SDK_VERSION)\runtimes\win-x64\native</CORECLR_X64_DIRECTORIES>
+    <CORECLR_ARM_DIRECTORIES>$(DOTNET_SDK_PACKS_DIR)\Microsoft.NETCore.App.Host.win-arm\$(DOTNET_SDK_VERSION)\runtimes\win-arm\native</CORECLR_ARM_DIRECTORIES>
     <LIBRARY_DIRECTORIES>Tcl\lib\$(Platform)</LIBRARY_DIRECTORIES>
     <LIBRARY_ARM_DIRECTORIES>Tcl\lib\$(Platform)\$(PlatformToolset)</LIBRARY_ARM_DIRECTORIES>
     <OUTPUT_FILE>$(ProjectName)</OUTPUT_FILE>
+    <CORECLR_OUTPUT_FILE>$(TargetName)</CORECLR_OUTPUT_FILE>
     <LOG_DIRECTORY>$(OutDir)</LOG_DIRECTORY>
     <LOG_FILE>$(LOG_DIRECTORY)\$(ProjectFileName).$(Platform)$(Configuration)Build.log</LOG_FILE>
     <BASE_ADDRESS_X86>0x5F000000</BASE_ADDRESS_X86>
@@ -46,6 +51,10 @@
       <Value>$(COMMON_DEFINES)</Value>
       <EnvironmentVariable>true</EnvironmentVariable>
     </BuildMacro>
+    <BuildMacro Include="CORECLR_DEFINES">
+      <Value>$(CORECLR_DEFINES)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
     <BuildMacro Include="DEBUG_DEFINES">
       <Value>$(DEBUG_DEFINES)</Value>
       <EnvironmentVariable>true</EnvironmentVariable>
@@ -62,6 +71,18 @@
       <Value>$(INCLUDE_DIRECTORIES)</Value>
       <EnvironmentVariable>true</EnvironmentVariable>
     </BuildMacro>
+    <BuildMacro Include="CORECLR_X86_DIRECTORIES">
+      <Value>$(CORECLR_X86_DIRECTORIES)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="CORECLR_X64_DIRECTORIES">
+      <Value>$(CORECLR_X64_DIRECTORIES)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="CORECLR_ARM_DIRECTORIES">
+      <Value>$(CORECLR_ARM_DIRECTORIES)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
     <BuildMacro Include="LIBRARY_DIRECTORIES">
       <Value>$(LIBRARY_DIRECTORIES)</Value>
       <EnvironmentVariable>true</EnvironmentVariable>
@@ -72,6 +93,10 @@
     </BuildMacro>
     <BuildMacro Include="OUTPUT_FILE">
       <Value>$(OUTPUT_FILE)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="CORECLR_OUTPUT_FILE">
+      <Value>$(CORECLR_OUTPUT_FILE)</Value>
       <EnvironmentVariable>true</EnvironmentVariable>
     </BuildMacro>
     <BuildMacro Include="LOG_FILE">

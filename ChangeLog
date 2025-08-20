@@ -67,6 +67,8 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
 
+FEATURE: add the [file tildeexpand] sub-command.
+
 FEATURE: add the [sql hasbegun] and [sql isopen] sub-commands.
 
 FEATURE: add the [debug write] sub-command to write a (diagnostic?) message to
@@ -144,6 +146,9 @@ FEATURE: add even more highly experimental -bundle and -stoponerror options to
 FEATURE: add -keepalive option to the [socket] command.
 
 FEATURE: add experimental [package alias] and [package aliases] sub-commands.
+
+FEATURE: *BREAKING CHANGE* add highly experimental support for loading / using
+         the Native Package for Tcl (Garuda) with the CoreCLR runtime.
 
 FEATURE: *MAJOR* add full (experimental) support for the BigInteger type for
          use by the [expr] command and all related subsystems.

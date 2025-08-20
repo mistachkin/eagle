@@ -130,6 +130,53 @@ namespace eval ::Garuda {
         [file isfile $path]}]
   }
 
+  #
+  # NOTE: Stolen from "helper.tcl" because this procedure is needed prior to
+  #       the Garuda package being loaded.
+  #
+  proc isWindows {} {
+    global tcl_platform
+
+    #
+    # NOTE: Windows always requires "special handling".  The platform check
+    #       here is very precise, minimal, and safe.
+    #
+    return [expr {[info exists tcl_platform(platform)] && \
+        $tcl_platform(platform) eq "windows"}]
+  }
+
+  #
+  # NOTE: Stolen from "helper.tcl" because this procedure is needed prior to
+  #       the Garuda package being loaded.
+  #
+  proc isDotNetCore { {default false} } {
+    global env
+
+    if {![isWindows]} then {
+      #
+      # NOTE: Assume that the .NET Framework is only available on Windows
+      #       -AND- that Mono will never support the native hosting APIs,
+      #       hence the only option left is the .NET (Core?) runtime.
+      #
+      return true
+    }
+
+    if {[file rootname [file tail \
+        [info nameofexecutable]]] eq "dotnet"} then {
+      return true; # HACK: Running in .NET Core process.
+    }
+
+    if {[info exists env(UseMinimumClr)]} then {
+      return false; # HACK: .NET Core is never "minimal".
+    }
+
+    if {[llength [info procs shouldUseCoreClr]] > 0} then {
+      return [shouldUseCoreClr $default]
+    } else {
+      return $default
+    }
+  }
+
   #############################################################################
   #**************************** UTILITY PROCEDURES ****************************
   #############################################################################
@@ -250,6 +297,14 @@ namespace eval ::Garuda {
   #********************** TEST VARIABLE SETUP PROCEDURES **********************
   #############################################################################
 
+  proc getTestPackageBinaryFileNameOnly { packageName } {
+    if {[isDotNetCore]} then {
+      return ${packageName}Core[info sharedlibextension]
+    } else {
+      return ${packageName}[info sharedlibextension]
+    }
+  }
+
   proc setupTestPackageConfigurations { force } {
     variable testPackageConfigurations; # DEFAULT: {DebugDll ReleaseDll ""}
 
@@ -409,10 +464,10 @@ namespace eval ::Garuda {
     # NOTE: The name of the dynamic link library file containing the native
     #       code for the package being tested.
     #
-    variable testBinaryFileName; # DEFAULT: Garuda.dll
+    variable testBinaryFileName; # DEFAULT: Garuda[Core].dll
 
     if {![info exists testBinaryFileName]} then {
-      set testBinaryFileName $testPackageName[info sharedlibextension]
+      set testBinaryFileName [getTestPackageBinaryFileNameOnly]
     }
 
     #

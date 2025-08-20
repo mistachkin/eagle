@@ -63,10 +63,19 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\external\generic\ConvertUTF_v2.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\generic\Garuda.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\generic\GarudaClr.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\generic\GarudaCoreClr.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\generic\GarudaPal.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\win\DllMain.c">
@@ -75,6 +84,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\win\Garuda.def">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="src\win\GarudaCore.def">
       <Filter>Source Files</Filter>
     </None>
     <None Include="lib\dotnet.tcl">
@@ -121,16 +133,31 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\external\generic\ConvertUTF_v2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\generic\Garuda.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\generic\GarudaDecl.h">
+    <ClInclude Include="src\generic\GarudaClr.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generic\GarudaCoreClr.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generic\GarudaDecls.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\generic\GarudaInt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\generic\GarudaPal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\generic\GarudaPre.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generic\GarudaStr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\generic\pkgVersion.h">
@@ -172,6 +199,9 @@
       <Filter>Tcl Header Files</Filter>
     </None>
     <None Include="Tcl\include\tclTomMathDecls.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+    <None Include="Tcl\include\tclUnixPort.h">
       <Filter>Tcl Header Files</Filter>
     </None>
     <None Include="Tcl\include\tclWinPort.h">
