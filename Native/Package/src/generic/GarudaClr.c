@@ -311,8 +311,9 @@ int LoadAndStartTheClr(
 	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
 		    L"BEFORE ICLRMetaHost_GetRuntime(pClrMetaHost = {"
-		    PACKAGE_UNICODE_PTR_FMT L"}, clrVersion = {%s})",
-		    pClrMetaHost, clrVersion);
+		    PACKAGE_UNICODE_PTR_FMT L"}, clrVersion = {"
+		    PACKAGE_UNICODE_STR_FMT L"})", pClrMetaHost,
+		    clrVersion);
 
 		TclLog(interp, logCommand, buffer, NULL);
 	    }
@@ -548,6 +549,7 @@ int StopAndReleaseTheClr(
     BOOL bStrict)	    /* Fail if already stopped and/or released? */
 {
     int code = TCL_OK;
+    BOOL bResult;
     WCHAR buffer[PACKAGE_RESULT_SIZE + 1] = {0};
 
     Tcl_MutexLock(&packageMutex);
@@ -561,12 +563,36 @@ int StopAndReleaseTheClr(
 	    HRESULT hResult = S_OK;
 
 	    /* NON-PORTABLE */
-	    SetEnvironmentVariableW(UNICODE_CLR_STOPPING_ENVVAR_NAME, L"1");
+	    bResult = SetEnvironmentVariableW(
+		UNICODE_CLR_STOPPING_ENVVAR_NAME, L"1");
+
+	    if (!bResult) {
+		if (interp != NULL) {
+		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"SetEnvironmentVariableW",
+			    HRESULT_FROM_WIN32(GetLastError())), -1);
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
 
 	    hResult = ICLRRuntimeHost_Stop(pClrRuntimeHost);
 
 	    /* NON-PORTABLE */
-	    SetEnvironmentVariableW(UNICODE_CLR_STOPPING_ENVVAR_NAME, NULL);
+	    bResult = SetEnvironmentVariableW(
+		UNICODE_CLR_STOPPING_ENVVAR_NAME, NULL);
+
+	    if (!bResult) {
+		if (interp != NULL) {
+		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"UnsetEnvironmentVariableW",
+			    HRESULT_FROM_WIN32(GetLastError())), -1);
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
 
 	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
@@ -878,9 +904,11 @@ int ExecuteClrMethod(
 	if (bUseProtocolR1) {
 	    if (bUseProtocolR2) {
 		gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL,
-		    L"%s_%s " PACKAGE_UNICODE_PTR_FMT L" "
-		    PACKAGE_UNICODE_PTR_FMT L" " PACKAGE_UNICODE_PTR_FMT
-		    L" %s %s %s %s\0", PACKAGE_UNICODE_NAME,
+		    PACKAGE_UNICODE_STR_FMT L"_" PACKAGE_UNICODE_STR_FMT L" "
+		    PACKAGE_UNICODE_PTR_FMT L" " PACKAGE_UNICODE_PTR_FMT L" "
+		    PACKAGE_UNICODE_PTR_FMT L" " PACKAGE_UNICODE_STR_FMT L" "
+		    PACKAGE_UNICODE_STR_FMT L" " PACKAGE_UNICODE_STR_FMT L" "
+		    PACKAGE_UNICODE_STR_FMT L"\0", PACKAGE_UNICODE_NAME,
 		    protocolRevision, hModule, pTclStubs, interp,
 		    bUseIsolation ? L"1 " : L"0 ",
 		    bUseSafeInterp ? L"1 " : L"0 ",
@@ -888,15 +916,18 @@ int ExecuteClrMethod(
 		    L"", (argument != NULL) ? argument : L"");
 	    } else {
 		gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL,
-		    L"%s_%s " PACKAGE_UNICODE_PTR_FMT L" "
-		    PACKAGE_UNICODE_PTR_FMT L" %s %s %s\0",
-		    PACKAGE_UNICODE_NAME, protocolRevision, hModule, interp,
+		    PACKAGE_UNICODE_STR_FMT L"_" PACKAGE_UNICODE_STR_FMT L" "
+		    PACKAGE_UNICODE_PTR_FMT L" " PACKAGE_UNICODE_PTR_FMT L" "
+		    PACKAGE_UNICODE_STR_FMT L" " PACKAGE_UNICODE_STR_FMT L" "
+		    PACKAGE_UNICODE_STR_FMT L"\0", PACKAGE_UNICODE_NAME,
+		    protocolRevision, hModule, interp,
 		    bUseSafeInterp ? L"1 " : L"0 ",
 		    (pMethodInfo->argument != NULL) ? pMethodInfo->argument :
 		    L"", (argument != NULL) ? argument : L"");
 	    }
 	} else {
-	    gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL, L"%s %s\0",
+	    gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL,
+		PACKAGE_UNICODE_STR_FMT L" " PACKAGE_UNICODE_STR_FMT L"\0",
 		(pMethodInfo->argument != NULL) ? pMethodInfo->argument : L"",
 		(argument != NULL) ? argument : L"");
 	}
@@ -1107,8 +1138,8 @@ HRESULT DumpClrState(
 
     gwprintf(pState, *pLength, L"packageMutex "
 	PACKAGE_UNICODE_PTR_FMT L" hPackageModule "
-	PACKAGE_UNICODE_PTR_FMT
-	L" packageFileName {%s} lTclStubs %ld hTclModule "
+	PACKAGE_UNICODE_PTR_FMT L" packageFileName {"
+	PACKAGE_UNICODE_STR_FMT L"} lTclStubs %ld hTclModule "
 	PACKAGE_UNICODE_PTR_FMT L" pTclStubs "
 	PACKAGE_UNICODE_PTR_FMT
 #if defined(USE_CLR_40)

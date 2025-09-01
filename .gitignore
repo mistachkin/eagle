@@ -434,6 +434,22 @@ Library/Components/Shared/BinaryLicense.cs
 Library/Resources/Certificates/*
 Library/Tools/data/*.sfx
 
+# TEA build files, etc.
+Native/Package/src/win/tea/*.exe
+Native/Package/src/win/tea/_junk.out
+Native/Package/src/win/tea/_junk.pch
+Native/Package/src/win/tea/vc*.pdb
+Native/Package/src/win/tea/version.ts
+Native/Package/src/win/tea/version.vc
+Native/Package/src/win/tea/versions.ts
+Native/Package/src/win/tea/versions.vc
+Native/Package/src/win/tea/vercl.i
+Native/Package/src/win/tea/vercl.ts
+Native/Package/src/win/tea/vercl.vc
+Native/Package/src/win/tea/vercl.x
+Native/Package/src/win/tea/Debug*/
+Native/Package/src/win/tea/Release*/
+
 # EEE plugin files, etc
 Personal/
 Plugins/

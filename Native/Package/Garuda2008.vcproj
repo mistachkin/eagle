@@ -441,6 +441,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\src\generic\GarudaStr.c"
+				>
+			</File>
+			<File
 				RelativePath=".\src\win\Garuda.def"
 				>
 			</File>

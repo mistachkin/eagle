@@ -75,6 +75,9 @@
     <ClCompile Include="src\generic\GarudaPal.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\generic\GarudaStr.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\win\DllMain.c">
       <Filter>Source Files</Filter>
     </ClCompile>

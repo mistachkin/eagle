@@ -9,41 +9,23 @@
  * RCS: @(#) $Id: $
  */
 
-#include "GarudaPre.h"	    /* NOTE: For private header setup. */
+#include "GarudaPre.h"		/* NOTE: For private header setup. */
 
 #if defined(USE_CORE_CLR)
-#include <stdio.h>	    /* NOTE: For fprintf, swprintf, va_list, etc. */
-#include <string.h>	    /* NOTE: For memset, wcslen, wcsncpy, etc. */
+#include <stdio.h>		/* NOTE: For fprintf, swprintf, va_list, etc. */
+#include <string.h>		/* NOTE: For memset, wcslen, wcsncpy, etc. */
 
 #if !defined(_MSC_VER)
-#  include <stdlib.h>	    /* NOTE: For setenv, unsetenv, etc. */
-#  include <limits.h>	    /* NOTE: For INT_MAX, etc. */
-#  include <wchar.h>	    /* NOTE: For wchar_t, etc. */
+#  include <stdlib.h>		/* NOTE: For setenv, unsetenv, etc. */
+#  include <limits.h>		/* NOTE: For INT_MAX, etc. */
+#  include <wchar.h>		/* NOTE: For wchar_t, etc. */
 #endif
 
 #if defined(_WIN32)
-#  include <windows.h>	    /* NOTE: For LoadLibraryW, etc. */
+#  include <windows.h>		/* NOTE: For LoadLibraryW, etc. */
 #else
-#  include <errno.h>	    /* NOTE: For errno, etc. */
-#  include <dlfcn.h>	    /* NOTE: For dlopen, dladdr, Dl_info, etc. */
-#endif
-
-/*
- * HACK: The following three typedef's are required due to a misfeature of the
- *       "hostfxr.h" header file.  It appears to assume that the including file
- *       is being compiled in C++, which would allow a typedef name to be used
- *       as a complete type before its own declaration.
- */
-
-#if !defined(NO_HOSTFXR_TYPEDEF_HACK)
-typedef struct hostfxr_dotnet_environment_info
-               hostfxr_dotnet_environment_info;
-
-typedef struct hostfxr_dotnet_environment_sdk_info
-               hostfxr_dotnet_environment_sdk_info;
-
-typedef struct hostfxr_dotnet_environment_framework_info
-               hostfxr_dotnet_environment_framework_info;
+#  include <errno.h>		/* NOTE: For errno, etc. */
+#  include <dlfcn.h>		/* NOTE: For dlopen, dladdr, Dl_info, etc. */
 #endif
 
 #include <nethost.h>		/* NOTE: For get_hostfxr_path, etc. */
@@ -56,11 +38,8 @@ typedef struct hostfxr_dotnet_environment_framework_info
 #include "GarudaInt.h"		/* NOTE: For private package API. */
 #include "GarudaCoreClr.h"	/* NOTE: For private package CoreCLR API. */
 #include "GarudaDecls.h"	/* NOTE: For private package declarations. */
-
-#if !defined(_WIN32)
-#  include "ConvertUTF_v2.h"	/* NOTE: Unicode UTF-* reference conversions. */
-#  include "GarudaStr.h"	/* NOTE: For private string API. */
-#endif
+#include "ConvertUTF_v2.h"	/* NOTE: Unicode UTF-* reference conversions. */
+#include "GarudaStr.h"		/* NOTE: For private string API. */
 
 /*
  * NOTE: Private functions defined in this file.
@@ -83,7 +62,7 @@ static volatile HMODULE pCoreClr = NULL;
  *       start, use, and stop the CoreCLR.
  */
 
-static volatile CoreClrFunctions uCoreClrFunctions = { 0 };
+volatile CoreClrFunctions uCoreClrFunctions = { 0 };
 
 /*
  * NOTE: This variable will be non-NULL after the CoreCLR has been started
@@ -120,9 +99,15 @@ BOOL GetCoreClrWasLoaded(void)
 {
     BOOL bResult;
 
+#if defined(_WIN32)
     Tcl_MutexLock(&packageMutex);
+#endif
+
     bResult = (pCoreClr != NULL);
+
+#if defined(_WIN32)
     Tcl_MutexUnlock(&packageMutex);
+#endif
 
     return bResult;
 }
@@ -148,9 +133,15 @@ BOOL GetCoreClrWasStarted(void)
 {
     BOOL bResult;
 
+#if defined(_WIN32)
     Tcl_MutexLock(&packageMutex);
+#endif
+
     bResult = (pCoreClrContext != NULL);
+
+#if defined(_WIN32)
     Tcl_MutexUnlock(&packageMutex);
+#endif
 
     return bResult;
 }
@@ -176,9 +167,15 @@ BOOL GetCoreClrBridgeStarted(void)
 {
     BOOL bResult;
 
+#if defined(_WIN32)
     Tcl_MutexLock(&packageMutex);
+#endif
+
     bResult = bCoreClrBridgeStarted;
+
+#if defined(_WIN32)
     Tcl_MutexUnlock(&packageMutex);
+#endif
 
     return bResult;
 }
@@ -203,9 +200,15 @@ BOOL GetCoreClrBridgeStarted(void)
 void SetCoreClrBridgeStarted(
     BOOL bStarted)	    /* Non-zero if the bridge was started. */
 {
+#if defined(_WIN32)
     Tcl_MutexLock(&packageMutex);
+#endif
+
     bCoreClrBridgeStarted = bStarted;
+
+#if defined(_WIN32)
     Tcl_MutexUnlock(&packageMutex);
+#endif
 }
 
 /*
@@ -263,15 +266,9 @@ int LoadAndStartTheCoreClr(
 
 	    if (rc != 0) {
 		if (interp != NULL) {
-#if defined(_WIN32)
-		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		    Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 			GetClrErrorMessage(L"get_hostfxr_path",
 			    HRESULT_FROM_WIN32(rc)), -1);
-#else
-		    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
-			GetClrErrorMessage(L"get_hostfxr_path",
-			    HRESULT_FROM_WIN32(rc)), -1);
-#endif
 		}
 
 		code = TCL_ERROR;
@@ -329,6 +326,15 @@ int LoadAndStartTheCoreClr(
 
 	    uFunctions.pClose = (hostfxr_close_fn)dlsym(
 		hModule, "hostfxr_close");
+
+	    /*
+	     * HACK: On Linux, the "Cvt" string conversion APIs are needed
+	     *       to call into the CoreCLR; so, those function pointers
+	     *       must be globally visible now.
+	     */
+
+	    uCoreClrFunctions.pInitForRuntimeConfig =
+		uFunctions.pInitForRuntimeConfig;
 #endif
 	} else if (bStrict) {
 	    if (interp != NULL) {
@@ -365,13 +371,8 @@ int LoadAndStartTheCoreClr(
 
 	if (uFunctions.pLoadAssemblyAndGetFuncPtr == NULL) {
 	    if (runtimeConfigPath != NULL) {
-#if defined(_WIN32)
-		rc = uFunctions.pInitForRuntimeConfig(
+		rc = Wrp_pInitForRuntimeConfig(
 		    runtimeConfigPath, NULL, &pContext);
-#else
-		Cvt_pInitForRuntimeConfig(
-		    rc, runtimeConfigPath, NULL, &pContext);
-#endif
 	    } else {
 #if defined(_WIN32)
 		WCHAR runtimeConfigFileName[PATH_MAX + 1];
@@ -385,15 +386,9 @@ int LoadAndStartTheCoreClr(
 
 		if (runtimeConfigNameSize == 0) {
 		    if (interp != NULL) {
-#if defined(_WIN32)
-			Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 			    GetClrErrorMessage(L"GetModuleFileNameW",
 				HRESULT_FROM_WIN32(GetLastError())), -1);
-#else
-			Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
-			    GetClrErrorMessage(L"GetModuleFileNameW",
-				HRESULT_FROM_WIN32(GetLastError())), -1);
-#endif
 		    }
 
 		    code = TCL_ERROR;
@@ -415,17 +410,10 @@ int LoadAndStartTheCoreClr(
 
 		if (FAILED(hResult)) {
 		    if (interp != NULL) {
-#if defined(_WIN32)
-			Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 			    GetClrErrorMessage(
 				L"build_runtimeconfig_file_name",
 				hResult), -1);
-#else
-			Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
-			    GetClrErrorMessage(
-				L"build_runtimeconfig_file_name",
-				hResult), -1);
-#endif
 		    }
 
 		    code = TCL_ERROR;
@@ -439,15 +427,9 @@ int LoadAndStartTheCoreClr(
 
 	    if ((rc != 0) || (pContext == NULL)) {
 		if (interp != NULL) {
-#if defined(_WIN32)
-		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		    Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 			GetClrErrorMessage(L"pInitForRuntimeConfig",
 			    HRESULT_FROM_WIN32(rc)), -1);
-#else
-		    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
-			GetClrErrorMessage(L"pInitForRuntimeConfig",
-			    HRESULT_FROM_WIN32(rc)), -1);
-#endif
 		}
 
 		code = TCL_ERROR;
@@ -461,20 +443,25 @@ int LoadAndStartTheCoreClr(
 	    if ((rc != 0) ||
 		    (uFunctions.pLoadAssemblyAndGetFuncPtr == NULL)) {
 		if (interp != NULL) {
-#if defined(_WIN32)
-		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		    Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 			GetClrErrorMessage(L"pLoadAssemblyAndGetFuncPtr",
 			    HRESULT_FROM_WIN32(rc)), -1);
-#else
-		    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
-			GetClrErrorMessage(L"pLoadAssemblyAndGetFuncPtr",
-			    HRESULT_FROM_WIN32(rc)), -1);
-#endif
 		}
 
 		code = TCL_ERROR;
 		goto done;
 	    }
+
+#if !defined(_WIN32)
+	    /*
+	     * HACK: On Linux, the "Cvt" string conversion APIs are needed
+	     *       to call into the CoreCLR; so, those function pointers
+	     *       must be globally visible now.
+	     */
+
+	    uCoreClrFunctions.pLoadAssemblyAndGetFuncPtr =
+		uFunctions.pLoadAssemblyAndGetFuncPtr;
+#endif
 	} else if (bStrict) {
 	    if (interp != NULL) {
 		Tcl_AppendResult(interp, "CoreCLR already started\n", NULL);
@@ -490,7 +477,7 @@ done:
     if (code == TCL_OK) {
 	pCoreClrContext = pContext;
 
-	memcpy((void*)&uCoreClrFunctions, &uFunctions,
+	memcpy((void *)&uCoreClrFunctions, &uFunctions,
 	    sizeof(CoreClrFunctions));
 
 	pCoreClr = hModule;
@@ -526,8 +513,9 @@ done:
 		    bResult, GetLastError());
 #else
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
-		    L"dlclose(bResult = {%d}, lastError = {%s})",
-		    bResult, dlerror());
+		    L"dlclose(bResult = {%d}, lastError = {"
+		    PACKAGE_UNICODE_CSTR_FMT L"})", bResult,
+		    dlerror());
 #endif
 
 		TclLog(interp, logCommand, buffer, NULL);
@@ -564,6 +552,7 @@ int StopAndReleaseTheCoreClr(
     BOOL bStrict)	    /* Fail if already stopped and/or released? */
 {
     int code = TCL_OK;
+    BOOL bResult;
     WCHAR buffer[PACKAGE_RESULT_SIZE + 1] = { 0 };
 
     Tcl_MutexLock(&packageMutex);
@@ -577,17 +566,65 @@ int StopAndReleaseTheCoreClr(
 	    HRESULT hResult = S_OK;
 
 #if defined(_WIN32)
-	    SetEnvironmentVariableW(UNICODE_CLR_STOPPING_ENVVAR_NAME, L"1");
+	    bResult = SetEnvironmentVariableW(
+		UNICODE_CLR_STOPPING_ENVVAR_NAME, L"1");
+
+	    if (!bResult) {
+		if (interp != NULL) {
+		    Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"SetEnvironmentVariableW",
+			    HRESULT_FROM_WIN32(GetLastError())), -1);
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
 #else
-	    setenv(CLR_STOPPING_ENVVAR_NAME, "1", 1);
+	    bResult = setenv(CLR_STOPPING_ENVVAR_NAME, "1", 1);
+	    bResult = (bResult == 0) ? TRUE : FALSE;
+
+	    if (!bResult) {
+		if (interp != NULL) {
+		    Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"setenv",
+			    HRESULT_FROM_ERRNO(errno)), -1);
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
 #endif
 
 	    hResult = uCoreClrFunctions.pClose(pCoreClrContext);
 
 #if defined(_WIN32)
-	    SetEnvironmentVariableW(UNICODE_CLR_STOPPING_ENVVAR_NAME, NULL);
+	    bResult = SetEnvironmentVariableW(
+		UNICODE_CLR_STOPPING_ENVVAR_NAME, NULL);
+
+	    if (!bResult) {
+		if (interp != NULL) {
+		    Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"UnsetEnvironmentVariableW",
+			    HRESULT_FROM_WIN32(GetLastError())), -1);
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
 #else
-	    unsetenv(CLR_STOPPING_ENVVAR_NAME);
+	    bResult = unsetenv(CLR_STOPPING_ENVVAR_NAME);
+	    bResult = (bResult == 0) ? TRUE : FALSE;
+
+	    if (!bResult) {
+		if (interp != NULL) {
+		    Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+			GetClrErrorMessage(L"unsetenv",
+			    HRESULT_FROM_ERRNO(errno)), -1);
+		}
+
+		code = TCL_ERROR;
+		goto done;
+	    }
 #endif
 
 	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
@@ -601,15 +638,9 @@ int StopAndReleaseTheCoreClr(
 		pCoreClrContext = NULL;
 	    } else {
 		if (interp != NULL) {
-#if defined(_WIN32)
-		    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		    Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 			GetClrErrorMessage(L"ICLRRuntimeHost_Stop", hResult),
 			-1);
-#else
-		    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
-			GetClrErrorMessage(L"ICLRRuntimeHost_Stop", hResult),
-			-1);
-#endif
 		}
 
 		code = TCL_ERROR;
@@ -630,8 +661,6 @@ int StopAndReleaseTheCoreClr(
 	 */
 
 	if (bRelease) {
-	    BOOL bResult;
-
 #if defined(_WIN32)
 	    bResult = FreeLibrary(pCoreClr);
 #else
@@ -647,8 +676,9 @@ int StopAndReleaseTheCoreClr(
 		    bResult, GetLastError());
 #else
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
-		    L"dlclose(bResult = {%d}, lastError = {%s})",
-		    bResult, dlerror());
+		    L"dlclose(bResult = {%d}, lastError = {"
+		    PACKAGE_UNICODE_CSTR_FMT L"})", bResult,
+		    dlerror());
 #endif
 
 		TclLog(interp, logCommand, buffer, NULL);
@@ -706,7 +736,9 @@ BOOL CanExecuteCoreClrCode(
 {
     BOOL bResult = FALSE;
 
+#if defined(_WIN32)
     Tcl_MutexLock(&packageMutex);
+#endif
 
     if (pCoreClr == NULL) {
 	if (interp != NULL) {
@@ -728,7 +760,10 @@ BOOL CanExecuteCoreClrCode(
 
 done:
 
+#if defined(_WIN32)
     Tcl_MutexUnlock(&packageMutex);
+#endif
+
     return bResult;
 }
 
@@ -900,9 +935,11 @@ int ExecuteCoreClrMethod(
 	if (bUseProtocolR1) {
 	    if (bUseProtocolR2) {
 		gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL,
-		    L"%s_%s " PACKAGE_UNICODE_PTR_FMT L" "
-		    PACKAGE_UNICODE_PTR_FMT L" " PACKAGE_UNICODE_PTR_FMT
-		    L" %s %s %s %s\0", PACKAGE_UNICODE_NAME,
+		    PACKAGE_UNICODE_STR_FMT L"_" PACKAGE_UNICODE_STR_FMT
+		    L" " PACKAGE_UNICODE_PTR_FMT L" " PACKAGE_UNICODE_PTR_FMT
+		    L" " PACKAGE_UNICODE_PTR_FMT L" " PACKAGE_UNICODE_STR_FMT
+		    L" " PACKAGE_UNICODE_STR_FMT L" " PACKAGE_UNICODE_STR_FMT
+		    L" " PACKAGE_UNICODE_STR_FMT L"\0", PACKAGE_UNICODE_NAME,
 		    protocolRevision, hModule, pTclStubs, interp,
 		    bUseIsolation ? L"1 " : L"0 ",
 		    bUseSafeInterp ? L"1 " : L"0 ",
@@ -910,15 +947,18 @@ int ExecuteCoreClrMethod(
 		    L"", (argument != NULL) ? argument : L"");
 	    } else {
 		gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL,
-		    L"%s_%s " PACKAGE_UNICODE_PTR_FMT L" "
-		    PACKAGE_UNICODE_PTR_FMT L" %s %s %s\0",
-		    PACKAGE_UNICODE_NAME, protocolRevision, hModule, interp,
+		    PACKAGE_UNICODE_STR_FMT L"_" PACKAGE_UNICODE_STR_FMT
+		    L" " PACKAGE_UNICODE_PTR_FMT L" " PACKAGE_UNICODE_PTR_FMT
+		    L" " PACKAGE_UNICODE_STR_FMT L" " PACKAGE_UNICODE_STR_FMT
+		    L" " PACKAGE_UNICODE_STR_FMT L"\0", PACKAGE_UNICODE_NAME,
+		    protocolRevision, hModule, interp,
 		    bUseSafeInterp ? L"1 " : L"0 ",
 		    (pMethodInfo->argument != NULL) ? pMethodInfo->argument :
 		    L"", (argument != NULL) ? argument : L"");
 	    }
 	} else {
-	    gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL, L"%s %s\0",
+	    gwprintf(newArgument, length - GWPRINTF_LENGTH_HAS_NUL,
+		PACKAGE_UNICODE_STR_FMT L"_" PACKAGE_UNICODE_STR_FMT L"\0",
 		(pMethodInfo->argument != NULL) ? pMethodInfo->argument : L"",
 		(argument != NULL) ? argument : L"");
 	}
@@ -942,34 +982,53 @@ int ExecuteCoreClrMethod(
 	    newArgument, L"})", NULL);
     }
 
-#if defined(_WIN32)
-    hResult = uCoreClrFunctions.pLoadAssemblyAndGetFuncPtr(
+    hResult = Wrp_pLoadAssemblyAndGetFuncPtr(
 	pMethodInfo->assemblyPath, pMethodInfo->typeName,
-	pMethodInfo->methodName, NULL, NULL, (void**)&pManaged);
-#else
-    Cvt_pLoadAssemblyAndGetFuncPtr(
-	hResult, pMethodInfo->assemblyPath, pMethodInfo->typeName,
-	pMethodInfo->methodName, NULL, NULL, (void**)&pManaged);
-#endif
+	pMethodInfo->methodName, NULL, NULL, (void **)&pManaged);
 
     if (SUCCEEDED(hResult)) {
 	if (pManaged != NULL) {
-	    returnValue = pManaged(newArgument, (int32_t)length);
+	    /*
+	     * HACK: The "NativePackage" (managed) methods called via this
+	     *       function expect their native string argument to obey
+	     *       all of the following rules:
+	     *
+	     *       1. On Windows platforms, the WCHAR (wchar_t) type is
+	     *          assumed to use two bytes per code unit, which will
+	     *          directly correspond to the size of the "char" C#
+	     *          type.
+	     *
+	     *       2. On Windows platforms, the encoding must be either
+	     *          UTF-16 or UCS-2 (i.e. without any surrogate pairs).
+	     *
+	     *       3. On POSIX platforms (e.g. Linux, macOS, etc), the
+	     *          WCHAR (wchar_t) type is assumed to use four bytes
+	     *          per code unit.
+	     *
+	     *       4. On POSIX platforms (e.g. Linux, macOS, etc), the
+	     *          encoding must be either UTF-32 or UCS-4.
+	     *
+	     *       5. Regardless of platform or encoding, the size is
+	     *          in bytes, not code units.
+	     *
+	     *       6. The passed length in code units (i.e. calculated
+	     *          via the "arg_size_in_bytes" being divided by the
+	     *          code unit size) should be precise (i.e. no extra
+	     *          space) and should not include the NUL terminator
+	     *          character.
+	     */
+	    size_t newLength = wcslen(newArgument);
+
+	    returnValue = pManaged(
+		newArgument, (int32_t)(newLength * sizeof(WCHAR)));
 	} else {
 	    hResult = HRESULT_FROM_WIN32(ERROR_FUNCTION_NOT_CALLED);
 
 	    if (interp != NULL) {
-#if defined(_WIN32)
-		Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+		Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 		    GetClrErrorMessage(
 			L"pLoadAssemblyAndGetFuncPtr",
 			hResult), -1);
-#else
-		Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
-		    GetClrErrorMessage(
-			L"pLoadAssemblyAndGetFuncPtr",
-			hResult), -1);
-#endif
 	    }
 	}
     }
@@ -991,17 +1050,10 @@ int ExecuteCoreClrMethod(
 	    *pReturnValue = returnValue;
     } else {
 	if (interp != NULL) {
-#if defined(_WIN32)
-	    Tcl_AppendUnicodeToObj(Tcl_GetObjResult(interp),
+	    Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 		GetClrErrorMessage(
 		    L"ICLRRuntimeHost_ExecuteInDefaultAppDomain",
 		    hResult), -1);
-#else
-	    Cvt_AppendUnicodeToObj(Tcl_GetObjResult(interp),
-		GetClrErrorMessage(
-		    L"ICLRRuntimeHost_ExecuteInDefaultAppDomain",
-		    hResult), -1);
-#endif
 	}
 
 	code = TCL_ERROR;
@@ -1144,7 +1196,7 @@ HRESULT GetCoreClrVersion(
     HRESULT hResult = S_OK;
     CoreClrVersionInfo uVersionInfo;
     int32_t rc;
-    LPWSTR result;
+    LPWSTR result = NULL;
     int length;
 
     Tcl_MutexLock(&packageMutex);
@@ -1175,11 +1227,7 @@ HRESULT GetCoreClrVersion(
 	goto done;
     }
 
-#if defined(_WIN32)
-    result = Tcl_GetUnicodeFromObj(uVersionInfo.result, &length);
-#else
-    Cvt_GetUnicodeFromObj(result, uVersionInfo.result, &length);
-#endif
+    result = Wrp_GetUnicodeFromObj(uVersionInfo.result, &length);
 
     if (result == NULL) {
 	hResult = E_OUTOFMEMORY;
@@ -1195,6 +1243,11 @@ HRESULT GetCoreClrVersion(
     *pLength = length;
 
 done:
+
+    if (result != NULL) {
+	ckfree((LPVOID)result);
+	result = NULL;
+    }
 
     if (uVersionInfo.result != NULL) {
 	Tcl_DecrRefCount(uVersionInfo.result);
@@ -1252,7 +1305,8 @@ HRESULT DumpCoreClrState(
     gwprintf(pState, *pLength,
 	L"packageMutex " PACKAGE_UNICODE_PTR_FMT
 	L" hPackageModule " PACKAGE_UNICODE_PTR_FMT
-	L" packageFileName {%s} lTclStubs %ld hTclModule "
+	L" packageFileName {" PACKAGE_UNICODE_STR_FMT
+	L"} lTclStubs %ld hTclModule "
 	PACKAGE_UNICODE_PTR_FMT L" pTclStubs "
 	PACKAGE_UNICODE_PTR_FMT L" pCoreClr "
 	PACKAGE_UNICODE_PTR_FMT L" uCoreClrFunctions "

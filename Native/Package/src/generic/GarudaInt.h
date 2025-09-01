@@ -26,12 +26,6 @@
 #define PACKAGE_HEX_FMT			"0x%X"
 #define PACKAGE_UNICODE_HEX_FMT		UNICODE_TEXT(PACKAGE_HEX_FMT)
 
-#define PACKAGE_PTR_FMT			"0x%p"
-#define PACKAGE_UNICODE_PTR_FMT		UNICODE_TEXT(PACKAGE_PTR_FMT)
-
-#define PACKAGE_ISTR_FMT		"%S"
-#define PACKAGE_UNICODE_ISTR_FMT	UNICODE_TEXT(PACKAGE_ISTR_FMT)
-
 #define PACKAGE_RESULT_SIZE		(1024)
 #define PACKAGE_CAN_LOG(a,b)		(((a) != NULL) && ((b) != NULL))
 
@@ -44,14 +38,36 @@
  *       method of getting that level of precision via the preprocessor.
  */
 
-#if !defined(_MSC_VER) || _MSC_VER >= 1500
+#if defined(_WIN32)
+#  if !defined(_MSC_VER) || _MSC_VER >= 1500
+#    define gwprintf				swprintf
+#    define gsnprintf				vsnprintf
+#    define GWPRINTF_LENGTH_HAS_NUL		(0)
+#  else
+#    define gwprintf				_snwprintf
+#    define gsnprintf				_vsnprintf
+#    define GWPRINTF_LENGTH_HAS_NUL		(1)
+#  endif
+#  define PACKAGE_PTR_FMT			"0x%p"
+#  define PACKAGE_UNICODE_PTR_FMT		UNICODE_TEXT(PACKAGE_PTR_FMT)
+#  define PACKAGE_CSTR_FMT			"%s"
+#  define PACKAGE_UNICODE_CSTR_FMT		UNICODE_TEXT(PACKAGE_CSTR_FMT)
+#  define PACKAGE_ISTR_FMT			"%S"
+#  define PACKAGE_UNICODE_ISTR_FMT		UNICODE_TEXT(PACKAGE_ISTR_FMT)
+#  define PACKAGE_STR_FMT			"%s"
+#  define PACKAGE_UNICODE_STR_FMT		UNICODE_TEXT(PACKAGE_STR_FMT)
+#else
 #  define gwprintf				swprintf
 #  define gsnprintf				vsnprintf
-#  define GWPRINTF_LENGTH_HAS_NUL		(0)
-#else
-#  define gwprintf				_snwprintf
-#  define gsnprintf				_vsnprintf
 #  define GWPRINTF_LENGTH_HAS_NUL		(1)
+#  define PACKAGE_PTR_FMT			"%p"
+#  define PACKAGE_UNICODE_PTR_FMT		UNICODE_TEXT(PACKAGE_PTR_FMT)
+#  define PACKAGE_CSTR_FMT			"%s"
+#  define PACKAGE_UNICODE_CSTR_FMT		UNICODE_TEXT(PACKAGE_CSTR_FMT)
+#  define PACKAGE_ISTR_FMT			"%S"
+#  define PACKAGE_UNICODE_ISTR_FMT		UNICODE_TEXT(PACKAGE_ISTR_FMT)
+#  define PACKAGE_STR_FMT			"%S"
+#  define PACKAGE_UNICODE_STR_FMT		UNICODE_TEXT(PACKAGE_STR_FMT)
 #endif
 
 /*

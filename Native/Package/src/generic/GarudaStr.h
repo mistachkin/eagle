@@ -15,9 +15,9 @@
 /*
  * WARNING: Using the family of functions (macros) contained in this file will
  *          require every such calling function to have a cleanup label named
- *          "done", which must call the cvt_cleanup() function (macro) on each
- *          converted UTF-X string lvalue, e.g. Cvt_GetUnicode*(), et al.
- * 
+ *          "cvt_exit", which must call the cvt_cleanup() function (macro) on
+ *          each converted UTF-X string lvalue, e.g. Cvt_GetUnicode*(), et al.
+ *
  * WARNING: The HRESULT should be checked via cvt_succeeded() after conversion
  *          operations and/or (?) after the "done" cleanup label, if necessary.
  *          Since strictConversion is used, there are several possible errors,
@@ -25,7 +25,7 @@
  *
  * WARNING: When using this header file, the following other headers are also
  *          (almost always) required:
- * 
+ *
  *          #include <limits.h>
  *          #include <stddef.h>
  *          #include <string.h>
@@ -37,9 +37,16 @@
 #  define COMPILE_TIME_ASSERT(name, expr) typedef char name[(expr) ? 1 : -1]
 #endif
 
+#if !defined(_WIN32)
 COMPILE_TIME_ASSERT(char_8bits_size_check, sizeof(char) == 1);
 COMPILE_TIME_ASSERT(Tcl_UniChar_16bits_size_check, sizeof(Tcl_UniChar) == 2);
 COMPILE_TIME_ASSERT(wchar_t_32bits_size_check, sizeof(wchar_t) == 4);
+COMPILE_TIME_ASSERT(unsigned_int_32bits_size_check, sizeof(unsigned int) == 4);
+
+COMPILE_TIME_ASSERT(UTF8_size_check, sizeof(UTF8) >= sizeof(char));
+COMPILE_TIME_ASSERT(UTF16_size_check, sizeof(UTF16) >= sizeof(Tcl_UniChar));
+COMPILE_TIME_ASSERT(UTF32_size_check, sizeof(UTF32) >= sizeof(wchar_t));
+#endif /* !defined(_WIN32) */
 
 #if !defined(FACILITY_CUSTOMER_BIT)
 #define FACILITY_CUSTOMER_BIT		(0x20000000)
@@ -51,13 +58,13 @@ COMPILE_TIME_ASSERT(wchar_t_32bits_size_check, sizeof(wchar_t) == 4);
 
 #if !defined(FACILITY_CUSTOMER_CVTUTF)
 #define FACILITY_CUSTOMER_CVTUTF \
-			(((unsigned long)(FACILITY_CUSTOMER_BIT)) | \
-			(((unsigned long)(FACILITY_CVTUTF)) << 16))
+			(((unsigned int)(FACILITY_CUSTOMER_BIT)) | \
+			(((unsigned int)(FACILITY_CVTUTF)) << 16))
 #endif
 
 #if !defined(HRESULT_FROM_CVTUTF)
 #define HRESULT_FROM_CVTUTF(x) \
-		((HRESULT)((((unsigned long)(SEVERITY_ERROR)) << 31) | \
+		((HRESULT)((((unsigned int)(SEVERITY_ERROR)) << 31) | \
 		(FACILITY_CUSTOMER_CVTUTF) | ((x) & 0xFFFF)))
 #endif
 
@@ -86,10 +93,11 @@ static const size_t cvt_max_utf32 = SIZE_T_MAX / sizeof(UTF32);
  */
 
 #if !defined(cvt_declare_context_type)
-#define cvt_declare_context_type(name, type)	\
-typedef struct name {				\
+#define cvt_declare_context_type(type)		\
+typedef struct Cvt_Context_##type {		\
     size_t sizeOf;				\
     HRESULT hResult;				\
+    int owned;					\
     type *pStart;				\
     type *pCurrent;				\
     size_t length0;				\
@@ -98,42 +106,47 @@ typedef struct name {				\
     size_t length3;				\
     size_t length4;				\
     size_t length5;				\
-} name;
+} Cvt_Context_##type;
 #endif
 
 #if !defined(_CVT_CONTEXT_U8_DEFINED)
 #define _CVT_CONTEXT_U8_DEFINED
-cvt_declare_context_type(Cvt_Context_u8, UTF8);
+cvt_declare_context_type(UTF8);
 #endif
 
 #if !defined(_CVT_CONTEXT_U16_DEFINED)
 #define _CVT_CONTEXT_U16_DEFINED
-cvt_declare_context_type(Cvt_Context_u16, UTF16);
+cvt_declare_context_type(UTF16);
 #endif
 
 #if !defined(_CVT_CONTEXT_U32_DEFINED)
 #define _CVT_CONTEXT_U32_DEFINED
-cvt_declare_context_type(Cvt_Context_u32, UTF32);
+cvt_declare_context_type(UTF32);
 #endif
 
 #if !defined(cvt_decls)
-#define cvt_decls()			char *cvtBuf0 = NULL;
+#define cvt_decls()			Tcl_Obj *cvtObj0 = NULL;	\
+					UTF8 *cvtBuf0 = NULL;
 #endif
 
 #if !defined(cvt_u8_decls)
-#define cvt_u8_decls(i)			Cvt_Context_u8 cvtCtx##i;
+#define cvt_u8_decls(i)			Cvt_Context_UTF8 cvtCtx##i = {0};
 #endif
 
 #if !defined(cvt_u16_decls)
-#define cvt_u16_decls(i)		Cvt_Context_u16 cvtCtx##i;
+#define cvt_u16_decls(i)		Cvt_Context_UTF16 cvtCtx##i = {0};
 #endif
 
 #if !defined(cvt_u32_decls)
-#define cvt_u32_decls(i)		Cvt_Context_u32 cvtCtx##i;
+#define cvt_u32_decls(i)		Cvt_Context_UTF32 cvtCtx##i = {0};
 #endif
 
 #if !defined(cvt_succeeded)
 #define cvt_succeeded(a)		(SUCCEEDED((a).hResult))
+#endif
+
+#if !defined(cvt_failed)
+#define cvt_failed(a)			(FAILED((a).hResult))
 #endif
 
 #if !defined(cvt_cleanup)
@@ -141,8 +154,9 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
     void *p = (a);							\
     if (p != NULL) {							\
 	ckfree(p);							\
-	(a) = p = NULL;							\
+	p = NULL;							\
     }									\
+    (a) = NULL;								\
 } while(0);
 #endif
 
@@ -151,28 +165,38 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 #endif
 
 #if !defined(cvt_ctx_cleanup)
-#define cvt_ctx_cleanup(v)		cvt_cleanup((v).pStart);
+#define cvt_ctx_cleanup(v) do {						\
+    HRESULT hCtxRes0 = (v).hResult;					\
+    if (FAILED(hCtxRes0)) {						\
+	TracePrintf("FAILED cvt_ctx: hResult = 0x%08x\n",		\
+	    (unsigned int)(hCtxRes0));					\
+    }									\
+    if ((v).owned) {							\
+	cvt_cleanup((v).pStart);					\
+    }									\
+    (v).pStart = NULL;							\
+} while (0);
 #endif
 
 #if !defined(cvt_u8_to_u32_body)
-#define cvt_u8_to_u32_body(a, b, c, d, e) do {				\
+#define cvt_u8_to_u32_body(a, b, c, d) do {				\
     ConversionResult crc;						\
-    BOOL allocate = (e);						\
-    const UTF8 *pSrc8 = (c);						\
+    BOOL allocate = (d);						\
+    const UTF8 *pSrc = (b);						\
     if (allocate) cvt_ctx_initialize((a));				\
-    if (pSrc8 == NULL) {						\
+    (a).owned = allocate;						\
+    if (pSrc == NULL) {							\
 	if (!allocate && (cvtBuf0 != NULL)) {				\
 	    ckfree((void *)cvtBuf0);					\
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = E_POINTER;					\
-	cvt_ctx_cleanup((a));						\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     (a).sizeOf = sizeof((a));						\
-    (a).length0 = (d);							\
+    (a).length0 = (c);							\
     (a).length1 = ((a).length0 > 0) ?					\
-	(a).length0 : strlen((const char *)pSrc8);			\
+	(a).length0 : strlen((const char *)pSrc);			\
     (a).length2 = (a).length1;						\
     (a).length3 = (a).length2 + 1;					\
     if (((a).length3 < (a).length1) ||					\
@@ -182,9 +206,7 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(targetExhausted);		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     (a).length4 = (a).length3 * sizeof(UTF32);				\
     if (allocate) {							\
@@ -196,16 +218,14 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = allocate ? E_OUTOFMEMORY : E_POINTER;		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     if (allocate) {							\
 	memset((a).pStart, 0, (a).length4);				\
     }									\
     (a).pCurrent = (a).pStart;						\
     crc = ConvertUTF8toUTF32(						\
-	&pSrc8, pSrc8 + (a).length1, &((a).pCurrent),			\
+	&pSrc, pSrc + (a).length1, &((a).pCurrent),			\
 	(a).pCurrent + (a).length2, strictConversion);			\
     if (crc != conversionOK) {						\
 	if (!allocate && (cvtBuf0 != NULL)) {				\
@@ -213,9 +233,7 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(crc);				\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     (a).length5 = (size_t)((a).pCurrent - (a).pStart);			\
     if ((a).length5 > (size_t)INT_MAX) {				\
@@ -224,32 +242,30 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(targetExhausted);		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
 } while (0);
 #endif
 
 #if !defined(cvt_u16_to_u32_body)
-#define cvt_u16_to_u32_body(a, b, c, d, e) do {				\
+#define cvt_u16_to_u32_body(a, b, c, d) do {				\
     ConversionResult crc;						\
-    BOOL allocate = (e);						\
-    const UTF16 *pSrc16 = (c);						\
+    BOOL allocate = (d);						\
+    const UTF16 *pSrc = (b);						\
     if (allocate) cvt_ctx_initialize((a));				\
-    if (pSrc16 == NULL) {						\
+    (a).owned = allocate;						\
+    if (pSrc == NULL) {							\
 	if (!allocate && (cvtBuf0 != NULL)) {				\
 	    ckfree((void *)cvtBuf0);					\
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = E_POINTER;					\
-	cvt_ctx_cleanup((a));						\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     (a).sizeOf = sizeof((a));						\
-    (a).length0 = (d);							\
+    (a).length0 = (c);							\
     (a).length1 = ((a).length0 > 0) ?					\
-	(a).length0 : Tcl_UniCharLen((Tcl_UniStr)pSrc16);		\
+	(a).length0 : Tcl_UniCharLen((Tcl_UniStr)pSrc);			\
     (a).length2 = (a).length1;						\
     (a).length3 = (a).length2 + 1;					\
     if (((a).length3 < (a).length1) ||					\
@@ -259,9 +275,7 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(targetExhausted);		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     (a).length4 = (a).length3 * sizeof(UTF32);				\
     if (allocate) {							\
@@ -273,16 +287,14 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = allocate ? E_OUTOFMEMORY : E_POINTER;		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     if (allocate) {							\
 	memset((a).pStart, 0, (a).length4);				\
     }									\
     (a).pCurrent = (a).pStart;						\
     crc = ConvertUTF16toUTF32(						\
-	&pSrc16, pSrc16 + (a).length1, &((a).pCurrent),			\
+	&pSrc, pSrc + (a).length1, &((a).pCurrent),			\
 	(a).pCurrent + (a).length2, strictConversion);			\
     if (crc != conversionOK) {						\
 	if (!allocate && (cvtBuf0 != NULL)) {				\
@@ -290,9 +302,7 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(crc);				\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     (a).length5 = (size_t)((a).pCurrent - (a).pStart);			\
     if ((a).length5 > (size_t)INT_MAX) {				\
@@ -301,31 +311,29 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(targetExhausted);		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
 } while (0);
 #endif
 
 #if !defined(cvt_u32_to_u8_body)
-#define cvt_u32_to_u8_body(a, b, c, d, e) do {				\
+#define cvt_u32_to_u8_body(a, b, c, d) do {				\
     ConversionResult crc;						\
-    BOOL allocate = (e);						\
-    const UTF32 *pSrc32 = (c);						\
+    BOOL allocate = (d);						\
+    const UTF32 *pSrc = (b);						\
     if (allocate) cvt_ctx_initialize((a));				\
-    if (pSrc32 == NULL) {						\
+    (a).owned = allocate;						\
+    if (pSrc == NULL) {							\
 	if (!allocate && (cvtBuf0 != NULL)) {				\
 	    ckfree((void *)cvtBuf0);					\
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = E_POINTER;					\
-	cvt_ctx_cleanup((a));						\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
-    (a).length0 = (d);							\
+    (a).length0 = (c);							\
     (a).length1 = ((a).length0 > 0) ?					\
-	(a).length0 : wcslen((const wchar_t *)pSrc32);			\
+	(a).length0 : wcslen((const wchar_t *)pSrc);			\
     (a).length2 = (a).length1 * UNI_UTF8_MAX_BYTES;			\
     (a).length3 = (a).length2 + 1;					\
     if (((a).length3 < (a).length1) ||					\
@@ -335,9 +343,7 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(targetExhausted);		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     (a).length4 = (a).length3 * sizeof(UTF8);				\
     if (allocate) {							\
@@ -349,16 +355,14 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = allocate ? E_OUTOFMEMORY : E_POINTER;		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     if (allocate) {							\
 	memset((a).pStart, 0, (a).length4);				\
     }									\
     (a).pCurrent = (a).pStart;						\
     crc = ConvertUTF32toUTF8(						\
-	&pSrc32, pSrc32 + (a).length1, &((a).pCurrent),			\
+	&pSrc, pSrc + (a).length1, &((a).pCurrent),			\
 	(a).pCurrent + (a).length2, strictConversion);			\
     if (crc != conversionOK) {						\
 	if (!allocate && (cvtBuf0 != NULL)) {				\
@@ -366,9 +370,7 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(crc);				\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     (a).length5 = (size_t)((a).pCurrent - (a).pStart);			\
     if ((a).length5 > (size_t)INT_MAX) {				\
@@ -377,31 +379,29 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(targetExhausted);		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
 } while (0)
 #endif
 
 #if !defined(cvt_u32_to_u16_body)
-#define cvt_u32_to_u16_body(a, b, c, d, e) do {				\
+#define cvt_u32_to_u16_body(a, b, c, d) do {				\
     ConversionResult crc;						\
-    BOOL allocate = (e);						\
-    const UTF32 *pSrc32 = (c);						\
+    BOOL allocate = (d);						\
+    const UTF32 *pSrc = (b);						\
     if (allocate) cvt_ctx_initialize((a));				\
-    if (pSrc32 == NULL) {						\
+    (a).owned = allocate;						\
+    if (pSrc == NULL) {							\
 	if (!allocate && (cvtBuf0 != NULL)) {				\
 	    ckfree((void *)cvtBuf0);					\
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = E_POINTER;					\
-	cvt_ctx_cleanup((a));						\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
-    (a).length0 = (d);							\
+    (a).length0 = (c);							\
     (a).length1 = ((a).length0 > 0) ?					\
-	(a).length0 : wcslen((const wchar_t *)pSrc32);			\
+	(a).length0 : wcslen((const wchar_t *)pSrc);			\
     (a).length2 = (a).length1 * 2;					\
     (a).length3 = (a).length2 + 1;					\
     if (((a).length3 < (a).length1) ||					\
@@ -411,9 +411,7 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(targetExhausted);		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     (a).length4 = (a).length3 * sizeof(UTF16);				\
     if (allocate) {							\
@@ -425,16 +423,14 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = E_OUTOFMEMORY;					\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     if (allocate) {							\
 	memset((a).pStart, 0, (a).length4);				\
     }									\
     (a).pCurrent = (a).pStart;						\
     crc = ConvertUTF32toUTF16(						\
-	&pSrc32, pSrc32 + (a).length1, &((a).pCurrent),			\
+	&pSrc, pSrc + (a).length1, &((a).pCurrent),			\
 	(a).pCurrent + (a).length2, strictConversion);			\
     if (crc != conversionOK) {						\
 	if (!allocate && (cvtBuf0 != NULL)) {				\
@@ -442,9 +438,7 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(crc);				\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
     (a).length5 = (size_t)((a).pCurrent - (a).pStart);			\
     if ((a).length5 > (size_t)INT_MAX) {				\
@@ -453,152 +447,72 @@ cvt_declare_context_type(Cvt_Context_u32, UTF32);
 	    cvtBuf0 = NULL;						\
 	}								\
 	(a).hResult = HRESULT_FROM_CVTUTF(targetExhausted);		\
-	cvt_ctx_cleanup((a));						\
-	(b) = NULL;							\
-	goto done;							\
+	goto cvt_exit;							\
     }									\
 } while (0);
 #endif
 
-#if !defined(Cvt_NewUnicodeObj)
-#define Cvt_NewUnicodeObj(a, b, c) do {					\
-    cvt_decls();							\
-    cvt_u16_decls(1);							\
-    cvt_u32_to_u16_body(cvtCtx1, (a), (b), (c), 1);			\
-    (a) = Tcl_NewUnicodeObj(cvtCtx1.pStart, (int)cvtCtx1.length5);	\
-    cvt_ctx_cleanup(cvtCtx1);						\
-} while(0);
-#endif
-
-#if !defined(Cvt_AppendUnicodeToObj)
-#define Cvt_AppendUnicodeToObj(a, b, c) do {				\
-    cvt_decls();							\
-    cvt_u16_decls(1);							\
-    cvt_u32_to_u16_body(cvtCtx1, cvtCtx1.pStart, (b), (c), 1);		\
-    Tcl_AppendUnicodeToObj((a), cvtCtx1.pStart,				\
-	(int)cvtCtx1.length5);						\
-    cvt_ctx_cleanup(cvtCtx1);						\
-} while(0);
-#endif
-
-#if !defined(Cvt_GetUnicode)
-#define Cvt_GetUnicode(a, b, c) do {					\
-    /*									\
-     * HACK: Caller receives ownership of UTF-32 string pStart -AND-	\
-     *       must call cvt_cleanup(a) when done with it, thus freeing	\
-     *       its memory via ckfree(a).  It should be noted that "a" is	\
-     *       required to be an lvalue of a compatible type and will be	\
-     *       set to null by the cvt_cleanup(a) call.			\
-     */									\
-    cvt_decls();							\
-    cvt_u32_decls(1);							\
-    cvt_u16_to_u32_body(cvtCtx1, (a), Tcl_GetUnicode((b)), (c), 1);	\
-    Tcl_SetByteArrayObj((b), (const unsigned char *)cvtCtx1.pStart,	\
-	(int)cvtCtx1.length4);						\
-    (a) = cvtCtx1.pStart;						\
-} while(0);
-#endif
-
-#if !defined(Cvt_GetUnicodeFromObj)
-#define Cvt_GetUnicodeFromObj(a, b, c) do {				\
-    /*									\
-     * HACK: Caller receives ownership of UTF-32 string pStart -AND-	\
-     *       must call cvt_cleanup(a) when done with it, thus freeing	\
-     *       its memory via ckfree(a).  It should be noted that "a" is	\
-     *       required to be an lvalue of a compatible type and will be	\
-     *       set to null by the cvt_cleanup(a) call.			\
-     */									\
-    cvt_decls();							\
-    cvt_u32_decls(1);							\
-    cvt_u16_to_u32_body(cvtCtx1, (a), Tcl_GetUnicode((b)), (*(c)), 1);	\
-    Tcl_SetByteArrayObj((b), (const unsigned char *)cvtCtx1.pStart,	\
-	(int)cvtCtx1.length4);						\
-    (a) = cvtCtx1.pStart;						\
-} while(0);
-#endif
-
-#if !defined(Cvt_setenv)
-#define Cvt_setenv(a, b, c, d) do {					\
-    cvt_decls();							\
-    cvt_u8_decls(1);							\
-    cvt_u8_decls(2);							\
-    cvt_u32_to_u8_body(cvtCtx1, cvtCtx1.pStart, (b), 0, 1);		\
-    cvt_u32_to_u8_body(cvtCtx2, cvtCtx2.pStart, (c), 0, 1);		\
-    (a) = setenv((const char *)cvtCtx1.pStart,				\
-	(const char *)cvtCtx2.pStart, (d));				\
-    cvt_ctx_cleanup(cvtCtx2);						\
-    cvt_ctx_cleanup(cvtCtx1);						\
-} while(0);
-#endif
-
-#if !defined(Cvt_unsetenv)
-#define Cvt_unsetenv(a, b) do {						\
-    cvt_decls();							\
-    cvt_u8_decls(1);							\
-    cvt_u32_to_u8_body(cvtCtx1, cvtCtx1.pStart, (b), 0, 1);		\
-    (a) = unsetenv((const char *)cvtCtx1.pStart);			\
-    cvt_ctx_cleanup(cvtCtx1);						\
-} while(0);
-#endif
-
-#if !defined(Cvt_dlopen)
-#define Cvt_dlopen(a, b, c) do {					\
-    cvt_decls();							\
-    cvt_u8_decls(1);							\
-    cvt_u32_to_u8_body(cvtCtx1, cvtCtx1.pStart, (b), 0, 1);		\
-    (a) = dlopen((const char *)cvtCtx1.pStart, (c));			\
-    cvt_ctx_cleanup(cvtCtx1);						\
-} while(0);
-#endif
-
-#if !defined(Cvt_pInitForRuntimeConfig)
-#define Cvt_pInitForRuntimeConfig(a, b, c, d) do {			\
-    cvt_decls();							\
-    cvt_u8_decls(1);							\
-    cvt_u32_to_u8_body(cvtCtx1, cvtCtx1.pStart, (b), 0, 1);		\
-    (a) = uFunctions.pInitForRuntimeConfig(				\
-	(const char *)cvtCtx1.pStart, (c), (d));			\
-    cvt_ctx_cleanup(cvtCtx1);						\
-} while(0);
-#endif
-
-#if !defined(Cvt_pLoadAssemblyAndGetFuncPtr)
-#define Cvt_pLoadAssemblyAndGetFuncPtr(a, b, c, d, e, f, g) do {	\
-    cvt_decls();							\
-    cvt_u8_decls(1);							\
-    cvt_u8_decls(2);							\
-    cvt_u8_decls(3);							\
-    cvt_u8_decls(4);							\
-    cvt_u32_to_u8_body(cvtCtx1, cvtCtx1.pStart, (b), 0, 1);		\
-    cvt_u32_to_u8_body(cvtCtx2, cvtCtx2.pStart, (c), 0, 1);		\
-    cvt_u32_to_u8_body(cvtCtx3, cvtCtx3.pStart, (d), 0, 1);		\
-    cvt_u32_to_u8_body(cvtCtx4, cvtCtx4.pStart, (e), 0, 1);		\
-    (a) = uCoreClrFunctions.pLoadAssemblyAndGetFuncPtr(			\
-	cvtCtx1.pStart, cvtCtx2.pStart, cvtCtx3.pStart,			\
-	cvtCtx4.pStart, (f), (g));					\
-    cvt_ctx_cleanup(cvtCtx4);						\
-    cvt_ctx_cleanup(cvtCtx3);						\
-    cvt_ctx_cleanup(cvtCtx2);						\
-    cvt_ctx_cleanup(cvtCtx1);						\
-} while(0);
-#endif
-
-#if !defined(Cvt_get_module_file_name)
-#define Cvt_get_module_file_name(a, b, c, d) do {			\
-    cvt_decls();							\
-    cvt_u32_decls(1);							\
-    cvt_ctx_initialize(cvtCtx1);					\
-    cvtBuf0 = (UTF8 *)attemptckalloc((d) + 1);				\
-    if (cvtBuf0 == NULL) {						\
-	(a) = 0;							\
-	goto done;							\
+#if !defined(cvt_copy_clamped_with_nul)
+#define cvt_copy_clamped_with_nul(a, b, c, d, e) do {			\
+    size_t copied0 = 0;							\
+    size_t capacity0  = (c);						\
+    if (capacity0 > 0) {						\
+	size_t length0 = (e);						\
+	copied0 = (length0 < (capacity0 - 1)) ?				\
+	    length0 : (capacity0 - 1);					\
+	if (copied0 > 0) {						\
+	    memmove((b), (d), copied0 * sizeof(*(b)));			\
+	}								\
+	(b)[copied0] = 0;						\
     }									\
-    memset(cvtBuf0, 0, ((d) + 1) * sizeof(UTF8));			\
-    (a) = get_module_file_name((b), cvtBuf0, (d));			\
-    cvtCtx1.pStart = (c);						\
-    cvt_u8_to_u32_body(cvtCtx1, cvtCtx1.pStart, cvtBuf0, 0, 0);		\
-    ckfree((void *)cvtBuf0);						\
-} while(0);
+    (a) = copied0;							\
+} while (0);
 #endif
+
+#if !defined(cvt_ctx_copy_clamped_with_nul)
+#define cvt_ctx_copy_clamped_with_nul(a, b, c, d)			\
+    cvt_copy_clamped_with_nul((a), (c), (d), (b).pStart, (b).length5)
+#endif
+
+#if defined(USE_CORE_CLR) && !defined(_WIN32)
+/*
+ * HACK: Make using the (ugly) "hostfxr_initialize_parameters" CoreCLR SDK
+ *       struct type a bit easier.
+ */
+
+typedef const struct hostfxr_initialize_parameters dnh_init_params;
+
+PACKAGE_INTERN Tcl_Obj *Cvt_NewUnicodeObj(LPCWSTR unicode, int length);
+PACKAGE_INTERN int	Cvt_AppendUnicodeToObj(Tcl_Obj *objPtr,
+			    LPCWSTR unicode, int length);
+PACKAGE_INTERN LPWSTR	Cvt_GetUnicode(Tcl_Obj *objPtr);
+PACKAGE_INTERN LPWSTR	Cvt_GetUnicodeFromObj(Tcl_Obj *objPtr,
+			    int *lengthPtr);
+PACKAGE_INTERN int32_t	Cvt_pInitForRuntimeConfig(LPCWSTR runtimeConfigPath,
+			    dnh_init_params *parameters,
+			    hostfxr_handle *hostContextHandle);
+PACKAGE_INTERN int	Cvt_pLoadAssemblyAndGetFuncPtr(LPCWSTR assemblyPath,
+			    LPCWSTR typeName, LPCWSTR methodName,
+			    LPCWSTR delegateTypeName, void *pReserved,
+			    void **ppDelegate);
+PACKAGE_INTERN size_t	Cvt_get_module_file_name(HMODULE hModule,
+			    LPWSTR fileName, size_t size);
+
+#  define Wrp_NewUnicodeObj			Cvt_NewUnicodeObj
+#  define Wrp_AppendUnicodeToObj		Cvt_AppendUnicodeToObj
+#  define Wrp_GetUnicode			Cvt_GetUnicode
+#  define Wrp_GetUnicodeFromObj			Cvt_GetUnicodeFromObj
+#  define Wrp_pInitForRuntimeConfig		Cvt_pInitForRuntimeConfig
+#  define Wrp_pLoadAssemblyAndGetFuncPtr	Cvt_pLoadAssemblyAndGetFuncPtr
+#  define Wrp_get_module_file_name		Cvt_get_module_file_name
+#else
+#  define Wrp_NewUnicodeObj			Tcl_NewUnicodeObj
+#  define Wrp_AppendUnicodeToObj		Tcl_AppendUnicodeToObj
+#  define Wrp_GetUnicode			Tcl_GetUnicode
+#  define Wrp_GetUnicodeFromObj			Tcl_GetUnicodeFromObj
+#  define Wrp_pInitForRuntimeConfig		uCoreClrFunctions.pInitForRuntimeConfig
+#  define Wrp_pLoadAssemblyAndGetFuncPtr	uCoreClrFunctions.pLoadAssemblyAndGetFuncPtr
+#  define Wrp_get_module_file_name		GetModuleFileNameW
+#endif /* defined(USE_CORE_CLR) && !defined(_WIN32) */
 
 #endif /* _GARUDA_STR_H_ */

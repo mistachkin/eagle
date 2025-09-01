@@ -214,10 +214,13 @@ VERSION			= $(PACKAGE_MAJOR)$(PACKAGE_MINOR)
 STUBPREFIX	= $(PROJECT)stub
 
 DLLOBJS			= \
+	$(TMP_DIR)\ConvertUTF_v2.obj \
 	$(TMP_DIR)\DllMain.obj \
 	$(TMP_DIR)\Garuda.obj \
 	$(TMP_DIR)\GarudaClr.obj \
 	$(TMP_DIR)\GarudaCoreClr.obj \
+	$(TMP_DIR)\GarudaPal.obj \
+	$(TMP_DIR)\GarudaStr.obj \
 !if !$(STATIC_BUILD)
 	$(TMP_DIR)\Garuda.res
 !endif
@@ -255,6 +258,7 @@ EAGLE_NATIVE_TOOLS_DIR	= $(EAGLE_DIR)\Native\Common\Tools
 
 ### The following paths CANNOT have spaces in them.
 PRJ_DIR									= $(ROOT)
+PRJ_EXT_GENERIC_DIR			= $(ROOT)\src\external\generic
 PRJ_GENERIC_DIR					= $(ROOT)\src\generic
 PRJ_RC_DIR							= $(ROOT)\rc
 PRJ_WIN_DIR							= $(ROOT)\src\win
@@ -267,7 +271,9 @@ PRJ_TESTS_DIR						= $(ROOT)\tests
 PRJ_TEMP_DIR						= $(TEMP)\$(PROJECT)Temp
 
 ### The header files, both public and private, for this project.
-PRJ_GENERIC_HEADERS			= Garuda.h GarudaInt.h GarudaPre.h
+PRJ_EXT_GENERIC_HEADERS	= ConvertUTF_v2.h
+PRJ_GENERIC_HEADERS			= Garuda.h GarudaDecls.h GarudaInt.h GarudaPal.h
+PRJ_GENERIC_HEADERS			= $(PRJ_GENERIC_HEADERS) GarudaPre.h GarudaStr.h
 PRJ_GENERIC_HEADERS			= $(PRJ_GENERIC_HEADERS) GarudaClr.h GarudaCoreClr.h
 PRJ_GENERIC_HEADERS			= $(PRJ_GENERIC_HEADERS) pkgVersion.h rcVersion.h
 PRJ_GENERIC_HEADERS			= $(PRJ_GENERIC_HEADERS) stubs.h
@@ -440,7 +446,7 @@ cflags			= $(cflags) -DUSE_TK_PRIVATE_STUBS
 !endif
 
 INCLUDES		= $(TCL_INCLUDES) $(CLR_INCLUDES) -I"$(PRJ_WIN_DIR)"
-INCLUDES		= $(INCLUDES) -I"$(PRJ_GENERIC_DIR)"
+INCLUDES		= $(INCLUDES) -I"$(PRJ_EXT_GENERIC_DIR)" -I"$(PRJ_GENERIC_DIR)"
 BASE_CFLAGS	= $(cflags) $(cdebug) $(crt) $(INCLUDES)
 CON_CFLAGS	= $(cflags) $(cdebug) $(crt) -DCONSOLE
 TCL_CFLAGS	= -DPACKAGE_NAME="\"$(PROJECT)\"" \
@@ -606,6 +612,11 @@ $<
 <<
 
 {$(PRJ_GENERIC_DIR)}.c{$(TMP_DIR)}.obj::
+	$(TCC) $(TCL_CFLAGS) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+{$(PRJ_EXT_GENERIC_DIR)}.c{$(TMP_DIR)}.obj::
 	$(TCC) $(TCL_CFLAGS) -Fo$(TMP_DIR)\ @<<
 $<
 <<

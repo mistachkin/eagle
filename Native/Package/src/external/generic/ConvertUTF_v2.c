@@ -40,7 +40,7 @@
     Based on: 78c27d46d96ecd7c340b430becdb58a8afdd024c "ConvertUTF.c"
     Origin: https://www.unicode.org/Public/PROGRAMS/CVTUTF/
 
-    See the header file "ConvertUTF.h" for complete documentation.
+    See the header file "ConvertUTF_v2.h" for complete documentation.
 
 ------------------------------------------------------------------------ */
 

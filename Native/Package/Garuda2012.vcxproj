@@ -389,6 +389,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     <ClCompile Include="src\generic\GarudaClr.c" />
     <ClCompile Include="src\generic\GarudaCoreClr.c" />
     <ClCompile Include="src\generic\GarudaPal.c" />
+    <ClCompile Include="src\generic\GarudaStr.c" />
     <ClCompile Include="src\win\DllMain.c" />
   </ItemGroup>
   <ItemGroup>
@@ -418,7 +419,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
     <None Include="Tools\update.bat" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\external\generic\ConvertUTF_v2.h" />
+    <ClInclude Include="src\external\generic\ConvertUTF_v2.h" />
     <ClInclude Include="src\generic\Garuda.h" />
     <ClInclude Include="src\generic\GarudaClr.h" />
     <ClInclude Include="src\generic\GarudaCoreClr.h" />

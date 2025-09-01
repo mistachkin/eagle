@@ -25,6 +25,9 @@
 
 #include "tcl.h"		/* NOTE: For public Tcl API. */
 #include "GarudaPal.h"		/* NOTE: For platform abstraction API. */
+#include "Garuda.h"		/* NOTE: For public package API. */
+#include "GarudaInt.h"		/* NOTE: For private package API. */
+#include "GarudaDecls.h"	/* NOTE: For private package declarations. */
 
 #if defined(__linux__)
 #  define LINUX_EXECUTABLE_LINK		"/proc/self/exe"
@@ -212,7 +215,7 @@ size_t get_module_file_name(
 
     memset(&info, 0, sizeof(Dl_info));
 
-    if (dladdr((void*)hModule, &info) == 0)
+    if (dladdr((void *)hModule, &info) == 0)
 	return 0;
 
     if (info.dli_fname == NULL)
@@ -221,10 +224,10 @@ size_t get_module_file_name(
     newSize += strlen(info.dli_fname) + 1;
 
     if (newSize > size)
-	return DISP_E_OVERFLOW;
+	return 0;
 
     strcpy(fileName, info.dli_fname);
-    return 0;
+    return newSize;
 }
 
 /*
@@ -272,5 +275,54 @@ HMODULE get_tcl_module_handle(void)
 #endif
 
     return dlopen(info.dli_fname, RTLD_LAZY);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * GetPackageModule --
+ *
+ *	This function returns a value that should be used in place of
+ *	the package module handle on non-Windows operating systems.
+ *
+ * Results:
+ *	The package module handle -OR- NULL if it is not available.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+HMODULE GetPackageModule(void)
+{
+    return (HMODULE)Garuda_Init;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * SetPackageModule --
+ *
+ *	This function sets the package module handle to the specified
+ *	value.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void SetPackageModule(
+    HMODULE hModule)		/* The new package module handle. */
+{
+    /*
+     * HACK: This function does not actually do anything.  It is
+     *       included for consistency, because it is declared in
+     *       the "GarudaDecls.h" header file.
+     */
 }
 #endif /* !defined(_WIN32) */

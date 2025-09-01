@@ -1060,14 +1060,97 @@ namespace eval ::Garuda {
     return false
   }
 
+  proc getTemporaryDirectory {} {
+    #
+    # HACK: The [file tempfile] sub-command requires Tcl 8.6.
+    #
+    close [file tempfile fileName]
+    file delete $fileName
+    return [file dirname $fileName]
+  }
+
+  proc getRuntimeConfigPath {} {
+    global env
+    variable logCommand
+    variable verbose
+
+    if {[info exists env(RuntimeConfigPath)]} then {
+      set path $env(RuntimeConfigPath)
+
+      if {$verbose} then {
+        catch {
+          set caller [maybeFullName [lindex [info level 0] 0]]
+
+          eval $logCommand [list \
+              "$caller: Using runtime configuration path\
+              \"$path\" (environment)..."]
+        }
+      }
+
+      return $path
+    } else {
+      set fileName [info nameofexecutable]
+
+      if {$verbose} then {
+        catch {
+          set caller [maybeFullName [lindex [info level 0] 0]]
+
+          eval $logCommand [list \
+              "$caller: Detected executable file name \"$fileName\"..."]
+        }
+      }
+
+      set fileNameOnly [file tail $fileName]
+
+      if {[string length $fileNameOnly] > 0 && \
+          [isValidFile $fileName]} then {
+        append fileNameOnly - [pid] - [clock seconds]
+        append fileNameOnly .runtimeconfig.json
+
+        if {[catch {getTemporaryDirectory} directory]} then {
+          if {[isWindows]} then {
+            if {[info exists env(TEMP)]} then {
+              set directory $env(TEMP)
+            } else {
+              set directory [file dirname $fileName]
+            }
+          } else {
+            set directory /tmp; # TODO: Portable?
+          }
+        }
+
+        set path [file join $directory $fileNameOnly]
+
+        if {$verbose} then {
+          catch {
+            set caller [maybeFullName [lindex [info level 0] 0]]
+
+            eval $logCommand [list \
+                "$caller: Using runtime configuration path\
+                \"$path\" (default)..."]
+          }
+        }
+
+        return $path
+      }
+    }
+
+    return ""
+  }
+
   proc getPackageBinaryFileNameOnly { packageName } {
     variable useCoreClr
 
+    set result [expr {[isWindows] ? "" : "lib"}]
+
     if {[info exists useCoreClr] && $useCoreClr} then {
-      return ${packageName}Core[info sharedlibextension]
+      append result ${packageName}Core
     } else {
-      return ${packageName}[info sharedlibextension]
+      append result ${packageName}
     }
+
+    append result [info sharedlibextension]
+    return $result
   }
 
   proc getPackageAssemblyTypeName {} {
@@ -1124,16 +1207,18 @@ namespace eval ::Garuda {
   proc getRegistryPathList { rootKeyName valueName } {
     set result [list]
 
-    catch {
-      package require registry; # NOTE: Tcl for Windows only.
+    if {[isWindows]} then {
+      catch {
+        package require registry; # NOTE: Tcl for Windows only.
 
-      foreach keyName [registry keys $rootKeyName] {
-        set subKeyName $rootKeyName\\$keyName
+        foreach keyName [registry keys $rootKeyName] {
+          set subKeyName $rootKeyName\\$keyName
 
-        if {[catch {string trim [registry get \
-                $subKeyName $valueName]} path] == 0} then {
-          if {[isValidDirectory $path] || [isValidFile $path]} then {
-            lappend result $path
+          if {[catch {string trim [registry get \
+                  $subKeyName $valueName]} path] == 0} then {
+            if {[isValidDirectory $path] || [isValidFile $path]} then {
+              lappend result $path
+            }
           }
         }
       }
@@ -1408,9 +1493,9 @@ namespace eval ::Garuda {
     #       script engine itself from the Eagle interpreter.  Finally, compare
     #       that result with "eagle" to make sure it is really Eagle.
     #
-    if {[llength [info commands ::eagle]] > 0 && \
-        [catch {::eagle {set ::tcl_platform(engine)}} engine] == 0 && \
-        [string equal -nocase $engine eagle]} then {
+    if {[llength [info commands ::eagle]] > 0 && [catch {
+      ::eagle {set ::tcl_platform(engine)}
+    } engine] == 0 && [string equal -nocase $engine eagle]} then {
       #
       # NOTE: Ok, it looks like Eagle is loaded and ready for use.  If the
       #       caller wants the patch level, use the specified variable name
@@ -1423,8 +1508,9 @@ namespace eval ::Garuda {
       #
       # NOTE: Fetch the full patch level of the Eagle script engine.
       #
-      if {[catch {::eagle {set ::eagle_platform(patchLevel)}} \
-              version] == 0} then {
+      if {[catch {
+        ::eagle {set ::eagle_platform(patchLevel)}
+      } version] == 0} then {
         #
         # NOTE: Finally, verify that the result looks like a proper patch
         #       level using a suitable regular expression.
@@ -1491,14 +1577,10 @@ namespace eval ::Garuda {
     #       the CoreCLR-support subsystem itself is capable of falling back to
     #       querying the executable file name itself.
     #
-    variable runtimeConfigPath; # DEFAULT: <exeName>.runtimeconfig.json
+    variable runtimeConfigPath; # DEFAULT: ${TMP}/<exeName>.runtimeconfig.json
 
     if {![info exists runtimeConfigPath]} then {
-      if {[info exists env(RuntimeConfigPath)]} then {
-        set runtimeConfigPath $env(RuntimeConfigPath)
-      } else {
-        set runtimeConfigPath [info nameofexecutable].runtimeconfig.json
-      }
+      set runtimeConfigPath [getRuntimeConfigPath]
     }
 
     ###########################################################################

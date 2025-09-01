@@ -87,13 +87,13 @@ namespace Eagle._Components.Public
         //       cannot be parsed properly according to the selected protocol
         //       version (i.e. not a list, not enough sub-arguments, etc).
         //
-        private const string ParseArgumentErrorV1R1 = "could not parse " +
-            "argument string, expected at least [{0} <IntPtr> <IntPtr> " +
-            "<Boolean>]: {1}";
+        private const string ParseArgumentErrorV1R1 = "could not parse raw " +
+            "argument string \"{0}\" ({1}), expected at least [{2} <IntPtr> " +
+            "<IntPtr> <Boolean>]: {3}";
 
-        private const string ParseArgumentErrorV1R2 = "could not parse " +
-            "argument string, expected at least [{0} <IntPtr> <IntPtr> " +
-            "<IntPtr> <Boolean> <Boolean>]: {1}";
+        private const string ParseArgumentErrorV1R2 = "could not parse raw " +
+            "argument string \"{0}\" ({1}), expected at least [{2} <IntPtr> " +
+            "<IntPtr> <IntPtr> <Boolean> <Boolean>]: {3}";
 
         //
         // NOTE: This is the error message returned when the "safe" mode of the
@@ -1096,9 +1096,16 @@ namespace Eagle._Components.Public
             }
 
             error = String.Format(
-                "protocol mismatch, have \"{0}\", need \"{1}\", \"{2}\", " +
-                "or \"{3}\"", protocolId, ProtocolIdV1R0, ProtocolIdV1R1,
-                ProtocolIdV1R2);
+                "protocol mismatch, have \"{0}\" ({1}), need " +
+                "\"{2}\" ({3}), \"{4}\" ({5}), or \"{6}\" ({7})",
+                protocolId, (protocolId != null) ?
+                    protocolId.Length : Length.Invalid,
+                ProtocolIdV1R0, (ProtocolIdV1R0 != null) ?
+                    ProtocolIdV1R0.Length : Length.Invalid,
+                ProtocolIdV1R1, (ProtocolIdV1R1 != null) ?
+                    ProtocolIdV1R1.Length : Length.Invalid,
+                ProtocolIdV1R2, (ProtocolIdV1R2 != null) ?
+                    ProtocolIdV1R2.Length : Length.Invalid);
 
             return ReturnCode.Error;
         }
@@ -1151,8 +1158,8 @@ namespace Eagle._Components.Public
             bool haveExtra = false;
 
             //
-            // NOTE: Attempt to parse the argument as a Tcl/Eagle list.  If
-            //       this fails, we cannot continue.
+            // NOTE: Attempt to parse the argument as a Tcl/Eagle list.  Upon
+            //       failure, we cannot continue.
             //
             if (ParserOps<string>.SplitList(
                     null, arg, 0, Length.Invalid, false, ref localList,
@@ -1336,9 +1343,13 @@ namespace Eagle._Components.Public
 
             error = haveExtra ?
                 String.Format(
-                    ParseArgumentErrorV1R2, ProtocolIdV1R2, localError) :
+                    ParseArgumentErrorV1R2, arg, (arg != null) ?
+                    arg.Length : Length.Invalid, ProtocolIdV1R2,
+                    localError) :
                 String.Format(
-                    ParseArgumentErrorV1R1, ProtocolIdV1R1, localError);
+                    ParseArgumentErrorV1R1, arg, (arg != null) ?
+                    arg.Length : Length.Invalid, ProtocolIdV1R1,
+                    localError);
 
             return ReturnCode.Error;
         }
@@ -1439,21 +1450,36 @@ namespace Eagle._Components.Public
         #region Private CoreCLR Native API Support Methods
 #if NET_STANDARD_20
         private static string MarshalArgument(
-            IntPtr arg,           /* in */
-            int arg_size_in_bytes /* in */
+            IntPtr ptr, /* in */
+            int count   /* in */
             )
         {
             if (PlatformOps.IsWindowsOperatingSystem())
             {
-                return Marshal.PtrToStringUni(arg, arg_size_in_bytes);
+                //
+                // HACK: This assumes that the "wchar_t" type on Win32
+                //       uses two bytes to represent a single character,
+                //       which nicely corresponds to the size of the
+                //       "char" type in C#.  It should be noted that the
+                //       count here is in bytes, not code units; hence,
+                //       we have to divide by the code unit size before
+                //       passing it to the Marshal.PtrToStringUni method,
+                //       as that method wants the number of code units.
+                //
+                return Marshal.PtrToStringUni(ptr, count / sizeof(char));
             }
             else
             {
-#if NET_STANDARD_21
-                return Marshal.PtrToStringUTF8(arg, arg_size_in_bytes);
-#else
-                return Marshal.PtrToStringAnsi(arg, arg_size_in_bytes);
-#endif
+                //
+                // HACK: This assumes that the "wchar_t" type on Linux
+                //       (and macOS, etc) uses four bytes to represent
+                //       a single character.  It should be noted that
+                //       the count here is in bytes, not code units.
+                //       Since the MarshalOps.PtrToStringUTF32 method
+                //       requires the total number of bytes, this call
+                //       is correct.
+                //
+                return MarshalOps.PtrToStringUTF32(ptr, count);
             }
         }
 #endif
@@ -1488,9 +1514,9 @@ namespace Eagle._Components.Public
             )
         {
             TraceOps.DebugTrace(String.Format(
-                "StartupCoreClr: entered, arg = {0}",
-                FormatOps.WrapOrNull(arg)),
-                typeof(NativePackage).Name,
+                "StartupCoreClr: entered, arg = {0}, " +
+                "arg_size_in_bytes = {1}", FormatOps.WrapOrNull(arg),
+                arg_size_in_bytes), typeof(NativePackage).Name,
                 TracePriority.NativeDebug);
 
             if (arg == IntPtr.Zero)
@@ -1515,9 +1541,9 @@ namespace Eagle._Components.Public
             )
         {
             TraceOps.DebugTrace(String.Format(
-                "ControlCoreClr: entered, arg = {0}",
-                FormatOps.WrapOrNull(arg)),
-                typeof(NativePackage).Name,
+                "ControlCoreClr: entered, arg = {0}, " +
+                "arg_size_in_bytes = {1}", FormatOps.WrapOrNull(arg),
+                arg_size_in_bytes), typeof(NativePackage).Name,
                 TracePriority.NativeDebug);
 
             if (arg == IntPtr.Zero)
@@ -1542,9 +1568,9 @@ namespace Eagle._Components.Public
             )
         {
             TraceOps.DebugTrace(String.Format(
-                "DetachCoreClr: entered, arg = {0}",
-                FormatOps.WrapOrNull(arg)),
-                typeof(NativePackage).Name,
+                "DetachCoreClr: entered, arg = {0}, " +
+                "arg_size_in_bytes = {1}", FormatOps.WrapOrNull(arg),
+                arg_size_in_bytes), typeof(NativePackage).Name,
                 TracePriority.NativeDebug);
 
             if (arg == IntPtr.Zero)
@@ -1569,9 +1595,9 @@ namespace Eagle._Components.Public
             )
         {
             TraceOps.DebugTrace(String.Format(
-                "ShutdownCoreClr: entered, arg = {0}",
-                FormatOps.WrapOrNull(arg)),
-                typeof(NativePackage).Name,
+                "ShutdownCoreClr: entered, arg = {0}, " +
+                "arg_size_in_bytes = {1}", FormatOps.WrapOrNull(arg),
+                arg_size_in_bytes), typeof(NativePackage).Name,
                 TracePriority.NativeDebug);
 
             if (arg == IntPtr.Zero)

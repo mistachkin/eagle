@@ -26,6 +26,7 @@ using System.Security;
 using System.Security.Permissions;
 #endif
 
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Eagle._Attributes;
@@ -320,6 +321,15 @@ namespace Eagle._Components.Private
         private static readonly char[] TypeAndHandleDelimiters = {
             Type.Delimiter, Characters.NumberSign
         };
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static Encoding UTF8 = null;
+        private static Encoding UTF16 = null;
+        private static Encoding UTF32 = null;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1327,6 +1337,133 @@ namespace Eagle._Components.Private
         }
 #endif
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static byte[] ReadBytes(
+            IntPtr ptr,   /* in */
+            int count,    /* in */
+            bool canThrow /* in */
+            )
+        {
+            if ((ptr != IntPtr.Zero) && (count >= 0))
+            {
+                try
+                {
+                    byte[] bytes = new byte[count];
+
+                    for (int index = 0; index < count; index++)
+                        bytes[index] = Marshal.ReadByte(ptr, index);
+
+                    return bytes;
+                }
+                catch (Exception e)
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(MarshalOps).Name,
+                        TracePriority.MarshalError);
+
+                    if (canThrow)
+                        throw;
+                }
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string PtrToEncodedString(
+            Encoding encoding, /* in */
+            IntPtr ptr,        /* in */
+            int count,         /* in */
+            bool canThrow      /* in */
+            )
+        {
+            if ((ptr == IntPtr.Zero) || (count < 0))
+                return null;
+
+            if (count == 0)
+                return String.Empty;
+
+            if (encoding == null)
+                return null;
+
+            byte[] bytes = ReadBytes(ptr, count, canThrow); /* throw? */
+
+            try
+            {
+                return encoding.GetString(bytes); /* throw */
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(MarshalOps).Name,
+                    TracePriority.MarshalError);
+
+                if (canThrow)
+                    throw;
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Dead Code
+#if DEAD_CODE
+        private static string PtrToStringUTF8(
+            IntPtr ptr, /* in */
+            int count   /* in */
+            )
+        {
+#if NET_STANDARD_20 && NET_STANDARD_21
+            //
+            // HACK: This method is officially available
+            //       starting with the .NET Standard 2.1.
+            //
+            return Marshal.PtrToStringUTF8(ptr, len);
+#else
+            Encoding encoding = UTF8;
+
+            if (encoding == null)
+                encoding = Encoding.UTF8;
+
+            return PtrToEncodedString(encoding, ptr, count, true);
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string PtrToStringUTF16(
+            IntPtr ptr, /* in */
+            int count   /* in */
+            )
+        {
+            Encoding encoding = UTF16;
+
+            if (encoding == null)
+                encoding = Encoding.GetEncoding("UTF-16");
+
+            return PtrToEncodedString(encoding, ptr, count, true);
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string PtrToStringUTF32(
+            IntPtr ptr, /* in */
+            int count   /* in */
+            )
+        {
+            Encoding encoding = UTF32;
+
+            if (encoding == null)
+                encoding = Encoding.UTF32;
+
+            return PtrToEncodedString(encoding, ptr, count, true);
+        }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 

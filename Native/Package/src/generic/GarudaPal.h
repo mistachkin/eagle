@@ -36,7 +36,7 @@ typedef int BOOL;
 
 #ifndef _DWORD_DEFINED
 #define _DWORD_DEFINED
-typedef unsigned long DWORD;
+typedef unsigned int DWORD;
 #endif
 
 #ifndef _LPDWORD_DEFINED
@@ -51,7 +51,7 @@ typedef long LONG;
 
 #ifndef _HRESULT_DEFINED
 #define _HRESULT_DEFINED
-typedef LONG HRESULT;
+typedef int HRESULT;
 #endif
 
 #ifndef _CHAR_DEFINED
@@ -180,19 +180,19 @@ typedef void *HMODULE;
 
 #if !defined(FACILITY_CUSTOMER_CRT)
 #define FACILITY_CUSTOMER_CRT \
-			(((unsigned long)(FACILITY_CUSTOMER_BIT)) | \
-			(((unsigned long)(FACILITY_CRT)) << 16))
+			(((unsigned int)(FACILITY_CUSTOMER_BIT)) | \
+			(((unsigned int)(FACILITY_CRT)) << 16))
 #endif
 
 #if !defined(HRESULT_FROM_WIN32)
 #define HRESULT_FROM_WIN32(x) \
-		((HRESULT)((((unsigned long)(SEVERITY_ERROR)) << 31) | \
-		(((unsigned long)(FACILITY_WIN32)) << 16) | ((x) & 0xFFFF)))
+		((HRESULT)((((unsigned int)(SEVERITY_ERROR)) << 31) | \
+		(((unsigned int)(FACILITY_WIN32)) << 16) | ((x) & 0xFFFF)))
 #endif
 
 #if !defined(HRESULT_FROM_ERRNO)
 #define HRESULT_FROM_ERRNO(x) \
-		((HRESULT)((((unsigned long)(SEVERITY_ERROR)) << 31) | \
+		((HRESULT)((((unsigned int)(SEVERITY_ERROR)) << 31) | \
 		(FACILITY_CUSTOMER_CRT) | ((x) & 0xFFFF)))
 #endif
 #endif /* !defined(_WIN32) */

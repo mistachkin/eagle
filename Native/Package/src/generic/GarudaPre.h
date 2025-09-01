@@ -62,4 +62,22 @@
 #  define CORE_CLR_VERSION_V3			"v3.0+"
 #endif
 
+/*
+ * HACK: The following three typedef's are required due to a misfeature of
+ *       the "hostfxr.h" header file.  It appears to assume that including
+ *       files are being compiled in C++, which would allow a typedef name
+ *       to be used as a complete type before its own declaration.
+ */
+
+#if defined(USE_CORE_CLR) && !defined(NO_HOSTFXR_TYPEDEF_HACK)
+typedef struct hostfxr_dotnet_environment_info
+hostfxr_dotnet_environment_info;
+
+typedef struct hostfxr_dotnet_environment_sdk_info
+hostfxr_dotnet_environment_sdk_info;
+
+typedef struct hostfxr_dotnet_environment_framework_info
+hostfxr_dotnet_environment_framework_info;
+#endif
+
 #endif /* _GARUDA_PRE_H_ */

@@ -1503,6 +1503,7 @@ set eagle_manifests(source) {
   Eagle/Native/Package/src/generic/GarudaPal.c
   Eagle/Native/Package/src/generic/GarudaPal.h
   Eagle/Native/Package/src/generic/GarudaPre.h
+  Eagle/Native/Package/src/generic/GarudaStr.c
   Eagle/Native/Package/src/generic/GarudaStr.h
   Eagle/Native/Package/src/generic/pkgVersion.h
   Eagle/Native/Package/src/generic/rcVersion.h
