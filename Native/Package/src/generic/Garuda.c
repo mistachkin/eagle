@@ -533,10 +533,10 @@ LPCWSTR GetClrErrorMessage(
     if (source != NULL) {
 	gwprintf(message, PACKAGE_RESULT_SIZE, PACKAGE_UNICODE_STR_FMT
 	    L": " PACKAGE_UNICODE_STR_FMT " (code 0x%lX).\n", source,
-	    severity, hResult);
+	    severity, (unsigned long)hResult);
     } else {
 	gwprintf(message, PACKAGE_RESULT_SIZE, PACKAGE_UNICODE_STR_FMT
-	    L" (code 0x%lX).\n", severity, hResult);
+	    L" (code 0x%lX).\n", severity, (unsigned long)hResult);
     }
 
     return message;
@@ -1323,12 +1323,14 @@ static int GetClrConfigInfo(
 	(*ppConfigInfo)->runtimeConfigPath = GetStringVariableValue(interp,
 	    PACKAGE_UNICODE_RUNTIME_CONFIG_PATH_VAR_NAME, &length);
 
+#if defined(USE_CORE_CLR)
 	if (((*ppConfigInfo)->runtimeConfigPath == NULL) || (length <= 0)) {
 	    Tcl_AppendResult(interp,
 		"invalid runtime configuration path\n", NULL);
 
 	    return TCL_ERROR;
 	}
+#endif
 
 	(*ppConfigInfo)->bLoadClr = GetBooleanVariableValue(interp,
 	    PACKAGE_UNICODE_LOAD_CLR_VAR_NAME, FALSE);

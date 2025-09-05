@@ -252,7 +252,7 @@ int LoadAndStartTheClr(
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
 		    L"pClrCreateInstance(hResult = {0x%lX}, "
 		    L"pClrMetaHost = {" PACKAGE_UNICODE_PTR_FMT L"})",
-		    hResult, pClrMetaHost);
+		    (unsigned long)hResult, pClrMetaHost);
 
 		TclLog(interp, logCommand, buffer, NULL);
 	    }
@@ -331,7 +331,7 @@ int LoadAndStartTheClr(
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
 		    L"AFTER ICLRMetaHost_GetRuntime(hResult = {0x%lX}, "
 		    L"pClrRuntimeInfo = {" PACKAGE_UNICODE_PTR_FMT L"})",
-		    hResult, pClrRuntimeInfo);
+		    (unsigned long)hResult, pClrRuntimeInfo);
 
 		TclLog(interp, logCommand, buffer, NULL);
 	    }
@@ -357,7 +357,8 @@ int LoadAndStartTheClr(
 	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
 		    L"ICLRRuntimeInfo_IsLoadable(hResult = {0x%lX}, "
-		    L"bLoadable = {%d})", hResult, bLoadable);
+		    L"bLoadable = {%d})", (unsigned long)hResult,
+		    bLoadable);
 
 		TclLog(interp, logCommand, buffer, NULL);
 	    }
@@ -395,7 +396,7 @@ int LoadAndStartTheClr(
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
 		    L"ICLRRuntimeInfo_GetInterface(hResult = {0x%lX}, "
 		    L"pClrRuntimeHost = {" PACKAGE_UNICODE_PTR_FMT L"})",
-		    hResult, pClrRuntimeHost);
+		    (unsigned long)hResult, pClrRuntimeHost);
 
 		TclLog(interp, logCommand, buffer, NULL);
 	    }
@@ -438,7 +439,7 @@ fallback:
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
 		    L"CorBindToRuntimeEx(hResult = {0x%lX}, "
 		    L"pClrRuntimeHost = {" PACKAGE_UNICODE_PTR_FMT L"})",
-		    hResult, pClrRuntimeHost);
+		    (unsigned long)hResult, pClrRuntimeHost);
 
 		TclLog(interp, logCommand, buffer, NULL);
 	    }
@@ -493,7 +494,8 @@ start:
 
 	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
-		    L"ICLRRuntimeHost_Start(hResult = {0x%lX})", hResult);
+		    L"ICLRRuntimeHost_Start(hResult = {0x%lX})",
+		    (unsigned long)hResult);
 
 		TclLog(interp, logCommand, buffer, NULL);
 	    }
@@ -596,7 +598,8 @@ int StopAndReleaseTheClr(
 
 	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
-		    L"ICLRRuntimeHost_Stop(hResult = {0x%lX})", hResult);
+		    L"ICLRRuntimeHost_Stop(hResult = {0x%lX})",
+		    (unsigned long)hResult);
 
 		TclLog(interp, logCommand, buffer, NULL);
 	    }
@@ -959,8 +962,9 @@ int ExecuteClrMethod(
 	WCHAR buffer[PACKAGE_RESULT_SIZE + 1] = {0};
 
 	gwprintf(buffer, PACKAGE_RESULT_SIZE, L"AFTER "
-	    L"ICLRRuntimeHost_ExecuteInDefaultAppDomain(hResult = {0x%lX}, "
-	    L"returnValue = {%d})", hResult, returnValue);
+	    L"ICLRRuntimeHost_ExecuteInDefaultAppDomain("
+	    L"hResult = {0x%lX}, returnValue = {%lu})",
+	    (unsigned long)hResult, (unsigned long)returnValue);
 
 	TclLog(interp, logCommand, buffer, NULL);
     }

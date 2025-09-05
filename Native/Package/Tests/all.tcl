@@ -86,6 +86,14 @@ namespace eval ::Garuda {
   # NOTE: Stolen from "helper.tcl" because this procedure is needed prior to
   #       the Garuda package being loaded.
   #
+  proc fileNormalizeFromEnvironment { path {force false} } {
+    return [fileNormalize [string trim $path] $force]
+  }
+
+  #
+  # NOTE: Stolen from "helper.tcl" because this procedure is needed prior to
+  #       the Garuda package being loaded.
+  #
   proc isValidDirectory { path } {
     variable logCommand
     variable verbose
@@ -102,8 +110,9 @@ namespace eval ::Garuda {
     #
     # NOTE: For now, just make sure the path refers to an existing directory.
     #
-    return [expr {[string length $path] > 0 && [file exists $path] && \
-        [file isdirectory $path]}]
+    return [expr {[string length $path] > 0 && \
+          $path ne "." && $path ne ".." && \
+          [file exists $path] && [file isdirectory $path]}]
   }
 
   #
@@ -126,8 +135,9 @@ namespace eval ::Garuda {
     #
     # NOTE: For now, just make sure the path refers to an existing file.
     #
-    return [expr {[string length $path] > 0 && [file exists $path] && \
-        [file isfile $path]}]
+    return [expr {[string length $path] > 0 && \
+          $path ne "." && $path ne ".." && \
+          [file exists $path] && [file isfile $path]}]
   }
 
   #
@@ -150,8 +160,6 @@ namespace eval ::Garuda {
   #       the Garuda package being loaded.
   #
   proc isDotNetCore { {default false} } {
-    global env
-
     if {![isWindows]} then {
       #
       # NOTE: Assume that the .NET Framework is only available on Windows
@@ -164,10 +172,6 @@ namespace eval ::Garuda {
     if {[file rootname [file tail \
         [info nameofexecutable]]] eq "dotnet"} then {
       return true; # HACK: Running in .NET Core process.
-    }
-
-    if {[info exists env(UseMinimumClr)]} then {
-      return false; # HACK: .NET Core is never "minimal".
     }
 
     if {[llength [info procs shouldUseCoreClr]] > 0} then {
@@ -206,8 +210,8 @@ namespace eval ::Garuda {
         set newVarName ${varName}${varSuffix}
 
         if {[info exists env($newVarName)]} then {
-          set path [file join [string trim $env($newVarName)] \
-              $binaryFileName]
+          set path [file join [fileNormalizeFromEnvironment \
+              $env($newVarName)] $binaryFileName]
 
           if {[isValidFile $path]} then {
             set path [file join [file dirname $path] \
@@ -221,8 +225,8 @@ namespace eval ::Garuda {
       }
 
       if {[info exists env($varName)]} then {
-        set path [file join [string trim $env($varName)] \
-            $binaryFileName]
+        set path [file join [fileNormalizeFromEnvironment \
+            $env($varName)] $binaryFileName]
 
         if {[isValidFile $path]} then {
           set path [file join [file dirname $path] \
@@ -297,12 +301,17 @@ namespace eval ::Garuda {
   #********************** TEST VARIABLE SETUP PROCEDURES **********************
   #############################################################################
 
-  proc getTestPackageBinaryFileNameOnly { packageName } {
-    if {[isDotNetCore]} then {
-      return ${packageName}Core[info sharedlibextension]
+  proc getTestPackageBinaryFileNameOnly { packageName useCoreClr } {
+    set result [expr {[isWindows] ? "" : "lib"}]
+
+    if {$useCoreClr} then {
+      append result ${packageName}Core
     } else {
-      return ${packageName}[info sharedlibextension]
+      append result ${packageName}
     }
+
+    append result [info sharedlibextension]
+    return $result
   }
 
   proc setupTestPackageConfigurations { force } {
@@ -374,6 +383,22 @@ namespace eval ::Garuda {
     }
 
     ###########################################################################
+    #******************* NATIVE PACKAGE PRE-TEST VARIABLES ********************
+    ###########################################################################
+
+    #
+    # NOTE: Use the CoreCLR only?  By default, we will attempt to detect if
+    #       this setting should be enabled.  This check must be done prior
+    #       to figuring out the package binary file name (below), which is
+    #       slightly different between the .NET Framework and .NET Core.
+    #
+    variable testUseCoreClr; # DEFAULT: false
+
+    if {![info exists testUseCoreClr]} then {
+      set testUseCoreClr [isDotNetCore]
+    }
+
+    ###########################################################################
     #********************* NATIVE PACKAGE TEST VARIABLES **********************
     ###########################################################################
 
@@ -442,6 +467,18 @@ namespace eval ::Garuda {
     setupTestPackageConfigurations false
 
     #
+    # NOTE: The Eagle build sub-directories we know about and support.
+    #       This list is used during the CLR assembly search process in the
+    #       [setupAndLoad] procedure (below).
+    #
+    variable testPackageSubDirectories; # DEFAULT: {netstandard2.X ... ""}
+
+    if {![info exists testPackageSubDirectories]} then {
+      set testPackageSubDirectories [list \
+          netstandard2.X netstandard2.1 netstandard2.0 ""]
+    }
+
+    #
     # NOTE: The name of the package being tested.
     #
     variable testPackageName; # DEFAULT: Garuda
@@ -467,7 +504,8 @@ namespace eval ::Garuda {
     variable testBinaryFileName; # DEFAULT: Garuda[Core].dll
 
     if {![info exists testBinaryFileName]} then {
-      set testBinaryFileName [getTestPackageBinaryFileNameOnly]
+      set testBinaryFileName [getTestPackageBinaryFileNameOnly \
+          $testPackageName $testUseCoreClr]
     }
 
     #
@@ -524,6 +562,7 @@ namespace eval ::Garuda {
     variable testPackageIndexFileName
     variable testPackageName
     variable testPackagePlatforms
+    variable testPackageSubDirectories
     variable testPackageVersion
     variable testSuiteFileName
     variable useEnvironment
@@ -777,7 +816,7 @@ namespace eval ::Garuda {
             [list $directory [file dirname $directory] \
             $baseDirectory [file dirname $baseDirectory] \
             [file dirname [file dirname $baseDirectory]]] \
-            $testPackageConfigurations]
+            $testPackageConfigurations $testPackageSubDirectories]
       }
 
       if {$useEnvironment} then {

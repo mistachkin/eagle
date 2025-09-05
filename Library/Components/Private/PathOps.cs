@@ -2864,14 +2864,19 @@ namespace Eagle._Components.Private
 
 #if NATIVE
         public static string GetNativeModuleFileName(
-            IntPtr module,   /* in */
-            ref Result error /* out */
+            IntPtr module,       /* in */
+            string functionName, /* in: OPTIONAL */
+            ref Result error     /* out */
             )
         {
             IntPtr outBuffer = IntPtr.Zero;
 
             try
             {
+                //
+                // HACK: First, attempt to the primary method,
+                //       which should work on Windows.
+                //
                 uint outBufferSize = UNICODE_STRING_MAX_CHARS;
 
                 outBuffer = Marshal.AllocCoTaskMem(
@@ -2890,29 +2895,92 @@ namespace Eagle._Components.Private
                     // NOTE: Set the module file name to the
                     //       contents of the output buffer, up
                     //       to the returned length (which may
-                    //       have been truncated).
+                    //       have been "truncated").
                     //
                     return Marshal.PtrToStringAuto(
-                        outBuffer, (int)result);
+                        outBuffer, (int)result); /* SUCCESS */
                 }
-                else
+
+                int lastError; /* REUSED */
+                ResultList errors = null;
+
+                lastError = Marshal.GetLastWin32Error();
+
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(String.Format(
+                    "cannot resolve module file name, " +
+                    "GetModuleFileName({1}) failed with " +
+                    "error {0}: {2}", lastError, module,
+                    NativeOps.GetDynamicLoadingError(
+                        lastError)));
+
+                //
+                // HACK: Fallback to the alternative method(s),
+                //       which may work on Linux, etc.  First,
+                //       just attempt to use the "module handle"
+                //       itself to locate the module file name.
+                //       Otherwise, optionally lookup an exported
+                //       function specified by the caller, if any,
+                //       and then attempt to use that as the basis
+                //       for locating the module file name.  This
+                //       appears to be necessary (sometimes?) in
+                //       order for the underlying dladdr() POSIX
+                //       API to work correctly.
+                //
+                string fileName = NativeOps.GetModuleFileName(
+                    module);
+
+                if (fileName != null)
+                    return fileName; /* SUCCESS */
+
+                if (functionName != null)
                 {
-                    //
-                    // NOTE: Failure, cannot resolve the module
-                    //       file name.
-                    //
-                    int lastError = Marshal.GetLastWin32Error();
+                    IntPtr address = NativeOps.GetProcAddress(
+                        module, functionName, out lastError);
 
-                    error = String.Format(
-                        "cannot resolve module file name, " +
-                        "GetModuleFileName({1}) failed with " +
-                        "error {0}: {2}", lastError, module,
-                        NativeOps.GetDynamicLoadingError(lastError));
+                    if (address != IntPtr.Zero)
+                    {
+                        fileName = NativeOps.GetModuleFileName(
+                            address);
+
+                        if (fileName != null)
+                            return fileName; /* SUCCESS */
+
+                        lastError = Marshal.GetLastWin32Error();
+
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(String.Format(
+                            "cannot resolve module file name, " +
+                            "GetModuleFileName({1}) failed with " +
+                            "error {0}: {2}", lastError, address,
+                            NativeOps.GetDynamicLoadingError(
+                                lastError)));
+                    }
+                    else
+                    {
+                        lastError = Marshal.GetLastWin32Error();
+
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(String.Format(
+                            "cannot resolve module function, " +
+                            "GetProcAddress({1}, {2}) failed " +
+                            "with error {0}: {3}", lastError,
+                            module, FormatOps.WrapOrNull(
+                                functionName),
+                            NativeOps.GetDynamicLoadingError(
+                                lastError)));
+                    }
                 }
 
-                //
-                // NOTE: If we reach this point, fail.
-                //
+                if (errors != null)
+                    error = errors;
+
                 return null;
             }
             finally
@@ -2931,7 +2999,7 @@ namespace Eagle._Components.Private
         {
             Result error = null;
 
-            return GetNativeModuleFileName(IntPtr.Zero, ref error);
+            return GetNativeModuleFileName(IntPtr.Zero, null, ref error);
         }
 #endif
 

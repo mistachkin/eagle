@@ -1483,6 +1483,7 @@ set eagle_manifests(source) {
   Eagle/Native/Package/images/logo.png
   Eagle/Native/Package/images/logoSfx.bmp
   Eagle/Native/Package/lib/dotnet.tcl
+  Eagle/Native/Package/lib/garuda.tcl
   Eagle/Native/Package/lib/helper.tcl
   Eagle/Native/Package/lib/pkgIndex.tcl
   Eagle/Native/Package/props/Garuda.props
@@ -4089,6 +4090,7 @@ set garuda_manifests(binaryCore) {
   Garuda1.0/Garuda.dll
   Garuda1.0/GarudaCore.dll
   Garuda1.0/dotnet.tcl
+  Garuda1.0/garuda.tcl
   Garuda1.0/helper.tcl
   Garuda1.0/pkgIndex.tcl
 }

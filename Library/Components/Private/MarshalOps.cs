@@ -324,12 +324,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Encoding Constants
         //
         // HACK: These are purposely not read-only.
         //
+        #region Dead Code
+#if DEAD_CODE
         private static Encoding UTF8 = null;
         private static Encoding UTF16 = null;
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
         private static Encoding UTF32 = null;
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 

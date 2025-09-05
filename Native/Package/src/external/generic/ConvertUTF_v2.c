@@ -22,7 +22,7 @@
 
 /* ---------------------------------------------------------------------
 
-    Conversions between UTF32, UTF-16, and UTF-8. Source code file.
+    Conversions between UTF-32, UTF-16, and UTF-8. Source code file.
 
     Author: Mark E. Davis, 1994.
     Rev History: Rick McGowan, fixes & updates May 2001.

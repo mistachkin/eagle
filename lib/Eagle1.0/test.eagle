@@ -5761,7 +5761,7 @@ namespace eval ::Eagle {
     #       work with Eagle.
     #
     proc [namespace current]::testPuts { args } {
-      switch [llength $args] {
+      switch -exact -- [llength $args] {
         1 {
           #
           # NOTE: Only the string to be printed is specified (stdout).

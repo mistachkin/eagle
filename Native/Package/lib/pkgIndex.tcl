@@ -21,4 +21,7 @@ package ifneeded dotnet 1.0 \
     [list source [file join $dir dotnet.tcl]]
 
 package ifneeded Garuda 1.0 \
+    [list source [file join $dir garuda.tcl]]
+
+package ifneeded GarudaHelper 1.0 \
     [list source [file join $dir helper.tcl]]

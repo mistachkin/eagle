@@ -863,6 +863,20 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            #region Unix Dynamic Loading Structures
+            [StructLayout(LayoutKind.Sequential)]
+            [ObjectId("5c668971-693c-492a-b5a3-8573f689b39e")]
+            internal struct Dl_info_t
+            {
+                public /* const char* */ IntPtr dli_fname;
+                public /* void* */ IntPtr dli_fbase;
+                public /* const char* */ IntPtr dli_sname;
+                public /* void* */ IntPtr dli_saddr;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             #region Unix Dynamic Loading Methods (libc)
             //
             // NOTE: Some systems, such as FreeBSD and OpenBSD, seem to have these in "libc";
@@ -891,6 +905,14 @@ namespace Eagle._Components.Private
                 CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi,
                 BestFitMapping = false, ThrowOnUnmappableChar = true, SetLastError = true)]
             internal static extern IntPtr libc_dlsym(IntPtr module, string name);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            /* NOTE: Always Ansi on Unix. */
+            [DllImport(DllName.Internal, EntryPoint = "dladdr",
+                CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi,
+                BestFitMapping = false, ThrowOnUnmappableChar = true, SetLastError = true)]
+            internal static extern int libc_dladdr(IntPtr address, ref Dl_info_t info);
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -926,6 +948,14 @@ namespace Eagle._Components.Private
                 CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi,
                 BestFitMapping = false, ThrowOnUnmappableChar = true, SetLastError = true)]
             internal static extern IntPtr libdl_dlsym(IntPtr module, string name);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            /* NOTE: Always Ansi on Unix. */
+            [DllImport(DllName.LibDL, EntryPoint = "dladdr",
+                CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi,
+                BestFitMapping = false, ThrowOnUnmappableChar = true, SetLastError = true)]
+            internal static extern int libdl_dladdr(IntPtr address, ref Dl_info_t info);
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -994,6 +1024,7 @@ namespace Eagle._Components.Private
             internal static dlopen dlopen = null;
             internal static dlclose dlclose = null;
             internal static dlsym dlsym = null;
+            internal static dladdr dladdr = null;
             internal static dlerror dlerror = null;
             #endregion
 
@@ -2796,6 +2827,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static string WindowsGetModuleFileName(
+            IntPtr address /* in */
+            )
+        {
+            //
+            // NOTE: There is no standard implementation of this function on
+            //       Windows.
+            //
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static IntPtr WindowsGetModuleHandle(
             string fileName /* in */
             )
@@ -3098,6 +3142,7 @@ namespace Eagle._Components.Private
                 if ((UnsafeNativeMethods.dlopen == null) ||
                     (UnsafeNativeMethods.dlclose == null) ||
                     (UnsafeNativeMethods.dlsym == null) ||
+                    (UnsafeNativeMethods.dladdr == null) ||
                     (UnsafeNativeMethods.dlerror == null))
                 {
                     IntPtr module = IntPtr.Zero;
@@ -3148,6 +3193,9 @@ namespace Eagle._Components.Private
                             if (UnsafeNativeMethods.dlsym == null)
                                 UnsafeNativeMethods.dlsym = UnsafeNativeMethods.libdl_dlsym;
 
+                            if (UnsafeNativeMethods.dladdr == null)
+                                UnsafeNativeMethods.dladdr = UnsafeNativeMethods.libdl_dladdr;
+
                             if (UnsafeNativeMethods.dlerror == null)
                                 UnsafeNativeMethods.dlerror = UnsafeNativeMethods.libdl_dlerror;
                         }
@@ -3180,6 +3228,9 @@ namespace Eagle._Components.Private
 
                             if (UnsafeNativeMethods.dlsym == null)
                                 UnsafeNativeMethods.dlsym = UnsafeNativeMethods.libc_dlsym;
+
+                            if (UnsafeNativeMethods.dladdr == null)
+                                UnsafeNativeMethods.dladdr = UnsafeNativeMethods.libc_dladdr;
 
                             if (UnsafeNativeMethods.dlerror == null)
                                 UnsafeNativeMethods.dlerror = UnsafeNativeMethods.libc_dlerror;
@@ -3234,6 +3285,35 @@ namespace Eagle._Components.Private
             //       Unix.
             //
             return 0;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string UnixGetModuleFileName(
+            IntPtr address /* in */
+            )
+        {
+            if (InitializeDynamicLoading())
+            {
+                dladdr dladdr;
+
+                lock (UnsafeNativeMethods.syncRoot)
+                {
+                    dladdr = UnsafeNativeMethods.dladdr;
+                }
+
+                UnsafeNativeMethods.Dl_info_t info =
+                    new UnsafeNativeMethods.Dl_info_t();
+
+                if ((dladdr != null) &&
+                    (dladdr(address, ref info) != 0) &&
+                    (info.dli_fname != IntPtr.Zero))
+                {
+                    return Marshal.PtrToStringAnsi(info.dli_fname);
+                }
+            }
+
+            return null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4345,6 +4425,25 @@ namespace Eagle._Components.Private
 #endif
 
             return 0;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string GetModuleFileName(
+            IntPtr address /* in */
+            )
+        {
+#if WINDOWS
+            if (PlatformOps.IsWindowsOperatingSystem())
+                return WindowsGetModuleFileName(address);
+#endif
+
+#if UNIX
+            if (PlatformOps.IsUnixOperatingSystem())
+                return UnixGetModuleFileName(address);
+#endif
+
+            return null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

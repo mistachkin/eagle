@@ -659,12 +659,12 @@ namespace eval ::Eagle {
     if {[llength [info commands exportAndImportPackageCommands]] > 0} then {
       exportAndImportPackageCommands [namespace current] [list \
           isEagle loadGarudaForUseByEagle loadScripts maybeLoadScripts \
-          isWindows isInteractive haveGaruda isTclThread isMono isDotNetCore \
-          isSameFileName getEnvironmentVariable combineFlags getCompileInfo \
-          getPlatformInfo getPluginName getPluginPath getPackageInstallPath \
-          appendArgs lappendArgs getDictionaryValue haveColumnValue \
-          haveRowColumnValue getColumnValue getRowColumnValue vwaitLocked \
-          tqputs tqlog makeBinaryChannel makeAsciiChannel \
+          isWindows isMacOS isInteractive haveGaruda isTclThread isMono \
+          isDotNetCore isSameFileName getEnvironmentVariable combineFlags \
+          getCompileInfo getPlatformInfo getPluginName getPluginPath \
+          getPackageInstallPath appendArgs lappendArgs getDictionaryValue \
+          haveColumnValue haveRowColumnValue getColumnValue getRowColumnValue \
+          vwaitLocked tqputs tqlog makeBinaryChannel makeAsciiChannel \
           makeUnicodeBinaryChannel makeUnicodeChannel makeUtf8Channel \
           makeLogChannel readFile readSharedFile writeFile appendFile \
           appendLogFile appendSharedFile appendSharedLogFile readAsciiFile \

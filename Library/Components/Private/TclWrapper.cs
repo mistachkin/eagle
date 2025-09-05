@@ -386,7 +386,7 @@ namespace Eagle._Components.Private.Tcl
         //       called any number of times for any number of Eagle
         //       interpreters.  This collection of "Tcl modules" keeps
         //       track of the module handles we get back from the system
-        //       and their asssociated reference counts.  We need to
+        //       and their associated reference counts.  We need to
         //       maintain these reference counts instead of simply
         //       relying on the operating system LoadLibrary/FreeLibrary
         //       functions to do so because the Tcl_Finalize function

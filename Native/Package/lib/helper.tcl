@@ -3,7 +3,7 @@
 # helper.tcl -- Eagle Package for Tcl (Garuda)
 #
 # Extensible Adaptable Generalized Logic Engine (Eagle)
-# Package Loading Helper File (Primary)
+# Package Loading Helper File (Auxiliary)
 #
 # Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
 #
@@ -76,7 +76,7 @@ namespace eval ::Garuda {
   }
 
   #
-  # NOTE: Also defined in and used by "dotnet.tcl".
+  # NOTE: Also defined in and used by "dotnet.tcl" and "garuda.tcl".
   #
   proc fileNormalize { path {force false} } {
     variable noNormalize
@@ -86,6 +86,13 @@ namespace eval ::Garuda {
     }
 
     return $path
+  }
+
+  #
+  # NOTE: Also defined in and used by "all.tcl".
+  #
+  proc fileNormalizeFromEnvironment { path {force false} } {
+    return [fileNormalize [string trim $path] $force]
   }
 
   #
@@ -107,8 +114,9 @@ namespace eval ::Garuda {
     #
     # NOTE: For now, just make sure the path refers to an existing directory.
     #
-    return [expr {[string length $path] > 0 && [file exists $path] && \
-        [file isdirectory $path]}]
+    return [expr {[string length $path] > 0 && \
+          $path ne "." && $path ne ".." && \
+          [file exists $path] && [file isdirectory $path]}]
   }
 
   #
@@ -130,8 +138,9 @@ namespace eval ::Garuda {
     #
     # NOTE: For now, just make sure the path refers to an existing file.
     #
-    return [expr {[string length $path] > 0 && [file exists $path] && \
-        [file isfile $path]}]
+    return [expr {[string length $path] > 0 && \
+          $path ne "." && $path ne ".." && \
+          [file exists $path] && [file isfile $path]}]
   }
 
   #
@@ -152,8 +161,6 @@ namespace eval ::Garuda {
   # NOTE: Also defined in and used by "all.tcl".
   #
   proc isDotNetCore { {default false} } {
-    global env
-
     if {![isWindows]} then {
       #
       # NOTE: Assume that the .NET Framework is only available on Windows
@@ -230,27 +237,267 @@ namespace eval ::Garuda {
     global env
 
     if {[info exists env(SystemRoot)]} then {
-      return [fileNormalize $env(SystemRoot) true]
+      return [fileNormalizeFromEnvironment $env(SystemRoot) true]
     } elseif {[info exists env(WinDir)]} then {
-      return [fileNormalize $env(WinDir) true]
+      return [fileNormalizeFromEnvironment $env(WinDir) true]
     }
 
     return ""
   }
 
-  proc getProgramFilesDirectory {} {
+  proc filterUnique { list } {
+    set result [list]
+
+    foreach item $list {
+      if {[lsearch -exact $result $item] == -1} then {
+        lappend result $item
+      }
+    }
+
+    return $result
+  }
+
+  proc isValidVersion { value } {
+    #
+    # HACK: Check if the value is a valid version number via
+    #       the [package vcompare] sub-command; since we do
+    #       not care about the actual comparison result, we
+    #       can use any "well-known-to-be-a-valid-version"
+    #       value as the (other) value to compare against
+    #       (e.g. 1.0) and simply see if a script error ends
+    #       up being caught.  No caught error means "valid".
+    #
+    return [expr {[string length $value] > 0 && \
+        [catch {package vcompare $value 1.0}] == 0}]
+  }
+
+  proc extractVersion {
+          value {versionVarName ""} {releaseTypeVarName ""}
+          {releaseSerialVarName ""} } {
+    if {[string length $versionVarName] > 0} then {
+      upvar 1 $versionVarName version
+    }
+
+    if {[string length $releaseTypeVarName] > 0} then {
+      upvar 1 $releaseTypeVarName releaseType
+    }
+
+    if {[string length $releaseSerialVarName] > 0} then {
+      upvar 1 $releaseSerialVarName releaseSerial
+    }
+
+    set pattern(1) {^(\d+(?:\.\d+)*)}
+
+    if {[regexp -- $pattern(1) $value dummy version]} then {
+      set releaseTypes [getCoreClrReleaseTypes]
+      set pattern(2) ""
+
+      append pattern(2) {^(?:\d+(?:\.\d+)*)(?:-(}
+      append pattern(2) [join $releaseTypes |]
+      append pattern(2) {))\.(\d+)$}
+
+      if {[regexp -- \
+          $pattern(2) $value dummy releaseType releaseSerial]} then {
+        set releaseType [lsearch -exact $releaseTypes $releaseType]
+        return 2
+      } else {
+        return 1
+      }
+    }
+
+    return 0
+  }
+
+  proc filterVersions { list strict } {
+    set result [list]
+
+    foreach item [filterUnique $list] {
+      if {[isValidVersion $item] || \
+          (!$strict && [extractVersion $item])} then {
+        lappend result $item
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This primary ordering here is via [package vcompare]; failing
+  #       that, we fallback to attempting to extract dotted (decimal)
+  #       version numbers for both value arguments.  For any non-stable
+  #       releases, they should always be sorted as "inferior" to their
+  #       associated RTM releases, in relative order of their maturity.
+  #       Callers wanting highest-first must pass the -decreasing option
+  #       to [lsort].
+  #
+  proc compareVersions { value1 value2 } {
+    set ok1 [isValidVersion $value1]
+    set ok2 [isValidVersion $value2]
+
+    if {$ok1 && $ok2} then {
+      return [package vcompare $value1 $value2]
+    } else {
+      set releaseType1 ""; set releaseSerial1 ""
+
+      if {$ok1} then {
+        set wasOk1 true; set version1 $value1
+      } else {
+        set wasOk1 false
+
+        if {[extractVersion \
+            $value1 version1 releaseType1 releaseSerial1]} then {
+          set ok1 true
+        }
+      }
+
+      set releaseType2 ""; set releaseSerial2 ""
+
+      if {$ok2} then {
+        set wasOk2 true; set version2 $value2
+      } else {
+        set wasOk2 false
+
+        if {[extractVersion \
+            $value2 version2 releaseType2 releaseSerial2]} then {
+          set ok2 true
+        }
+      }
+
+      if {$ok1 && $ok2} then {
+        set result [package vcompare $version1 $version2]
+
+        if {$result == 0} then {
+          set wasOk1 [expr {$wasOk1 ? 1 : 0}]
+          set wasOk2 [expr {$wasOk2 ? 1 : 0}]
+
+          if {!$wasOk1 && !$wasOk2} then {
+            if {[string is integer -strict $releaseType1] && \
+                [string is integer -strict $releaseType2] && \
+                [string is integer -strict $releaseSerial1] && \
+                [string is integer -strict $releaseSerial2]} then {
+              set result [expr {$releaseType1 - $releaseType2}]
+              set result [expr {$result < 0 ? -1 : $result > 0 ? 1 : 0}]
+
+              if {$result == 0} then {
+                set result [expr {$releaseSerial1 - $releaseSerial2}]
+                set result [expr {$result < 0 ? -1 : $result > 0 ? 1 : 0}]
+              }
+            } else {
+              set result [string compare -nocase $value1 $value2]
+            }
+          } elseif {!$wasOk1 || !$wasOk2} then {
+            set result [expr {$wasOk1 > $wasOk2 ? 1 : -1}]
+          }
+        }
+
+        return $result
+      }
+    }
+
+    error "cannot compare \"$value1\" versus \"$value2\" as versions"
+  }
+
+  #
+  # NOTE: On WoW64 the x86 host pack may reside under the x64 dotnet root,
+  #       hence the ProgramW6432 / DOTNET_ROOT(x64) probes.  Documentation
+  #       for the environment variables used by this procedure should be
+  #       available at "https://urn.to/r/dotnetSdkVars".
+  #
+  proc getProgramFilesDirectories {} {
     global env
     global tcl_platform
 
-    if {[isWindows]} then {
-      if {[info exists env(ProgramFiles)]} then {
-        return [fileNormalize $env(ProgramFiles) true]
+    set wow64 [shouldConsiderForWoW64]
+    set envVars [list]
+
+    if {[info exists tcl_platform(machine)]} then {
+      set architecture [getCoreClrPlatformArchitecture \
+          $tcl_platform(machine)]
+
+      if {[string length $architecture] > 0} then {
+        lappend envVars DOTNET_ROOT_${architecture}
+        lappend envVars DOTNET_ROOT_[string toupper $architecture]
       }
-    } else {
-      return /usr/share; # /./dotnet/packs/etc
     }
 
-    return ""
+    if {$wow64} then {
+      lappend envVars DOTNET_ROOT(x86)
+      lappend envVars DOTNET_ROOT(x64)
+    }
+
+    lappend envVars DOTNET_ROOT
+    set result [list]
+
+    foreach envVar $envVars {
+      if {[info exists env($envVar)]} then {
+        set directory [fileNormalizeFromEnvironment \
+            $env($envVar)]
+
+        if {[isValidDirectory $directory]} then {
+          lappend result $directory
+        }
+      }
+    }
+
+    if {[isWindows]} then {
+      if {$wow64 && [info exists env(ProgramFiles(x86))]} then {
+        set directory [fileNormalizeFromEnvironment \
+            $env(ProgramFiles(x86))]
+
+        if {[isValidDirectory $directory]} then {
+          lappend result $directory
+        }
+      }
+
+      if {[info exists env(ProgramFiles)]} then {
+        set directory [fileNormalizeFromEnvironment \
+            $env(ProgramFiles)]
+
+        if {[isValidDirectory $directory]} then {
+          lappend result $directory
+        }
+      }
+
+      if {$wow64 && [info exists env(ProgramW6432)]} then {
+        set directory [fileNormalizeFromEnvironment \
+            $env(ProgramW6432)]
+
+        if {[isValidDirectory $directory]} then {
+          lappend result $directory
+        }
+      }
+
+      if {$wow64 && [info exists env(ProgramFiles(Arm))]} then {
+        set directory [fileNormalizeFromEnvironment \
+            $env(ProgramFiles(Arm))]
+
+        if {[isValidDirectory $directory]} then {
+          lappend result $directory
+        }
+      }
+    } else {
+      if {[isMacOS]} then {
+        foreach directory [list /usr/local/share /opt/homebrew/opt] {
+          if {[isValidDirectory $directory]} then {
+            lappend result [fileNormalize $directory true]
+          }
+        }
+      } else {
+        foreach directory [list \
+            /usr/local/share /usr/share /usr/lib64 /usr/lib \
+            /opt/Microsoft /opt] {
+          if {[isValidDirectory $directory]} then {
+            lappend result [fileNormalize $directory true]
+          }
+        }
+      }
+    }
+
+    return [filterUnique $result]
+  }
+
+  proc getProgramFilesSubDirectories {} {
+    return [list "" dotnet [file join dotnet libexec]]
   }
 
   proc getFrameworkDirectory { version } {
@@ -275,6 +522,91 @@ namespace eval ::Garuda {
     return false
   }
 
+  proc shouldConsiderForWoW64 {} {
+    global tcl_platform
+
+    if {[isWindows] && \
+        [info exists tcl_platform(wordSize)] && \
+        $tcl_platform(wordSize) == 4} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  proc isMacOS {} {
+    global tcl_platform
+
+    return [expr {[info exists tcl_platform(os)] && \
+        $tcl_platform(os) eq "Darwin"}]
+  }
+
+  #
+  # NOTE: This procedure returns the list of "well-known" release types for
+  #       the CoreCLR.  This list may need to be updated if/when additional
+  #       types are added by Microsoft.
+  #
+  proc getCoreClrReleaseTypes {} {
+    return [list dev alpha beta preview rc stable]
+  }
+
+  #
+  # NOTE: This procedure is designed to return the operating system prefix
+  #       portion of a CoreCLR "platform identifier", i.e. only for those
+  #       operating systems that are supported by this package.
+  #
+  proc getCoreClrPlatformOperatingSystem {} {
+    global tcl_platform
+
+    if {[isWindows]} then {
+      return win
+    } elseif {[isMacOS]} then {
+      return osx
+    } elseif {$tcl_platform(os) eq "Linux"} then {
+      return linux
+    } else {
+      return ""
+    }
+  }
+
+  #
+  # NOTE: This procedure is designed to return the CPU architecture suffix
+  #       portion of a CoreCLR "platform identifier", i.e. only for those
+  #       CPU architectures that are supported by this package.
+  #
+  proc getCoreClrPlatformArchitecture { machine } {
+    switch -exact -- [string tolower $machine] {
+      intel -
+      i386 -
+      i486 -
+      i586 -
+      i686 -
+      ia32_on_win64 -
+      x86 {
+        return x86
+      }
+      amd64 -
+      x86_64 -
+      x64 {
+        return x64
+      }
+      arm -
+      armv6l -
+      armv7l -
+      armhf -
+      armel {
+        return arm
+      }
+      aarch64 -
+      arm64 {
+        return arm64
+      }
+      default {
+        return ""
+      }
+    }
+  }
+
   #
   # NOTE: This procedure is designed to return a CoreCLR "platform identifier",
   #       which will be used to help locate the correct CoreCLR runtime native
@@ -285,41 +617,17 @@ namespace eval ::Garuda {
   #       the (CoreCLR-centric) processor architecture.  Some (valid?) example
   #       values are: "win-x86", "win-x64","linux-x64", and "osx-arm64".
   #
-  proc getCoreClrPlatform { machine } {
-    global tcl_platform
+  proc getCoreClrPlatformRid { machine } {
+    set prefix [getCoreClrPlatformOperatingSystem]
 
-    if {[isWindows]} then {
-      set prefix win
-    } elseif {$tcl_platform(os) eq "Linux"} then {
-      set prefix linux
-    } elseif {$tcl_platform(os) eq "Darwin"} then {
-      set prefix osx
-    } else {
+    if {[string length $prefix] == 0} then {
       return ""
     }
 
-    switch -exact -- [string tolower $machine] {
-      intel -
-      i586 -
-      i686 -
-      ia32_on_win64 -
-      x86 {
-        set suffix x86
-      }
-      amd64 -
-      x86_64 -
-      x64 {
-        set suffix x64
-      }
-      arm {
-        set suffix arm32
-      }
-      arm64 {
-        set suffix arm64
-      }
-      default {
-        return ""
-      }
+    set suffix [getCoreClrPlatformArchitecture $machine]
+
+    if {[string length $suffix] == 0} then {
+      return ""
     }
 
     return ${prefix}-${suffix}
@@ -327,13 +635,12 @@ namespace eval ::Garuda {
 
   #
   # NOTE: This procedure is designed to return a path, which will be relative
-  #       to the return value from the [getProgramFilesDirectory] procedure,
+  #       to a return value from the [getProgramFilesDirectories] procedure,
   #       where the specified variant (i.e. the platform and version) of the
   #       CoreCLR runtime should be located.
   #
   proc getCoreClrRelativePath { platform {version ""} } {
-    set parts [list \
-        dotnet packs Microsoft.NETCore.App.Host.${platform}]
+    set parts [list packs Microsoft.NETCore.App.Host.${platform}]
 
     if {[string length $version] > 0} then {
       lappend parts $version runtimes $platform native
@@ -345,16 +652,22 @@ namespace eval ::Garuda {
   #
   # NOTE: This procedure is designed to build the CoreCLR runtime directory
   #       for the specified platform and version.  It may or may not exist.
-  #       This relies upon the [getProgramFilesDirectory] procedure, which
-  #       is always assumed to be the parent of CoreCLR runtime directories,
-  #       even on non-Windows platforms.
+  #       This relies upon the [getProgramFilesDirectories] procedure, which
+  #       returns what are always assumed to be the possible roots of CoreCLR
+  #       runtime directories, even on non-Windows platforms.
   #
   proc getCoreClrDirectory { platform version } {
-    set directory [getProgramFilesDirectory]
+    set directories [getProgramFilesDirectories]
 
-    if {[string length $directory] > 0} then {
-      return [file join $directory \
-          [getCoreClrRelativePath $platform $version]]
+    foreach directory $directories {
+      foreach subDirectory [getProgramFilesSubDirectories] {
+        set targetDirectory [file join $directory $subDirectory \
+            [getCoreClrRelativePath $platform $version]]
+
+        if {[isValidDirectory $targetDirectory]} then {
+          return $targetDirectory
+        }
+      }
     }
 
     return ""
@@ -367,6 +680,7 @@ namespace eval ::Garuda {
   #       placed into the "versionVarName" variable, e.g. "3.0.3".
   #
   proc probeCoreClrDirectories { platform pattern versionVarName } {
+    global env
     global tcl_platform
     variable useMinimumClr
 
@@ -376,34 +690,45 @@ namespace eval ::Garuda {
 
     if {[string length $platform] > 0 && \
         [string length $pattern] > 0} then {
-      set directory [getProgramFilesDirectory]
+      set directories [getProgramFilesDirectories]
 
-      if {[string length $directory] > 0} then {
-        #
-        # HACK: Yes, this is a bit odd.  We are grabbing a list of
-        #       all sub-directory names so we can match it against
-        #       a (wildcard) pattern and then the caller can check
-        #       that a particular sub-directory within it actually
-        #       exists.
-        #
-        set directory [file join \
-            $directory [getCoreClrRelativePath $platform]]
+      foreach directory $directories {
+        foreach subDirectory [getProgramFilesSubDirectories] {
+          #
+          # HACK: Yes, this is a bit odd.  We are grabbing a list of
+          #       all sub-directory names so we can match it against
+          #       a (wildcard) pattern and then the caller can check
+          #       that a particular sub-directory within it actually
+          #       exists.
+          #
+          set command [list lsort]
 
-        set command [list lsort]
+          #
+          # NOTE: When the caller does not want the minimum version,
+          #       sort in descending order, i.e. because the highest
+          #       version should be checked first.
+          #
+          if {![info exists useMinimumClr] || !$useMinimumClr} then {
+            lappend command -decreasing
+          }
 
-        if {[info exists useMinimumClr] && $useMinimumClr} then {
-          lappend command -decreasing
-        }
+          set targetDirectory [file join $directory $subDirectory \
+              [getCoreClrRelativePath $platform]]
 
-        lappend command -command [list package vcompare] [glob \
-            -nocomplain -directory $directory -tails -types d *]
+          lappend command -command [list compareVersions] \
+              [filterVersions [glob -nocomplain -directory \
+              $targetDirectory -tails -types d *] false]
 
-        foreach subDirectory [eval $command] {
-          if {[string match $pattern $subDirectory]} then {
-            set version $subDirectory; # 3.0.* ==> 3.0.3
+          set subSubDirectories [eval $command]
 
-            return [file join \
-                $directory $subDirectory runtimes $platform native]
+          foreach subSubDirectory $subSubDirectories {
+            if {[string match $pattern $subSubDirectory]} then {
+              set version $subSubDirectory; # 3.0.* ==> 3.0.3
+
+              return [file join \
+                  $targetDirectory $subSubDirectory runtimes $platform \
+                  native]
+            }
           }
         }
       }
@@ -513,20 +838,33 @@ namespace eval ::Garuda {
   #       be used as the entire contents of the file containing the CoreCLR
   #       runtime configuration, for the specified runtime version.
   #
-  proc getCoreClrRuntimeConfiguration { version } {
+  proc getCoreClrRuntimeConfiguration {
+          version {maximizeCompatibility false} } {
     set tokens [getCoreClrRuntimeConfigurationTokens $version]
     if {[llength $tokens] == 0} then {return ""}
     set tfm [lindex $tokens 1]; set version [lindex $tokens 3]
 
+    if {$maximizeCompatibility} then {
+      #
+      # TODO: Are these reasonable settings?
+      #
+      set extra {,
+        "rollForward": "LatestMinor",
+        "applyPatches": true
+      }
+    } else {
+      set extra ""
+    }
+
     return [string map [list \
-        %tfm% $tfm %version% $version] [string trim {
+        %tfm% $tfm %version% $version %extra% $extra] [string trim {
       {
         "runtimeOptions": {
           "tfm": "%tfm%",
           "framework": {
             "name": "Microsoft.NETCore.App",
             "version": "%version%"
-          }
+          }%extra%
         }
       }
     }]]
@@ -543,7 +881,7 @@ namespace eval ::Garuda {
   }
 
   #
-  # HACK: This procedure was blatently stolen from "Eagle1.0/platform.eagle".
+  # HACK: This procedure was blatantly stolen from "Eagle1.0/platform.eagle".
   #
   proc addToPath { directory } {
     global env
@@ -561,6 +899,8 @@ namespace eval ::Garuda {
     #
     if {[isWindows]} then {
       set name PATH
+    } elseif {[isMacOS]} then {
+      set name DYLD_LIBRARY_PATH
     } else {
       set name LD_LIBRARY_PATH
     }
@@ -710,8 +1050,9 @@ namespace eval ::Garuda {
   proc shouldUseCoreClr { {default false} } {
     global env
     global tcl_platform
-    variable coreClrVersion
     variable logCommand
+    variable packageName
+    variable packagePath
     variable useCoreClr
     variable verbose
 
@@ -756,25 +1097,92 @@ namespace eval ::Garuda {
     }
 
     #
-    # NOTE: The supported versions of the CoreCLR are not installed on
-    #       this machine; therefore, return false.
+    # NOTE: Is the Garuda extension shared library even available with
+    #       this package deployment?  First, check for CoreCLR variant;
+    #       failing that, check for the .NET Framework variant.  Either
+    #       way, log our discoveries.
     #
-    if {[info exists tcl_platform(machine)]} then {
-      set platform [getCoreClrPlatform $tcl_platform(machine)]
+    if {![interp issafe]} then {
+      set haveClr false
+      set haveCoreClr false
 
-      if {[string length $platform] > 0} then {
-        if {[checkCoreClrDirectories $platform version]} then {
+      if {[info exists packageName] && [info exists packagePath] && \
+          [isValidDirectory $packagePath]} then {
+        set fileName(1) [file join $packagePath \
+            [getPackageBinaryFileNameOnly $packageName false]]; # CLR
+
+        set fileName(2) [file join $packagePath \
+            [getPackageBinaryFileNameOnly $packageName true]]; # CoreCLR
+
+        if {[isValidFile $fileName(1)]} then {
           if {$verbose} then {
             catch {
               set caller [maybeFullName [lindex [info level 0] 0]]
 
               eval $logCommand [list \
-                  "$caller: Using CoreCLR $version (installed)..."]
+                  "$caller: Found CLR shared library \"$fileName(1)\"\
+                  (installed)..."]
             }
           }
 
-          set coreClrVersion $version; # NOTE: Select "best" version.
-          return true
+          set haveClr true
+        } else {
+          if {$verbose} then {
+            catch {
+              set caller [maybeFullName [lindex [info level 0] 0]]
+
+              eval $logCommand [list \
+                  "$caller: Missing CLR shared library \"$fileName(1)\"\
+                  (installed)..."]
+            }
+          }
+        }
+
+        if {[isValidFile $fileName(2)]} then {
+          if {$verbose} then {
+            catch {
+              set caller [maybeFullName [lindex [info level 0] 0]]
+
+              eval $logCommand [list \
+                  "$caller: Found CoreCLR shared library \"$fileName(2)\"\
+                  (installed)..."]
+            }
+          }
+
+          set haveCoreClr true
+        } else {
+          if {$verbose} then {
+            catch {
+              set caller [maybeFullName [lindex [info level 0] 0]]
+
+              eval $logCommand [list \
+                  "$caller: Missing CoreCLR shared library \"$fileName(2)\"\
+                  (installed)..."]
+            }
+          }
+        }
+      }
+
+      #
+      # NOTE: Check if supported versions of the CoreCLR are installed
+      #       on this machine.
+      #
+      if {$haveCoreClr && [info exists tcl_platform(machine)]} then {
+        set platform [getCoreClrPlatformRid $tcl_platform(machine)]
+
+        if {[string length $platform] > 0} then {
+          if {[checkCoreClrDirectories $platform version]} then {
+            if {$verbose} then {
+              catch {
+                set caller [maybeFullName [lindex [info level 0] 0]]
+
+                eval $logCommand [list \
+                    "$caller: Using CoreCLR $version (installed)..."]
+              }
+            }
+
+            return true
+          }
         }
       }
     }
@@ -1088,7 +1496,7 @@ namespace eval ::Garuda {
       }
 
       return $path
-    } else {
+    } elseif {![interp issafe]} then {
       set fileName [info nameofexecutable]
 
       if {$verbose} then {
@@ -1138,12 +1546,10 @@ namespace eval ::Garuda {
     return ""
   }
 
-  proc getPackageBinaryFileNameOnly { packageName } {
-    variable useCoreClr
-
+  proc getPackageBinaryFileNameOnly { packageName useCoreClr } {
     set result [expr {[isWindows] ? "" : "lib"}]
 
-    if {[info exists useCoreClr] && $useCoreClr} then {
+    if {$useCoreClr} then {
       append result ${packageName}Core
     } else {
       append result ${packageName}
@@ -1162,6 +1568,69 @@ namespace eval ::Garuda {
     } else {
       return Eagle._Components.Public.NativePackage
     }
+  }
+
+  proc getMethodFlags { {strict false} } {
+    global env
+    variable METHOD_LOG_EXECUTE
+    variable METHOD_NONE
+    variable METHOD_PROTOCOL_V1R2
+    variable METHOD_USE_ISOLATION
+    variable METHOD_USE_SAFE_INTERP
+
+    set result 0x0; # SYSTEM DEFAULT (COMPAT: Eagle beta)
+
+    if {[info exists env(MethodFlags)]} then {
+      foreach flag [split \
+          [string map [list , " "] $env(MethodFlags)] " "] {
+        set flag [string trim $flag]
+
+        if {[string length $flag] > 0} then {
+          set add true
+
+          if {[string index $flag 0] eq "-"} then {
+            set flag [string range $flag 1 end]
+            set add false
+          }
+
+          if {[string index $flag 0] eq "+"} then {
+            set flag [string range $flag 1 end]
+            set add true
+          }
+
+          if {[string is integer -strict $flag] || \
+              [regexp -nocase -- {^0x[0-9A-F]+$} $flag]} then {
+            if {$add} then {
+              set result [expr {$result | $flag}]
+            } else {
+              set result [expr {$result & (~$flag)}]
+            }
+
+            continue
+          }
+
+          if {[regexp -- {^METHOD_[0-9A-Z_]+$} $flag]} then {
+            set varName ::[namespace current]::$flag; # ::Garuda::METHOD_*
+
+            if {[info exists $varName]} then {
+              if {$add} then {
+                set result [expr {$result | [set $varName]}]
+              } else {
+                set result [expr {$result & (~[set $varName])}]
+              }
+
+              continue
+            }
+          }
+
+          if {$strict} then {
+            error "unrecognized method flag value: $flag"
+          }
+        }
+      }
+    }
+
+    return $result
   }
 
   proc getEnvironmentPathList { varNames varSuffixes } {
@@ -1528,6 +1997,44 @@ namespace eval ::Garuda {
   #********************* PACKAGE VARIABLE SETUP PROCEDURE *********************
   #############################################################################
 
+  proc setupMethodFlagsVariables {} {
+    #
+    # HACK: Setup the "commonly used" subset of the method flags defined in
+    #       the MethodFlags enumeration in the "GarudaInt.h" source file...
+    #       If those (numeric) values ever change (unlikely?), updates will
+    #       be needed in this procedure as well.
+    #
+    variable METHOD_NONE
+
+    if {![info exists METHOD_NONE]} then {
+      set METHOD_NONE 0x0; # NOTE: Use module exports lookups, etc.
+    }
+
+    variable METHOD_PROTOCOL_V1R2
+
+    if {![info exists METHOD_PROTOCOL_V1R2]} then {
+      set METHOD_PROTOCOL_V1R2 0x40; # NOTE: Use ClrTclStubs mechanism.
+    }
+
+    variable METHOD_LOG_EXECUTE
+
+    if {![info exists METHOD_LOG_EXECUTE]} then {
+      set METHOD_LOG_EXECUTE 0x80; # NOTE: Log managed method execution.
+    }
+
+    variable METHOD_USE_ISOLATION
+
+    if {![info exists METHOD_USE_ISOLATION]} then {
+      set METHOD_USE_ISOLATION 0x800; # NOTE: Use new Eagle interpreter.
+    }
+
+    variable METHOD_USE_SAFE_INTERP
+
+    if {![info exists METHOD_USE_SAFE_INTERP]} then {
+      set METHOD_USE_SAFE_INTERP 0x1000; # NOTE: Use "safe" Eagle subset.
+    }
+  }
+
   proc setupHelperVariables { directory } {
     global env
 
@@ -1588,6 +2095,15 @@ namespace eval ::Garuda {
     ###########################################################################
 
     #
+    # NOTE: The name of the package we will provide to Tcl.
+    #
+    variable packageName; # DEFAULT: Garuda
+
+    if {![info exists packageName]} then {
+      set packageName [lindex [split [string trim [namespace current] :] :] 0]
+    }
+
+    #
     # NOTE: This is the list of CLR versions supported by this package.  In
     #       the future, this list may need to be updated.
     #
@@ -1637,15 +2153,6 @@ namespace eval ::Garuda {
     ###########################################################################
 
     #
-    # NOTE: The name of the package we will provide to Tcl.
-    #
-    variable packageName; # DEFAULT: Garuda
-
-    if {![info exists packageName]} then {
-      set packageName [lindex [split [string trim [namespace current] :] :] 0]
-    }
-
-    #
     # NOTE: The name of the dynamic link library containing the native code for
     #       this package.
     #
@@ -1653,7 +2160,7 @@ namespace eval ::Garuda {
 
     if {![info exists packageBinaryFileNameOnly]} then {
       set packageBinaryFileNameOnly \
-          [getPackageBinaryFileNameOnly $packageName]
+          [getPackageBinaryFileNameOnly $packageName $useCoreClr]
     }
 
     #
@@ -1791,11 +2298,13 @@ namespace eval ::Garuda {
     #       to the MethodFlags enumeration for full details.  This is used by
     #       the code in the CLR assembly manager contained in this package.  An
     #       example of a useful value here is 0x40 (i.e. METHOD_PROTOCOL_V1R2).
+    #       Please see the associated procedure [setupMethodFlagsVariables] for
+    #       a list of "commonly used" values.
     #
     variable methodFlags; # DEFAULT: 0x0
 
     if {![info exists methodFlags]} then {
-      set methodFlags 0x0
+      set methodFlags [getMethodFlags]
     }
 
     #
@@ -1982,7 +2491,7 @@ namespace eval ::Garuda {
         #
         # NOTE: If the minimum supported version of the CLR has been (or will
         #       be) loaded, add the decorated Eagle assembly file name specific
-        #       to CLR version 2.0.50727; otherise, add the decorated Eagle
+        #       to CLR version 2.0.50727; otherwise, add the decorated Eagle
         #       assembly file name specific to CLR version 4.0.30319.
         #
         if {[shouldUseMinimumClr $packageBinaryFileName]} then {
@@ -2109,21 +2618,95 @@ namespace eval ::Garuda {
   #************************ PACKAGE STARTUP PROCEDURE *************************
   #############################################################################
 
-  proc setupAndLoad { directory } {
+  proc setupForCoreClr {} {
     global tcl_platform
+    variable coreClrVersion
+    variable logCommand
+    variable runtimeConfigPath
+    variable verbose
+
+    #
+    # NOTE: Several places below need the current platform identifier.
+    #
+    if {[info exists tcl_platform(machine)]} then {
+      set platform [getCoreClrPlatformRid $tcl_platform(machine)]
+    } else {
+      set platform ""; # NOTE: Unknown, need machine.
+    }
+
+    #
+    # NOTE: If the CoreCLR is being used for this load operation,
+    #       we must attempt to figure out the "best" (i.e. latest)
+    #       installed version, if that has not been done already.
+    #
+    if {[string length $platform] > 0} then {
+      if {![info exists coreClrVersion] && \
+          [checkCoreClrDirectories $platform version]} then {
+        if {$verbose} then {
+          catch {
+            set caller [maybeFullName [lindex [info level 0] 0]]
+
+            eval $logCommand [list \
+                "$caller: Using CoreCLR $version (installed)..."]
+          }
+        }
+
+        set coreClrVersion $version; # NOTE: Select "best" version.
+      }
+    }
+
+    #
+    # NOTE: If necessary, write the runtime configuration file needed by the
+    #       CoreCLR.  Also, add to the PATH environment variable when needed
+    #       to load the CoreCLR runtime.
+    #
+    if {![interp issafe] && [info exists coreClrVersion]} then {
+      if {[info exists runtimeConfigPath] && \
+          ![isValidFile $runtimeConfigPath]} then {
+        writeCoreClrRuntimeConfiguration $runtimeConfigPath $coreClrVersion
+
+        if {$verbose} then {
+          catch {
+            set caller [maybeFullName [lindex [info level 0] 0]]
+
+            eval $logCommand [list \
+                "$caller: Wrote CoreCLR $coreClrVersion configuration\
+                to file \"$runtimeConfigPath\"..."]
+          }
+        }
+      }
+
+      if {[string length $platform] > 0} then {
+        set runtimeDirectory [getCoreClrDirectory \
+            $platform $coreClrVersion]
+
+        if {[string length $runtimeDirectory] > 0 && \
+            [addToPath $runtimeDirectory]} then {
+          if {$verbose} then {
+            catch {
+              set caller [maybeFullName [lindex [info level 0] 0]]
+
+              eval $logCommand [list \
+                  "$caller: Added CoreCLR $coreClrVersion runtime\
+                  directory \"$runtimeDirectory\" to PATH..."]
+            }
+          }
+        }
+      }
+    }
+  }
+
+  proc setupAndLoad { directory } {
     variable assemblyConfigurations
     variable assemblyFileNames
     variable assemblyPath
     variable assemblySubDirectories
-    variable coreClrVersion
     variable envVars
     variable envVarSuffixes
     variable logCommand
     variable packageBinaryFileName
     variable packageName
     variable rootRegistryKeyName
-    variable runtimeConfigPath
-    variable useCoreClr
     variable useEnvironment
     variable useLibrary
     variable useRegistry
@@ -2241,75 +2824,6 @@ namespace eval ::Garuda {
       }
     }
 
-    #
-    # NOTE: Several places below need the current platform identifier.
-    #
-    if {[info exists tcl_platform(machine)]} then {
-      set platform [getCoreClrPlatform $tcl_platform(machine)]
-    } else {
-      set platform ""; # NOTE: Unknown, need machine.
-    }
-
-    #
-    # NOTE: If the CoreCLR is being used for this load operation,
-    #       we must attempt to figure out the "best" (i.e. latest)
-    #       installed version, if that has not been done already.
-    #
-    if {$useCoreClr && [string length $platform] > 0} then {
-      if {![info exists coreClrVersion] && \
-          [checkCoreClrDirectories $platform version]} then {
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Using CoreCLR $version (installed)..."]
-          }
-        }
-
-        set coreClrVersion $version; # NOTE: Select "best" version.
-      }
-    }
-
-    #
-    # NOTE: If necessary, write the runtime configuration file needed by the
-    #       CoreCLR.  Also, add to the PATH environment variable when needed
-    #       to load the CoreCLR runtime.
-    #
-    if {[info exists coreClrVersion] && \
-        [info exists runtimeConfigPath]} then {
-      if {![file exists $runtimeConfigPath]} then {
-        writeCoreClrRuntimeConfiguration $runtimeConfigPath $coreClrVersion
-
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Wrote CoreCLR $coreClrVersion configuration\
-                to file \"$runtimeConfigPath\"..."]
-          }
-        }
-      }
-
-      if {[string length $platform] > 0} then {
-        set runtimeDirectory \
-            [getCoreClrDirectory $platform $coreClrVersion]
-
-        if {[addToPath $runtimeDirectory]} then {
-          if {$verbose} then {
-            catch {
-              set caller [maybeFullName [lindex [info level 0] 0]]
-
-              eval $logCommand [list \
-                  "$caller: Added CoreCLR $coreClrVersion runtime\
-                  directory \"$runtimeDirectory\" to PATH..."]
-            }
-          }
-        }
-      }
-    }
-
     load $packageBinaryFileName $packageName
   }
 
@@ -2337,10 +2851,42 @@ namespace eval ::Garuda {
   #
   # NOTE: Next, setup the script variables associated with this package.
   #
+  setupMethodFlagsVariables
   setupHelperVariables $packagePath
 
   #
-  # NOTE: Finally, attempt to setup and load the package right now.
+  # NOTE: Next, if necessary, perform the specific setup actions needed
+  #       to integrate with the CoreCLR.
   #
-  setupAndLoad $packagePath
+  variable useCoreClr
+
+  if {[info exists useCoreClr] && $useCoreClr} then {
+    #
+    # TODO: Current CoreCLR support is not designed to work with "safe"
+    #       Tcl interpreters unless the ::Garuda::coreClrVersion -AND-
+    #       ::Garuda::runtimeConfigPath variables are pre-setup and the
+    #       appropriate CoreCLR host shared library is already present
+    #       in the PATH, i.e. automatic detection cannot work because
+    #       "safe" Tcl interpreters do not have the normal file system
+    #       access.
+    #
+    if {![interp issafe]} then {
+      setupForCoreClr
+    }
+  }
+
+  #
+  # NOTE: Finally, maybe attempt to setup and load the extension right
+  #       now.
+  #
+  variable setupAndLoad
+
+  if {[info exists setupAndLoad] && $setupAndLoad} then {
+    setupAndLoad $packagePath
+  }
+
+  #
+  # NOTE: Provide the Garuda "helper" package to the interpreter.
+  #
+  package provide GarudaHelper 1.0
 }

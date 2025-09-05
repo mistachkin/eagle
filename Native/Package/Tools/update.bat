@@ -138,6 +138,13 @@ IF DEFINED TARGET (
     GOTO errors
   )
 
+  %__ECHO% XCOPY "%SOURCE%\bin\%PLATFORM%\%CONFIGURATION%\garuda.tcl" "%TARGET%" %FFLAGS% %DFLAGS%
+
+  IF ERRORLEVEL 1 (
+    ECHO Failed to copy "%SOURCE%\bin\%PLATFORM%\%CONFIGURATION%\garuda.tcl" to "%TARGET%".
+    GOTO errors
+  )
+
   %__ECHO% XCOPY "%SOURCE%\bin\%PLATFORM%\%CONFIGURATION%\helper.tcl" "%TARGET%" %FFLAGS% %DFLAGS%
 
   IF ERRORLEVEL 1 (

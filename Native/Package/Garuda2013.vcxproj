@@ -394,6 +394,7 @@ $(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
   </ItemGroup>
   <ItemGroup>
     <None Include="lib\dotnet.tcl" />
+    <None Include="lib\garuda.tcl" />
     <None Include="lib\helper.tcl" />
     <None Include="lib\pkgIndex.tcl" />
     <None Include="props\Garuda.props" />

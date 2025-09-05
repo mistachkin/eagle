@@ -534,7 +534,7 @@ check:
 
 all:				check setup tag $(PROJECT)
 dll:				check setup tag $(PRJLIB)
-$(PROJECT):	check setup tag pkgIndex $(PRJLIB) $(OUT_DIR)\dotnet.tcl $(OUT_DIR)\helper.tcl
+$(PROJECT):	check setup tag pkgIndex $(PRJLIB) $(OUT_DIR)\dotnet.tcl $(OUT_DIR)\garuda.tcl $(OUT_DIR)\helper.tcl
 install:		install-binaries install-libraries install-docs
 pkgIndex:		$(OUT_DIR)\pkgIndex.tcl
 
@@ -656,6 +656,10 @@ $<
 $(OUT_DIR)\dotnet.tcl:
 	@echo Copying '$(PRJ_LIB_DIR)\dotnet.tcl' to '$(OUT_DIR)'
 	@$(CPY) "$(PRJ_LIB_DIR)\dotnet.tcl" "$(OUT_DIR)"
+
+$(OUT_DIR)\garuda.tcl:
+	@echo Copying '$(PRJ_LIB_DIR)\garuda.tcl' to '$(OUT_DIR)'
+	@$(CPY) "$(PRJ_LIB_DIR)\garuda.tcl" "$(OUT_DIR)"
 
 $(OUT_DIR)\helper.tcl:
 	@echo Copying '$(PRJ_LIB_DIR)\helper.tcl' to '$(OUT_DIR)'

@@ -629,7 +629,8 @@ int StopAndReleaseTheCoreClr(
 
 	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
 		gwprintf(buffer, PACKAGE_RESULT_SIZE,
-		    L"ICLRRuntimeHost_Stop(hResult = {0x%lX})", hResult);
+		    L"ICLRRuntimeHost_Stop(hResult = {0x%lX})",
+		    (unsigned long)hResult);
 
 		TclLog(interp, logCommand, buffer, NULL);
 	    }
@@ -1039,8 +1040,8 @@ int ExecuteCoreClrMethod(
 	gwprintf(buffer, PACKAGE_RESULT_SIZE, L"AFTER "
 	    L"pLoadAssemblyAndGetFuncPtr(hResult = {0x%lX}, "
 	    L"pManaged = {" PACKAGE_UNICODE_PTR_FMT  "}, "
-	    L"returnValue = {%d})", hResult, pManaged,
-	    returnValue);
+	    L"returnValue = {%lu})", (unsigned long)hResult,
+	    pManaged, (unsigned long)returnValue);
 
 	TclLog(interp, logCommand, buffer, NULL);
     }

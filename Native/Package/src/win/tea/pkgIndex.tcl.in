@@ -21,4 +21,7 @@ package ifneeded @PACKAGE_ALTERNATE_NAME@ @PACKAGE_VERSION@ \
     [list source [file join $dir dotnet.tcl]]
 
 package ifneeded @PACKAGE_NAME@ @PACKAGE_VERSION@ \
+    [list source [file join $dir garuda.tcl]]
+
+package ifneeded @PACKAGE_NAME@Helper @PACKAGE_VERSION@ \
     [list source [file join $dir helper.tcl]]

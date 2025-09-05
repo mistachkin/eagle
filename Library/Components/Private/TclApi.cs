@@ -501,7 +501,7 @@ namespace Eagle._Components.Private.Tcl
                     if (module != IntPtr.Zero)
                     {
                         string localFileName = PathOps.GetNativeModuleFileName(
-                            module, ref error);
+                            module, typeof(Tcl_CreateInterp).Name, ref error);
 
                         if (localFileName != null)
                         {

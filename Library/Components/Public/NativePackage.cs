@@ -78,9 +78,11 @@ namespace Eagle._Components.Public
         // NOTE: The possible protocol identifier strings that we should expect
         //       in the argument string passed from native code.
         //
-        private const string ProtocolIdV1R0 = "Garuda_v1.0"; /* LEGACY */
-        private const string ProtocolIdV1R1 = "Garuda_v1.0_r1.0";
-        private const string ProtocolIdV1R2 = "Garuda_v1.0_r2.0";
+        // HACK: These are purposely not read-only.
+        //
+        private static string ProtocolIdV1R0 = "Garuda_v1.0"; /* LEGACY */
+        private static string ProtocolIdV1R1 = "Garuda_v1.0_r1.0";
+        private static string ProtocolIdV1R2 = "Garuda_v1.0_r2.0";
 
         //
         // NOTE: These are the error messages returned when the string argument

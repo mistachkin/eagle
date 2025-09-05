@@ -95,6 +95,9 @@
     <None Include="lib\dotnet.tcl">
       <Filter>Library Files</Filter>
     </None>
+    <None Include="lib\garuda.tcl">
+      <Filter>Library Files</Filter>
+    </None>
     <None Include="lib\helper.tcl">
       <Filter>Library Files</Filter>
     </None>

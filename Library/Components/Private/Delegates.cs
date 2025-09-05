@@ -212,6 +212,14 @@ namespace Eagle._Components.Private.Delegates
 
     ///////////////////////////////////////////////////////////////////////////
 
+    [ObjectId("4a54273f-bce8-4a97-aa37-51041adb31fe")]
+    internal delegate int dladdr(
+        IntPtr address,
+        ref NativeOps.UnsafeNativeMethods.Dl_info_t info
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
     [ObjectId("ec1c7506-9c6e-4630-80ed-8ce2633fc4bb")]
     internal delegate IntPtr dlerror();
 #endif

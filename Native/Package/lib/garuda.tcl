@@ -1,9 +1,9 @@
 ###############################################################################
 #
-# dotnet.tcl -- Eagle Package for Tcl (Garuda)
+# garuda.tcl -- Eagle Package for Tcl (Garuda)
 #
 # Extensible Adaptable Generalized Logic Engine (Eagle)
-# Package Loading Helper File (Secondary)
+# Package Loading Helper File (Primary)
 #
 # Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
 #
@@ -54,39 +54,19 @@ namespace eval ::Garuda {
   #********************* PACKAGE VARIABLE SETUP PROCEDURE *********************
   #############################################################################
 
-  proc setupDotnetVariables { directory } {
+  proc setupGarudaVariables { directory } {
     ###########################################################################
     #************* NATIVE PACKAGE GENERAL CONFIGURATION VARIABLES *************
     ###########################################################################
 
     #
     # NOTE: For this package, attempt to setup and load the extension right
-    #       now.
+    #       now, start the (Core?)CLR, and connect the bridge (to Eagle).
     #
     variable setupAndLoad; # DEFAULT: true
 
     if {![info exists setupAndLoad]} then {
       set setupAndLoad true
-    }
-
-    #
-    # NOTE: For this package, the CLR is not started (by default).  Later,
-    #       the [garuda clrstart] sub-command can be used to start the CLR.
-    #
-    variable startClr; # DEFAULT: false
-
-    if {![info exists startClr]} then {
-      set startClr false
-    }
-
-    #
-    # NOTE: For this package, the bridge is not built (by default).  Later,
-    #       the [garuda startup] sub-command can be used to build the bridge.
-    #
-    variable startBridge; # DEFAULT: false
-
-    if {![info exists startBridge]} then {
-      set startBridge false
     }
   }
 
@@ -106,7 +86,7 @@ namespace eval ::Garuda {
   #
   # NOTE: Next, setup the script variables associated with this package.
   #
-  setupDotnetVariables $packagePath
+  setupGarudaVariables $packagePath
 
   #
   # NOTE: Now that the startup parameters have been overridden, call into

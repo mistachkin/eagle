@@ -22,7 +22,7 @@
 
 /* ---------------------------------------------------------------------
 
-    Conversions between UTF32, UTF-16, and UTF-8.  Header file.
+    Conversions between UTF-32, UTF-16, and UTF-8.  Header file.
 
     Several functions are included here, forming a complete set of
     conversions between the three formats.  UTF-7 is not included
