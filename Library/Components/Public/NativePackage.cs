@@ -1451,7 +1451,7 @@ namespace Eagle._Components.Public
 
         #region Private CoreCLR Native API Support Methods
 #if NET_STANDARD_20
-        private static string MarshalArgument(
+        internal static string MarshalArgument(
             IntPtr ptr, /* in */
             int count   /* in */
             )

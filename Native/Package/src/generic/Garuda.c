@@ -13,9 +13,12 @@
 #include <stdio.h>		    /* NOTE: For fprintf, swprintf, va_list, etc. */
 #include <string.h>		    /* NOTE: For memset, wcslen, wcsncpy, etc. */
 
-#if !defined(_MSC_VER)
+#if !defined(_WIN32)
 #  include <limits.h>		    /* NOTE: For INT_MAX, etc. */
 #  include <wchar.h>		    /* NOTE: For wchar_t, etc. */
+#  include <pthread.h>		    /* NOTE: For pthread_self, etc. */
+#  include <stdatomic.h>	    /* NOTE: For atomic_fetch_add, etc. */
+#  include <stdbool.h>		    /* NOTE: For true, false, etc. */
 #endif
 
 #if defined(USE_CORE_CLR)
@@ -89,6 +92,43 @@ static void		GarudaExitProc(ClientData clientData);
 static int		GarudaObjCmd(ClientData clientData, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *CONST objv[]);
 static void		GarudaObjCmdDeleteProc(ClientData clientData);
+
+/*
+ * NOTE: This mutex is used to protect access to all static state.  This
+ *       should be using the TCL_DECLARE_MUTEX macro; however, this mutex
+ *       cannot be static as it is needed by multiple source code files.
+ */
+
+#if defined(TCL_THREADS)
+Tcl_Mutex packageMutex = { 0 };
+
+/*
+ * NOTE: On non-Windows, this structure is used to "simulate" mutexes that
+ *       are capable of being used recursively.
+ */
+
+#if defined(USE_CORE_CLR) && !defined(_WIN32)
+pthread_owner_t packageOwner = {
+    sizeof(pthread_owner_t), PTHREAD_NULL, 0
+};
+#endif
+#endif
+
+/*
+ * NOTE: This define (and its associated "constant") is needed to abstract
+ *       away platform differences for some interlocked operations, e.g.
+ *       (interlocked-)compare-and-swap.
+ */
+
+#if defined(USE_CORE_CLR) && !defined(_WIN32)
+static LONG atomicLongZero = 0;
+
+#  define ATOMIC_LONG_ZERO			(&atomicLongZero)
+#  define ATOMIC_TRUE				(true)
+#else
+#  define ATOMIC_LONG_ZERO			(0)
+#  define ATOMIC_TRUE				(0)
+#endif
 
 /*
  * NOTE: These are the private Tcl stubs pointers.  They are only included
@@ -1757,7 +1797,7 @@ int Garuda_Init(
      */
 
     InterlockedIncrement(&lTclStubs);
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 
     /*
      * NOTE: Query the package module file name, before proceeding further.
@@ -1978,7 +2018,7 @@ done:
      *         an access violation.
      */
 
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
 
     /*
      * NOTE: If some step of loading the package failed, attempt to cleanup now
@@ -2065,7 +2105,8 @@ int Garuda_Unload(
      *       be done in this function; therefore, bail out early in that case.
      */
 
-    if (InterlockedCompareExchange(&lTclStubs, 0, 0) == 0) { /* NON-PORTABLE */
+    if (InterlockedCompareExchange(
+	    &lTclStubs, 0, ATOMIC_LONG_ZERO) == ATOMIC_TRUE) {
 	PACKAGE_TRACE(("Garuda_Unload: Tcl stubs are not initialized\n"));
 	return TCL_ERROR;
     }
@@ -2075,7 +2116,7 @@ int Garuda_Unload(
      *       cleaning up and unloading the package.
      */
 
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 
     /*
      * NOTE: If we are unloading this package from the process, determine if we
@@ -2300,7 +2341,7 @@ done:
      *       the entire process).
      */
 
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
 
     /*
      * NOTE: If we are unloading this package from the process, finalize our
@@ -2430,7 +2471,7 @@ static int GarudaObjCmd(
 	return TCL_ERROR;
     }
 
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 
     switch ((enum options)option) {
 	case OPT_CLRAPPDOMAINID: { /* SAFE */
@@ -2927,7 +2968,7 @@ done:
 
     FreeClrConfigInfo(&pConfigInfo);
 
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
     return code;
 }
 

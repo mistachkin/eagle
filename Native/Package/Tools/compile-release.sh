@@ -4,6 +4,7 @@ scriptdir=`dirname "$BASH_SOURCE"`
 extradefs="$@"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
+  binsubdir=netcoreapp3.0
   libname=libGarudaCore.dylib
   # NOTE: No longer works in 10.14+
   # gccflags="-arch i386 -arch x86_64"
@@ -11,6 +12,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   platlibs=""
   dncdir=""
 else
+  binsubdir=netcoreapp3.0
   libname=libGarudaCore.so
   gccflags=""
   platlibs="-ldl"
@@ -19,8 +21,8 @@ fi
 
 pushd "$scriptdir/../src/generic" || exit 1
 tclsh ../../../Common/Tools/tagViaBuild.tcl ../..
-gcc -g -fPIC -shared -Wl,-rpath,$dncdir $gccflags -o $libname ../external/generic/ConvertUTF_v2.c Garuda.c GarudaClr.c GarudaCoreClr.c GarudaPal.c GarudaStr.c -I. -I../external/generic -I../../Tcl/include -L/usr/lib/x86_64-linux-gnu -I$dncdir -L$dncdir -ltclstub8.6 $platlibs -lnethost -D_GNU_SOURCE=1 -DSTDC_HEADERS=1 -DHAVE_UNISTD_H=1 -DUSE_TCL_STUBS=1 -DTCL_THREADS=1 -DUSE_CORE_CLR=1 -DUSE_GARUDA_STR=1 -D_TRACE=1 -DNDEBUG=1 $extradefs
-mkdir -p ../../../../bin/Release$CONFIGURATION_SUFFIX/bin
-mv $libname ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$libname
-cp ../../lib/*.tcl ../../../../bin/Debug$CONFIGURATION_SUFFIX/bin
+gcc -g -fPIC -shared -Wl,-rpath,$dncdir $gccflags -o $libname ../external/generic/ConvertUTF_v2.c Garuda.c GarudaClr.c GarudaCoreClr.c GarudaPal.c GarudaStr.c -I. -I../external/generic -I../../Tcl/include -L/usr/lib/x86_64-linux-gnu -I$dncdir -L$dncdir -ltclstub8.6 $platlibs -lnethost -D_GNU_SOURCE=1 -DSTDC_HEADERS=1 -D_POSIX_C_SOURCE=202405L -DHAVE_UNISTD_H=1 -DUSE_TCL_STUBS=1 -DTCL_THREADS=1 -DUSE_CORE_CLR=1 -DUSE_GARUDA_STR=1 -D_TRACE=1 -DNDEBUG=1 $extradefs
+mkdir -p ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$binsubdir
+mv $libname ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$binsubdir/$libname
+cp ../../lib/*.tcl ../../../../bin/Debug$CONFIGURATION_SUFFIX/bin/$binsubdir
 popd || exit 1

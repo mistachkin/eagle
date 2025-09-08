@@ -96,6 +96,17 @@ namespace eval ::Eagle {
     }
   }
 
+  proc getKnownPublicKeyTokenPattern {} {
+    if {[info exists ::test_well_known(publicKeyTokenPattern)]} then {
+      return $::test_well_known(publicKeyTokenPattern)
+    }
+
+    set list [list null]
+    eval lappend list [getKnownPublicKeyTokens]
+
+    return [join $list |]
+  }
+
   proc getKnownDotNetVersions {} {
     #
     # NOTE: This job of this procedure is to return the list of "known"
@@ -121,17 +132,6 @@ namespace eval ::Eagle {
     } else {
       return [list]
     }
-  }
-
-  proc getKnownPublicKeyTokenPattern {} {
-    if {[info exists ::test_well_known(publicKeyTokenPattern)]} then {
-      return $::test_well_known(publicKeyTokenPattern)
-    }
-
-    set list [list null]
-    eval lappend list [getKnownPublicKeyTokens]
-
-    return [join $list |]
   }
 
   proc addKnownDotNetConstraints { generic } {
@@ -7444,12 +7444,10 @@ namespace eval ::Eagle {
     #
     exportAndImportPackageCommands [namespace current] [list \
         getKnownBuildTypes getKnownCompileOptions getKnownWindowsVersions \
-        getKnownDotNetVersions getKnownMonoVersions addKnownMonoConstraints \
-        getKnownDotNetCoreVersions getKnownPublicKeyTokenPattern \
-        addKnownDotNetConstraints addKnownDotNetCoreConstraints \
-        getKnownMonoVersions addKnownMonoConstraints \
-        getKnownDotNetCoreVersions addKnownDotNetCoreConstraints \
-        getKnownTclVersions filterKnownVersions \
+        getKnownPublicKeyTokenPattern getKnownDotNetVersions \
+        addKnownDotNetConstraints getKnownMonoVersions \
+        addKnownMonoConstraints getKnownDotNetCoreVersions \
+        addKnownDotNetCoreConstraints getKnownTclVersions filterKnownVersions \
         getDotNetCoreDirectoryNameOnly getDotNetCoreLibPathDirectoryNameOnly \
         getRuntimeVersion getDottedVersion getDotlessVersion \
         getMajorMinorVersion loadTestSettings lpermute lcombine \

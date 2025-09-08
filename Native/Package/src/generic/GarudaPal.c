@@ -10,17 +10,17 @@
  */
 
 #if !defined(_WIN32)
+#include <unistd.h>		/* NOTE: For readlink, etc. */
+#include <assert.h>		/* NOTE: For assert macros, etc. */
 #include <stdlib.h>		/* NOTE: For free, realpath, size_t, etc. */
 #include <string.h>		/* NOTE: For strlen, strrchr, strcat, etc. */
 #include <limits.h>		/* NOTE: For PATH_MAX (implicit?), etc. */
 #include <errno.h>		/* NOTE: For errno, etc. */
-
+#include <pthread.h>		/* NOTE: For pthread_self, etc. */
 #include <dlfcn.h>		/* NOTE: For dlopen, dladdr, Dl_info, etc. */
 
 #if defined(__APPLE__)
 #  include <mach-o/dyld.h>	/* NOTE: For _NSGetExecutablePath, etc. */
-#elif defined(__linux__)
-#  include <unistd.h>		/* NOTE: For readlink, etc. */
 #endif
 
 #include "tcl.h"		/* NOTE: For public Tcl API. */
@@ -324,5 +324,114 @@ void SetPackageModule(
      *       included for consistency, because it is declared in
      *       the "GarudaDecls.h" header file.
      */
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Pal_MutexLock --
+ *
+ *	This procedure is invoked to lock a mutex.  This is a self
+ *	initializing mutex that is automatically finalized during
+ *	Tcl_Finalize.
+ *
+ * Results:
+ *	Non-zero upon success; otherwise, zero.
+ *
+ * Side effects:
+ *	May block the current thread.  The mutex is either acquired
+ *	or will have a reference added to it upon success.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int Pal_MutexLock(
+    Tcl_Mutex *mutexPtr,	/* The mutex to lock. */
+    pthread_owner_t *ownerPtr)	/* Owner of mutex, if any. */
+{
+    if ((mutexPtr != NULL) && (ownerPtr != NULL)) {
+	pthread_t self = pthread_self();
+
+	Tcl_MutexLock(&ownerPtr->mutex);
+
+	if (!PTHREAD_IS_NULL(ownerPtr->owner) &&
+		pthread_equal(ownerPtr->owner, self)) {
+	    assert(ownerPtr->recursionDepth > 0);
+	    ownerPtr->recursionDepth++;
+
+	    Tcl_MutexUnlock(&ownerPtr->mutex);
+	    return 1;
+	}
+
+	assert(ownerPtr->recursionDepth == 0);
+
+	Tcl_MutexUnlock(&ownerPtr->mutex);
+	Tcl_MutexLock(mutexPtr); /* BLOCKING */
+	Tcl_MutexLock(&ownerPtr->mutex);
+
+	ownerPtr->owner = self;
+	ownerPtr->recursionDepth++;
+
+	Tcl_MutexUnlock(&ownerPtr->mutex);
+	return 1;
+    }
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Pal_MutexUnlock --
+ *
+ *	This procedure is invoked to unlock a mutex.  If the mutex is
+ *	not owned by the current thread, results are undefined; it is
+ *	possible that the call will simply be ignored.
+ *
+ * Results:
+ *	Non-zero upon success; otherwise, zero.
+ *
+ * Side effects:
+ *	The mutex reference is released upon success; if the final
+ *	reference is released, the mutex will be unlocked. Upon any
+ *	failure, the mutex state is unchanged.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int Pal_MutexUnlock(
+    Tcl_Mutex *mutexPtr,	/* The mutex to unlock. */
+    pthread_owner_t *ownerPtr)	/* Owner of mutex, if any. */
+{
+    if ((mutexPtr != NULL) && (ownerPtr != NULL)) {
+	pthread_t self = pthread_self();
+	unsigned depth;
+
+	Tcl_MutexLock(&ownerPtr->mutex);
+
+	if (PTHREAD_IS_NULL(ownerPtr->owner)) {
+	    assert(ownerPtr->recursionDepth == 0);
+	    Tcl_MutexUnlock(&ownerPtr->mutex);
+	    return 0; /* BUGBUG: There is no owner. */
+	}
+
+	assert(ownerPtr->recursionDepth > 0);
+
+	if (!pthread_equal(ownerPtr->owner, self) ||
+		(ownerPtr->recursionDepth == 0)) {
+	    Tcl_MutexUnlock(&ownerPtr->mutex);
+	    return 0; /* BUGBUG: Caller not owner. */
+	}
+
+	if ((depth = (--ownerPtr->recursionDepth)) == 0) {
+	    assert(ownerPtr->recursionDepth == 0);
+	    ownerPtr->owner = PTHREAD_NULL;
+	}
+
+	Tcl_MutexUnlock(&ownerPtr->mutex);
+
+	if (depth == 0)
+	    Tcl_MutexUnlock(mutexPtr);
+
+	return 1;
+    }
 }
 #endif /* !defined(_WIN32) */

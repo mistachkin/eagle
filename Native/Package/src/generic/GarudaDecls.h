@@ -65,10 +65,22 @@ PACKAGE_INTERN HRESULT	DumpClrState(LPWSTR fileName, LONG lTclStubs,
 #endif
 
 /*
- * NOTE: This package is thread-safe and this mutex is used to protect access
- *       to the static state defined in this file.
+ * NOTE: This mutex is used to protect access to all static state.  This
+ *       should be using the TCL_DECLARE_MUTEX macro; however, this mutex
+ *       cannot be static as it is needed by multiple source code files.
  */
 
-TCL_DECLARE_MUTEX(packageMutex);
+#if defined(TCL_THREADS)
+extern Tcl_Mutex packageMutex;
+
+/*
+ * NOTE: On non-Windows, this structure is used to "simulate" mutexes that
+ *       are capable of being used recursively.
+ */
+
+#if defined(USE_CORE_CLR) && !defined(_WIN32)
+extern pthread_owner_t packageOwner;
+#endif
+#endif
 
 #endif /* _GARUDA_DECL_H_ */

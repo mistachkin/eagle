@@ -160,14 +160,94 @@ namespace eval ::Garuda {
   #
   # NOTE: Also defined in and used by "all.tcl".
   #
-  proc isDotNetCore { {default false} } {
-    if {![isWindows]} then {
+  proc hasUseCoreClr { {varName ""} {default ""} } {
+    global env
+    variable logCommand
+    variable useCoreClr
+    variable verbose
+
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName result
+    }
+
+    if {[info exists useCoreClr] && \
+        [string is boolean -strict $useCoreClr]} then {
+      set result $useCoreClr
+
+      if {$verbose} then {
+        catch {
+          set caller [maybeFullName [lindex [info level 0] 0]]
+
+          if {[string is true -strict $result]} then {
+            eval $logCommand [list \
+                "$caller: Using CoreCLR (variable)..."]
+          } else {
+            eval $logCommand [list \
+                "$caller: Not using CoreCLR (variable)..."]
+          }
+        }
+      }
+
+      return true; # NOTE: There was an explicit setting.
+    }
+
+    if {[info exists env(UseCoreClr)] && \
+        [string is boolean -strict $env(UseCoreClr)]} then {
+      set result $env(UseCoreClr)
+
+      if {$verbose} then {
+        catch {
+          set caller [maybeFullName [lindex [info level 0] 0]]
+
+          if {[string is true -strict $result]} then {
+            eval $logCommand [list \
+                "$caller: Using CoreCLR (environment)..."]
+          } else {
+            eval $logCommand [list \
+                "$caller: Not using CoreCLR (environment)..."]
+          }
+        }
+      }
+
+      return true; # NOTE: There was an explicit setting.
+    }
+
+    set result $default
+
+    if {$verbose} then {
+      catch {
+        set caller [maybeFullName [lindex [info level 0] 0]]
+
+        if {[string is true -strict $result]} then {
+          eval $logCommand [list \
+              "$caller: Using CoreCLR (default)..."]
+        } else {
+          eval $logCommand [list \
+              "$caller: Not using CoreCLR (default)..."]
+        }
+      }
+    }
+
+    return false; # NOTE: There was not an explicit setting.
+  }
+
+  #
+  # NOTE: Also defined in and used by "all.tcl".
+  #
+  proc isDotNetCore { {default ""} } {; # NOT USED: DO NOT REMOVE.
+    global env
+
+    if {[info exists env(FORCE_DOTNET_CORE)] || ![isWindows]} then {
       #
       # NOTE: Assume that the .NET Framework is only available on Windows
       #       -AND- that Mono will never support the native hosting APIs,
       #       hence the only option left is the .NET (Core?) runtime.
       #
       return true
+    }
+
+    if {[hasUseCoreClr result]} then {
+      return $result; # EXPLICIT
     }
 
     if {[file rootname [file tail \
@@ -177,9 +257,23 @@ namespace eval ::Garuda {
 
     if {[llength [info procs shouldUseCoreClr]] > 0} then {
       return [shouldUseCoreClr $default]
-    } else {
-      return $default
     }
+
+    if {$verbose} then {
+      catch {
+        set caller [maybeFullName [lindex [info level 0] 0]]
+
+        if {[string is true -strict $default]} then {
+          eval $logCommand [list \
+              "$caller: Using CoreCLR (default)..."]
+        } else {
+          eval $logCommand [list \
+              "$caller: Not using CoreCLR (default)..."]
+        }
+      }
+    }
+
+    return $default
   }
 
   #############################################################################
@@ -442,7 +536,7 @@ namespace eval ::Garuda {
     if {[isWindows]} then {
       if {$wow64 && [info exists env(ProgramFiles(x86))]} then {
         set directory [fileNormalizeFromEnvironment \
-            $env(ProgramFiles(x86))]
+            ${env(ProgramFiles(x86))}]
 
         if {[isValidDirectory $directory]} then {
           lappend result $directory
@@ -469,7 +563,7 @@ namespace eval ::Garuda {
 
       if {$wow64 && [info exists env(ProgramFiles(Arm))]} then {
         set directory [fileNormalizeFromEnvironment \
-            $env(ProgramFiles(Arm))]
+            ${env(ProgramFiles(Arm))}]
 
         if {[isValidDirectory $directory]} then {
           lappend result $directory
@@ -1047,53 +1141,19 @@ namespace eval ::Garuda {
   # WARNING: Other than appending to the configured log file, if any, this
   #          procedure is absolutely forbidden from having any side effects.
   #
-  proc shouldUseCoreClr { {default false} } {
-    global env
+  proc shouldUseCoreClr { {default ""} } {
     global tcl_platform
     variable logCommand
     variable packageName
     variable packagePath
-    variable useCoreClr
     variable verbose
 
     #
-    # NOTE: The package has been configured to use the CoreCLR runtime;
-    #       therefore, return true.
+    # NOTE: The package -OR- environment has been explicitly configured
+    #       to use CoreCLR runtime?
     #
-    if {[info exists useCoreClr] && $useCoreClr} then {
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Using CoreCLR (variable)..."]
-        }
-      }
-
-      return true
-    }
-
-    #
-    # NOTE: The environment has been configured to use CoreCLR runtime?
-    #
-    if {[info exists env(UseCoreClr)]} then {
-      set result $env(UseCoreClr)
-
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          if {$result} then {
-            eval $logCommand [list \
-                "$caller: Using CoreCLR (environment)..."]
-          } else {
-            eval $logCommand [list \
-                "$caller: Not using CoreCLR (environment)..."]
-          }
-        }
-      }
-
-      return $result
+    if {[hasUseCoreClr result]} then {
+      return $result; # EXPLICIT
     }
 
     #
@@ -1188,13 +1248,13 @@ namespace eval ::Garuda {
     }
 
     #
-    # NOTE: Ok, fallback to default setting, which depends on the caller.
+    # NOTE: Fallback to the default setting, which depends on the caller.
     #
     if {$verbose} then {
       catch {
         set caller [maybeFullName [lindex [info level 0] 0]]
 
-        if {$default} then {
+        if {[string is true -strict $default]} then {
           eval $logCommand [list \
               "$caller: Using CoreCLR (default)..."]
         } else {
@@ -1204,7 +1264,16 @@ namespace eval ::Garuda {
       }
     }
 
-    return $default
+    #
+    # NOTE: At this point, check if the caller provided default can be
+    #       used directly; otherwise, fallback to the system default,
+    #       which will be false for legacy compatibility reasons.
+    #
+    if {[string is boolean -strict $default]} then {
+      return $default
+    }
+
+    return false
   }
 
   #
@@ -1549,7 +1618,7 @@ namespace eval ::Garuda {
   proc getPackageBinaryFileNameOnly { packageName useCoreClr } {
     set result [expr {[isWindows] ? "" : "lib"}]
 
-    if {$useCoreClr} then {
+    if {[string is true -strict $useCoreClr]} then {
       append result ${packageName}Core
     } else {
       append result ${packageName}
@@ -1559,10 +1628,8 @@ namespace eval ::Garuda {
     return $result
   }
 
-  proc getPackageAssemblyTypeName {} {
-    variable useCoreClr
-
-    if {[info exists useCoreClr] && $useCoreClr} then {
+  proc getPackageAssemblyTypeName { useCoreClr } {
+    if {[string is true -strict $useCoreClr]} then {
       return "Eagle._Components.Public.NativePackage,\
               Eagle, Version=1.0, Culture=neutral"
     } else {
@@ -1774,8 +1841,6 @@ namespace eval ::Garuda {
   }
 
   proc getRelativePathList { directories configurations subDirectories } {
-    variable useCoreClr
-
     set result [list]
 
     foreach directory $directories {
@@ -2137,15 +2202,24 @@ namespace eval ::Garuda {
     #       to figuring out the package binary file name (below), which is
     #       slightly different between the .NET Framework and .NET Core.
     #
-    variable useCoreClr; # DEFAULT: false
+    variable useCoreClr; # DEFAULT: ""
 
     if {![info exists useCoreClr]} then {
-      set useCoreClr [shouldUseCoreClr]
+      #
+      # HACK: This will always set the specified (namespace?) variable to
+      #       something.  If there is no explicit override set, a default
+      #       value of empty string will be used.
+      #
+      if {[hasUseCoreClr result]} then {
+        set useCoreClr $result
+      } else {
+        set useCoreClr ""
+      }
     } elseif {$verbose} then {
       #
       # HACK: Make sure the setting value ends up in the log file.
       #
-      shouldUseCoreClr; # NOTE: No side effects.
+      hasUseCoreClr; # NOTE: No side effects.
     }
 
     ###########################################################################
@@ -2156,7 +2230,7 @@ namespace eval ::Garuda {
     # NOTE: The name of the dynamic link library containing the native code for
     #       this package.
     #
-    variable packageBinaryFileNameOnly; # DEFAULT: Garuda[Core].dll
+    variable packageBinaryFileNameOnly; # DEFAULT: [lib]Garuda[Core].(dll|so)
 
     if {![info exists packageBinaryFileNameOnly]} then {
       set packageBinaryFileNameOnly \
@@ -2217,7 +2291,7 @@ namespace eval ::Garuda {
     variable typeName; # DEFAULT: Eagle._Components.Public.NativePackage
 
     if {![info exists typeName]} then {
-      set typeName [getPackageAssemblyTypeName]
+      set typeName [getPackageAssemblyTypeName $useCoreClr]
     }
 
     #
@@ -2228,7 +2302,7 @@ namespace eval ::Garuda {
     variable startupMethodName; # DEFAULT: Startup[Core]Clr
 
     if {![info exists startupMethodName]} then {
-      if {$useCoreClr} then {
+      if {[string is true -strict $useCoreClr]} then {
         set startupMethodName StartupCoreClr
       } else {
         set startupMethodName StartupClr
@@ -2243,7 +2317,7 @@ namespace eval ::Garuda {
     variable controlMethodName; # DEFAULT: Control[Core]Clr
 
     if {![info exists controlMethodName]} then {
-      if {$useCoreClr} then {
+      if {[string is true -strict $useCoreClr]} then {
         set controlMethodName ControlCoreClr
       } else {
         set controlMethodName ControlClr
@@ -2259,7 +2333,7 @@ namespace eval ::Garuda {
     variable detachMethodName; # DEFAULT: Detach[Core]Clr
 
     if {![info exists detachMethodName]} then {
-      if {$useCoreClr} then {
+      if {[string is true -strict $useCoreClr]} then {
         set detachMethodName DetachCoreClr
       } else {
         set detachMethodName DetachClr
@@ -2274,7 +2348,7 @@ namespace eval ::Garuda {
     variable shutdownMethodName; # DEFAULT: Shutdown[Core]Clr
 
     if {![info exists shutdownMethodName]} then {
-      if {$useCoreClr} then {
+      if {[string is true -strict $useCoreClr]} then {
         set shutdownMethodName ShutdownCoreClr
       } else {
         set shutdownMethodName ShutdownClr
@@ -2440,7 +2514,7 @@ namespace eval ::Garuda {
       # NOTE: If we are dealing with the CoreCLR runtime, also append those
       #       specific configurations (with their suffixes) as well.
       #
-      if {$useCoreClr} then {
+      if {[string is true -strict $useCoreClr]} then {
         lappend assemblyConfigurations \
             DebugNetStandard2X DebugNetStandard21 DebugNetStandard20
 
@@ -2462,8 +2536,15 @@ namespace eval ::Garuda {
     variable assemblySubDirectories; # DEFAULT: {netstandard2.X ... ""}
 
     if {![info exists assemblySubDirectories]} then {
-      set assemblySubDirectories [list \
-          netstandard2.X netstandard2.1 netstandard2.0 ""]
+      set assemblySubDirectories [list]
+
+      if {[string is true -strict $useCoreClr]} then {
+        lappend assemblySubDirectories \
+            netcoreapp3.0 netcoreapp2.0 netstandard2.X netstandard2.1 \
+            netstandard2.0
+      }
+
+      lappend assemblySubDirectories ""
     }
 
     #
@@ -2858,22 +2939,25 @@ namespace eval ::Garuda {
   # NOTE: Next, if necessary, perform the specific setup actions needed
   #       to integrate with the CoreCLR.
   #
-  variable useCoreClr
+  variable hasUseCoreClrResult; # TEMPORARY
 
-  if {[info exists useCoreClr] && $useCoreClr} then {
+  if {[hasUseCoreClr hasUseCoreClrResult] && \
+      [string is true -strict $hasUseCoreClrResult]} then {
     #
     # TODO: Current CoreCLR support is not designed to work with "safe"
     #       Tcl interpreters unless the ::Garuda::coreClrVersion -AND-
     #       ::Garuda::runtimeConfigPath variables are pre-setup and the
     #       appropriate CoreCLR host shared library is already present
-    #       in the PATH, i.e. automatic detection cannot work because
-    #       "safe" Tcl interpreters do not have the normal file system
-    #       access.
+    #       (and/or unnecessary?) in the PATH, i.e. automatic detection
+    #       cannot work because "safe" Tcl interpreters do not have the
+    #       normal file system access.
     #
     if {![interp issafe]} then {
       setupForCoreClr
     }
   }
+
+  unset -nocomplain hasUseCoreClrResult
 
   #
   # NOTE: Finally, maybe attempt to setup and load the extension right

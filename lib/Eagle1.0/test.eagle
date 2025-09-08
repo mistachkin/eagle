@@ -448,6 +448,93 @@ namespace eval ::Eagle {
     return true
   }
 
+  proc getDotNetCoreRuntimeVersions { {versionOnly false} } {
+    #
+    # HACK: This (implicitly) only considers the .NET runtimes that
+    #       are native to the underlying process, i.e. x86 will not
+    #       be considered when running in a 64-bit process.  Also,
+    #       the correct "dotnet" command is assumed to already be
+    #       present in the PATH, i.e. DOTNET_ROOT is purposely not
+    #       considered.  Finally, since this procedure must work in
+    #       both native Tcl 8.4 and Eagle, fancy stderr handling is
+    #       not used for [exec].
+    #
+    set result [list]
+
+    if {[catch {exec -- dotnet --list-runtimes} info] == 0} then {
+      foreach line [string trim [split \
+          [string map [list \r\n \n] [string trim $info]] \n]] {
+        if {[string length $line] == 0} then {continue}
+        regsub -all -- {\s+} $line " " line
+        set fields [split $line " "]
+
+        if {[llength $fields] >= 2 && \
+            [lindex $fields 0] eq "Microsoft.NETCore.App"} then {
+          #
+          # NOTE: Extract the version value from the fields; also,
+          #       only consider "stable" versions to be valid for
+          #       our (test?) purposes.  This means that suffixes,
+          #       e.g. "-private.X", etc, are unsupported.
+          #
+          set version [lindex $fields 1]
+
+          if {[regexp -- {^\d(?:\.\d+){1,2}$} $version] && \
+              [lsearch -exact $result $version] == -1} then {
+            if {$versionOnly} then {
+              lappend result $version
+            } else {
+              if {[regexp -- {\s+\[(.*)\]$} $line dummy path] && \
+                  [file exists $path]} then {
+                lappend result [list $version $path]
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if {$versionOnly} then {
+      return [lsort -command [list package vcompare] $result]
+    } else {
+      return [lsort -index 0 -command [list package vcompare] $result]
+    }
+  }
+
+  proc getDotNetCoreRuntimeConfiguration { {minimumVersion 2} } {
+    switch -exact -- $minimumVersion {
+      2 -
+      3 {
+        set frameworkName netcoreapp; # LEGACY
+      }
+      5 -
+      6 -
+      7 -
+      8 -
+      9 -
+      10 {
+        set frameworkName net; # SUPPORTED
+      }
+      default {
+        return ""; # UNSUPPORTED
+      }
+    }
+
+    return [string map [list \
+        %frameworkName% $frameworkName %majorVersion% \
+        $minimumVersion] [string trim {
+      {
+        "runtimeOptions": {
+          "tfm": "%frameworkName%%majorVersion%.0",
+          "framework": {
+            "name": "Microsoft.NETCore.App",
+            "version": "%majorVersion%.0.0"
+          },
+          "rollForward": "LatestMajor"
+        }
+      }
+    }]]
+  }
+
   #
   # NOTE: This procedure is designed to be used with "-constraintExpression"
   #       values in the test suite.  It should return non-zero only if the
@@ -13222,13 +13309,15 @@ namespace eval ::Eagle {
         promptForAndGetTextInput addTestScripts evaluateTestScripts \
         combineTestScriptResults newPackageId getParameterFromAny \
         getIndexForDirectory maybeAddToAutoPath maybeScanAutoPath \
-        haveModernNetFx haveInfinitySymbol private annotateProcedure \
-        createPairs flattenPairs tclLogForTester maybeInvokeForTester \
-        haveCaches resetCaches reportCaches maybeMakeHighPriority \
-        removeTemporarySubDirectories enableInteractiveCommands \
-        getProcedureArguments cloneProcedure getTclMinimumVersion \
-        getTclMaximumVersion tryToLoadZeus loadTetrisViaTclTk breakOnError \
-        getEnvironmentViaComSpec getNameForDebugHook announceForDebugHook \
+        haveModernNetFx getDotNetCoreRuntimeVersions \
+        getDotNetCoreRuntimeConfiguration haveInfinitySymbol private \
+        annotateProcedure createPairs flattenPairs tclLogForTester \
+        maybeInvokeForTester haveCaches resetCaches reportCaches \
+        maybeMakeHighPriority removeTemporarySubDirectories \
+        enableInteractiveCommands getProcedureArguments cloneProcedure \
+        getTclMinimumVersion getTclMaximumVersion tryToLoadZeus \
+        loadTetrisViaTclTk breakOnError getEnvironmentViaComSpec \
+        getNameForDebugHook announceForDebugHook \
         forceInteractiveLoopForDebugHook debugBreakHook skipTestHook \
         noFailTestHook whatIfTestHook errorTestHook failTestHook \
         maybeGetArgv addToArgv removeFromArgv addConstraintToArgv \

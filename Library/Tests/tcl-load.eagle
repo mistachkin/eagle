@@ -188,6 +188,7 @@ runTest {test tclLoad-2.1 {leak test Tcl interp creation/deletion} -body {
     list "Tcl memory command not available"
   }
 } -cleanup {
+  catch {file delete $leak_file}
   unset -nocomplain data leak_file
 } -constraints \
 {isolated eagle native windows dynamic tclLibrary command.tcl compile.NATIVE\
@@ -276,6 +277,7 @@ runTest {test tclLoad-2.2 {leak test Tcl interp creation/deletion} -body {
   #
   set leaks
 } -cleanup {
+  catch {file delete $leak_file}
   unset -nocomplain data leak_file i leaks
 } -constraints \
 {isolated eagle native windows dynamic tclLibrary command.tcl compile.NATIVE\
@@ -701,14 +703,14 @@ runTest {test tclLoad-7.1.2 {Garuda appDomainId (Eagle)} -body {
 runTest {test tclLoad-8.1.1 {Garuda clrVersion (Tcl)} -body {
   garuda clrversion
 } -constraints {tcl garuda} -match regexp -result \
-{^v2\.0\.50727|v4\.0\.30319$}}
+{^v2\.0\.50727|v4\.0\.30319|version \d+\.\d+\.\d+ commit_hash [0-9a-f]{40}$}}
 
 ###############################################################################
 
 runTest {test tclLoad-8.1.2 {Garuda clrVersion (Eagle)} -body {
   tcl eval [tcl primary] garuda clrversion
 } -constraints {eagle garuda} -match regexp -result \
-{^v2\.0\.50727|v4\.0\.30319$}}
+{^v2\.0\.50727|v4\.0\.30319|version \d+\.\d+\.\d+ commit_hash [0-9a-f]{40}$}}
 
 ###############################################################################
 
@@ -753,21 +755,25 @@ runTest {test tclLoad-10.1.4 {Garuda Tcl-to-Eagle-to-Tcl (Eagle)} -body {
 
 runTest {test tclLoad-11.1.1 {Garuda state (Tcl)} -body {
   garuda dumpstate
-} -constraints {tcl garuda} -match regexp -result {^packageMutex 0x[0-9A-F]+\
-hPackageModule 0x[0-9A-F]+ packageFileName \{.*\} lTclStubs \d+ hTclModule\
-0x[0-9A-F]+ pTclStubs 0x[0-9A-F]+(?: pClrMetaHost 0x[0-9A-F]+ pClrRuntimeInfo\
-0x[0-9A-F]+)? pClrRuntimeHost 0x[0-9A-F]+ bClrStarted (?:0|1) bClrBridgeStarted\
-(?:0|1)$}}
+} -constraints {tcl garuda} -match regexp -result \
+{^packageMutex 0x[0-9A-Fa-f]+ hPackageModule 0x[0-9A-Fa-f]+ packageFileName\
+\{.*\} lTclStubs \d+ hTclModule 0x[0-9A-Fa-f]+ pTclStubs 0x[0-9A-Fa-f]+\
+(?:pClrMetaHost 0x[0-9A-Fa-f]+ pClrRuntimeInfo 0x[0-9A-Fa-f]+ pClrRuntimeHost\
+0x[0-9A-Fa-f]+ bClrStarted (?:0|1)|pCoreClrModule 0x[0-9A-Fa-f]+\
+uCoreClrFunctions 0x[0-9A-Fa-f]+ pCoreClrContext 0x[0-9A-Fa-f]+)\
+bClrBridgeStarted (?:0|1)$}}
 
 ###############################################################################
 
 runTest {test tclLoad-11.1.2 {Garuda state (Eagle)} -body {
   tcl eval [tcl primary] garuda dumpstate
-} -constraints {eagle garuda} -match regexp -result {^packageMutex 0x[0-9A-F]+\
-hPackageModule 0x[0-9A-F]+ packageFileName \{.*\} lTclStubs \d+ hTclModule\
-0x[0-9A-F]+ pTclStubs 0x[0-9A-F]+(?: pClrMetaHost 0x[0-9A-F]+ pClrRuntimeInfo\
-0x[0-9A-F]+)? pClrRuntimeHost 0x[0-9A-F]+ bClrStarted (?:0|1) bClrBridgeStarted\
-(?:0|1)$}}
+} -constraints {eagle garuda} -match regexp -result \
+{^packageMutex 0x[0-9A-Fa-f]+ hPackageModule 0x[0-9A-Fa-f]+ packageFileName\
+\{.*\} lTclStubs \d+ hTclModule 0x[0-9A-Fa-f]+ pTclStubs 0x[0-9A-Fa-f]+\
+(?:pClrMetaHost 0x[0-9A-Fa-f]+ pClrRuntimeInfo 0x[0-9A-Fa-f]+ pClrRuntimeHost\
+0x[0-9A-Fa-f]+ bClrStarted (?:0|1)|pCoreClrModule 0x[0-9A-Fa-f]+\
+uCoreClrFunctions 0x[0-9A-Fa-f]+ pCoreClrContext 0x[0-9A-Fa-f]+)\
+bClrBridgeStarted (?:0|1)$}}
 
 ###############################################################################
 
@@ -857,6 +863,59 @@ proc unloadForGarudaTest { interp {quiet false} } {
 
 ###############################################################################
 
+proc getTypeAndMethodNamesForGarudaTest {
+        typeVarName methodVarName useCoreClr } {
+  upvar 1 $typeVarName typeName
+  upvar 1 $methodVarName  methodName
+
+  if {[string is true -strict $useCoreClr]} then {
+    set typeName "Eagle._Tests.Default,\
+                  Eagle, Version=1.0, Culture=neutral"
+
+    set methodName TestCoreClrMethod
+  } else {
+    set typeName Eagle._Tests.Default
+    set methodName TestClrMethod
+  }
+
+  return ""
+}
+
+###############################################################################
+
+proc isDotNetCoreForGarudaTest {} {
+  #
+  # HACK: Assume that the .NET Framework is only available on Windows -AND-
+  #       that Mono will never support the native hosting APIs, hence the
+  #       only option left is the .NET (Core?) runtime.  This comment was
+  #       blatantly stolen from the "helper.tcl" file.
+  #
+  if {![isWindows]} then {
+    return true
+  }
+
+  #
+  # HACK: We know that the [isDotNetCore] Garuda script library procedure
+  #       honors the UseCoreClr / FORCE_DOTNET_CORE environment variables;
+  #       however, it may not be available (yet).
+  #
+  if {[llength [info commands ::Garuda::isDotNetCore]] > 0} then {
+    return [::Garuda::isDotNetCore]
+  }
+
+  #
+  # HACK: Fallback to checking for an associated Garuda test-suite CoreCLR
+  #       environment variable.
+  #
+  if {[info exists env(FORCE_DOTNET_CORE)]} then {
+    return true
+  }
+
+  return false
+}
+
+###############################################################################
+
 proc shutdownForGarudaTest {} {
   if {[isEagle]} then {
     return "native Tcl is required to shutdown Garuda"
@@ -896,6 +955,42 @@ runTest {test tclLoad-12.1 {Garuda auto-start with SafeBase (Tcl)} -setup {
   $interp eval [list set ::Garuda::verbose true]
   $interp eval [list set ::Garuda::logCommand $logCommand]
 
+  if {[isDotNetCoreForGarudaTest]} then {
+    $interp eval [list set ::Garuda::useCoreClr true]
+
+    set runtimeConfigPath [file join \
+        [getTemporaryPath] [appendArgs tclLoad-12.1- [pid] \
+        .runtimeconfig.json]]
+
+    writeFile $runtimeConfigPath [getDotNetCoreRuntimeConfiguration]
+
+    $interp eval [list \
+        set ::Garuda::runtimeConfigPath $runtimeConfigPath]
+
+    set runtimeVersions [getDotNetCoreRuntimeVersions]
+
+    tputs $test_channel [appendArgs \
+        "---- detected installed .NET runtimes: " \
+        [formatList $runtimeVersions <none>] \n]
+
+    if {[llength $runtimeVersions] == 0} then {
+      error "no supported .NET runtimes are installed"
+    }
+
+    set runtimeVersion(latest) [lindex $runtimeVersions end]
+    set runtimeVersion(number) [lindex $runtimeVersion(latest) 0]
+    set runtimeVersion(path) [lindex $runtimeVersion(latest) 1]
+
+    $interp eval [list \
+        set ::Garuda::coreClrVersion $runtimeVersion(number)]
+
+    if {[isWindows] && ![addToPath $runtimeVersion(path)]} then {
+      error [appendArgs \
+          "could not add directory \"" $runtimeVersion(path) \
+          "\" to PATH"]
+    }
+  }
+
   if {![info exists no(tclKit)]} then {
     $interp eval [list set ::Garuda::methodFlags 0x40]; # METHOD_PROTOCOL_V1R2
   }
@@ -904,8 +999,9 @@ runTest {test tclLoad-12.1 {Garuda auto-start with SafeBase (Tcl)} -setup {
   $interp eval [list set ::Garuda::assemblyPath $::Garuda::assemblyPath]
   $interp eval [list set ::Garuda::packageName $::Garuda::packageName]
   $interp eval [list set ::Garuda::packagePath $::Garuda::packagePath]
-  $interp eval [list set ::Garuda::packageBinaryFileName \
-      $::Garuda::packageBinaryFileName]
+
+  $interp eval [list \
+      set ::Garuda::packageBinaryFileName $::Garuda::packageBinaryFileName]
 
   ::safe::setLogCmd $logCommand
   ::safe::interpInit $interp
@@ -928,9 +1024,22 @@ runTest {test tclLoad-12.1 {Garuda auto-start with SafeBase (Tcl)} -setup {
       [catch {$interp eval eagle clock seconds} msg] $msg \
       [catch {$interp eval eagle pwd} msg] $msg
 } -cleanup {
-  unloadForGarudaTest $interp
+  catch {unloadForGarudaTest $interp}
   ::safe::interpDelete $interp
+
+  if {[info exists runtimeVersion]} then {
+    catch {removeFromPath $runtimeVersion(path)}
+    unset -nocomplain runtimeVersion
+  }
+
+  if {[info exists runtimeConfigPath]} then {
+    catch {file delete $runtimeConfigPath}
+    unset -nocomplain runtimeConfigPath
+  }
+
   unset -nocomplain msg interp logCommand
+  unset -nocomplain runtimeVersions
+
   rename safeTputs ""
 } -constraints {tcl garuda} -match regexp -result {^\{\} 1 0 \d+ 1 \{invalid\
 command name "pwd"\} 1 \{package Garuda is not present\} 0 1\.0 0 1\.0 0 1 0\
@@ -972,6 +1081,42 @@ runTest {test tclLoad-12.2 {Garuda command with SafeBase (Tcl)} -setup {
   $interp eval [list set ::Garuda::verbose true]
   $interp eval [list set ::Garuda::logCommand $logCommand]
 
+  if {[isDotNetCoreForGarudaTest]} then {
+    $interp eval [list set ::Garuda::useCoreClr true]
+
+    set runtimeConfigPath [file join \
+        [getTemporaryPath] [appendArgs tclLoad-12.2- [pid] \
+        .runtimeconfig.json]]
+
+    writeFile $runtimeConfigPath [getDotNetCoreRuntimeConfiguration]
+
+    $interp eval [list \
+        set ::Garuda::runtimeConfigPath $runtimeConfigPath]
+
+    set runtimeVersions [getDotNetCoreRuntimeVersions]
+
+    tputs $test_channel [appendArgs \
+        "---- detected installed .NET runtimes: " \
+        [formatList $runtimeVersions <none>] \n]
+
+    if {[llength $runtimeVersions] == 0} then {
+      error "no supported .NET runtimes are installed"
+    }
+
+    set runtimeVersion(latest) [lindex $runtimeVersions end]
+    set runtimeVersion(number) [lindex $runtimeVersion(latest) 0]
+    set runtimeVersion(path) [lindex $runtimeVersion(latest) 1]
+
+    $interp eval [list \
+        set ::Garuda::coreClrVersion $runtimeVersion(number)]
+
+    if {[isWindows] && ![addToPath $runtimeVersion(path)]} then {
+      error [appendArgs \
+          "could not add directory \"" $runtimeVersion(path) \
+          "\" to PATH"]
+    }
+  }
+
   if {![info exists no(tclKit)]} then {
     $interp eval [list set ::Garuda::methodFlags 0x40]; # METHOD_PROTOCOL_V1R2
   }
@@ -980,8 +1125,9 @@ runTest {test tclLoad-12.2 {Garuda command with SafeBase (Tcl)} -setup {
   $interp eval [list set ::Garuda::assemblyPath $::Garuda::assemblyPath]
   $interp eval [list set ::Garuda::packageName $::Garuda::packageName]
   $interp eval [list set ::Garuda::packagePath $::Garuda::packagePath]
-  $interp eval [list set ::Garuda::packageBinaryFileName \
-      $::Garuda::packageBinaryFileName]
+
+  $interp eval [list \
+      set ::Garuda::packageBinaryFileName $::Garuda::packageBinaryFileName]
 
   ::safe::setLogCmd $logCommand
   ::safe::interpInit $interp
@@ -997,6 +1143,9 @@ runTest {test tclLoad-12.2 {Garuda command with SafeBase (Tcl)} -setup {
   #       isolated one-to-one relationships between Eagle interpreters and
   #       Tcl interpreters.  Until then, we test what we can.
   #
+  getTypeAndMethodNamesForGarudaTest \
+      typeName methodName [isDotNetCoreForGarudaTest]
+
   list [shutdownForGarudaTest] [$interp issafe] \
       [catch {$interp eval clock seconds} msg] $msg \
       [catch {$interp eval pwd} msg] $msg \
@@ -1009,8 +1158,9 @@ runTest {test tclLoad-12.2 {Garuda command with SafeBase (Tcl)} -setup {
       [catch {$interp eval garuda clrversion} msg] $msg \
       [catch {$interp eval garuda clrappdomainid} msg] $msg \
       [catch {
-        $interp eval garuda clrexecute $::Garuda::assemblyPath \
-            Eagle._Tests.Default TestMethod 0x12345678
+        $interp eval garuda clrexecute \
+            [list $::Garuda::assemblyPath] [list $typeName] \
+            [list $methodName] 0x12345678
       } msg] $msg \
       [catch {$interp eval garuda clrstart} msg] $msg \
       [catch {$interp eval garuda clrstop} msg] $msg \
@@ -1020,15 +1170,29 @@ runTest {test tclLoad-12.2 {Garuda command with SafeBase (Tcl)} -setup {
       [catch {$interp eval garuda detach} msg] $msg \
       [catch {$interp eval garuda shutdown} msg] $msg
 } -cleanup {
-  unloadForGarudaTest $interp
+  catch {unloadForGarudaTest $interp}
   ::safe::interpDelete $interp
+
+  if {[info exists runtimeVersion]} then {
+    catch {removeFromPath $runtimeVersion(path)}
+    unset -nocomplain runtimeVersion
+  }
+
+  if {[info exists runtimeConfigPath]} then {
+    catch {file delete $runtimeConfigPath}
+    unset -nocomplain runtimeConfigPath
+  }
+
+  unset -nocomplain typeName methodName
   unset -nocomplain msg interp logCommand
+  unset -nocomplain runtimeVersions
+
   rename safeTputs ""
 } -constraints {tcl garuda compile.TEST} -match regexp -result {^\{\} 1 0 \d+ 1\
 \{invalid command name "pwd"\} 1 \{package Garuda is not present\} 0 1\.0 0\
 1\.0 0 \{Garuda 1\.0 [0-9a-f]{40,64} \{\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\
-UTC\}\} 0 1 0 0 0 (?:v2\.0\.50727|v4\.0\.30319) 0 \d+ 1 \{permission denied:\
-safe interp
+UTC\}\} 0 1 0 0 0 (?:v2\.0\.50727|v4\.0\.30319|\{version \d+\.\d+\.\d+\
+commit_hash [0-9a-f]{40}\}) 0 \d+ 1 \{permission denied: safe interp
 \} 1 \{permission denied: safe interp
 \} 1 \{permission denied: safe interp
 \} 1 \{permission denied: safe interp
@@ -1047,8 +1211,13 @@ runTest {test tclLoad-13.1.1 {Garuda execute (Tcl)} -body {
   #       a single string argument, and must return an integer.  For this
   #       test we execute [garuda] command directly in Tcl.
   #
-  garuda clrexecute $::Garuda::assemblyPath Eagle._Tests.Default \
-      TestMethod 0x12345678
+  getTypeAndMethodNamesForGarudaTest \
+      typeName methodName [isDotNetCoreForGarudaTest]
+
+  garuda clrexecute $::Garuda::assemblyPath \
+      $typeName $methodName 0x12345678
+} -cleanup {
+  unset -nocomplain typeName methodName
 } -constraints {tcl garuda compile.TEST} -result {305419896}}
 
 ###############################################################################
@@ -1060,8 +1229,15 @@ runTest {test tclLoad-13.1.2 {Garuda execute (Eagle)} -body {
   #       a single string argument, and must return an integer.  For this
   #       test we go through the Eagle [tcl] command.
   #
-  tcl eval [tcl primary] {garuda clrexecute $::Garuda::assemblyPath \
-      Eagle._Tests.Default TestMethod 0x12345678}
+  getTypeAndMethodNamesForGarudaTest \
+      typeName methodName [isDotNetCoreForGarudaTest]
+
+  tcl eval [tcl primary] {
+    garuda clrexecute $::Garuda::assemblyPath \
+        $typeName $methodName 0x12345678
+  }
+} -cleanup {
+  unset -nocomplain typeName methodName
 } -constraints {eagle garuda compile.TEST} -result {305419896}}
 
 ###############################################################################
@@ -1125,11 +1301,22 @@ if {![isEagle]} then {
 
     tputs $test_channel "---- deleted namespace for package \"Garuda\"\n"
   }
+
+  #
+  # HACK: Delete global error handling variables, which may be created if an
+  #       unknown sub-command error is raised while trying to check for the
+  #       [interp children] sub-command, which is used to check for "leaked"
+  #       (child) Tcl interpreters within the [getTestChildren] (core script
+  #       library) helper procedure.
+  #
+  unset -nocomplain ::errorCode ::errorInfo
 }
 
 ###############################################################################
 
 rename shutdownForGarudaTest ""
+rename isDotNetCoreForGarudaTest ""
+rename getTypeAndMethodNamesForGarudaTest ""
 rename unloadForGarudaTest ""
 
 ###############################################################################

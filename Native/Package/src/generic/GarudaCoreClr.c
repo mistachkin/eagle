@@ -15,10 +15,11 @@
 #include <stdio.h>		/* NOTE: For fprintf, swprintf, va_list, etc. */
 #include <string.h>		/* NOTE: For memset, wcslen, wcsncpy, etc. */
 
-#if !defined(_MSC_VER)
+#if !defined(_WIN32)
 #  include <stdlib.h>		/* NOTE: For setenv, unsetenv, etc. */
 #  include <limits.h>		/* NOTE: For INT_MAX, etc. */
 #  include <wchar.h>		/* NOTE: For wchar_t, etc. */
+#  include <stdatomic.h>	/* NOTE: For atomic_fetch_add, etc. */
 #endif
 
 #if defined(_WIN32)
@@ -55,7 +56,7 @@ static void HOSTFXR_CALLTYPE GetCoreClrVersionCallback(
  *       current process by this package.
  */
 
-static volatile HMODULE pCoreClr = NULL;
+static volatile HMODULE pCoreClrModule = NULL;
 
 /*
  * NOTE: These are the function pointers to the CoreCLR APIs necessary to
@@ -100,13 +101,13 @@ BOOL GetCoreClrWasLoaded(void)
     BOOL bResult;
 
 #if defined(_WIN32)
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 #endif
 
-    bResult = (pCoreClr != NULL);
+    bResult = (pCoreClrModule != NULL);
 
 #if defined(_WIN32)
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
 #endif
 
     return bResult;
@@ -134,13 +135,13 @@ BOOL GetCoreClrWasStarted(void)
     BOOL bResult;
 
 #if defined(_WIN32)
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 #endif
 
     bResult = (pCoreClrContext != NULL);
 
 #if defined(_WIN32)
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
 #endif
 
     return bResult;
@@ -168,13 +169,13 @@ BOOL GetCoreClrBridgeStarted(void)
     BOOL bResult;
 
 #if defined(_WIN32)
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 #endif
 
     bResult = bCoreClrBridgeStarted;
 
 #if defined(_WIN32)
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
 #endif
 
     return bResult;
@@ -201,13 +202,13 @@ void SetCoreClrBridgeStarted(
     BOOL bStarted)	    /* Non-zero if the bridge was started. */
 {
 #if defined(_WIN32)
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 #endif
 
     bCoreClrBridgeStarted = bStarted;
 
 #if defined(_WIN32)
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
 #endif
 }
 
@@ -248,13 +249,13 @@ int LoadAndStartTheCoreClr(
     WCHAR buffer[PACKAGE_RESULT_SIZE + 1] = { 0 };
     int rc;
 
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 
     memset(&uFunctions, 0, sizeof(CoreClrFunctions));
     uFunctions.sizeOf = sizeof(CoreClrFunctions);
 
     if (bLoad) {
-	if (pCoreClr == NULL) {
+	if (pCoreClrModule == NULL) {
 	    char_t runtimeLibraryFileName[PATH_MAX + 1];
 	    size_t runtimeLibraryNameSize = PATH_MAX;
 
@@ -326,6 +327,7 @@ int LoadAndStartTheCoreClr(
 
 	    uFunctions.pClose = (hostfxr_close_fn)dlsym(
 		hModule, "hostfxr_close");
+#endif
 
 	    /*
 	     * HACK: On Linux, the "Cvt" string conversion APIs are needed
@@ -335,7 +337,6 @@ int LoadAndStartTheCoreClr(
 
 	    uCoreClrFunctions.pInitForRuntimeConfig =
 		uFunctions.pInitForRuntimeConfig;
-#endif
 	} else if (bStrict) {
 	    if (interp != NULL) {
 		Tcl_AppendResult(interp, "CoreCLR already loaded\n", NULL);
@@ -347,7 +348,9 @@ int LoadAndStartTheCoreClr(
     }
 
     if (bStart) {
-	if (hModule == NULL) {
+	BOOL bRetry = FALSE;
+
+	if ((hModule == NULL) && (pCoreClrModule == NULL)) {
 	    if (interp != NULL) {
 		Tcl_AppendResult(interp,
 		    "invalid CoreCLR module handle\n", NULL);
@@ -357,19 +360,29 @@ int LoadAndStartTheCoreClr(
 	    goto done;
 	}
 
+retry:
+
 	if ((uFunctions.pInitForRuntimeConfig == NULL) ||
 		(uFunctions.pGetRuntimeDelegate == NULL) ||
 		(uFunctions.pClose == NULL)) {
-	    if (interp != NULL) {
-		Tcl_AppendResult(interp,
-		    "invalid CoreCLR function pointers\n", NULL);
-	    }
+	    if (bRetry) {
+		if (interp != NULL) {
+		    Tcl_AppendResult(interp,
+			"invalid CoreCLR function pointers\n", NULL);
+		}
 
-	    code = TCL_ERROR;
-	    goto done;
+		code = TCL_ERROR;
+		goto done;
+	    } else {
+		memcpy((void *)&uFunctions, (void *)&uCoreClrFunctions,
+		    sizeof(CoreClrFunctions));
+
+		bRetry = TRUE;
+		goto retry;
+	    }
 	}
 
-	if (uFunctions.pLoadAssemblyAndGetFuncPtr == NULL) {
+	if ((pContext == NULL) && (pCoreClrContext == NULL)) {
 	    if (runtimeConfigPath != NULL) {
 		rc = Wrp_pInitForRuntimeConfig(
 		    runtimeConfigPath, NULL, &pContext);
@@ -435,7 +448,9 @@ int LoadAndStartTheCoreClr(
 		code = TCL_ERROR;
 		goto done;
 	    }
+	}
 
+	if (uFunctions.pLoadAssemblyAndGetFuncPtr == NULL) {
 	    rc = uFunctions.pGetRuntimeDelegate(
 		pContext, hdt_load_assembly_and_get_function_pointer,
 		(void **)&uFunctions.pLoadAssemblyAndGetFuncPtr);
@@ -452,7 +467,6 @@ int LoadAndStartTheCoreClr(
 		goto done;
 	    }
 
-#if !defined(_WIN32)
 	    /*
 	     * HACK: On Linux, the "Cvt" string conversion APIs are needed
 	     *       to call into the CoreCLR; so, those function pointers
@@ -461,7 +475,6 @@ int LoadAndStartTheCoreClr(
 
 	    uCoreClrFunctions.pLoadAssemblyAndGetFuncPtr =
 		uFunctions.pLoadAssemblyAndGetFuncPtr;
-#endif
 	} else if (bStrict) {
 	    if (interp != NULL) {
 		Tcl_AppendResult(interp, "CoreCLR already started\n", NULL);
@@ -475,12 +488,18 @@ int LoadAndStartTheCoreClr(
 done:
 
     if (code == TCL_OK) {
-	pCoreClrContext = pContext;
+	if (pContext != NULL)
+	    pCoreClrContext = pContext;
 
-	memcpy((void *)&uCoreClrFunctions, &uFunctions,
-	    sizeof(CoreClrFunctions));
+	if ((uFunctions.pInitForRuntimeConfig != NULL) &&
+	    (uFunctions.pGetRuntimeDelegate != NULL) &&
+	    (uFunctions.pClose != NULL)) {
+	    memcpy((void*)&uCoreClrFunctions, &uFunctions,
+		sizeof(CoreClrFunctions));
+	}
 
-	pCoreClr = hModule;
+	if (hModule != NULL)
+	    pCoreClrModule = hModule;
     } else {
 	if ((uFunctions.pClose != NULL) && (pContext != NULL)) {
 	    rc = uFunctions.pClose(pContext);
@@ -523,7 +542,7 @@ done:
 	}
     }
 
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
     return code;
 }
 
@@ -555,9 +574,9 @@ int StopAndReleaseTheCoreClr(
     BOOL bResult;
     WCHAR buffer[PACKAGE_RESULT_SIZE + 1] = { 0 };
 
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 
-    if (pCoreClr != NULL) {
+    if (pCoreClrModule != NULL) {
 	/*
 	 * NOTE: If we were previously able to start the CLR, stop it now.
 	 */
@@ -663,12 +682,12 @@ int StopAndReleaseTheCoreClr(
 
 	if (bRelease) {
 #if defined(_WIN32)
-	    bResult = FreeLibrary(pCoreClr);
+	    bResult = FreeLibrary(pCoreClrModule);
 #else
-	    bResult = (dlclose(pCoreClr) == 0);
+	    bResult = (dlclose(pCoreClrModule) == 0);
 #endif
 
-	    pCoreClr = NULL;
+	    pCoreClrModule = NULL;
 
 	    if (PACKAGE_CAN_LOG(interp, logCommand)) {
 #if defined(_WIN32)
@@ -710,7 +729,7 @@ done:
 	}
     }
 
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
     return code;
 }
 
@@ -738,10 +757,10 @@ BOOL CanExecuteCoreClrCode(
     BOOL bResult = FALSE;
 
 #if defined(_WIN32)
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 #endif
 
-    if (pCoreClr == NULL) {
+    if (pCoreClrModule == NULL) {
 	if (interp != NULL) {
 	    Tcl_AppendResult(interp, "CoreCLR not loaded\n", NULL);
 	}
@@ -762,7 +781,7 @@ BOOL CanExecuteCoreClrCode(
 done:
 
 #if defined(_WIN32)
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
 #endif
 
     return bResult;
@@ -822,7 +841,7 @@ int ExecuteCoreClrMethod(
 	return TCL_ERROR;
     }
 
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 
     /*
      * NOTE: If the CLR is either not loaded -OR- not started, then we cannot
@@ -1069,7 +1088,7 @@ done:
 	newArgument = NULL;
     }
 
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
     return code;
 }
 
@@ -1097,7 +1116,7 @@ HRESULT GetCurrentCoreClrAppDomainId(
 {
     HRESULT hResult;
 
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 
     if (pAppDomainId == NULL) {
 	hResult = E_POINTER;
@@ -1114,7 +1133,7 @@ HRESULT GetCurrentCoreClrAppDomainId(
 
 done:
 
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
     return hResult;
 }
 
@@ -1200,7 +1219,7 @@ HRESULT GetCoreClrVersion(
     LPWSTR result = NULL;
     int length;
 
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 
     memset(&uVersionInfo, 0, sizeof(CoreClrVersionInfo));
     uVersionInfo.sizeOf = sizeof(CoreClrVersionInfo);
@@ -1245,17 +1264,19 @@ HRESULT GetCoreClrVersion(
 
 done:
 
+#if !defined(_WIN32)
     if (result != NULL) {
 	ckfree((LPVOID)result);
 	result = NULL;
     }
+#endif
 
     if (uVersionInfo.result != NULL) {
 	Tcl_DecrRefCount(uVersionInfo.result);
 	uVersionInfo.result = NULL;
     }
 
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
     return hResult;
 }
 
@@ -1296,7 +1317,7 @@ HRESULT DumpCoreClrState(
 {
     HRESULT hResult;
 
-    Tcl_MutexLock(&packageMutex);
+    Wrp_MutexLock(&packageMutex);
 
     if ((pState == NULL) || (pLength == NULL)) {
 	hResult = E_POINTER;
@@ -1309,20 +1330,20 @@ HRESULT DumpCoreClrState(
 	L" packageFileName {" PACKAGE_UNICODE_STR_FMT
 	L"} lTclStubs %ld hTclModule "
 	PACKAGE_UNICODE_PTR_FMT L" pTclStubs "
-	PACKAGE_UNICODE_PTR_FMT L" pCoreClr "
+	PACKAGE_UNICODE_PTR_FMT L" pCoreClrModule "
 	PACKAGE_UNICODE_PTR_FMT L" uCoreClrFunctions "
 	PACKAGE_UNICODE_PTR_FMT L" pCoreClrContext "
 	PACKAGE_UNICODE_PTR_FMT L" bClrBridgeStarted %d",
 	packageMutex,
 	GetPackageModule(), fileName, lTclStubs, hTclModule,
-	pTclStubs, pCoreClr, &uCoreClrFunctions,
+	pTclStubs, pCoreClrModule, &uCoreClrFunctions,
 	pCoreClrContext, bCoreClrBridgeStarted);
 
     hResult = S_OK;
 
 done:
 
-    Tcl_MutexUnlock(&packageMutex);
+    Wrp_MutexUnlock(&packageMutex);
     return hResult;
 }
 #endif /* defined(USE_CORE_CLR) */

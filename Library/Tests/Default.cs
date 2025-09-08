@@ -6645,7 +6645,8 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static int TestMethod(
+#if NATIVE && TCL && NATIVE_PACKAGE
+        public static int TestClrMethod(
             string argument /* This is the value of the "pwzArgument" argument
                              * as it was passed to native CLR API method
                              * ICLRRuntimeHost.ExecuteInDefaultAppDomain. */
@@ -6662,6 +6663,29 @@ namespace Eagle._Tests
 
             return -1;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NET_STANDARD_20
+#if NET_CORE_50
+        [UnmanagedCallersOnly(EntryPoint = "TestCoreClrMethod",
+            CallConvs = new[] { typeof(CallConvCdecl) })]
+#endif
+        public static int TestCoreClrMethod(
+            IntPtr arg,           /* in */
+            int arg_size_in_bytes /* in */
+            )
+        {
+            if (arg != IntPtr.Zero)
+            {
+                return TestClrMethod(NativePackage.MarshalArgument(
+                    arg, arg_size_in_bytes));
+            }
+
+            return -2;
+        }
+#endif
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 

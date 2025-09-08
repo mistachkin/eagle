@@ -145,11 +145,11 @@ typedef void *HMODULE;
 #define UNICODE_STRING_MAX_CHARS	(32767)
 #endif
 
-#ifndef SUCCEEDED
+#if !defined(SUCCEEDED)
 #define SUCCEEDED(x)			(((HRESULT)(x)) >= 0)
 #endif
 
-#ifndef FAILED
+#if !defined(FAILED)
 #define FAILED(x)			(((HRESULT)(x)) < 0)
 #endif
 
@@ -169,13 +169,32 @@ typedef void *HMODULE;
 #define FACILITY_CRT			(76)
 #endif
 
-#ifndef InterlockedIncrement
+#if defined(__STDC_NO_ATOMICS__)
+#if !defined(InterlockedIncrement)
 #define InterlockedIncrement(a)		((*(a))++)
 #endif
 
-#ifndef InterlockedCompareExchange
-#define InterlockedCompareExchange(a,b,c) \
+#if !defined(InterlockedDecrement)
+#define InterlockedDecrement(a)		((*(a))--)
+#endif
+
+#if !defined(InterlockedCompareExchange)
+#define InterlockedCompareExchange(a, b, c) \
 			(((*(a)) == (c)) ? ((*(a)) = (b), (c)) : (*(a)))
+#endif
+#else
+#if !defined(InterlockedIncrement)
+#define InterlockedIncrement(a)		atomic_fetch_add((a), 1)
+#endif
+
+#if !defined(InterlockedDecrement)
+#define InterlockedDecrement(a)		atomic_fetch_sub((a), 1)
+#endif
+
+#if !defined(InterlockedCompareExchange)
+#define InterlockedCompareExchange(a, b, c) \
+			atomic_compare_exchange_strong((a), (c), (b))
+#endif
 #endif
 
 #if !defined(FACILITY_CUSTOMER_CRT)
@@ -258,6 +277,49 @@ PACKAGE_INTERN HRESULT	build_runtimeconfig_file_name(char *fileName,
 PACKAGE_INTERN size_t 	get_module_file_name(HMODULE hModule,
 			    char *fileName, size_t size);
 PACKAGE_INTERN HMODULE	get_tcl_module_handle(void);
-#endif /* !defined(_WIN32) */
+#endif
+
+/*
+ * NOTE: Setup the wrappers for the Tcl mutex APIs that are used by
+ *       this package.
+ */
+
+#if defined(USE_CORE_CLR) && !defined(_WIN32)
+/*
+ * NOTE: For non-Windows platforms, a special struct is required to keep track
+ *       of Tcl mutex ownership in order to avoid (self) deadlocks, since Tcl
+ *       8.x does not use recursive mutexes.
+ */
+
+typedef struct pthread_owner_t {
+    size_t sizeOf;		    /* Size of this structure, in bytes. */
+    pthread_t owner;		    /* Represents owner of an external mutex. */
+    unsigned recursionDepth;	    /* How many recursive locks for owner? */
+    Tcl_Mutex mutex;		    /* Mutex used to protect the owner field. */
+} pthread_owner_t;
+
+PACKAGE_INTERN int	Pal_MutexLock(Tcl_Mutex *mutexPtr,
+			    pthread_owner_t *ownerPtr);
+PACKAGE_INTERN int	Pal_MutexUnlock(Tcl_Mutex *mutexPtr,
+			    pthread_owner_t *ownerPtr);
+
+#  define Wrp_MutexLock(a)		Pal_MutexLock((a), &packageOwner)
+#  define Wrp_MutexUnlock(a)		Pal_MutexUnlock((a), &packageOwner)
+#else
+#  define Wrp_MutexLock			Tcl_MutexLock
+#  define Wrp_MutexUnlock		Tcl_MutexUnlock
+#endif /* defined(USE_CORE_CLR) && !defined(_WIN32) */
+
+/*
+ * HACK: A POSIX-compatible PTHREAD_NULL macro is required -AND- we must be
+ *       able to compare it against another pthread_t for equality.
+ */
+
+#if defined(PTHREAD_NULL)
+#  define PTHREAD_IS_NULL(a)		pthread_equal((a), PTHREAD_NULL)
+#else
+#  define PTHREAD_NULL			((pthread_t)0)
+#  define PTHREAD_IS_NULL(a)		((a) == PTHREAD_NULL)
+#endif
 
 #endif /* _GARUDA_PAL_H_ */

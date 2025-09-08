@@ -159,14 +159,95 @@ namespace eval ::Garuda {
   # NOTE: Stolen from "helper.tcl" because this procedure is needed prior to
   #       the Garuda package being loaded.
   #
-  proc isDotNetCore { {default false} } {
-    if {![isWindows]} then {
+  proc hasUseCoreClr { {varName ""} {default ""} } {
+    global env
+    variable logCommand
+    variable useCoreClr
+    variable verbose
+
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName result
+    }
+
+    if {[info exists useCoreClr] && \
+        [string is boolean -strict $useCoreClr]} then {
+      set result $useCoreClr
+
+      if {$verbose} then {
+        catch {
+          set caller [maybeFullName [lindex [info level 0] 0]]
+
+          if {[string is true -strict $result]} then {
+            eval $logCommand [list \
+                "$caller: Using CoreCLR (variable)..."]
+          } else {
+            eval $logCommand [list \
+                "$caller: Not using CoreCLR (variable)..."]
+          }
+        }
+      }
+
+      return true; # NOTE: There was an explicit setting.
+    }
+
+    if {[info exists env(UseCoreClr)] && \
+        [string is boolean -strict $env(UseCoreClr)]} then {
+      set result $env(UseCoreClr)
+
+      if {$verbose} then {
+        catch {
+          set caller [maybeFullName [lindex [info level 0] 0]]
+
+          if {[string is true -strict $result]} then {
+            eval $logCommand [list \
+                "$caller: Using CoreCLR (environment)..."]
+          } else {
+            eval $logCommand [list \
+                "$caller: Not using CoreCLR (environment)..."]
+          }
+        }
+      }
+
+      return true; # NOTE: There was an explicit setting.
+    }
+
+    set result $default
+
+    if {$verbose} then {
+      catch {
+        set caller [maybeFullName [lindex [info level 0] 0]]
+
+        if {[string is true -strict $result]} then {
+          eval $logCommand [list \
+              "$caller: Using CoreCLR (default)..."]
+        } else {
+          eval $logCommand [list \
+              "$caller: Not using CoreCLR (default)..."]
+        }
+      }
+    }
+
+    return false; # NOTE: There was not an explicit setting.
+  }
+
+  #
+  # NOTE: Stolen from "helper.tcl" because this procedure is needed prior to
+  #       the Garuda package being loaded.
+  #
+  proc isDotNetCore { {default ""} } {
+    global env
+
+    if {[info exists env(FORCE_DOTNET_CORE)] || ![isWindows]} then {
       #
       # NOTE: Assume that the .NET Framework is only available on Windows
       #       -AND- that Mono will never support the native hosting APIs,
       #       hence the only option left is the .NET (Core?) runtime.
       #
       return true
+    }
+
+    if {[hasUseCoreClr result]} then {
+      return $result; # EXPLICIT
     }
 
     if {[file rootname [file tail \
@@ -176,9 +257,23 @@ namespace eval ::Garuda {
 
     if {[llength [info procs shouldUseCoreClr]] > 0} then {
       return [shouldUseCoreClr $default]
-    } else {
-      return $default
     }
+
+    if {$verbose} then {
+      catch {
+        set caller [maybeFullName [lindex [info level 0] 0]]
+
+        if {[string is true -strict $default]} then {
+          eval $logCommand [list \
+              "$caller: Using CoreCLR (default)..."]
+        } else {
+          eval $logCommand [list \
+              "$caller: Not using CoreCLR (default)..."]
+        }
+      }
+    }
+
+    return $default
   }
 
   #############################################################################
@@ -187,7 +282,7 @@ namespace eval ::Garuda {
 
   proc findPackagePath {
           varNames varSuffixes name version platforms configurations directory
-          binaryFileName indexFileName } {
+          subDirectories binaryFileName indexFileName } {
     global env
 
     #
@@ -245,15 +340,29 @@ namespace eval ::Garuda {
     #
     foreach platform $platforms {
       foreach configuration $configurations {
-        set path [file join $directory bin $platform \
-            $configuration $binaryFileName]
-
-        if {[isValidFile $path]} then {
-          set path [file join [file dirname $path] \
-              $indexFileName]
+        foreach subDirectory $subDirectories {
+          set path [file join $directory bin $platform \
+              $configuration bin $subDirectory $binaryFileName]
 
           if {[isValidFile $path]} then {
-            return [file dirname $path]
+            set path [file join [file dirname $path] \
+                $indexFileName]
+
+            if {[isValidFile $path]} then {
+              return [file dirname $path]
+            }
+          }
+
+          set path [file join $directory bin $platform \
+              $configuration $subDirectory $binaryFileName]
+
+          if {[isValidFile $path]} then {
+            set path [file join [file dirname $path] \
+                $indexFileName]
+
+            if {[isValidFile $path]} then {
+              return [file dirname $path]
+            }
           }
         }
       }
@@ -277,6 +386,18 @@ namespace eval ::Garuda {
     return ""
   }
 
+  proc haveInAutoPath { directory } {
+    global auto_path
+
+    if {[lsearch -exact $auto_path $directory] != -1 || \
+        [lsearch -exact $auto_path [fileNormalize $directory true]] != -1 || \
+        [lsearch -exact $auto_path [file nativename $directory]] != -1} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
   proc addToAutoPath { directory } {
     global auto_path
 
@@ -285,9 +406,7 @@ namespace eval ::Garuda {
     #       not already present in the auto-path by checking several of the
     #       various forms it may take.
     #
-    if {[lsearch -exact $auto_path $directory] == -1 && \
-        [lsearch -exact $auto_path [fileNormalize $directory true]] == -1 && \
-        [lsearch -exact $auto_path [file nativename $directory]] == -1} then {
+    if {![haveInAutoPath $directory]} then {
       #
       # BUGFIX: Make sure that the specified directory is the *FIRST* one
       #         that gets searched for the package being tested; otherwise,
@@ -301,10 +420,39 @@ namespace eval ::Garuda {
   #********************** TEST VARIABLE SETUP PROCEDURES **********************
   #############################################################################
 
+  proc shouldBe64BitProcess {} {
+    global tcl_platform
+
+    if {[info exists tcl_platform(machine)]} then {
+      if {$tcl_platform(machine) eq "intel"} then {; # Windows
+        return false
+      }
+
+      if {$tcl_platform(machine) eq "amd64"} then {; # Windows
+        return true
+      }
+
+      if {$tcl_platform(machine) eq "x86_64"} then {; # Linux
+        return true
+      }
+
+      if {$tcl_platform(machine) eq "arm64"} then {; # macOS
+        return true
+      }
+    }
+
+    if {[info exists tcl_platform(wordSize)] && \
+        $tcl_platform(wordSize) == 8} then {; # Tcl 8.4+ ("safe")
+      return true
+    }
+
+    return false
+  }
+
   proc getTestPackageBinaryFileNameOnly { packageName useCoreClr } {
     set result [expr {[isWindows] ? "" : "lib"}]
 
-    if {$useCoreClr} then {
+    if {[string is true -strict $useCoreClr]} then {
       append result ${packageName}Core
     } else {
       append result ${packageName}
@@ -335,9 +483,12 @@ namespace eval ::Garuda {
         #
         lappend testPackageConfigurations DebugDll${::test_flags(-suffix)}
         lappend testPackageConfigurations ReleaseDll${::test_flags(-suffix)}
+        lappend testPackageConfigurations Debug${::test_flags(-suffix)}
+        lappend testPackageConfigurations Release${::test_flags(-suffix)}
       }
 
-      lappend testPackageConfigurations DebugDll ReleaseDll ""
+      lappend testPackageConfigurations DebugDll ReleaseDll
+      lappend testPackageConfigurations Debug Release ""
     }
   }
 
@@ -392,10 +543,20 @@ namespace eval ::Garuda {
     #       to figuring out the package binary file name (below), which is
     #       slightly different between the .NET Framework and .NET Core.
     #
-    variable testUseCoreClr; # DEFAULT: false
+    variable testUseCoreClr; # DEFAULT: ""
 
     if {![info exists testUseCoreClr]} then {
+      #
+      # HACK: This will always set the specified (namespace?) variable to
+      #       something.  If there is no explicit override set, a default
+      #       value of empty string will be used.
+      #
       set testUseCoreClr [isDotNetCore]
+    } elseif {$verbose} then {
+      #
+      # HACK: Make sure the setting value ends up in the log file.
+      #
+      hasUseCoreClr; # NOTE: No side effects.
     }
 
     ###########################################################################
@@ -404,7 +565,7 @@ namespace eval ::Garuda {
 
     #
     # NOTE: Automatically run all the tests now instead of waiting for the
-    #       runPackageTests procedure to be executed?
+    #       [runPackageTests] procedure to be executed?
     #
     variable startTests; # DEFAULT: true
 
@@ -439,43 +600,43 @@ namespace eval ::Garuda {
     # NOTE: The build platforms for the package being tested that we know about
     #       and support.
     #
-    variable testPackagePlatforms; # DEFAULT: "Win32 x64" OR "x64 Win32"
+    variable testPackagePlatforms; # DEFAULT: "Win32 x64 {}" OR "x64 Win32 {}"
 
     if {![info exists testPackagePlatforms]} then {
       #
       # NOTE: Attempt to select the appropriate platforms (architectures)
       #       for this machine.
       #
-      if {[info exists tcl_platform(machine)] && \
-          $tcl_platform(machine) eq "amd64"} then {
+      if {[shouldBe64BitProcess]} then {
         #
         # NOTE: We are running on an x64 machine, prefer it over x86.
         #
-        set testPackagePlatforms [list x64 Win32]
+        set testPackagePlatforms [list x64 Win32 ""]
       } else {
         #
         # NOTE: We are running on an x86 machine, prefer it over x64.
         #
-        set testPackagePlatforms [list Win32 x64]
+        set testPackagePlatforms [list Win32 x64 ""]
       }
     }
 
     #
-    # NOTE: The build configurations for the package being tested that we know
-    #       about and support.
+    # NOTE: The build configurations for the package being tested that we
+    #       know about and support.
     #
     setupTestPackageConfigurations false
 
     #
-    # NOTE: The Eagle build sub-directories we know about and support.
-    #       This list is used during the CLR assembly search process in the
-    #       [setupAndLoad] procedure (below).
+    # NOTE: The package build CoreCLR sub-directories we know about and
+    #       support.  This list is used during the package search process
+    #       in the [findPackagePath] procedure (below).
     #
-    variable testPackageSubDirectories; # DEFAULT: {netstandard2.X ... ""}
+    variable testPackageSubDirectories; # DEFAULT: {netcoreapp3.0 ... ""}
 
     if {![info exists testPackageSubDirectories]} then {
       set testPackageSubDirectories [list \
-          netstandard2.X netstandard2.1 netstandard2.0 ""]
+          netcoreapp3.0 netcoreapp2.0 netstandard2.X netstandard2.1 \
+          netstandard2.0 ""]
     }
 
     #
@@ -501,7 +662,7 @@ namespace eval ::Garuda {
     # NOTE: The name of the dynamic link library file containing the native
     #       code for the package being tested.
     #
-    variable testBinaryFileName; # DEFAULT: Garuda[Core].dll
+    variable testBinaryFileName; # DEFAULT: [lib]Garuda[Core].(dll|so)
 
     if {![info exists testBinaryFileName]} then {
       set testBinaryFileName [getTestPackageBinaryFileNameOnly \
@@ -710,9 +871,11 @@ namespace eval ::Garuda {
         }
       }
     } else {
-      set path [findPackagePath $testEnvVars $testEnvVarSuffixes \
-          $testPackageName $testPackageVersion $testPackagePlatforms \
-          $testPackageConfigurations $baseDirectory $testBinaryFileName \
+      set path [findPackagePath \
+          $testEnvVars $testEnvVarSuffixes $testPackageName \
+          $testPackageVersion $testPackagePlatforms \
+          $testPackageConfigurations $baseDirectory \
+          $testPackageSubDirectories $testBinaryFileName \
           $testPackageIndexFileName]
 
       if {[isValidDirectory $path]} then {
