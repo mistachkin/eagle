@@ -94,22 +94,54 @@ namespace eval ::Garuda {
   # NOTE: Stolen from "helper.tcl" because this procedure is needed prior to
   #       the Garuda package being loaded.
   #
-  proc isValidDirectory { path } {
+  proc maybeLogViaCommand { message {minusLevels 0} } {
     variable logCommand
     variable verbose
 
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level -1] 0]]
+    if {[info exists verbose] && $verbose} then {
+      if {![string is integer -strict $minusLevels] || \
+          $minusLevels < 0} then {
+        set minusLevels 0
+      }
 
-        eval $logCommand [list \
-            "$caller: Checking for directory \"$path\" from \"[pwd]\"..."]
+      set finalLevel [expr {
+        $minusLevels > 0 ? -1 - $minusLevels : ""
+      }]
+
+      foreach level [list $finalLevel -1] {
+        if {[string is integer -strict $level] && [catch {
+          maybeFullName [lindex [info level $level] 0]
+        } caller] == 0} then {
+          break
+        } else {
+          unset -nocomplain caller
+        }
+      }
+
+      if {![info exists caller]} then {
+        set caller <unknown>
+      }
+
+      if {[info exists logCommand] && \
+          [string length $logCommand] > 0} then {
+        catch {
+          eval $logCommand \
+              [list "$caller: $message"]; # USER-DEFINED (?)
+        }
       }
     }
-
+  }
+
+  #
+  # NOTE: Stolen from "helper.tcl" because this procedure is needed prior to
+  #       the Garuda package being loaded.
+  #
+  proc isValidDirectory { path } {
     #
     # NOTE: For now, just make sure the path refers to an existing directory.
     #
+    maybeLogViaCommand "Checking for directory \"$path\" from \"[pwd]\"..." 1
+
     return [expr {[string length $path] > 0 && \
           $path ne "." && $path ne ".." && \
           [file exists $path] && [file isdirectory $path]}]
@@ -120,21 +152,11 @@ namespace eval ::Garuda {
   #       the Garuda package being loaded.
   #
   proc isValidFile { path } {
-    variable logCommand
-    variable verbose
-
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level -1] 0]]
-
-        eval $logCommand [list \
-            "$caller: Checking for file \"$path\" from \"[pwd]\"..."]
-      }
-    }
-
     #
     # NOTE: For now, just make sure the path refers to an existing file.
     #
+    maybeLogViaCommand "Checking for file \"$path\" from \"[pwd]\"..." 1
+
     return [expr {[string length $path] > 0 && \
           $path ne "." && $path ne ".." && \
           [file exists $path] && [file isfile $path]}]
@@ -161,9 +183,7 @@ namespace eval ::Garuda {
   #
   proc hasUseCoreClr { {varName ""} {default ""} } {
     global env
-    variable logCommand
     variable useCoreClr
-    variable verbose
 
     if {[string length $varName] > 0} then {
       upvar 1 $varName result
@@ -173,18 +193,10 @@ namespace eval ::Garuda {
         [string is boolean -strict $useCoreClr]} then {
       set result $useCoreClr
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          if {[string is true -strict $result]} then {
-            eval $logCommand [list \
-                "$caller: Using CoreCLR (variable)..."]
-          } else {
-            eval $logCommand [list \
-                "$caller: Not using CoreCLR (variable)..."]
-          }
-        }
+      if {[string is true -strict $result]} then {
+        maybeLogViaCommand "Using CoreCLR (variable)..."
+      } else {
+        maybeLogViaCommand "Not using CoreCLR (variable)..."
       }
 
       return true; # NOTE: There was an explicit setting.
@@ -194,18 +206,10 @@ namespace eval ::Garuda {
         [string is boolean -strict $env(UseCoreClr)]} then {
       set result $env(UseCoreClr)
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          if {[string is true -strict $result]} then {
-            eval $logCommand [list \
-                "$caller: Using CoreCLR (environment)..."]
-          } else {
-            eval $logCommand [list \
-                "$caller: Not using CoreCLR (environment)..."]
-          }
-        }
+      if {[string is true -strict $result]} then {
+        maybeLogViaCommand "Using CoreCLR (environment)..."
+      } else {
+        maybeLogViaCommand "Not using CoreCLR (environment)..."
       }
 
       return true; # NOTE: There was an explicit setting.
@@ -213,18 +217,10 @@ namespace eval ::Garuda {
 
     set result $default
 
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        if {[string is true -strict $result]} then {
-          eval $logCommand [list \
-              "$caller: Using CoreCLR (default)..."]
-        } else {
-          eval $logCommand [list \
-              "$caller: Not using CoreCLR (default)..."]
-        }
-      }
+    if {[string is true -strict $result]} then {
+      maybeLogViaCommand "Using CoreCLR (default)..."
+    } else {
+      maybeLogViaCommand "Not using CoreCLR (default)..."
     }
 
     return false; # NOTE: There was not an explicit setting.
@@ -259,18 +255,10 @@ namespace eval ::Garuda {
       return [shouldUseCoreClr $default]
     }
 
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        if {[string is true -strict $default]} then {
-          eval $logCommand [list \
-              "$caller: Using CoreCLR (default)..."]
-        } else {
-          eval $logCommand [list \
-              "$caller: Not using CoreCLR (default)..."]
-        }
-      }
+    if {[string is true -strict $default]} then {
+      maybeLogViaCommand "Using CoreCLR (default)..."
+    } else {
+      maybeLogViaCommand "Not using CoreCLR (default)..."
     }
 
     return $default
@@ -712,7 +700,6 @@ namespace eval ::Garuda {
     global auto_path
     variable envVars
     variable envVarSuffixes
-    variable logCommand
     variable rootRegistryKeyName
     variable testBinaryFileName
     variable testBinaryPath
@@ -730,7 +717,6 @@ namespace eval ::Garuda {
     variable useLibrary
     variable useRegistry
     variable useRelativePath
-    variable verbose
 
     #
     # HACK: Scan for and then process the "-baseDirectory", "-configuration",
@@ -756,14 +742,7 @@ namespace eval ::Garuda {
           #
           # NOTE: Show that we set this option (in the log).
           #
-          if {$verbose} then {
-            catch {
-              set caller [maybeFullName [lindex [info level 0] 0]]
-
-              eval $logCommand [list \
-                  "$caller: Set option \"$name\" to value \"$value\"."]
-            }
-          }
+          maybeLogViaCommand "Set option \"$name\" to value \"$value\"."
         }
         -configuration -
         -suffix {
@@ -775,14 +754,7 @@ namespace eval ::Garuda {
           #
           # NOTE: Show that we set this option (in the log).
           #
-          if {$verbose} then {
-            catch {
-              set caller [maybeFullName [lindex [info level 0] 0]]
-
-              eval $logCommand [list \
-                  "$caller: Set option \"$name\" to value \"$value\"."]
-            }
-          }
+          maybeLogViaCommand "Set option \"$name\" to value \"$value\"."
 
           #
           # HACK: If we are changing the suffix, re-check the test package
@@ -803,14 +775,7 @@ namespace eval ::Garuda {
           #
           # NOTE: Show that we set this option (in the log).
           #
-          if {$verbose} then {
-            catch {
-              set caller [maybeFullName [lindex [info level 0] 0]]
-
-              eval $logCommand [list \
-                  "$caller: Set option \"$name\" to value \"$value\"."]
-            }
-          }
+          maybeLogViaCommand "Set option \"$name\" to value \"$value\"."
         }
       }
     }
@@ -844,14 +809,7 @@ namespace eval ::Garuda {
     #
     # NOTE: Show the effective base directory now.
     #
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        eval $logCommand [list \
-            "$caller: Base directory is \"$baseDirectory\"."]
-      }
-    }
+    maybeLogViaCommand "Base directory is \"$baseDirectory\"."
 
     #
     # NOTE: Attempt to find binary file for the package being tested using the
@@ -862,14 +820,7 @@ namespace eval ::Garuda {
       # NOTE: The path has probably been pre-configured by an external script;
       #       therefore, just use it verbatim.
       #
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Using existing binary path \"$testBinaryPath\"..."]
-        }
-      }
+      maybeLogViaCommand "Using existing binary path \"$testBinaryPath\"..."
     } else {
       set path [findPackagePath \
           $testEnvVars $testEnvVarSuffixes $testPackageName \
@@ -894,14 +845,7 @@ namespace eval ::Garuda {
       #       already present.
       #
       if {[lsearch -exact $auto_path $testBinaryPath] != -1} then {
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Binary path already present in \"auto_path\"."]
-          }
-        }
+        maybeLogViaCommand "Binary path already present in \"auto_path\"."
       } else {
         addToAutoPath $testBinaryPath
       }
@@ -922,15 +866,7 @@ namespace eval ::Garuda {
       #       "useLibrary", "useRegistry", and "useRelativePath" Tcl variables
       #       that we need.
       #
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Using final binary path \"$testBinaryPath\"..."]
-        }
-      }
-
+      maybeLogViaCommand "Using final binary path \"$testBinaryPath\"..."
       package require $testPackageName $testPackageVersion
 
       #
@@ -938,14 +874,7 @@ namespace eval ::Garuda {
       #       unless it has already been configured otherwise.
       #
       if {[lsearch -exact $argv -file] != -1} then {
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Option \"-file\" already present in \"argv\"."]
-          }
-        }
+        maybeLogViaCommand "Option \"-file\" already present in \"argv\"."
       } else {
         #
         # NOTE: No file option found, add it.
@@ -955,14 +884,7 @@ namespace eval ::Garuda {
         #
         # NOTE: Show that we set this option (in the log).
         #
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Set option \"-file\" to \"$testFileNames\"."]
-          }
-        }
+        maybeLogViaCommand "Set option \"-file\" to \"$testFileNames\"."
       }
 
       #
@@ -996,15 +918,8 @@ namespace eval ::Garuda {
         eval lappendUnique testSuiteDirectories [getLibraryPathList]
       }
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Final list of directories to search:\
-              $testSuiteDirectories"]
-        }
-      }
+      maybeLogViaCommand \
+          "Final list of directories to search: $testSuiteDirectories"
 
       #
       # NOTE: Search for the main Eagle test suite file in all the configured
@@ -1026,15 +941,7 @@ namespace eval ::Garuda {
         #
         # NOTE: Attempt to run the Eagle test suite now.
         #
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Using final test file name \"$testFileName\"..."]
-          }
-        }
-
+        maybeLogViaCommand "Using final test file name \"$testFileName\"..."
         uplevel #0 [list source $testFileName]
 
         #

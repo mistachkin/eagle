@@ -98,22 +98,53 @@ namespace eval ::Garuda {
   #
   # NOTE: Also defined in and used by "all.tcl".
   #
-  proc isValidDirectory { path } {
+  proc maybeLogViaCommand { message {minusLevels 0} } {
     variable logCommand
     variable verbose
 
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level -1] 0]]
+    if {[info exists verbose] && $verbose} then {
+      if {![string is integer -strict $minusLevels] || \
+          $minusLevels < 0} then {
+        set minusLevels 0
+      }
 
-        eval $logCommand [list \
-            "$caller: Checking for directory \"$path\" from \"[pwd]\"..."]
+      set finalLevel [expr {
+        $minusLevels > 0 ? -1 - $minusLevels : ""
+      }]
+
+      foreach level [list $finalLevel -1] {
+        if {[string is integer -strict $level] && [catch {
+          maybeFullName [lindex [info level $level] 0]
+        } caller] == 0} then {
+          break
+        } else {
+          unset -nocomplain caller
+        }
+      }
+
+      if {![info exists caller]} then {
+        set caller <unknown>
+      }
+
+      if {[info exists logCommand] && \
+          [string length $logCommand] > 0} then {
+        catch {
+          eval $logCommand \
+              [list "$caller: $message"]; # USER-DEFINED (?)
+        }
       }
     }
-
+  }
+
+  #
+  # NOTE: Also defined in and used by "all.tcl".
+  #
+  proc isValidDirectory { path } {
     #
     # NOTE: For now, just make sure the path refers to an existing directory.
     #
+    maybeLogViaCommand "Checking for directory \"$path\" from \"[pwd]\"..." 1
+
     return [expr {[string length $path] > 0 && \
           $path ne "." && $path ne ".." && \
           [file exists $path] && [file isdirectory $path]}]
@@ -123,21 +154,11 @@ namespace eval ::Garuda {
   # NOTE: Also defined in and used by "all.tcl".
   #
   proc isValidFile { path } {
-    variable logCommand
-    variable verbose
-
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level -1] 0]]
-
-        eval $logCommand [list \
-            "$caller: Checking for file \"$path\" from \"[pwd]\"..."]
-      }
-    }
-
     #
     # NOTE: For now, just make sure the path refers to an existing file.
     #
+    maybeLogViaCommand "Checking for file \"$path\" from \"[pwd]\"..." 1
+
     return [expr {[string length $path] > 0 && \
           $path ne "." && $path ne ".." && \
           [file exists $path] && [file isfile $path]}]
@@ -162,9 +183,7 @@ namespace eval ::Garuda {
   #
   proc hasUseCoreClr { {varName ""} {default ""} } {
     global env
-    variable logCommand
     variable useCoreClr
-    variable verbose
 
     if {[string length $varName] > 0} then {
       upvar 1 $varName result
@@ -174,18 +193,10 @@ namespace eval ::Garuda {
         [string is boolean -strict $useCoreClr]} then {
       set result $useCoreClr
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          if {[string is true -strict $result]} then {
-            eval $logCommand [list \
-                "$caller: Using CoreCLR (variable)..."]
-          } else {
-            eval $logCommand [list \
-                "$caller: Not using CoreCLR (variable)..."]
-          }
-        }
+      if {[string is true -strict $result]} then {
+        maybeLogViaCommand "Using CoreCLR (variable)..."
+      } else {
+        maybeLogViaCommand "Not using CoreCLR (variable)..."
       }
 
       return true; # NOTE: There was an explicit setting.
@@ -195,18 +206,10 @@ namespace eval ::Garuda {
         [string is boolean -strict $env(UseCoreClr)]} then {
       set result $env(UseCoreClr)
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          if {[string is true -strict $result]} then {
-            eval $logCommand [list \
-                "$caller: Using CoreCLR (environment)..."]
-          } else {
-            eval $logCommand [list \
-                "$caller: Not using CoreCLR (environment)..."]
-          }
-        }
+      if {[string is true -strict $result]} then {
+        maybeLogViaCommand "Using CoreCLR (environment)..."
+      } else {
+        maybeLogViaCommand "Not using CoreCLR (environment)..."
       }
 
       return true; # NOTE: There was an explicit setting.
@@ -214,18 +217,10 @@ namespace eval ::Garuda {
 
     set result $default
 
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        if {[string is true -strict $result]} then {
-          eval $logCommand [list \
-              "$caller: Using CoreCLR (default)..."]
-        } else {
-          eval $logCommand [list \
-              "$caller: Not using CoreCLR (default)..."]
-        }
-      }
+    if {[string is true -strict $result]} then {
+      maybeLogViaCommand "Using CoreCLR (default)..."
+    } else {
+      maybeLogViaCommand "Not using CoreCLR (default)..."
     }
 
     return false; # NOTE: There was not an explicit setting.
@@ -259,18 +254,10 @@ namespace eval ::Garuda {
       return [shouldUseCoreClr $default]
     }
 
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        if {[string is true -strict $default]} then {
-          eval $logCommand [list \
-              "$caller: Using CoreCLR (default)..."]
-        } else {
-          eval $logCommand [list \
-              "$caller: Not using CoreCLR (default)..."]
-        }
-      }
+    if {[string is true -strict $default]} then {
+      maybeLogViaCommand "Using CoreCLR (default)..."
+    } else {
+      maybeLogViaCommand "Not using CoreCLR (default)..."
     }
 
     return $default
@@ -281,9 +268,6 @@ namespace eval ::Garuda {
   #############################################################################
 
   proc isLoaded { fileName {varName ""} } {
-    variable logCommand
-    variable verbose
-
     #
     # NOTE: If requested by the caller, give them access to all loaded package
     #       entries that we may find.
@@ -302,28 +286,12 @@ namespace eval ::Garuda {
       # HACK: Exact matching is being used here.  Is this reliable?
       #
       if {[lindex $loaded 0] eq $fileName} then {
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Package binary file \"$fileName\" is loaded."]
-          }
-        }
-
+        maybeLogViaCommand "Package binary file \"$fileName\" is loaded."
         return true
       }
     }
 
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        eval $logCommand [list \
-            "$caller: Package binary file \"$fileName\" is not loaded."]
-      }
-    }
-
+    maybeLogViaCommand "Package binary file \"$fileName\" is not loaded."
     return false
   }
 
@@ -635,6 +603,20 @@ namespace eval ::Garuda {
         $tcl_platform(os) eq "Darwin"}]
   }
 
+  proc somehowLreverse { list } {
+    if {[llength [info commands ::lreverse]] > 0} then {
+      return [::lreverse $list]
+    } else {
+      set result [list]
+
+      foreach item $list {
+        set result [linsert $result 0 $item]
+      }
+
+      return $result
+    }
+  }
+
   #
   # NOTE: This procedure returns the list of "well-known" release types for
   #       the CoreCLR.  This list may need to be updated if/when additional
@@ -868,7 +850,7 @@ namespace eval ::Garuda {
 
     if {[info exists coreClrVersions]} then {
       if {[info exists useMinimumClr] && $useMinimumClr} then {
-        set patterns [lreverse $coreClrVersions]
+        set patterns [somehowLreverse $coreClrVersions]
       } else {
         set patterns $coreClrVersions
       }
@@ -1143,10 +1125,8 @@ namespace eval ::Garuda {
   #
   proc shouldUseCoreClr { {default ""} } {
     global tcl_platform
-    variable logCommand
     variable packageName
     variable packagePath
-    variable verbose
 
     #
     # NOTE: The package -OR- environment has been explicitly configured
@@ -1175,51 +1155,23 @@ namespace eval ::Garuda {
             [getPackageBinaryFileNameOnly $packageName true]]; # CoreCLR
 
         if {[isValidFile $fileName(1)]} then {
-          if {$verbose} then {
-            catch {
-              set caller [maybeFullName [lindex [info level 0] 0]]
-
-              eval $logCommand [list \
-                  "$caller: Found CLR shared library \"$fileName(1)\"\
-                  (installed)..."]
-            }
-          }
+          maybeLogViaCommand \
+              "Found CLR shared library \"$fileName(1)\" (installed)..."
 
           set haveClr true
         } else {
-          if {$verbose} then {
-            catch {
-              set caller [maybeFullName [lindex [info level 0] 0]]
-
-              eval $logCommand [list \
-                  "$caller: Missing CLR shared library \"$fileName(1)\"\
-                  (installed)..."]
-            }
-          }
+          maybeLogViaCommand \
+              "Missing CLR shared library \"$fileName(1)\" (installed)..."
         }
 
         if {[isValidFile $fileName(2)]} then {
-          if {$verbose} then {
-            catch {
-              set caller [maybeFullName [lindex [info level 0] 0]]
-
-              eval $logCommand [list \
-                  "$caller: Found CoreCLR shared library \"$fileName(2)\"\
-                  (installed)..."]
-            }
-          }
+          maybeLogViaCommand \
+              "Found CoreCLR shared library \"$fileName(2)\" (installed)..."
 
           set haveCoreClr true
         } else {
-          if {$verbose} then {
-            catch {
-              set caller [maybeFullName [lindex [info level 0] 0]]
-
-              eval $logCommand [list \
-                  "$caller: Missing CoreCLR shared library \"$fileName(2)\"\
-                  (installed)..."]
-            }
-          }
+          maybeLogViaCommand \
+              "Missing CoreCLR shared library \"$fileName(2)\" (installed)..."
         }
       }
 
@@ -1232,15 +1184,7 @@ namespace eval ::Garuda {
 
         if {[string length $platform] > 0} then {
           if {[checkCoreClrDirectories $platform version]} then {
-            if {$verbose} then {
-              catch {
-                set caller [maybeFullName [lindex [info level 0] 0]]
-
-                eval $logCommand [list \
-                    "$caller: Using CoreCLR $version (installed)..."]
-              }
-            }
-
+            maybeLogViaCommand "Using CoreCLR $version (installed)..."
             return true
           }
         }
@@ -1250,18 +1194,10 @@ namespace eval ::Garuda {
     #
     # NOTE: Fallback to the default setting, which depends on the caller.
     #
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        if {[string is true -strict $default]} then {
-          eval $logCommand [list \
-              "$caller: Using CoreCLR (default)..."]
-        } else {
-          eval $logCommand [list \
-              "$caller: Not using CoreCLR (default)..."]
-        }
-      }
+    if {[string is true -strict $default]} then {
+      maybeLogViaCommand "Using CoreCLR (default)..."
+    } else {
+      maybeLogViaCommand "Not using CoreCLR (default)..."
     }
 
     #
@@ -1283,24 +1219,14 @@ namespace eval ::Garuda {
   proc shouldUseMinimumClr { fileName {default true} } {
     global env
     variable clrVersions
-    variable logCommand
     variable useMinimumClr
-    variable verbose
 
     #
     # NOTE: The package has been configured to use the minimum supported CLR
     #       version; therefore, return true.
     #
     if {[info exists useMinimumClr] && $useMinimumClr} then {
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Using minimum CLR version (variable)..."]
-        }
-      }
-
+      maybeLogViaCommand "Using minimum CLR version (variable)..."
       return true
     }
 
@@ -1311,18 +1237,12 @@ namespace eval ::Garuda {
     if {[info exists env(UseMinimumClr)]} then {
       set result $env(UseMinimumClr)
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          if {$result} then {
-            eval $logCommand [list \
-                "$caller: Using minimum CLR version (environment)..."]
-          } else {
-            eval $logCommand [list \
-                "$caller: Using latest CLR version (environment)..."]
-          }
-        }
+      if {$result} then {
+        maybeLogViaCommand \
+            "Using minimum CLR version (environment)..."
+      } else {
+        maybeLogViaCommand \
+            "Using latest CLR version (environment)..."
       }
 
       return $result
@@ -1333,15 +1253,7 @@ namespace eval ::Garuda {
     #       machine; therefore, return true.
     #
     if {![checkFrameworkDirectory [lindex $clrVersions end]]} then {
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Using minimum CLR version (missing)..."]
-        }
-      }
-
+      maybeLogViaCommand "Using minimum CLR version (missing)..."
       return true
     }
 
@@ -1357,18 +1269,10 @@ namespace eval ::Garuda {
       #       the specified default result.
       #
       if {[string length $version] == 0} then {
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            if {$default} then {
-              eval $logCommand [list \
-                  "$caller: Using minimum CLR version (default)..."]
-            } else {
-              eval $logCommand [list \
-                  "$caller: Using latest CLR version (default)..."]
-            }
-          }
+        if {$default} then {
+          maybeLogViaCommand "Using minimum CLR version (default)..."
+        } else {
+          maybeLogViaCommand "Using latest CLR version (default)..."
         }
 
         return $default
@@ -1379,15 +1283,7 @@ namespace eval ::Garuda {
       #       supported; therefore, return true.
       #
       if {$version eq [lindex $clrVersions 0]} then {
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Using minimum CLR version (assembly)..."]
-          }
-        }
-
+        maybeLogViaCommand "Using minimum CLR version (assembly)..."
         return true
       }
     }
@@ -1395,15 +1291,7 @@ namespace eval ::Garuda {
     #
     # NOTE: Ok, just use the latest supported version of the CLR.
     #
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        eval $logCommand [list \
-            "$caller: Using latest CLR version..."]
-      }
-    }
-
+    maybeLogViaCommand "Using latest CLR version..."
     return false
   }
 
@@ -1413,24 +1301,14 @@ namespace eval ::Garuda {
   #
   proc shouldUseIsolation {} {
     global env
-    variable logCommand
     variable useIsolation
-    variable verbose
 
     #
     # NOTE: The package has been configured to use interpreter isolation;
     #       therefore, return true.
     #
     if {[info exists useIsolation] && $useIsolation} then {
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Using interpreter isolation (variable)..."]
-        }
-      }
-
+      maybeLogViaCommand "Using interpreter isolation (variable)..."
       return true
     }
 
@@ -1440,18 +1318,10 @@ namespace eval ::Garuda {
     if {[info exists env(UseIsolation)]} then {
       set result $env(UseIsolation)
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          if {$result} then {
-            eval $logCommand [list \
-                "$caller: Using interpreter isolation (environment)..."]
-          } else {
-            eval $logCommand [list \
-                "$caller: Not using interpreter isolation (environment)..."]
-          }
-        }
+      if {$result} then {
+        maybeLogViaCommand "Using interpreter isolation (environment)..."
+      } else {
+        maybeLogViaCommand "Not using interpreter isolation (environment)..."
       }
 
       return $result
@@ -1460,15 +1330,7 @@ namespace eval ::Garuda {
     #
     # NOTE: Ok, disable interpreter isolation.
     #
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        eval $logCommand [list \
-            "$caller: Not using interpreter isolation..."]
-      }
-    }
-
+    maybeLogViaCommand "Not using interpreter isolation..."
     return false
   }
 
@@ -1478,24 +1340,14 @@ namespace eval ::Garuda {
   #
   proc shouldUseSafeInterp {} {
     global env
-    variable logCommand
     variable useSafeInterp
-    variable verbose
 
     #
     # NOTE: The package has been configured to use a "safe" interpreter;
     #       therefore, return true.
     #
     if {[info exists useSafeInterp] && $useSafeInterp} then {
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Using a \"safe\" interpreter (variable)..."]
-        }
-      }
-
+      maybeLogViaCommand "Using a \"safe\" interpreter (variable)..."
       return true
     }
 
@@ -1505,18 +1357,10 @@ namespace eval ::Garuda {
     if {[info exists env(UseSafeInterp)]} then {
       set result $env(UseSafeInterp)
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          if {$result} then {
-            eval $logCommand [list \
-                "$caller: Using a \"safe\" interpreter (environment)..."]
-          } else {
-            eval $logCommand [list \
-                "$caller: Not using a \"safe\" interpreter (environment)..."]
-          }
-        }
+      if {$result} then {
+        maybeLogViaCommand "Using a \"safe\" interpreter (environment)..."
+      } else {
+        maybeLogViaCommand "Not using a \"safe\" interpreter (environment)..."
       }
 
       return $result
@@ -1525,15 +1369,7 @@ namespace eval ::Garuda {
     #
     # NOTE: Ok, disable "safe" interpreter use.
     #
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        eval $logCommand [list \
-            "$caller: Not using a \"safe\" interpreter..."]
-      }
-    }
-
+    maybeLogViaCommand "Not using a \"safe\" interpreter..."
     return false
   }
 
@@ -1548,34 +1384,18 @@ namespace eval ::Garuda {
 
   proc getRuntimeConfigPath {} {
     global env
-    variable logCommand
-    variable verbose
 
     if {[info exists env(RuntimeConfigPath)]} then {
       set path $env(RuntimeConfigPath)
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Using runtime configuration path\
-              \"$path\" (environment)..."]
-        }
-      }
+      maybeLogViaCommand \
+          "Using runtime configuration path \"$path\" (environment)..."
 
       return $path
     } elseif {![interp issafe]} then {
       set fileName [info nameofexecutable]
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Detected executable file name \"$fileName\"..."]
-        }
-      }
+      maybeLogViaCommand "Detected executable file name \"$fileName\"..."
 
       set fileNameOnly [file tail $fileName]
 
@@ -1592,21 +1412,18 @@ namespace eval ::Garuda {
               set directory [file dirname $fileName]
             }
           } else {
-            set directory /tmp; # TODO: Portable?
+            if {[info exists env(TMPDIR)]} then {
+              set directory $env(TMPDIR)
+            } else {
+              set directory /tmp; # TODO: Portable?
+            }
           }
         }
 
         set path [file join $directory $fileNameOnly]
 
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Using runtime configuration path\
-                \"$path\" (default)..."]
-          }
-        }
+        maybeLogViaCommand \
+            "Using runtime configuration path \"$path\" (default)..."
 
         return $path
       }
@@ -2702,9 +2519,7 @@ namespace eval ::Garuda {
   proc setupForCoreClr {} {
     global tcl_platform
     variable coreClrVersion
-    variable logCommand
     variable runtimeConfigPath
-    variable verbose
 
     #
     # NOTE: Several places below need the current platform identifier.
@@ -2723,15 +2538,7 @@ namespace eval ::Garuda {
     if {[string length $platform] > 0} then {
       if {![info exists coreClrVersion] && \
           [checkCoreClrDirectories $platform version]} then {
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Using CoreCLR $version (installed)..."]
-          }
-        }
-
+        maybeLogViaCommand "Using CoreCLR $version (installed)..."
         set coreClrVersion $version; # NOTE: Select "best" version.
       }
     }
@@ -2746,15 +2553,9 @@ namespace eval ::Garuda {
           ![isValidFile $runtimeConfigPath]} then {
         writeCoreClrRuntimeConfiguration $runtimeConfigPath $coreClrVersion
 
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Wrote CoreCLR $coreClrVersion configuration\
-                to file \"$runtimeConfigPath\"..."]
-          }
-        }
+        maybeLogViaCommand \
+            "Wrote CoreCLR $coreClrVersion configuration to file\
+            \"$runtimeConfigPath\"..."
       }
 
       if {[string length $platform] > 0} then {
@@ -2763,15 +2564,8 @@ namespace eval ::Garuda {
 
         if {[string length $runtimeDirectory] > 0 && \
             [addToPath $runtimeDirectory]} then {
-          if {$verbose} then {
-            catch {
-              set caller [maybeFullName [lindex [info level 0] 0]]
-
-              eval $logCommand [list \
-                  "$caller: Added CoreCLR $coreClrVersion runtime\
-                  directory \"$runtimeDirectory\" to PATH..."]
-            }
-          }
+          maybeLogViaCommand "Added CoreCLR $coreClrVersion runtime\
+                             directory \"$runtimeDirectory\" to PATH..."
         }
       }
     }
@@ -2784,7 +2578,6 @@ namespace eval ::Garuda {
     variable assemblySubDirectories
     variable envVars
     variable envVarSuffixes
-    variable logCommand
     variable packageBinaryFileName
     variable packageName
     variable rootRegistryKeyName
@@ -2792,21 +2585,13 @@ namespace eval ::Garuda {
     variable useLibrary
     variable useRegistry
     variable useRelativePath
-    variable verbose
 
     if {[info exists assemblyPath]} then {
       #
       # NOTE: Managed assembly path has been pre-configured by an external
       #       script; therefore, just use it verbatim.
       #
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Using existing assembly path \"$assemblyPath\"..."]
-        }
-      }
+      maybeLogViaCommand "Using existing assembly path \"$assemblyPath\"..."
     } else {
       #
       # NOTE: Build list of directories to search for the managed assembly.
@@ -2838,14 +2623,7 @@ namespace eval ::Garuda {
         eval lappendUnique directories [getLibraryPathList]
       }
 
-      if {$verbose} then {
-        catch {
-          set caller [maybeFullName [lindex [info level 0] 0]]
-
-          eval $logCommand [list \
-              "$caller: Final list of directories to search: $directories"]
-        }
-      }
+      maybeLogViaCommand "Final list of directories to search: $directories"
 
       #
       # NOTE: Attempt to find the Eagle managed assembly file using the list
@@ -2881,14 +2659,7 @@ namespace eval ::Garuda {
         set assemblyPath [fileNormalize [file join $directory [lindex \
             $assemblyFileNames end]]]
 
-        if {$verbose} then {
-          catch {
-            set caller [maybeFullName [lindex [info level 0] 0]]
-
-            eval $logCommand [list \
-                "$caller: Using default assembly path \"$assemblyPath\"..."]
-          }
-        }
+        maybeLogViaCommand "Using default assembly path \"$assemblyPath\"..."
       }
     }
 
@@ -2896,15 +2667,7 @@ namespace eval ::Garuda {
     # NOTE: Attempt to load the dynamic link library for the package now that
     #       the managed assembly path has been set [to something].
     #
-    if {$verbose} then {
-      catch {
-        set caller [maybeFullName [lindex [info level 0] 0]]
-
-        eval $logCommand [list \
-            "$caller: Using final assembly path \"$assemblyPath\"..."]
-      }
-    }
-
+    maybeLogViaCommand "Using final assembly path \"$assemblyPath\"..."
     load $packageBinaryFileName $packageName
   }
 

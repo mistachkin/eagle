@@ -17,11 +17,23 @@
 if {![package vsatisfies [package provide Tcl] 8.4]} then {return}
 if {[string length [package provide Eagle]] > 0} then {return}
 
+package ifneeded GarudaHelper 1.0 \
+    [list source [file join $dir helper.tcl]]
+
 package ifneeded dotnet 1.0 \
     [list source [file join $dir dotnet.tcl]]
 
 package ifneeded Garuda 1.0 \
     [list source [file join $dir garuda.tcl]]
 
-package ifneeded GarudaHelper 1.0 \
-    [list source [file join $dir helper.tcl]]
+package ifneeded GarudaDotNetFx 1.0 \
+    [list namespace eval ::Garuda {
+      variable useCoreClr false
+      uplevel 1 {source [file join $dir garuda.tcl]}
+    }]
+
+package ifneeded GarudaDotNetCore 1.0 \
+    [list namespace eval ::Garuda {
+      variable useCoreClr true
+      uplevel 1 {source [file join $dir garuda.tcl]}
+    }]

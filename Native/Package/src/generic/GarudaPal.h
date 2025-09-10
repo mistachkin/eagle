@@ -308,7 +308,7 @@ PACKAGE_INTERN int	Pal_MutexUnlock(Tcl_Mutex *mutexPtr,
 #else
 #  define Wrp_MutexLock			Tcl_MutexLock
 #  define Wrp_MutexUnlock		Tcl_MutexUnlock
-#endif /* defined(USE_CORE_CLR) && !defined(_WIN32) */
+#endif
 
 /*
  * HACK: A POSIX-compatible PTHREAD_NULL macro is required -AND- we must be

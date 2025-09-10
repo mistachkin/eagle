@@ -176,6 +176,15 @@ static volatile HMODULE hTclModule = NULL;
  */
 
 static ClrTclStubs uTclStubs = { 0 };
+
+/*
+ * NOTE: The logical list of package names that will be provided to the Tcl
+ *       interpreter from within the Garuda_Init function.
+ */
+
+static const char *packageNames[] = {
+    PACKAGE_NAME, PACKAGE_NAME_1, PACKAGE_NAME_2, PACKAGE_NAME_3, NULL
+};
 
 #if defined(USE_TCL_PRIVATE_STUBS)
 /*
@@ -1771,6 +1780,7 @@ int Garuda_Init(
     BOOL bClrWasLoaded = FALSE;
     BOOL bClrWasStarted = FALSE;
     Tcl_Command command;
+    int index;
 
     /*
      * NOTE: Make sure the Tcl interpreter is valid and then try to initialize
@@ -1967,19 +1977,15 @@ int Garuda_Init(
     Tcl_SetAssocData(interp, PACKAGE_NAME, NULL, command);
 
     /*
-     * NOTE: Attempt to provide the primary package to the Tcl interpreter.
+     * NOTE: Attempt to provide various package names to the Tcl interpreter.
      */
 
-    code = Tcl_PkgProvide(interp, PACKAGE_NAME, PACKAGE_VERSION);
+    for (index = 0; packageNames[index] != NULL; index++) {
+	code = Tcl_PkgProvide(interp, packageNames[index], PACKAGE_VERSION);
 
-    if (code != TCL_OK)
-	goto done;
-
-    /*
-     * NOTE: Attempt to provide the secondary package to the Tcl interpreter.
-     */
-
-    code = Tcl_PkgProvide(interp, PACKAGE_ALTERNATE_NAME, PACKAGE_VERSION);
+	if (code != TCL_OK)
+	    goto done;
+    }
 
 done:
 

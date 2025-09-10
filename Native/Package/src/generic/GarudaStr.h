@@ -513,6 +513,6 @@ PACKAGE_INTERN size_t	Cvt_get_module_file_name(HMODULE hModule,
 #  define Wrp_pInitForRuntimeConfig		uCoreClrFunctions.pInitForRuntimeConfig
 #  define Wrp_pLoadAssemblyAndGetFuncPtr	uCoreClrFunctions.pLoadAssemblyAndGetFuncPtr
 #  define Wrp_get_module_file_name		GetModuleFileNameW
-#endif /* defined(USE_CORE_CLR) && !defined(_WIN32) */
+#endif
 
 #endif /* _GARUDA_STR_H_ */

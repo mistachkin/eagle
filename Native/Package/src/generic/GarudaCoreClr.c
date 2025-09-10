@@ -100,15 +100,9 @@ BOOL GetCoreClrWasLoaded(void)
 {
     BOOL bResult;
 
-#if defined(_WIN32)
     Wrp_MutexLock(&packageMutex);
-#endif
-
     bResult = (pCoreClrModule != NULL);
-
-#if defined(_WIN32)
     Wrp_MutexUnlock(&packageMutex);
-#endif
 
     return bResult;
 }
@@ -134,15 +128,9 @@ BOOL GetCoreClrWasStarted(void)
 {
     BOOL bResult;
 
-#if defined(_WIN32)
     Wrp_MutexLock(&packageMutex);
-#endif
-
     bResult = (pCoreClrContext != NULL);
-
-#if defined(_WIN32)
     Wrp_MutexUnlock(&packageMutex);
-#endif
 
     return bResult;
 }
@@ -168,15 +156,9 @@ BOOL GetCoreClrBridgeStarted(void)
 {
     BOOL bResult;
 
-#if defined(_WIN32)
     Wrp_MutexLock(&packageMutex);
-#endif
-
     bResult = bCoreClrBridgeStarted;
-
-#if defined(_WIN32)
     Wrp_MutexUnlock(&packageMutex);
-#endif
 
     return bResult;
 }
@@ -201,15 +183,9 @@ BOOL GetCoreClrBridgeStarted(void)
 void SetCoreClrBridgeStarted(
     BOOL bStarted)	    /* Non-zero if the bridge was started. */
 {
-#if defined(_WIN32)
     Wrp_MutexLock(&packageMutex);
-#endif
-
     bCoreClrBridgeStarted = bStarted;
-
-#if defined(_WIN32)
     Wrp_MutexUnlock(&packageMutex);
-#endif
 }
 
 /*
@@ -756,9 +732,7 @@ BOOL CanExecuteCoreClrCode(
 {
     BOOL bResult = FALSE;
 
-#if defined(_WIN32)
     Wrp_MutexLock(&packageMutex);
-#endif
 
     if (pCoreClrModule == NULL) {
 	if (interp != NULL) {
@@ -780,10 +754,7 @@ BOOL CanExecuteCoreClrCode(
 
 done:
 
-#if defined(_WIN32)
     Wrp_MutexUnlock(&packageMutex);
-#endif
-
     return bResult;
 }
 

@@ -349,32 +349,33 @@ int Pal_MutexLock(
     Tcl_Mutex *mutexPtr,	/* The mutex to lock. */
     pthread_owner_t *ownerPtr)	/* Owner of mutex, if any. */
 {
-    if ((mutexPtr != NULL) && (ownerPtr != NULL)) {
-	pthread_t self = pthread_self();
+    if ((mutexPtr == NULL) || (ownerPtr == NULL))
+	return 0;
 
-	Tcl_MutexLock(&ownerPtr->mutex);
+    pthread_t self = pthread_self();
 
-	if (!PTHREAD_IS_NULL(ownerPtr->owner) &&
-		pthread_equal(ownerPtr->owner, self)) {
-	    assert(ownerPtr->recursionDepth > 0);
-	    ownerPtr->recursionDepth++;
+    Tcl_MutexLock(&ownerPtr->mutex);
 
-	    Tcl_MutexUnlock(&ownerPtr->mutex);
-	    return 1;
-	}
-
-	assert(ownerPtr->recursionDepth == 0);
-
-	Tcl_MutexUnlock(&ownerPtr->mutex);
-	Tcl_MutexLock(mutexPtr); /* BLOCKING */
-	Tcl_MutexLock(&ownerPtr->mutex);
-
-	ownerPtr->owner = self;
+    if (!PTHREAD_IS_NULL(ownerPtr->owner) &&
+	    pthread_equal(ownerPtr->owner, self)) {
+	assert(ownerPtr->recursionDepth > 0);
 	ownerPtr->recursionDepth++;
 
 	Tcl_MutexUnlock(&ownerPtr->mutex);
 	return 1;
     }
+
+    assert(ownerPtr->recursionDepth == 0);
+
+    Tcl_MutexUnlock(&ownerPtr->mutex);
+    Tcl_MutexLock(mutexPtr); /* BLOCKING */
+    Tcl_MutexLock(&ownerPtr->mutex);
+
+    ownerPtr->owner = self;
+    ownerPtr->recursionDepth++;
+
+    Tcl_MutexUnlock(&ownerPtr->mutex);
+    return 1;
 }
 
 /*
@@ -401,37 +402,38 @@ int Pal_MutexUnlock(
     Tcl_Mutex *mutexPtr,	/* The mutex to unlock. */
     pthread_owner_t *ownerPtr)	/* Owner of mutex, if any. */
 {
-    if ((mutexPtr != NULL) && (ownerPtr != NULL)) {
-	pthread_t self = pthread_self();
-	unsigned depth;
+    if ((mutexPtr == NULL) || (ownerPtr == NULL))
+	return 0;
 
-	Tcl_MutexLock(&ownerPtr->mutex);
+    pthread_t self = pthread_self();
+    unsigned depth;
 
-	if (PTHREAD_IS_NULL(ownerPtr->owner)) {
-	    assert(ownerPtr->recursionDepth == 0);
-	    Tcl_MutexUnlock(&ownerPtr->mutex);
-	    return 0; /* BUGBUG: There is no owner. */
-	}
+    Tcl_MutexLock(&ownerPtr->mutex);
 
-	assert(ownerPtr->recursionDepth > 0);
-
-	if (!pthread_equal(ownerPtr->owner, self) ||
-		(ownerPtr->recursionDepth == 0)) {
-	    Tcl_MutexUnlock(&ownerPtr->mutex);
-	    return 0; /* BUGBUG: Caller not owner. */
-	}
-
-	if ((depth = (--ownerPtr->recursionDepth)) == 0) {
-	    assert(ownerPtr->recursionDepth == 0);
-	    ownerPtr->owner = PTHREAD_NULL;
-	}
-
+    if (PTHREAD_IS_NULL(ownerPtr->owner)) {
+	assert(ownerPtr->recursionDepth == 0);
 	Tcl_MutexUnlock(&ownerPtr->mutex);
-
-	if (depth == 0)
-	    Tcl_MutexUnlock(mutexPtr);
-
-	return 1;
+	return 0; /* BUGBUG: There is no owner. */
     }
+
+    assert(ownerPtr->recursionDepth > 0);
+
+    if (!pthread_equal(ownerPtr->owner, self) ||
+	    (ownerPtr->recursionDepth == 0)) {
+	Tcl_MutexUnlock(&ownerPtr->mutex);
+	return 0; /* BUGBUG: Caller not owner. */
+    }
+
+    if ((depth = (--ownerPtr->recursionDepth)) == 0) {
+	assert(ownerPtr->recursionDepth == 0);
+	ownerPtr->owner = PTHREAD_NULL;
+    }
+
+    Tcl_MutexUnlock(&ownerPtr->mutex);
+
+    if (depth == 0)
+	Tcl_MutexUnlock(mutexPtr);
+
+    return 1;
 }
 #endif /* !defined(_WIN32) */

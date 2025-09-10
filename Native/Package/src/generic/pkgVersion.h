@@ -13,7 +13,9 @@
 #define _PKG_VERSION_H_
 
 #define PACKAGE_NAME		"Garuda"
-#define PACKAGE_ALTERNATE_NAME	"dotnet"
+#define PACKAGE_NAME_1		"dotnet"
+#define PACKAGE_NAME_2		"GarudaDotNetFx"
+#define PACKAGE_NAME_3		"GarudaDotNetCore"
 #define COMMAND_NAME		"garuda"
 #define PACKAGE_VERSION		"1.0"
 #define PACKAGE_PROTOCOL_V1R0	"v1.0"
