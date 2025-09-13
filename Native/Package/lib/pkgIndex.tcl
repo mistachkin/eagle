@@ -18,22 +18,22 @@ if {![package vsatisfies [package provide Tcl] 8.4]} then {return}
 if {[string length [package provide Eagle]] > 0} then {return}
 
 package ifneeded GarudaHelper 1.0 \
-    [list source [file join $dir helper.tcl]]
+    [list source [file join $dir helper.tcl]]; # NOTE: Skip extension load.
 
 package ifneeded dotnet 1.0 \
-    [list source [file join $dir dotnet.tcl]]
+    [list source [file join $dir dotnet.tcl]]; # NOTE: Auto-detect runtime.
 
 package ifneeded Garuda 1.0 \
-    [list source [file join $dir garuda.tcl]]
+    [list source [file join $dir garuda.tcl]]; # NOTE: Auto-detect runtime.
 
 package ifneeded GarudaDotNetFx 1.0 \
     [list namespace eval ::Garuda {
       variable useCoreClr false
       uplevel 1 {source [file join $dir garuda.tcl]}
-    }]
+    }]; # NOTE: Force use of .NET Framework runtime and load extension.
 
 package ifneeded GarudaDotNetCore 1.0 \
     [list namespace eval ::Garuda {
       variable useCoreClr true
       uplevel 1 {source [file join $dir garuda.tcl]}
-    }]
+    }]; # NOTE: Force use of .NET (Core?) runtime and load extension.

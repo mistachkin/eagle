@@ -3388,7 +3388,11 @@
   ******************************************************************************
   -->
 
-  <Target Name="LockBuildOutputDirectories">
+  <Target Name="LockBuildOutputDirectories"
+          Condition="'$(EagleTaskTargets)' != 'false' And
+                     '$(EagleTaskPath)' != '' And
+                     HasTrailingSlash('$(EagleTaskPath)') And
+                     Exists('$(EagleTaskPath)Eagle.tasks')">
     <EvaluateFile Condition="'$(BuildTool)' == 'MSBuild' And
                              '$(EagleLibraryDir)' != '' And
                              HasTrailingSlash('$(EagleLibraryDir)') And
@@ -3409,7 +3413,11 @@
   ******************************************************************************
   -->
 
-  <Target Name="UnlockBuildOutputDirectories">
+  <Target Name="UnlockBuildOutputDirectories"
+          Condition="'$(EagleTaskTargets)' != 'false' And
+                     '$(EagleTaskPath)' != '' And
+                     HasTrailingSlash('$(EagleTaskPath)') And
+                     Exists('$(EagleTaskPath)Eagle.tasks')">
     <EvaluateFile Condition="'$(BuildTool)' == 'MSBuild' And
                              '$(EagleLibraryDir)' != '' And
                              HasTrailingSlash('$(EagleLibraryDir)') And

@@ -10,19 +10,29 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   # gccflags="-arch i386 -arch x86_64"
   gccflags="-arch x86_64"
   platlibs=""
-  dncdir=""
+  tcldir=-L/usr/local/opt/tcl-tk/lib
+  dncdir=/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-x64/$DOTNET_SDK_VERSION/runtimes/osx-x64/native
+  # For Apple Silicon, use:
+  # dncdir=/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-arm64/$DOTNET_SDK_VERSION/runtimes/osx-arm64/native
 else
   binsubdir=netcoreapp3.0
   libname=libGarudaCore.so
   gccflags=""
   platlibs="-ldl"
+  tcldir=-L/usr/lib/x86_64-linux-gnu
   dncdir=/usr/share/dotnet/packs/Microsoft.NETCore.App.Host.linux-x64/$DOTNET_SDK_VERSION/runtimes/linux-x64/native
 fi
 
+if grep -q hostfxr_get_dotnet_environment_info_fn "$dncdir/hostfxr.h" 2>/dev/null; then
+  dncdefs=-DHAVE_DOTNET_ENVIRONMENT_INFO=1
+else
+  dncdefs=""
+fi
+
 pushd "$scriptdir/../src/generic" || exit 1
-tclsh ../../../Common/Tools/tagViaBuild.tcl ../..
-gcc -g -fPIC -shared -Wl,-rpath,$dncdir $gccflags -o $libname ../external/generic/ConvertUTF_v2.c Garuda.c GarudaClr.c GarudaCoreClr.c GarudaPal.c GarudaStr.c -I. -I../external/generic -I../../Tcl/include -L/usr/lib/x86_64-linux-gnu -I$dncdir -L$dncdir -ltclstub8.6 $platlibs -lnethost -D_GNU_SOURCE=1 -DSTDC_HEADERS=1 -D_POSIX_C_SOURCE=202405L -DHAVE_UNISTD_H=1 -DUSE_TCL_STUBS=1 -DTCL_THREADS=1 -DUSE_CORE_CLR=1 -DUSE_GARUDA_STR=1 -D_TRACE=1 -DNDEBUG=1 $extradefs
-mkdir -p ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$binsubdir
-mv $libname ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$binsubdir/$libname
-cp ../../lib/*.tcl ../../../../bin/Debug$CONFIGURATION_SUFFIX/bin/$binsubdir
+tclsh ../../../Common/Tools/tagViaBuild.tcl ../.. || exit 1
+gcc -g -fPIC -shared -Wl,-rpath,$dncdir $gccflags -o $libname ../external/generic/ConvertUTF_v2.c Garuda.c GarudaClr.c GarudaCoreClr.c GarudaPal.c GarudaStr.c -I. -I../external/generic -I../../Tcl/include $tcldir -I$dncdir -L$dncdir -ltclstub8.6 $platlibs -lnethost -D_GNU_SOURCE=1 -DSTDC_HEADERS=1 -D_POSIX_C_SOURCE=202405L -DHAVE_UNISTD_H=1 -DUSE_TCL_STUBS=1 -DTCL_THREADS=1 -DCORE_CLR=1 $dncdefs -DUSE_GARUDA_STR=1 -D_TRACE=1 -DNDEBUG=1 $extradefs || exit 1
+mkdir -p ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$binsubdir || exit 1
+mv $libname ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$binsubdir/$libname || exit 1
+cp ../../lib/*.tcl ../../../../bin/Debug$CONFIGURATION_SUFFIX/bin/$binsubdir || exit 1
 popd || exit 1

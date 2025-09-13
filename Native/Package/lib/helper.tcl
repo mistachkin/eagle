@@ -123,7 +123,7 @@ namespace eval ::Garuda {
       }
 
       if {![info exists caller]} then {
-        set caller <unknown>
+        set caller <unknownCaller>
       }
 
       if {[info exists logCommand] && \
@@ -319,7 +319,7 @@ namespace eval ::Garuda {
     return $result
   }
 
-  proc isValidVersion { value } {
+  proc isValidPackageVersion { value } {
     #
     # HACK: Check if the value is a valid version number via
     #       the [package vcompare] sub-command; since we do
@@ -333,7 +333,7 @@ namespace eval ::Garuda {
         [catch {package vcompare $value 1.0}] == 0}]
   }
 
-  proc extractVersion {
+  proc extractPackageVersion {
           value {versionVarName ""} {releaseTypeVarName ""}
           {releaseSerialVarName ""} } {
     if {[string length $versionVarName] > 0} then {
@@ -370,12 +370,12 @@ namespace eval ::Garuda {
     return 0
   }
 
-  proc filterVersions { list strict } {
+  proc filterPackageVersions { list strict } {
     set result [list]
 
     foreach item [filterUnique $list] {
-      if {[isValidVersion $item] || \
-          (!$strict && [extractVersion $item])} then {
+      if {[isValidPackageVersion $item] || \
+          (!$strict && [extractPackageVersion $item])} then {
         lappend result $item
       }
     }
@@ -392,9 +392,9 @@ namespace eval ::Garuda {
   #       Callers wanting highest-first must pass the -decreasing option
   #       to [lsort].
   #
-  proc compareVersions { value1 value2 } {
-    set ok1 [isValidVersion $value1]
-    set ok2 [isValidVersion $value2]
+  proc comparePackageVersions { value1 value2 } {
+    set ok1 [isValidPackageVersion $value1]
+    set ok2 [isValidPackageVersion $value2]
 
     if {$ok1 && $ok2} then {
       return [package vcompare $value1 $value2]
@@ -406,7 +406,7 @@ namespace eval ::Garuda {
       } else {
         set wasOk1 false
 
-        if {[extractVersion \
+        if {[extractPackageVersion \
             $value1 version1 releaseType1 releaseSerial1]} then {
           set ok1 true
         }
@@ -419,7 +419,7 @@ namespace eval ::Garuda {
       } else {
         set wasOk2 false
 
-        if {[extractVersion \
+        if {[extractPackageVersion \
             $value2 version2 releaseType2 releaseSerial2]} then {
           set ok2 true
         }
@@ -562,7 +562,7 @@ namespace eval ::Garuda {
     return [list "" dotnet [file join dotnet libexec]]
   }
 
-  proc getFrameworkDirectory { version } {
+  proc getDotNetFrameworkDirectory { version } {
     set directory [getWindowsDirectory]
 
     if {[string length $directory] > 0} then {
@@ -573,8 +573,8 @@ namespace eval ::Garuda {
     return ""
   }
 
-  proc checkFrameworkDirectory { version } {
-    set directory [getFrameworkDirectory $version]
+  proc checkDotNetFrameworkDirectory { version } {
+    set directory [getDotNetFrameworkDirectory $version]
 
     if {[string length $directory] > 0 && \
         [isValidDirectory $directory]} then {
@@ -791,8 +791,8 @@ namespace eval ::Garuda {
           set targetDirectory [file join $directory $subDirectory \
               [getCoreClrRelativePath $platform]]
 
-          lappend command -command [list compareVersions] \
-              [filterVersions [glob -nocomplain -directory \
+          lappend command -command [list comparePackageVersions] \
+              [filterPackageVersions [glob -nocomplain -directory \
               $targetDirectory -tails -types d *] false]
 
           set subSubDirectories [eval $command]
@@ -959,6 +959,27 @@ namespace eval ::Garuda {
   #
   # HACK: This procedure was blatantly stolen from "Eagle1.0/platform.eagle".
   #
+  proc foundInPath { directories directory } {
+    if {[isWindows]} then {
+      #
+      # HACK: Causes shimmering of "$directories" list representation.  Must
+      #       use [string tolower] here anyhow because Tcl 8.4 lacks -nocase
+      #       option for [lsearch] (please see TIP #241).
+      #
+      set directories [string tolower $directories]
+      set directory [string tolower $directory]
+    }
+
+    if {[lsearch -exact $directories $directory] != -1} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  #
+  # HACK: This procedure was blatantly stolen from "Eagle1.0/platform.eagle".
+  #
   proc addToPath { directory } {
     global env
     global tcl_platform
@@ -1003,10 +1024,10 @@ namespace eval ::Garuda {
       set value $env($name)
 
       #
-      # BUGBUG: Consider exact case only for now.
+      # NOTE: Check if the directory is already present in the
+      #       list from the environment.
       #
-      if {[lsearch -exact \
-          [split $value $separator] $directory] == -1} then {
+      if {![foundInPath [split $value $separator] $directory]} then {
         #
         # NOTE: Append the directory to the loader search path.
         #       This allows us to subsequently load DLLs that
@@ -1120,13 +1141,55 @@ namespace eval ::Garuda {
   }
 
   #
+  # NOTE: This procedure attempts to detect if the CLR / CoreCLR runtimes
+  #       are installed on this machine.  If so, the appropriate variable
+  #       specified by the caller will be set to non-zero.
+  #
+  proc attemptToDetectRuntimes { haveClrVarName haveCoreClrVarName } {
+    variable packageName
+    variable packagePath
+
+    upvar 1 $haveClrVarName haveClr
+    upvar 1 $haveCoreClrVarName haveCoreClr
+
+    if {[info exists packageName] && [info exists packagePath] && \
+        [isValidDirectory $packagePath]} then {
+      set fileName(1) [file join $packagePath \
+          [getPackageBinaryFileNameOnly $packageName false]]; # CLR
+
+      set fileName(2) [file join $packagePath \
+          [getPackageBinaryFileNameOnly $packageName true]]; # CoreCLR
+
+      if {[isValidFile $fileName(1)]} then {
+        maybeLogViaCommand \
+            "Found CLR shared library \"$fileName(1)\" (installed)..."
+
+        set haveClr true
+      } else {
+        maybeLogViaCommand \
+            "Missing CLR shared library \"$fileName(1)\" (installed)..."
+      }
+
+      if {[isValidFile $fileName(2)]} then {
+        maybeLogViaCommand \
+            "Found CoreCLR shared library \"$fileName(2)\" (installed)..."
+
+        set haveCoreClr true
+      } else {
+        maybeLogViaCommand \
+            "Missing CoreCLR shared library \"$fileName(2)\" (installed)..."
+      }
+    }
+  }
+
+  #
   # WARNING: Other than appending to the configured log file, if any, this
   #          procedure is absolutely forbidden from having any side effects.
   #
   proc shouldUseCoreClr { {default ""} } {
     global tcl_platform
-    variable packageName
-    variable packagePath
+    variable clrVersions
+    variable packageBinaryFileNameOnly
 
     #
     # NOTE: The package -OR- environment has been explicitly configured
@@ -1143,49 +1206,41 @@ namespace eval ::Garuda {
     #       way, log our discoveries.
     #
     if {![interp issafe]} then {
+      #
+      # NOTE: Attempt to detect if the CLR / CoreCLR runtimes.  If one
+      #       of them is missing, it cannot be selected.
+      #
       set haveClr false
       set haveCoreClr false
 
-      if {[info exists packageName] && [info exists packagePath] && \
-          [isValidDirectory $packagePath]} then {
-        set fileName(1) [file join $packagePath \
-            [getPackageBinaryFileNameOnly $packageName false]]; # CLR
-
-        set fileName(2) [file join $packagePath \
-            [getPackageBinaryFileNameOnly $packageName true]]; # CoreCLR
-
-        if {[isValidFile $fileName(1)]} then {
-          maybeLogViaCommand \
-              "Found CLR shared library \"$fileName(1)\" (installed)..."
-
-          set haveClr true
-        } else {
-          maybeLogViaCommand \
-              "Missing CLR shared library \"$fileName(1)\" (installed)..."
-        }
-
-        if {[isValidFile $fileName(2)]} then {
-          maybeLogViaCommand \
-              "Found CoreCLR shared library \"$fileName(2)\" (installed)..."
-
-          set haveCoreClr true
-        } else {
-          maybeLogViaCommand \
-              "Missing CoreCLR shared library \"$fileName(2)\" (installed)..."
-        }
-      }
+      attemptToDetectRuntimes haveClr haveCoreClr
 
       #
-      # NOTE: Check if supported versions of the CoreCLR are installed
-      #       on this machine.
+      # NOTE: What is the primary file name configured for use with this
+      #       package?  This is important because it must match with the
+      #       selected runtime, i.e. you cannot load "Garuda.dll" into a
+      #       CoreCLR-based process and you cannot load "GarudaCore.dll"
+      #       into a CLR-based process.
       #
-      if {$haveCoreClr && [info exists tcl_platform(machine)]} then {
-        set platform [getCoreClrPlatformRid $tcl_platform(machine)]
+      if {[info exists packageBinaryFileNameOnly] && \
+          [string match *Core* $packageBinaryFileNameOnly]} then {
+        if {$haveCoreClr && [info exists tcl_platform(machine)]} then {
+          set platform [getCoreClrPlatformRid $tcl_platform(machine)]
 
-        if {[string length $platform] > 0} then {
-          if {[checkCoreClrDirectories $platform version]} then {
-            maybeLogViaCommand "Using CoreCLR $version (installed)..."
-            return true
+          if {[string length $platform] > 0} then {
+            if {[checkCoreClrDirectories $platform version]} then {
+              maybeLogViaCommand "Using CoreCLR $version (installed)..."
+              return true
+            }
+          }
+        }
+      } else {
+        if {$haveClr && [info exists clrVersions]} then {
+          foreach version $clrVersions {
+            if {[checkDotNetFrameworkDirectory $version]} then {
+              maybeLogViaCommand "Using CLR $version (installed)..."
+              return false
+            }
           }
         }
       }
@@ -1252,7 +1307,7 @@ namespace eval ::Garuda {
     # NOTE: The latest supported version of the CLR is not installed on this
     #       machine; therefore, return true.
     #
-    if {![checkFrameworkDirectory [lindex $clrVersions end]]} then {
+    if {![checkDotNetFrameworkDirectory [lindex $clrVersions end]]} then {
       maybeLogViaCommand "Using minimum CLR version (missing)..."
       return true
     }
@@ -1560,16 +1615,19 @@ namespace eval ::Garuda {
   proc getRegistryPathList { rootKeyName valueName } {
     set result [list]
 
-    if {[isWindows]} then {
-      catch {
-        package require registry; # NOTE: Tcl for Windows only.
-
-        foreach keyName [registry keys $rootKeyName] {
+    if {[isWindows]} then {; # NOTE: Registry for Tcl on Windows only.
+      if {[catch {package require registry}] == 0 && \
+          [catch {registry keys $rootKeyName} keyNames] == 0} then {
+        foreach keyName $keyNames {
           set subKeyName $rootKeyName\\$keyName
 
-          if {[catch {string trim [registry get \
-                  $subKeyName $valueName]} path] == 0} then {
-            if {[isValidDirectory $path] || [isValidFile $path]} then {
+          if {[catch {
+            registry get $subKeyName $valueName
+          } path] == 0} then {
+            set path [string trim $path]
+
+            if {[isValidDirectory $path] || \
+                [isValidFile $path]} then {
               lappend result $path
             }
           }
@@ -1844,9 +1902,9 @@ namespace eval ::Garuda {
     #       script engine itself from the Eagle interpreter.  Finally, compare
     #       that result with "eagle" to make sure it is really Eagle.
     #
-    if {[llength [info commands ::eagle]] > 0 && [catch {
-      ::eagle {set ::tcl_platform(engine)}
-    } engine] == 0 && [string equal -nocase $engine eagle]} then {
+    if {[llength [info commands ::eagle]] > 0 && [catch {::eagle {
+      set ::tcl_platform(engine)
+    }} engine] == 0 && [string equal -nocase $engine Eagle]} then {
       #
       # NOTE: Ok, it looks like Eagle is loaded and ready for use.  If the
       #       caller wants the patch level, use the specified variable name
@@ -1857,18 +1915,16 @@ namespace eval ::Garuda {
       }
 
       #
-      # NOTE: Fetch the full patch level of the Eagle script engine.
+      # NOTE: Fetch full patch level of the Eagle script engine and verify
+      #       the result looks like a formally correct patch level using a
+      #       suitable regular expression.
       #
-      if {[catch {
-        ::eagle {set ::eagle_platform(patchLevel)}
-      } version] == 0} then {
-        #
-        # NOTE: Finally, verify that the result looks like a proper patch
-        #       level using a suitable regular expression.
-        #
-        if {[regexp -- {^\d+\.\d+\.\d+\.\d+$} $version]} then {
-          return true
-        }
+      set pattern {^\d+\.\d+\.\d+\.\d+$}
+
+      if {[catch {::eagle {
+        set ::eagle_platform(patchLevel)
+      }} version] == 0 && [regexp -- $pattern $version]} then {
+        return true
       }
     }
 
@@ -2538,7 +2594,7 @@ namespace eval ::Garuda {
     if {[string length $platform] > 0} then {
       if {![info exists coreClrVersion] && \
           [checkCoreClrDirectories $platform version]} then {
-        maybeLogViaCommand "Using CoreCLR $version (installed)..."
+        maybeLogViaCommand "Selected CoreCLR $version (installed)..."
         set coreClrVersion $version; # NOTE: Select "best" version.
       }
     }

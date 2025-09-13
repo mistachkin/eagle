@@ -117,6 +117,24 @@ namespace eval ::Eagle {
         [string is true -strict $::tcl_interactive]}]
   }
 
+  proc foundInPath { dirs dir } {
+    if {[isWindows]} then {
+      #
+      # HACK: Causes shimmering of "$dirs" list representation.  Must use
+      #       [string tolower] here anyhow because Tcl 8.4 lacks -nocase
+      #       option for [lsearch] (please see TIP #241).
+      #
+      set dirs [string tolower $dirs]
+      set dir [string tolower $dir]
+    }
+
+    if {[lsearch -exact $dirs $dir] != -1} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
   #
   # NOTE: This procedure adds the specified directory to the PATH.  It is
   #       designed to work on the various flavors of Windows and Unix.
@@ -165,9 +183,10 @@ namespace eval ::Eagle {
       set value $env($name)
 
       #
-      # BUGBUG: Consider exact case only for now.
+      # NOTE: Check if the directory is already present in the
+      #       list from the environment.
       #
-      if {[lsearch -exact [split $value $separator] $dir] == -1} then {
+      if {![foundInPath [split $value $separator] $dir]} then {
         #
         # NOTE: Append the directory to the loader search path.
         #       This allows us to subsequently load DLLs that

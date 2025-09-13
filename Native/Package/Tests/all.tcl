@@ -119,7 +119,7 @@ namespace eval ::Garuda {
       }
 
       if {![info exists caller]} then {
-        set caller <unknown>
+        set caller <unknownCaller>
       }
 
       if {[info exists logCommand] && \

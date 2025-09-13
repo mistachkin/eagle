@@ -33,7 +33,7 @@
 	/>
 	<UserMacro
 		Name="CORECLR_DEFINES"
-		Value="CORE_CLR"
+		Value="CORE_CLR;HAVE_DOTNET_ENVIRONMENT_INFO"
 		PerformEnvironmentSet="true"
 	/>
 	<UserMacro

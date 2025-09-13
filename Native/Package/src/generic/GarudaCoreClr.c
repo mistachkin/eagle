@@ -274,9 +274,11 @@ int LoadAndStartTheCoreClr(
 	    }
 
 #if defined(_WIN32)
+#if defined(HAVE_DOTNET_ENVIRONMENT_INFO)
 	    uFunctions.pGetDotNetEnvInfo =
 		(hostfxr_get_dotnet_environment_info_fn)GetProcAddress(
 		hModule, "hostfxr_get_dotnet_environment_info");
+#endif
 
 	    uFunctions.pInitForRuntimeConfig =
 		(hostfxr_initialize_for_runtime_config_fn)GetProcAddress(
@@ -289,17 +291,19 @@ int LoadAndStartTheCoreClr(
 	    uFunctions.pClose = (hostfxr_close_fn)GetProcAddress(
 		hModule, "hostfxr_close");
 #else
+#if defined(HAVE_DOTNET_ENVIRONMENT_INFO)
 	    uFunctions.pGetDotNetEnvInfo =
 		(hostfxr_get_dotnet_environment_info_fn)dlsym(
-		    hModule, "hostfxr_get_dotnet_environment_info");
+		hModule, "hostfxr_get_dotnet_environment_info");
+#endif
 
 	    uFunctions.pInitForRuntimeConfig =
 		(hostfxr_initialize_for_runtime_config_fn)dlsym(
-		    hModule, "hostfxr_initialize_for_runtime_config");
+		hModule, "hostfxr_initialize_for_runtime_config");
 
 	    uFunctions.pGetRuntimeDelegate =
 		(hostfxr_get_runtime_delegate_fn)dlsym(
-		    hModule, "hostfxr_get_runtime_delegate");
+		hModule, "hostfxr_get_runtime_delegate");
 
 	    uFunctions.pClose = (hostfxr_close_fn)dlsym(
 		hModule, "hostfxr_close");
@@ -1108,6 +1112,7 @@ done:
     return hResult;
 }
 
+#if defined(HAVE_DOTNET_ENVIRONMENT_INFO)
 /*
  *----------------------------------------------------------------------
  *
@@ -1127,8 +1132,8 @@ done:
  */
 
 static void HOSTFXR_CALLTYPE GetCoreClrVersionCallback(
-    const struct hostfxr_dotnet_environment_info *info,
-    void *context)
+    const struct hostfxr_dotnet_environment_info *info,	/* Input data. */
+    void *context)					/* Output data. */
 {
     if ((info != NULL) && (context != NULL)) {
 	CoreClrVersionInfo *pVersionInfo = context;
@@ -1159,6 +1164,7 @@ static void HOSTFXR_CALLTYPE GetCoreClrVersionCallback(
 #endif
     }
 }
+#endif
 
 /*
  *----------------------------------------------------------------------
@@ -1184,6 +1190,7 @@ HRESULT GetCoreClrVersion(
 				 * buffer.  Upon success, will contain
 				 * the length of the resulting string. */
 {
+#if defined(HAVE_DOTNET_ENVIRONMENT_INFO)
     HRESULT hResult = S_OK;
     CoreClrVersionInfo uVersionInfo;
     int32_t rc;
@@ -1249,6 +1256,9 @@ done:
 
     Wrp_MutexUnlock(&packageMutex);
     return hResult;
+#else
+    return E_NOTIMPL;
+#endif
 }
 
 /*

@@ -625,7 +625,7 @@ EaglePrintf(
     if (z == NULL) return NULL;
 
     va_start(ap, format);
-    vswprintf(z, size, format, ap);
+    vswprintf(z, length + 1, format, ap);
     va_end(ap);
 
     return z;
@@ -2041,6 +2041,7 @@ Eagle_SplitList(
 	} else {
 	    elSize = EagleCopyAndCollapse(elSize, element, p);
 	}
+	p[elSize] = UNICODIFY('\0');
 	argc[i] = elSize;
 	argv[i] = p;
 	p += elSize + 1;

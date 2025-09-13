@@ -9,6 +9,8 @@
  * RCS: @(#) $Id: $
  */
 
+#include "GarudaPre.h"		/* NOTE: For private header setup. */
+
 #if !defined(_WIN32)
 #include <unistd.h>		/* NOTE: For readlink, etc. */
 #include <assert.h>		/* NOTE: For assert macros, etc. */

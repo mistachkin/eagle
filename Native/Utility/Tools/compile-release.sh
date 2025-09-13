@@ -16,8 +16,8 @@ else
 fi
 
 pushd "$scriptdir/../src/generic" || exit 1
-tclsh ../../../Common/Tools/tagViaBuild.tcl ../..
-gcc -g -fPIC -shared $gccflags -o $libname Spilornis.c -I. -DNDEBUG=1 -DHAVE_MALLOC_H=1 -DHAVE_MALLOC_USABLE_SIZE=1 -DUSE_32BIT_SIZE_T=1 $extradefs
-mkdir -p ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$binsubdir
-mv $libname ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$binsubdir/spilornis.dll
+tclsh ../../../Common/Tools/tagViaBuild.tcl ../.. || exit 1
+gcc -g -fPIC -shared $gccflags -o $libname Spilornis.c -I. -DNDEBUG=1 -DHAVE_MALLOC_H=1 -DHAVE_MALLOC_USABLE_SIZE=1 -DUSE_32BIT_SIZE_T=1 $extradefs || exit 1
+mkdir -p ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$binsubdir || exit 1
+mv $libname ../../../../bin/Release$CONFIGURATION_SUFFIX/bin/$binsubdir/spilornis.dll || exit 1
 popd || exit 1

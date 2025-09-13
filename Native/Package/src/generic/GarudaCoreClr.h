@@ -41,9 +41,11 @@
 #if defined(USE_CORE_CLR)
 typedef struct CoreClrFunctions {
     size_t sizeOf;			/* Size of this structure, in bytes. */
+#if defined(HAVE_DOTNET_ENVIRONMENT_INFO)
     hostfxr_get_dotnet_environment_info_fn
 	pGetDotNetEnvInfo;		/* Used to obtain version information
 					 * from the CoreCLR. */
+#endif
     hostfxr_initialize_for_runtime_config_fn
 	pInitForRuntimeConfig;		/* Used to initialize the CoreCLR via
 					 * specified runtime configuration. */

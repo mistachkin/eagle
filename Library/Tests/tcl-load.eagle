@@ -883,15 +883,13 @@ proc getTypeAndMethodNamesForGarudaTest {
 
 ###############################################################################
 
-proc isDotNetCoreForGarudaTest {} {
+proc isDotNetCoreForGarudaTest { {forceHelper false} {default ""} } {
   #
-  # HACK: Assume that the .NET Framework is only available on Windows -AND-
-  #       that Mono will never support the native hosting APIs, hence the
-  #       only option left is the .NET (Core?) runtime.  This comment was
-  #       blatantly stolen from the "helper.tcl" file.
+  # HACK: If the caller wants to force use of the package helper procedure,
+  #       make sure that package is loaded now.
   #
-  if {![isWindows]} then {
-    return true
+  if {$forceHelper} then {
+    package require GarudaHelper; # NOTE: Must already be in auto-path.
   }
 
   #
@@ -900,14 +898,23 @@ proc isDotNetCoreForGarudaTest {} {
   #       however, it may not be available (yet).
   #
   if {[llength [info commands ::Garuda::isDotNetCore]] > 0} then {
-    return [::Garuda::isDotNetCore]
+    return [::Garuda::isDotNetCore $default]
   }
 
   #
-  # HACK: Fallback to checking for an associated Garuda test-suite CoreCLR
-  #       environment variable.
+  # HACK: Fallback to checking for associated Garuda test-suite CoreCLR
+  #       environment variable.  It should be noted that this logic was
+  #       stolen from the [::Garuda::isDotNetCore] procedure within the
+  #       Garuda helper package.
   #
-  if {[info exists env(FORCE_DOTNET_CORE)]} then {
+  global env
+
+  if {[info exists env(FORCE_DOTNET_CORE)] || ![isWindows]} then {
+    #
+    # NOTE: Assume that the .NET Framework is only available on Windows
+    #       -AND- that Mono will never support the native hosting APIs,
+    #       hence the only option left is the .NET (Core?) runtime.
+    #
     return true
   }
 
@@ -1231,6 +1238,9 @@ runTest {test tclLoad-13.1.2 {Garuda execute (Eagle)} -body {
   #
   getTypeAndMethodNamesForGarudaTest \
       typeName methodName [isDotNetCoreForGarudaTest]
+
+  tcl set [tcl primary] typeName $typeName
+  tcl set [tcl primary] methodName $methodName
 
   tcl eval [tcl primary] {
     garuda clrexecute $::Garuda::assemblyPath \

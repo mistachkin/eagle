@@ -669,20 +669,20 @@ namespace eval ::Eagle {
           makeLogChannel readFile readSharedFile writeFile appendFile \
           appendLogFile appendSharedFile appendSharedLogFile readAsciiFile \
           writeAsciiFile readUnicodeBinaryFile readUnicodeFile readUtf8File \
-          writeUnicodeBinaryFile writeUnicodeFile writeUtf8File addToPath \
-          removeFromPath getShellExecutableName getRuntimeCommandLine \
-          execShell maybeGetExitCode lshuffle ldifference filter map reduce \
-          getLengthModifier debug tclLogForCommand populateTypesForComSpecDir \
-          populateTypesForGlob filterForGlob canUseComSpecDir \
-          pwdForDirResultPath getDirResultPath fileNormalizeForGlob \
-          performGlob maybeAppendPathResult findViaGlob findViaComSpecDir \
-          fileDirNameForFind fileTailForFind findDirectories \
-          findDirectoriesRecursive findFiles findFilesRecursive \
-          copyFilesRecursive exportAndImportPackageCommands setupUnzipVars \
-          unzipMustBeInstalled extractZipArchive hasRuntimeOption \
-          listRuntimeOptions addRuntimeOption removeRuntimeOption \
-          toggleRuntimeOption getBogusPackageName forceScanOfPackages] \
-          false false
+          writeUnicodeBinaryFile writeUnicodeFile writeUtf8File foundInPath \
+          addToPath removeFromPath getShellExecutableName \
+          getRuntimeCommandLine execShell maybeGetExitCode lshuffle \
+          ldifference filter map reduce getLengthModifier debug \
+          tclLogForCommand populateTypesForComSpecDir populateTypesForGlob \
+          filterForGlob canUseComSpecDir pwdForDirResultPath getDirResultPath \
+          fileNormalizeForGlob performGlob maybeAppendPathResult findViaGlob \
+          findViaComSpecDir fileDirNameForFind fileTailForFind \
+          findDirectories findDirectoriesRecursive findFiles \
+          findFilesRecursive copyFilesRecursive \
+          exportAndImportPackageCommands setupUnzipVars unzipMustBeInstalled \
+          extractZipArchive hasRuntimeOption listRuntimeOptions \
+          addRuntimeOption removeRuntimeOption toggleRuntimeOption \
+          getBogusPackageName forceScanOfPackages] false false
     }
 
     ###########################################################################
