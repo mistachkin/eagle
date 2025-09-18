@@ -418,7 +418,10 @@ retry:
 		    runtimeConfigFileName, NULL, &pContext);
 	    }
 
-	    if ((rc != 0) || (pContext == NULL)) {
+	    if (((rc != Success) &&
+		    (rc != Success_HostAlreadyInitialized) &&
+		    (rc != Success_DifferentRuntimeProperties)) ||
+		    (pContext == NULL)) {
 		if (interp != NULL) {
 		    Wrp_AppendUnicodeToObj(Tcl_GetObjResult(interp),
 			GetClrErrorMessage(L"pInitForRuntimeConfig",

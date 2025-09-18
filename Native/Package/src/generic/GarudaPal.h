@@ -98,47 +98,47 @@ typedef void *HMODULE;
 #endif
 
 #ifndef ERROR_SERVICE_NEVER_STARTED
-#define ERROR_SERVICE_NEVER_STARTED	(1077L)
+#define ERROR_SERVICE_NEVER_STARTED	(1077)
 #endif
 
 #ifndef ERROR_FUNCTION_NOT_CALLED
-#define ERROR_FUNCTION_NOT_CALLED	(1626L)
+#define ERROR_FUNCTION_NOT_CALLED	(1626)
 #endif
 
 #ifndef S_OK
-#define S_OK				(0L)
+#define S_OK				(0)
 #endif
 
 #ifndef S_FALSE
-#define S_FALSE				(1L)
+#define S_FALSE				(1)
 #endif
 
 #ifndef E_NOTIMPL
-#define E_NOTIMPL			(0x80000001L)
+#define E_NOTIMPL			(0x80000001)
 #endif
 
 #ifndef E_POINTER
-#define E_POINTER			(0x80004003L)
+#define E_POINTER			(0x80004003)
 #endif
 
 #ifndef E_FAIL
-#define E_FAIL				(0x80004005L)
+#define E_FAIL				(0x80004005)
 #endif
 
 #ifndef DISP_E_OVERFLOW
-#define DISP_E_OVERFLOW			(0x8002000AL)
+#define DISP_E_OVERFLOW			(0x8002000A)
 #endif
 
 #ifndef CO_E_PATHTOOLONG
-#define CO_E_PATHTOOLONG		(0x80040116L)
+#define CO_E_PATHTOOLONG		(0x80040116)
 #endif
 
 #ifndef E_OUTOFMEMORY
-#define E_OUTOFMEMORY			(0x8007000EL)
+#define E_OUTOFMEMORY			(0x8007000E)
 #endif
 
 #ifndef E_INVALIDARG
-#define E_INVALIDARG			(0x80070057L)
+#define E_INVALIDARG			(0x80070057)
 #endif
 
 #ifndef UNICODE_STRING_MAX_CHARS
@@ -249,6 +249,20 @@ typedef Tcl_UniCChar *Tcl_UniCStr;
 
 #ifndef UNICODE_RUNTIMECONFIG_SUFFIX
 #define UNICODE_RUNTIMECONFIG_SUFFIX	UNICODE_TEXT(RUNTIMECONFIG_SUFFIX)
+#endif
+
+/*
+ * HACK: Stolen from file "runtime/src/native/corehost/error_codes.h"
+ *       in the .NET runtime repository.
+ */
+
+#if defined(USE_CORE_CLR) && !defined(__ERROR_CODES_H__)
+#define __ERROR_CODES_H__
+enum StatusCode {
+    Success = 0,
+    Success_HostAlreadyInitialized = 0x00000001,
+    Success_DifferentRuntimeProperties = 0x00000002
+};
 #endif
 
 /*

@@ -887,18 +887,18 @@ namespace eval ::Garuda {
 
         #
         # HACK: Check if the version of the CoreCLR requires the
-        #       new "tfm", i.e. per the runtime name change from
-        #       ".NET Core" ==> ".NET".  This became necessary
-        #       starting at the .NET 5.0 release.  The necessary
-        #       prefix strings are hard-coded here.
+        #       new target framework moniker (a.k.a. TFM) prefix,
+        #       i.e. runtime name change ".NET Core" ==> ".NET".
+        #       This became necessary starting with the .NET 5.0
+        #       release.  The prefix strings are hard-coded here.
         #
         if {[package vcompare $version 5.0] >= 0} then {
-          set tfm net${version}
+          set targetFrameworkMoniker net${version}
         } else {
-          set tfm netcoreapp${version}
+          set targetFrameworkMoniker netcoreapp${version}
         }
 
-        lappend result tfm $tfm
+        lappend result targetFrameworkMoniker $targetFrameworkMoniker
         append version .0; # 3.0 ==> 3.0.0
         lappend result version $version
 
@@ -915,28 +915,33 @@ namespace eval ::Garuda {
   #       runtime configuration, for the specified runtime version.
   #
   proc getCoreClrRuntimeConfiguration {
-          version {maximizeCompatibility false} } {
+          version {compatibility true} {latestMajor true} } {
     set tokens [getCoreClrRuntimeConfigurationTokens $version]
     if {[llength $tokens] == 0} then {return ""}
-    set tfm [lindex $tokens 1]; set version [lindex $tokens 3]
+    set targetFrameworkMoniker [lindex $tokens 1]
+    set version [lindex $tokens 3]
 
-    if {$maximizeCompatibility} then {
-      #
-      # TODO: Are these reasonable settings?
-      #
-      set extra {,
-        "rollForward": "LatestMinor",
-        "applyPatches": true
+    if {$compatibility} then {
+      if {$latestMajor} then {
+        set extra {,
+          "rollForward": "LatestMajor"
+        }
+      } else {
+        set extra {,
+          "rollForward": "LatestMinor",
+          "applyPatches": true
+        }
       }
     } else {
       set extra ""
     }
 
     return [string map [list \
-        %tfm% $tfm %version% $version %extra% $extra] [string trim {
+        %targetFrameworkMoniker% $targetFrameworkMoniker \
+        %version% $version %extra% $extra] [string trim {
       {
         "runtimeOptions": {
-          "tfm": "%tfm%",
+          "tfm": "%targetFrameworkMoniker%",
           "framework": {
             "name": "Microsoft.NETCore.App",
             "version": "%version%"
@@ -2113,7 +2118,7 @@ namespace eval ::Garuda {
     #
     # NOTE: The fully qualified file name for the package binary.
     #
-    variable packageBinaryFileName; # DEFAULT: ${directory}/Garuda[Core].dll
+    variable packageBinaryFileName; # DEFAULT: ${directory}/${fileNameOnly}
 
     if {![info exists packageBinaryFileName]} then {
       set packageBinaryFileName [fileNormalize [file join $directory \
@@ -2592,10 +2597,12 @@ namespace eval ::Garuda {
     #       installed version, if that has not been done already.
     #
     if {[string length $platform] > 0} then {
-      if {![info exists coreClrVersion] && \
-          [checkCoreClrDirectories $platform version]} then {
-        maybeLogViaCommand "Selected CoreCLR $version (installed)..."
-        set coreClrVersion $version; # NOTE: Select "best" version.
+      if {![info exists coreClrVersion] || \
+          [string length $coreClrVersion] == 0} then {
+        if {[checkCoreClrDirectories $platform version]} then {
+          maybeLogViaCommand "Selected CoreCLR $version (installed)..."
+          set coreClrVersion $version; # NOTE: Select "best" version.
+        }
       }
     }
 
@@ -2604,7 +2611,8 @@ namespace eval ::Garuda {
     #       CoreCLR.  Also, add to the PATH environment variable when needed
     #       to load the CoreCLR runtime.
     #
-    if {![interp issafe] && [info exists coreClrVersion]} then {
+    if {![interp issafe] && [info exists coreClrVersion] && \
+        [string length $coreClrVersion] > 0} then {
       if {[info exists runtimeConfigPath] && \
           ![isValidFile $runtimeConfigPath]} then {
         writeCoreClrRuntimeConfiguration $runtimeConfigPath $coreClrVersion
@@ -2615,8 +2623,7 @@ namespace eval ::Garuda {
       }
 
       if {[string length $platform] > 0} then {
-        set runtimeDirectory [getCoreClrDirectory \
-            $platform $coreClrVersion]
+        set runtimeDirectory [getCoreClrDirectory $platform $coreClrVersion]
 
         if {[string length $runtimeDirectory] > 0 && \
             [addToPath $runtimeDirectory]} then {

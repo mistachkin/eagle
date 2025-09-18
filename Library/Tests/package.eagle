@@ -22,25 +22,8 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 #       needs to scan the log file to determine if the tests actually ran.
 #
 runTest {test garuda-1.1 {Eagle Package for Tcl (Garuda) via Tcl} -setup {
-  proc findStringInFile { fileName string } {
-    try {
-      set data [readFile $fileName]
-
-      #
-      # NOTE: Check for the string in the entire log file and return
-      #       non-zero if found.
-      #
-      return [string last $string $data]
-    } finally {
-      #
-      # NOTE: We do not want to hold all the log file data in memory;
-      #       therefore, do our very best to remove it now.
-      #
-      unset -nocomplain -purge -- data; debug collect
-    }
-  }
-
-  unset -nocomplain stdErr stdOut exitCode script sentryIndex test_sentry
+  unset -nocomplain exitCode script
+  unset -nocomplain sentryIndex test_sentry coreClrVersion
 } -body {
   #
   # NOTE: This is the test sentry string to look for in the log file.  It
@@ -69,6 +52,24 @@ runTest {test garuda-1.1 {Eagle Package for Tcl (Garuda) via Tcl} -setup {
     set test_run_id {%test_run_id%}; \
     set test_run_bucket {%test_run_bucket%} \
   }]
+
+  #
+  # NOTE: When running on the .NET (Core?) runtime, make sure that flag
+  #       is properly set.
+  #
+  if {![info exists no(dotNetCore)] && [isDotNetCore]} then {
+    set coreClrVersion [detectDotNetCoreRuntimeVersion]
+
+    if {[string length $coreClrVersion] == 0} then {
+      error "could not detect runtime version for the CoreCLR"
+    }
+
+    append script(pre) \; [string map [list \
+        %coreClrVersion% $coreClrVersion] { \
+      namespace eval ::Garuda {set useCoreClr true}; \
+      namespace eval ::Garuda {set coreClrVersion {%coreClrVersion%}} \
+    }]
+  }
 
   #
   # NOTE: Unless forbidden, make sure to set the METHOD_PROTOCOL_V1R2
@@ -139,35 +140,28 @@ runTest {test garuda-1.1 {Eagle Package for Tcl (Garuda) via Tcl} -setup {
   #       be quite large); therefore, attempt to recover the memory now.
   #
   unset -nocomplain -purge -- stdErr stdOut; debug collect
-  unset -nocomplain exitCode script sentryIndex test_sentry
-
-  rename findStringInFile ""
-} -constraints [fixConstraints {eagle dotNet native windows logFile tclShell\
-compile.WINDOWS compile.NATIVE compile.TCL compile.NATIVE_PACKAGE testExec\
-file_Garuda.dll file_pkgAll.tcl}] -result {Success}}
+  unset -nocomplain exitCode script
+  unset -nocomplain sentryIndex test_sentry coreClrVersion
+} -constraintExpression {([haveConstraint compile.WINDOWS] || \
+[haveConstraint compile.UNIX]) && (([haveConstraint windows] && \
+[haveConstraint file_Garuda.dll]) || ([haveConstraint unix] && \
+[haveConstraint file_libGarudaCore.so]))} -constraints [fixConstraints \
+{eagle dotNetOrDotNetCore native logFile tclShell compile.NATIVE compile.TCL\
+compile.NATIVE_PACKAGE testExec file_pkgAll.tcl}] -result {Success}}
 
 ###############################################################################
 
+#
+# HACK: When running on the .NET (Core?) runtime, version 7.0 or later is
+#       apparently required in order for this test to work correctly; the
+#       nominal cause is an error LibHostInvalidArgs (0x80008092) returned
+#       from the hostfxr_initialize_for_runtime_config() function.  It is
+#       not 100% clear exactly why that happens; however, it is 100% clear
+#       that it no longer happens as of version 7.0.
+#
 runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
-  proc findStringInFile { fileName string } {
-    try {
-      set data [readFile $fileName]
-
-      #
-      # NOTE: Check for the string in the entire log file and return
-      #       non-zero if found.
-      #
-      return [string last $string $data]
-    } finally {
-      #
-      # NOTE: We do not want to hold all the log file data in memory;
-      #       therefore, do our very best to remove it now.
-      #
-      unset -nocomplain -purge -- data; debug collect
-    }
-  }
-
-  unset -nocomplain stdErr stdOut exitCode script sentryIndex test_sentry
+  unset -nocomplain exitCode tclLoadFlags tclFindFlags script
+  unset -nocomplain sentryIndex test_sentry coreClrVersion
 } -body {
   #
   # NOTE: This is the test sentry string to look for in the log file.  It
@@ -184,6 +178,24 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
   tputs $test_channel [appendArgs \
       "---- sentry string at position " $sentryIndex(old) \
       " before test\n"]
+
+  if {![info exists no(dotNetCore)] && [isDotNetCore]} then {
+    set coreClrVersion [detectDotNetCoreRuntimeVersion]
+
+    if {[string length $coreClrVersion] == 0} then {
+      error "could not detect runtime version for the CoreCLR"
+    }
+
+    set script(coreClr) [string map \
+        [list %coreClrVersion% $coreClrVersion] { \
+      tcl eval [tcl primary] [list namespace eval ::Garuda { \
+        set useCoreClr true; \
+        set coreClrVersion {%coreClrVersion%} \
+      }] \
+    }]
+  } else {
+    set script(coreClr) ""
+  }
 
   #
   # HACK: Prior to running the test file, we need to make sure that the Tcl
@@ -203,7 +215,8 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
   #
   set script(pre) { \
     set env(DefaultQuiet) true; \
-    tclLoadForTest {} -OtherNamePatternList +SetDllDirectory; \
+    tclLoadForTest {} -OtherNamePatternList \
+        [expr {[isWindows] ? {+SetDllDirectory} : {}}]; \
     tcl eval [tcl primary] [list proc lprepend { varName args } { \
       if {[llength $args] > 0} then { \
         upvar 1 $varName list; \
@@ -218,7 +231,14 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
     tcl set [tcl primary] test_flags(-suffix) [getTestSuffix]; \
     tcl eval [tcl primary] [list namespace eval ::Garuda { \
       set verbose true; set logCommand tclLog \
-    }]; \
+    }] \
+  }
+
+  if {[string length $script(coreClr)] > 0} then {
+    append script(pre) \; $script(coreClr)
+  }
+
+  append script(pre) \; {
     tcl eval [tcl primary] package require Garuda \
   }
 
@@ -249,6 +269,9 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
   #
   #       7.  Whether or not the [object] command is available.
   #
+  #       8.  Whether or not we are running on the .NET (Core?) runtime.  If
+  #           so, is it version 8.0 or later?
+  #
   #       Also, the hard-coded value(s) must be kept in sync if the number of
   #       tests in "tcl-load.eagle" changes OR if the constraints in the
   #       "tcl-load.eagle" file change such that a different number of tests
@@ -276,7 +299,11 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
     set b(19) [haveConstraint monoDebugger]; \
     set b(20) [haveConstraint primaryThread]; \
     set b(21) [haveConstraint file_tcl_unload.tcl]; \
-    set c(1) [expr {10 + \
+    set b(22) [haveConstraint dotNetCore]; \
+    set b(23) [haveConstraint dotNetCore80]; \
+    set b(24) [haveConstraint dotNetCore90]; \
+    set b(25) [haveConstraint dotNetCore100]; \
+    set c(1) [expr {9 + \
       ($b(11) && $b(5) && $b(6) && $b(2) && \
           $b(1) && $b(20) && $b(13) && $b(4) && \
           $b(14) && $b(15) && $b(3) ? 1 : 0) + \
@@ -291,7 +318,8 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
       ($b(10) && $b(11) && $b(5) && $b(6) && \
           $b(7) && $b(8) && $b(2) && $b(1) && \
           $b(20) && $b(13) ? 2 : 0) + \
-      ($b(9) ? 1 : 0)}]; \
+      ($b(9) ? 1 : 0) + \
+      (!$b(22) || $b(23) || $b(24) || $b(25) ? 1 : 0)}]; \
     if {$eagle_tests(Passed) == $c(1)} then { \
       tputs $test_channel [appendArgs \
           [subst {---- test 'Passed' count match\n}]] \
@@ -331,7 +359,8 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
       -preInitialize [appendArgs \" "catch \{object invoke -flags " \
       "+NonPublic Interpreter.GetActive TclLoadFlags \{" $tclLoadFlags \
       \}\}\"] \
-      -preInitialize [appendArgs \" "set test_run_id \{" [getTestRunId] \}\"] \
+      -preInitialize [appendArgs \" "set test_run_id \{" [getTestRunId] \
+      \}\"] \
       -preInitialize [appendArgs \
           \" "set test_run_bucket \{" [getTestRunBucket] \}\"] \
       -file [appendArgs \" [file join $test_path tcl-load.eagle] \"] \
@@ -390,13 +419,16 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
   #
   unset -nocomplain -purge -- stdErr stdOut; debug collect
   unset -nocomplain exitCode tclLoadFlags tclFindFlags script
-  unset -nocomplain sentryIndex test_sentry
-
-  rename findStringInFile ""
-} -constraints [fixConstraints {eagle dotNet native windows logFile\
-garudaLibrary tclLibrary command.tcl compile.WINDOWS compile.NATIVE\
-compile.TCL compile.NATIVE_PACKAGE Eagle._Tests.Default.TestSetQuiet\
-testExec file_Garuda.dll}] -result {Success}}
+  unset -nocomplain sentryIndex test_sentry coreClrVersion
+} -constraintExpression \
+{(![haveConstraint dotNetCore] || [haveConstraint dotNetCore70OrHigher]) && \
+(([haveConstraint compile.WINDOWS] && [haveConstraint windows] && \
+[haveConstraint file_Garuda.dll]) || ([haveConstraint compile.UNIX] && \
+[haveConstraint unix] && [haveConstraint file_libGarudaCore.so]))} \
+-constraints [fixConstraints {eagle dotNetOrDotNetCore native logFile\
+garudaLibrary tclLibrary command.tcl compile.NATIVE compile.TCL\
+compile.NATIVE_PACKAGE Eagle._Tests.Default.TestSetQuiet testExec}] -result \
+{Success}}
 
 ###############################################################################
 

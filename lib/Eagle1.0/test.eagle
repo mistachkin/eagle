@@ -500,11 +500,34 @@ namespace eval ::Eagle {
     }
   }
 
-  proc getDotNetCoreRuntimeConfiguration { {minimumVersion 2} } {
-    switch -exact -- $minimumVersion {
+  proc detectDotNetCoreRuntimeVersion { {majorOnly false} } {
+    if {[info exists ::eagle_platform(runtimeVersion)]} then {
+      if {$majorOnly} then {
+        return [lindex [split $::eagle_platform(runtimeVersion) .] 0]
+      } else {
+        return $::eagle_platform(runtimeVersion)
+      }
+    }
+
+    if {[info exists ::env(CoreClrVersion)]} then {
+      if {$majorOnly} then {
+        return [lindex [split $::env(CoreClrVersion) .] 0]
+      } else {
+        return $::env(CoreClrVersion)
+      }
+    }
+  }
+
+  proc getDotNetCoreTargetFrameworkMoniker {
+          {version ""} {includeVersion false} } {
+    if {[string length $version] == 0} then {
+      set version [detectDotNetCoreRuntimeVersion true]
+    }
+
+    switch -exact -- $version {
       2 -
       3 {
-        set frameworkName netcoreapp; # LEGACY
+        set result netcoreapp; # LEGACY
       }
       5 -
       6 -
@@ -512,19 +535,38 @@ namespace eval ::Eagle {
       8 -
       9 -
       10 {
-        set frameworkName net; # SUPPORTED
+        set result net; # SUPPORTED
       }
       default {
         return ""; # UNSUPPORTED
       }
     }
 
+    if {$includeVersion} then {
+      append result $version .0
+    }
+
+    return $result
+  }
+
+  proc getDotNetCoreRuntimeConfiguration { {version ""} } {
+    if {[string length $version] == 0} then {
+      set version [detectDotNetCoreRuntimeVersion true]
+    }
+
+    set targetFrameworkMoniker \
+        [getDotNetCoreTargetFrameworkMoniker $version]
+
+    if {[string length $targetFrameworkMoniker] == 0} then {
+      return ""; # UNSUPPORTED
+    }
+
     return [string map [list \
-        %frameworkName% $frameworkName %majorVersion% \
-        $minimumVersion] [string trim {
+        %targetFrameworkMoniker% $targetFrameworkMoniker \
+        %version% $version] [string trim {
       {
         "runtimeOptions": {
-          "tfm": "%frameworkName%%majorVersion%.0",
+          "tfm": "%targetFrameworkMoniker%%version%.0",
           "framework": {
             "name": "Microsoft.NETCore.App",
             "version": "%majorVersion%.0.0"
@@ -2552,7 +2594,7 @@ namespace eval ::Eagle {
     #       by the Tcl core library and/or its shell (on any platform).
     #       Please refer to the following web pages:
     #
-    #       https://www.tcl.tk/man/tcl/TclCmd/tclvars.htm
+    #       https://www.tcl.tk/man/tcl8.4/TclCmd/tclvars.htm
     #       https://wiki.tcl.tk/tclvars
     #
     return [lsort [list \
@@ -2576,6 +2618,8 @@ namespace eval ::Eagle {
         tcl_pkgPath \
         tcl_platform \
         tcl_precision \
+        tcl_prompt1 \
+        tcl_prompt2 \
         tcl_rcFileName \
         tcl_rcRsrcName \
         tcl_traceCompile \
@@ -2584,6 +2628,34 @@ namespace eval ::Eagle {
         tcl_wordchars \
         tcl_nonwordchars \
         unknown_pending]]
+  }
+
+  proc getKnownEagleVariables {} {
+    #
+    # HACK: If the caller is not the global frame (somehow?), then return
+    #       nothing, as we can only handle global variables.
+    #
+    if {[uplevel 1 [list info level]] != 0} then {
+      return [list]
+    }
+
+    #
+    # HACK: This is the list of documented global variables that are used
+    #       by the Eagle core library and/or its shell (on any platform).
+    #
+    # TODO: This list should be updated in the event that extra variables
+    #       are used by the Eagle core library (etc) and are purposely (?)
+    #       not included in the [info sysvars] sub-command results.
+    #
+    return [lsort [list \
+        tcl_prompt1 \
+        tcl_prompt2 \
+        tcl_prompt3 \
+        tcl_prompt4 \
+        tcl_prompt5 \
+        tcl_prompt6 \
+        tcl_prompt7 \
+        tcl_prompt8]]
   }
 
   proc getKnownTestVariables {} {
@@ -2709,8 +2781,8 @@ namespace eval ::Eagle {
   }
 
   proc cleanState {
-          {namespaceName ""} {excludePatterns ""} {noTest false}
-          {noOther false} {checkOnly false} } {
+          {namespaceName ""} {excludePatterns ""} {noEagle false}
+          {noTest false} {noOther false} {checkOnly false} } {
     set result [list]
 
     if {[string length $namespaceName] > 0} then {
@@ -2743,6 +2815,10 @@ namespace eval ::Eagle {
 
     set varNames(all) [uplevel 1 $command(all)]
     set varNames(sys) [uplevel 1 $command(sys)]
+
+    if {!$noEagle && [isEagle]} then {
+      eval lappend varNames(sys) [uplevel 1 getKnownEagleVariables]
+    }
 
     if {!$noTest} then {
       eval lappend varNames(sys) [uplevel 1 getKnownTestVariables]
@@ -9658,6 +9734,27 @@ namespace eval ::Eagle {
       }
     }
 
+    proc findStringInFile { fileName string } {
+      try {
+        #
+        # NOTE: Read all the file data into memory now.
+        #
+        set data [readFile $fileName]
+
+        #
+        # NOTE: Check for the string in the entire (log) file and return
+        #       non-zero if found.
+        #
+        return [string last $string $data]
+      } finally {
+        #
+        # NOTE: We do not want to hold all the log file data in memory;
+        #       therefore, do our very best to remove it now.
+        #
+        unset -nocomplain -purge -- data; debug collect
+      }
+    }
+
     proc invokePackageScanCommand { {paths null} {strict false} } {
       if {[catch {
         set error null
@@ -12864,6 +12961,10 @@ namespace eval ::Eagle {
       }] $shell $verbose]
     }
 
+    proc getSharedLibPrefix {} {
+      return [expr {[isWindows] ? "" : "lib"}]
+    }
+
     proc getGarudaDll { {machine ""} } {
       #
       # NOTE: Get the Garuda DLL of the same platform (i.e. machine type)
@@ -12884,13 +12985,16 @@ namespace eval ::Eagle {
         }
 
         #
-        # NOTE: The shared library is built specifically for .NET Core
-        #       or the .NET Framework, use the right one.
+        # NOTE: The shared library is built specifically for .NET Core or
+        #       the .NET Framework, use the right one; also, use the "lib"
+        #       prefix when not on Windows.
         #
+        set prefix [getSharedLibPrefix]
+
         if {[isDotNetCore]} then {
-          set prefix GarudaCore
+          append prefix GarudaCore
         } else {
-          set prefix Garuda
+          append prefix Garuda
         }
 
         #
@@ -12909,14 +13013,27 @@ namespace eval ::Eagle {
         }
 
         #
-        # NOTE: Build the full path and file name of the Garuda DLL, using
-        #       the Eagle base path.  Currently, this will only work
-        #       correctly if the test suite is being run from inside the
-        #       source tree.
+        # NOTE: Build the full path and file name of the Garuda shared
+        #       library, using the Eagle base path.  Currently, this will
+        #       only work correctly if the test suite is being run from
+        #       inside the source tree.
         #
-        return [file join $::base_path bin \
-            [machineToPlatform $machine] [appendArgs $configuration Dll \
-            $suffix] [appendArgs $prefix [info sharedlibextension]]]
+        if {[isDotNetCore] && ![isWindows]} then {
+          #
+          # HACK: This assumes that the Garuda shared library is always
+          #       being built for the "netcoreapp3.0" TFM, which is true
+          #       as of this writing (2025-09-15).
+          #
+          return [file join $::base_path bin \
+              [appendArgs $configuration $suffix] bin \
+              [getDotNetCoreTargetFrameworkMoniker 3 true] \
+              [appendArgs $prefix [info sharedlibextension]]]
+        } else {
+          return [file join $::base_path bin \
+              [machineToPlatform $machine] \
+              [appendArgs $configuration Dll $suffix] \
+              [appendArgs $prefix [info sharedlibextension]]]
+        }
       } else {
         #
         # NOTE: We are missing the base path, return nothing.
@@ -13310,6 +13427,7 @@ namespace eval ::Eagle {
         combineTestScriptResults newPackageId getParameterFromAny \
         getIndexForDirectory maybeAddToAutoPath maybeScanAutoPath \
         haveModernNetFx getDotNetCoreRuntimeVersions \
+        detectDotNetCoreRuntimeVersion getDotNetCoreTargetFrameworkMoniker \
         getDotNetCoreRuntimeConfiguration haveInfinitySymbol private \
         annotateProcedure createPairs flattenPairs tclLogForTester \
         maybeInvokeForTester haveCaches resetCaches reportCaches \
@@ -13341,10 +13459,10 @@ namespace eval ::Eagle {
         cleanupAfterEvents findParentDirectory enableRuntimeOptionsForTcl \
         setupEvaluateViaTemporaryFile evaluateViaTemporaryFile \
         cleanupEvaluateViaTemporaryFiles getKnownTclVariables \
-        getKnownTestVariables getKnownOtherVariables cleanState dumpState \
-        needTestDoEvents testDoEvents trawputs doesTestOutputRepeat dputs \
-        dlog toneputs tputs ttclLog doesTestLogFileExist \
-        getTestLogStartSentry readTestLogStartSentry \
+        getKnownEagleVariables getKnownTestVariables getKnownOtherVariables \
+        cleanState dumpState needTestDoEvents testDoEvents trawputs \
+        doesTestOutputRepeat dputs dlog toneputs tputs ttclLog \
+        doesTestLogFileExist getTestLogStartSentry readTestLogStartSentry \
         extractTestRunIdFromLogStartSentry doesTestLogHaveStartSentry \
         didTestLogHaveStartSentry setTestLogStartSentry dtrace tlog \
         getSoftwareRegistryKey haveConstraint addConstraint \

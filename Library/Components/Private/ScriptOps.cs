@@ -741,7 +741,7 @@ namespace Eagle._Components.Private
                     }
                     finally
                     {
-                        interpreter.ContextPackageFlags = 
+                        interpreter.ContextPackageFlags =
                             savedPackageFlags;
                     }
                 }
@@ -2734,8 +2734,18 @@ namespace Eagle._Components.Private
                         TclVars.Core.PackagePath,
                         TclVars.Platform.Name,
                         TclVars.Core.PrecisionName,
+                        /* BEGIN: Tcl Shell Only */
                         TclVars.Core.Prompt1,
                         TclVars.Core.Prompt2,
+                        /* END: Tcl Shell Only */
+                        /* BEGIN: Eagle Shell Only */
+                        TclVars.Core.Prompt3,
+                        TclVars.Core.Prompt4,
+                        TclVars.Core.Prompt5,
+                        TclVars.Core.Prompt6,
+                        TclVars.Core.Prompt7,
+                        TclVars.Core.Prompt8,
+                        /* END: Eagle Shell Only */
                         TclVars.Core.RunCommandsFileName,
                         TclVars.Core.RunCommandsResourceName,
                         TclVars.Core.ShellLibrary,
