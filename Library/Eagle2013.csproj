@@ -486,6 +486,7 @@
     <Compile Include="Containers\Private\PolicyWrapperDictionary.cs" />
     <Compile Include="Containers\Private\ProcedureWrapperDictionary.cs" />
     <Compile Include="Containers\Private\ProcessDataReceivedEventHandlerDictionary.cs" />
+    <Compile Include="Containers\Private\ProcessDictionary.cs" />
     <Compile Include="Containers\Private\ProcessStringBuilderDictionary.cs" />
     <Compile Include="Containers\Private\QueueList.cs" />
     <Compile Include="Containers\Private\RegExEnumDictionary.cs" />

@@ -145,6 +145,10 @@ namespace Eagle._Commands
                                 Index.Invalid, "-stdinobject", null),    // varName for StdIn object
                             new Option(null, OptionFlags.MustHaveCallbackValue, Index.Invalid,
                                 Index.Invalid, "-startcallback", null),  // callback for process start
+                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                                Index.Invalid, "-stdoutlogpath", null),  // log path for StdOut output
+                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                                Index.Invalid, "-stderrlogpath", null),  // log path for StdErr output
                             new Option(null, OptionFlags.MustHaveCallbackValue, Index.Invalid,
                                 Index.Invalid, "-stdoutcallback", null), // callback for StdOut output
                             new Option(null, OptionFlags.MustHaveCallbackValue, Index.Invalid,
@@ -413,6 +417,16 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-escaperanges", ref value))
                                     escapeRanges = value.ToString();
 
+                                string outputLogPath = null;
+
+                                if (options.IsPresent("-stdoutlogpath", ref value))
+                                    outputLogPath = value.ToString();
+
+                                string errorLogPath = null;
+
+                                if (options.IsPresent("-stderrlogpath", ref value))
+                                    errorLogPath = value.ToString();
+
                                 int argumentStopIndex = argumentCount - 1;
                                 bool background = false;
 
@@ -529,8 +543,8 @@ namespace Eagle._Commands
                                         "processIdVarName = {34}, exitCodeVarName = {35}, stdInVarName = {36}, " +
                                         "stdInObjectVarName = {37}, stdOutVarName = {38}, stdErrVarName = {39}, " +
                                         "startCallback = {40}, stdOutCallback = {41}, stdErrCallback = {42}, " +
-                                        "startHandler = {43}, outputHandler = {44}, errorHandler = {45}, " +
-                                        "done = {46}",
+                                        "startHandler = {43}, outputLogPath = {44}, errorLogPath = {45}, " +
+                                        "outputHandler = {46}, errorHandler = {47}, done = {48}",
                                         FormatOps.InterpreterNoThrow(interpreter), FormatOps.WrapOrNull(domainName),
                                         FormatOps.WrapOrNull(userName), FormatOps.WrapOrNull(password),
                                         FormatOps.WrapOrNull(execFileName), FormatOps.WrapOrNull(execArguments),
@@ -546,7 +560,8 @@ namespace Eagle._Commands
                                         FormatOps.WrapOrNull(stdInObjectVarName), FormatOps.WrapOrNull(stdOutVarName),
                                         FormatOps.WrapOrNull(stdErrVarName), FormatOps.WrapOrNull(startCallback),
                                         FormatOps.WrapOrNull(stdOutCallback), FormatOps.WrapOrNull(stdErrCallback),
-                                        FormatOps.WrapOrNull(startHandler), FormatOps.WrapOrNull(outputHandler),
+                                        FormatOps.WrapOrNull(startHandler), FormatOps.WrapOrNull(outputLogPath),
+                                        FormatOps.WrapOrNull(errorLogPath), FormatOps.WrapOrNull(outputHandler),
                                         FormatOps.WrapOrNull(errorHandler), done), typeof(Exec).Name, priority);
                                 }
 
@@ -574,15 +589,17 @@ namespace Eagle._Commands
                                         result = null; /* FAIL-SAFE */
 
                                         code = ProcessOps.ExecuteProcess(
-                                            noInterpreter ? null : interpreter, domainName, userName,
-                                            password, execFileName, execArguments, directory, input,
-                                            inputObject, startHandler, outputHandler, errorHandler,
-                                            windowStyle, eventFlags, timeout, useShellExecute,
-                                            captureExitCode, captureOutput, useUnicode, ignoreStdErr,
-                                            overrideCapture, userInterface, noSleep, killOnError,
-                                            keepNewLine, background, !noEvents && !background,
-                                            noPreviousProcessId, trace, ref processId, ref exitCode,
-                                            ref result, ref error);
+                                            noInterpreter ? null : interpreter, domainName,
+                                            userName, password, execFileName, execArguments,
+                                            directory, input, inputObject, startHandler,
+                                            outputLogPath, errorLogPath, outputHandler,
+                                            errorHandler, windowStyle, eventFlags, timeout,
+                                            useShellExecute, captureExitCode, captureOutput,
+                                            useUnicode, ignoreStdErr, overrideCapture,
+                                            userInterface, noSleep, killOnError, keepNewLine,
+                                            background, !noEvents && !background,
+                                            noPreviousProcessId, trace, ref processId,
+                                            ref exitCode, ref result, ref error);
 
                                         if (debug && (code != ReturnCode.Ok))
                                         {
@@ -616,9 +633,9 @@ namespace Eagle._Commands
                                         "processIdVarName = {34}, exitCodeVarName = {35}, stdInVarName = {36}, " +
                                         "stdInObjectVarName = {37}, stdOutVarName = {38}, stdErrVarName = {39}, " +
                                         "startCallback = {40}, stdOutCallback = {41}, stdErrCallback = {42}, " +
-                                        "startHandler = {43}, outputHandler = {44}, errorHandler = {45}, " +
-                                        "done = {46}, processId = {47}, exitCode = {48}, result = {49}, " +
-                                        "error = {50}",
+                                        "startHandler = {43}, outputLogPath = {44}, errorLogPath = {45}, " +
+                                        "outputHandler = {46}, errorHandler = {47}, done = {48}, " +
+                                        "processId = {49}, exitCode = {50}, result = {51}, error = {52}",
                                         FormatOps.InterpreterNoThrow(interpreter), FormatOps.WrapOrNull(domainName),
                                         FormatOps.WrapOrNull(userName), FormatOps.WrapOrNull(password),
                                         FormatOps.WrapOrNull(execFileName), FormatOps.WrapOrNull(execArguments),
@@ -634,7 +651,8 @@ namespace Eagle._Commands
                                         FormatOps.WrapOrNull(stdInObjectVarName), FormatOps.WrapOrNull(stdOutVarName),
                                         FormatOps.WrapOrNull(stdErrVarName), FormatOps.WrapOrNull(startCallback),
                                         FormatOps.WrapOrNull(stdOutCallback), FormatOps.WrapOrNull(stdErrCallback),
-                                        FormatOps.WrapOrNull(startHandler), FormatOps.WrapOrNull(outputHandler),
+                                        FormatOps.WrapOrNull(startHandler), FormatOps.WrapOrNull(outputLogPath),
+                                        FormatOps.WrapOrNull(errorLogPath), FormatOps.WrapOrNull(outputHandler),
                                         FormatOps.WrapOrNull(errorHandler), done, processId, exitCode,
                                         FormatOps.WrapOrNull(normalize, ellipsis, result),
                                         FormatOps.WrapOrNull(normalize, ellipsis, error)),

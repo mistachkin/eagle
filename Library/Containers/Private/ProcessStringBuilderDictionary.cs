@@ -9,23 +9,16 @@
  * RCS: @(#) $Id: $
  */
 
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using Eagle._Attributes;
 using Eagle._Components.Private;
-using Eagle._Components.Public;
-using Eagle._Constants;
-
-#if NET_STANDARD_21
-using Index = Eagle._Constants.Index;
-#endif
 
 namespace Eagle._Containers.Private
 {
     [ObjectId("8fd6cd25-318b-44a6-8d2e-a4466e23617f")]
     internal sealed class ProcessStringBuilderDictionary :
-            Dictionary<Process, StringBuilder>
+            ProcessDictionary<StringBuilder>
     {
         #region Public Constructors
         public ProcessStringBuilderDictionary()
@@ -125,31 +118,6 @@ namespace Eagle._Containers.Private
             StringBuilderCache.Release(ref builder);
 
             return Remove(process);
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region ToString Methods
-        public string ToString(
-            string pattern,
-            bool noCase
-            )
-        {
-            IList<Process> list = new List<Process>(this.Keys);
-
-            return ParserOps<Process>.ListToString(
-                list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                Characters.SpaceString, pattern, noCase);
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region System.Object Overrides
-        public override string ToString()
-        {
-            return ToString(null, false);
         }
         #endregion
     }

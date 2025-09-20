@@ -369,7 +369,7 @@ ConversionResult ConvertUTF16toUTF8(
  *	the first byte.  If not calling this from ConvertUTF8to*, then
  *	the length can be set by:
  *
- *	length = trailingBytesForUTF8[*source]+1;
+ *	length = trailingBytesForUTF8[*source] + 1;
  *
  *	and the sequence is illegal right away if there aren't that
  *	many bytes available.  If presented with a length > 4, this
@@ -437,8 +437,8 @@ UTFXBOOL isLegalUTF8Sequence(
     const UTF8 *source,		/* Start-of-string buffer to check. */
     const UTF8 *sourceEnd)	/* End-of-string buffer to check. */
 {
-    int length = trailingBytesForUTF8[*source]+1;
-    if (source+length > sourceEnd) {
+    int length = trailingBytesForUTF8[*source] + 1;
+    if (source + length > sourceEnd) {
 	return 0;
     }
     return isLegalUTF8(source, length);
@@ -480,7 +480,7 @@ ConversionResult ConvertUTF8toUTF16(
 	    break;
 	}
 	/* Do this check whether lenient or strict */
-	if (!isLegalUTF8(source, extraBytesToRead+1)) {
+	if (!isLegalUTF8(source, extraBytesToRead + 1)) {
 	    result = sourceIllegal;
 	    break;
 	}
@@ -497,7 +497,7 @@ ConversionResult ConvertUTF8toUTF16(
 	}
 	ch -= offsetsFromUTF8[extraBytesToRead];
 	if (target >= targetEnd) {
-	    source -= (extraBytesToRead+1); /* Back up source pointer! */
+	    source -= (extraBytesToRead + 1); /* Back up source pointer! */
 	    result = targetExhausted;
 	    break;
 	}
@@ -506,7 +506,7 @@ ConversionResult ConvertUTF8toUTF16(
 	    if (ch >= UNI_SUR_HIGH_START && ch <= UNI_SUR_LOW_END) {
 		if (flags == strictConversion) {
 		    /* return to the illegal value itself */
-		    source -= (extraBytesToRead+1);
+		    source -= (extraBytesToRead + 1);
 		    result = sourceIllegal;
 		    break;
 		} else {
@@ -517,7 +517,7 @@ ConversionResult ConvertUTF8toUTF16(
 	    }
 	} else if (ch > UNI_MAX_UTF16) {
 	    if (flags == strictConversion) {
-		source -= (extraBytesToRead+1); /* return to the start */
+		source -= (extraBytesToRead + 1); /* return to the start */
 		result = sourceIllegal;
 		break; /* Bail out; shouldn't continue */
 	    } else {
@@ -526,7 +526,7 @@ ConversionResult ConvertUTF8toUTF16(
 	} else {
 	    /* target is a character in range 0xFFFF - 0x10FFFF. */
 	    if (target + 1 >= targetEnd) {
-		source -= (extraBytesToRead+1); /* Back up source pointer! */
+		source -= (extraBytesToRead + 1); /* Back up source pointer! */
 		result = targetExhausted;
 		break;
 	    }
@@ -654,7 +654,7 @@ ConversionResult ConvertUTF8toUTF32(
 	    break;
 	}
 	/* Do this check whether lenient or strict */
-	if (!isLegalUTF8(source, extraBytesToRead+1)) {
+	if (!isLegalUTF8(source, extraBytesToRead + 1)) {
 	    result = sourceIllegal;
 	    break;
 	}
@@ -671,7 +671,7 @@ ConversionResult ConvertUTF8toUTF32(
 	}
 	ch -= offsetsFromUTF8[extraBytesToRead];
 	if (target >= targetEnd) {
-	    source -= (extraBytesToRead+1); /* Back up the source pointer! */
+	    source -= (extraBytesToRead + 1); /* Back up the source pointer! */
 	    result = targetExhausted;
 	    break;
 	}
@@ -683,7 +683,7 @@ ConversionResult ConvertUTF8toUTF32(
 	    if (ch >= UNI_SUR_HIGH_START && ch <= UNI_SUR_LOW_END) {
 		if (flags == strictConversion) {
 		    /* return to the illegal value itself */
-		    source -= (extraBytesToRead+1);
+		    source -= (extraBytesToRead + 1);
 		    result = sourceIllegal;
 		    break;
 		} else {
@@ -693,7 +693,7 @@ ConversionResult ConvertUTF8toUTF32(
 		*target++ = ch;
 	    }
 	} else if (flags == strictConversion) {
-	    source -= (extraBytesToRead+1);
+	    source -= (extraBytesToRead + 1);
 	    result = sourceIllegal;
 	    break;
 	} else { /* i.e., ch > UNI_MAX_LEGAL_UTF32 */
@@ -712,7 +712,7 @@ ConversionResult ConvertUTF8toUTF32(
     temp variable, some decrements & conditionals.  The switches
     are equivalent to the following loop:
 	{
-	    int tmpBytesToRead = extraBytesToRead+1;
+	    int tmpBytesToRead = extraBytesToRead + 1;
 	    do {
 		ch += *source++;
 		--tmpBytesToRead;

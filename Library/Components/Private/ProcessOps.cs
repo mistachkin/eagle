@@ -101,8 +101,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static ProcessStringBuilderDictionary standardOutputs = null;
-        private static ProcessStringBuilderDictionary standardErrors = null;
+        private static ProcessDictionary<string> outputLogPaths = null;
+        private static ProcessDictionary<string> errorLogPaths = null;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ProcessStringBuilderDictionary outputCaptures = null;
+        private static ProcessStringBuilderDictionary errorCaptures = null;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -126,21 +131,39 @@ namespace Eagle._Components.Private
                 bool empty = HostOps.HasEmptyContent(detailFlags);
                 StringPairList localList = new StringPairList();
 
-                if (empty || ((standardOutputs != null) &&
-                    (standardOutputs.Count > 0)))
+                if (empty || ((outputLogPaths != null) &&
+                    (outputLogPaths.Count > 0)))
                 {
-                    localList.Add("StandardOutputs",
-                        (standardOutputs != null) ?
-                            standardOutputs.Count.ToString() :
+                    localList.Add("OutputLogPaths",
+                        (outputLogPaths != null) ?
+                            outputLogPaths.Count.ToString() :
                             FormatOps.DisplayNull);
                 }
 
-                if (empty || ((standardErrors != null) &&
-                    (standardErrors.Count > 0)))
+                if (empty || ((errorLogPaths != null) &&
+                    (errorLogPaths.Count > 0)))
                 {
-                    localList.Add("StandardErrors",
-                        (standardErrors != null) ?
-                            standardErrors.Count.ToString() :
+                    localList.Add("ErrorLogPaths",
+                        (errorLogPaths != null) ?
+                            errorLogPaths.Count.ToString() :
+                            FormatOps.DisplayNull);
+                }
+
+                if (empty || ((outputCaptures != null) &&
+                    (outputCaptures.Count > 0)))
+                {
+                    localList.Add("OutputCaptures",
+                        (outputCaptures != null) ?
+                            outputCaptures.Count.ToString() :
+                            FormatOps.DisplayNull);
+                }
+
+                if (empty || ((errorCaptures != null) &&
+                    (errorCaptures.Count > 0)))
+                {
+                    localList.Add("ErrorCaptures",
+                        (errorCaptures != null) ?
+                            errorCaptures.Count.ToString() :
                             FormatOps.DisplayNull);
                 }
 
@@ -431,15 +454,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Captured Output & Handler Lifecycle Methods
-        private static void InitializeStandardOutputsAndErrors()
+        private static void InitializeOutputAndErrorLogPaths()
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                if (standardOutputs == null)
-                    standardOutputs = new ProcessStringBuilderDictionary();
+                if (outputLogPaths == null)
+                    outputLogPaths = new ProcessDictionary<string>();
 
-                if (standardErrors == null)
-                    standardErrors = new ProcessStringBuilderDictionary();
+                if (errorLogPaths == null)
+                    errorLogPaths = new ProcessDictionary<string>();
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void InitializeOutputAndErrorCaptures()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (outputCaptures == null)
+                    outputCaptures = new ProcessStringBuilderDictionary();
+
+                if (errorCaptures == null)
+                    errorCaptures = new ProcessStringBuilderDictionary();
             }
         }
 
@@ -459,26 +496,54 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static int ClearStandardOutputsAndErrors()
+        private static int ClearOutputAndErrorLogPaths()
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 int result = 0;
 
-                if (standardOutputs != null)
+                if (outputLogPaths != null)
                 {
-                    result += standardOutputs.Count;
+                    result += outputLogPaths.Count;
 
-                    standardOutputs.Clear();
-                    standardOutputs = null;
+                    outputLogPaths.Clear();
+                    outputLogPaths = null;
                 }
 
-                if (standardErrors != null)
+                if (errorLogPaths != null)
                 {
-                    result += standardErrors.Count;
+                    result += errorLogPaths.Count;
 
-                    standardErrors.Clear();
-                    standardErrors = null;
+                    errorLogPaths.Clear();
+                    errorLogPaths = null;
+                }
+
+                return result;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int ClearOutputAndErrorCaptures()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                int result = 0;
+
+                if (outputCaptures != null)
+                {
+                    result += outputCaptures.Count;
+
+                    outputCaptures.Clear();
+                    outputCaptures = null;
+                }
+
+                if (errorCaptures != null)
+                {
+                    result += errorCaptures.Count;
+
+                    errorCaptures.Clear();
+                    errorCaptures = null;
                 }
 
                 return result;
@@ -521,7 +586,8 @@ namespace Eagle._Components.Private
             {
                 int result = 0;
 
-                result += ClearStandardOutputsAndErrors();
+                result += ClearOutputAndErrorLogPaths();
+                result += ClearOutputAndErrorCaptures();
                 result += ClearOutputAndErrorHandlers();
 
                 return result;
@@ -549,6 +615,106 @@ namespace Eagle._Components.Private
                     "{0}: possibly bad data received: {1}", methodName,
                     FormatOps.WrapOrNull(error)), typeof(ProcessOps).Name,
                     TracePriority.ProcessError2);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool AppendOutputDataToLogPath(
+            Process process, /* in */
+            string data      /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                string path;
+
+                if ((outputLogPaths != null) &&
+                    outputLogPaths.TryGetValue(process, out path))
+                {
+                    try
+                    {
+                        /* NO RESULT */
+                        File.AppendAllLines(
+                            path, new string[] { data });
+
+                        return true;
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(ProcessOps).Name,
+                            TracePriority.ProcessError2);
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool AppendErrorDataToLogPath(
+            Process process, /* in */
+            string data      /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                string path;
+
+                if ((errorLogPaths != null) &&
+                    errorLogPaths.TryGetValue(process, out path))
+                {
+                    try
+                    {
+                        /* NO RESULT */
+                        File.AppendAllLines(
+                            path, new string[] { data });
+
+                        return true;
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(ProcessOps).Name,
+                            TracePriority.ProcessError2);
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool AppendOutputDataToCapture(
+            Process process, /* in */
+            string data      /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (outputCaptures == null)
+                    return false;
+
+                return outputCaptures.AppendData(process, data);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool AppendErrorDataToCapture(
+            Process process, /* in */
+            string data      /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (errorCaptures == null)
+                    return false;
+
+                return errorCaptures.AppendData(process, data);
             }
         }
 
@@ -600,9 +766,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Captured Output & Handler Support Methods
-        private static ReturnCode PreSetupCapturedOutput(
+        private static ReturnCode PreSetupForCapture(
             ProcessStartInfo startInfo,             /* in */
             Process process,                        /* in */
+            string outputLogPath,                   /* in */
+            string errorLogPath,                    /* in */
             DataReceivedEventHandler outputHandler, /* in */
             DataReceivedEventHandler errorHandler,  /* in */
             int? capacity,                          /* in */
@@ -634,8 +802,15 @@ namespace Eagle._Components.Private
                 {
                     lock (syncRoot) /* TRANSACTIONAL */
                     {
-                        if ((standardOutputs != null) &&
-                            !standardOutputs.NewData(process, capacity))
+                        if (success && (outputLogPaths != null) &&
+                            (outputLogPath != null))
+                        {
+                            /* NO RESULT */
+                            outputLogPaths.Add(process, outputLogPath);
+                        }
+
+                        if (success && (outputCaptures != null) &&
+                            !outputCaptures.NewData(process, capacity))
                         {
                             success = false;
                         }
@@ -657,8 +832,15 @@ namespace Eagle._Components.Private
                 {
                     lock (syncRoot) /* TRANSACTIONAL */
                     {
-                        if ((standardErrors != null) &&
-                            !standardErrors.NewData(process, capacity))
+                        if (success && (errorLogPaths != null) &&
+                            (errorLogPath != null))
+                        {
+                            /* NO RESULT */
+                            errorLogPaths.Add(process, errorLogPath);
+                        }
+
+                        if (success && (errorCaptures != null) &&
+                            !errorCaptures.NewData(process, capacity))
                         {
                             success = false;
                         }
@@ -693,10 +875,16 @@ namespace Eagle._Components.Private
                             errorHandlers.Remove(process);
                         }
 
-                        if (standardErrors != null)
+                        if (errorCaptures != null)
                         {
                             /* IGNORED */
-                            standardErrors.RemoveData(process);
+                            errorCaptures.RemoveData(process);
+                        }
+
+                        if (errorLogPaths != null)
+                        {
+                            /* IGNORED */
+                            errorLogPaths.Remove(process);
                         }
 
                         if (outputHandlers != null)
@@ -705,10 +893,16 @@ namespace Eagle._Components.Private
                             outputHandlers.Remove(process);
                         }
 
-                        if (standardOutputs != null)
+                        if (outputCaptures != null)
                         {
                             /* IGNORED */
-                            standardOutputs.RemoveData(process);
+                            outputCaptures.RemoveData(process);
+                        }
+
+                        if (outputLogPaths != null)
+                        {
+                            /* IGNORED */
+                            outputLogPaths.Remove(process);
                         }
                     }
                 }
@@ -719,7 +913,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static ReturnCode PostSetupCapturedOutput(
+        private static ReturnCode PostSetupForCapture(
             ProcessStartInfo startInfo, /* in */
             Process process,            /* in */
             string input,               /* in */
@@ -847,9 +1041,9 @@ namespace Eagle._Components.Private
 
                         lock (syncRoot) /* TRANSACTIONAL */
                         {
-                            if (standardOutputs != null)
+                            if (outputCaptures != null)
                             {
-                                localOutput = standardOutputs.GetData(
+                                localOutput = outputCaptures.GetData(
                                     process);
                             }
                         }
@@ -872,9 +1066,9 @@ namespace Eagle._Components.Private
 
                         lock (syncRoot) /* TRANSACTIONAL */
                         {
-                            if (standardErrors != null)
+                            if (errorCaptures != null)
                             {
-                                localError = standardErrors.GetData(
+                                localError = errorCaptures.GetData(
                                     process);
                             }
                         }
@@ -932,10 +1126,16 @@ namespace Eagle._Components.Private
                 {
                     lock (syncRoot) /* TRANSACTIONAL */
                     {
-                        if (standardOutputs != null)
+                        if (outputLogPaths != null)
                         {
                             /* IGNORED */
-                            standardOutputs.RemoveData(process);
+                            outputLogPaths.Remove(process);
+                        }
+
+                        if (outputCaptures != null)
+                        {
+                            /* IGNORED */
+                            outputCaptures.RemoveData(process);
                         }
 
                         if (outputHandlers != null)
@@ -950,10 +1150,16 @@ namespace Eagle._Components.Private
                 {
                     lock (syncRoot) /* TRANSACTIONAL */
                     {
-                        if (standardErrors != null)
+                        if (errorLogPaths != null)
                         {
                             /* IGNORED */
-                            standardErrors.RemoveData(process);
+                            errorLogPaths.Remove(process);
+                        }
+
+                        if (errorCaptures != null)
+                        {
+                            /* IGNORED */
+                            errorCaptures.RemoveData(process);
                         }
 
                         if (errorHandlers != null)
@@ -2474,6 +2680,12 @@ namespace Eagle._Components.Private
             EventHandler startHandler,      /* in: Event handler to be called
                                              *     right after the process is
                                              *     started. */
+            string outputLogPath,           /* in: Optional log path where
+                                             *     captured output data should
+                                             *     be appended. */
+            string errorLogPath,            /* in: Optional log path where
+                                             *     captured error data should
+                                             *     be appended. */
             DataReceivedEventHandler outputHandler, /* in: Raw event handler
                                                      *     for output data
                                                      *     coming from the
@@ -2543,7 +2755,8 @@ namespace Eagle._Components.Private
             //
             if (captureOutput)
             {
-                InitializeStandardOutputsAndErrors();
+                InitializeOutputAndErrorLogPaths();
+                InitializeOutputAndErrorCaptures();
 
                 if (!overrideCapture)
                     InitializeOutputAndErrorHandlers();
@@ -2704,10 +2917,10 @@ namespace Eagle._Components.Private
                 //
                 localError = null;
 
-                if (PreSetupCapturedOutput(startInfo,
-                        process, outputHandler, errorHandler,
-                        StringBuilderCapacity, overrideCapture,
-                        ref localError) != ReturnCode.Ok)
+                if (PreSetupForCapture(
+                        startInfo, process, outputLogPath, errorLogPath,
+                        outputHandler, errorHandler, StringBuilderCapacity,
+                        overrideCapture, ref localError) != ReturnCode.Ok)
                 {
                     error = localError;
                     return ReturnCode.Error;
@@ -2730,7 +2943,7 @@ namespace Eagle._Components.Private
                 //
                 localError = null;
 
-                if (PostSetupCapturedOutput(
+                if (PostSetupForCapture(
                         startInfo, process, input, inputObject,
                         ref localError) != ReturnCode.Ok)
                 {
@@ -2917,13 +3130,13 @@ namespace Eagle._Components.Private
             ref Result error         /* out */
             )
         {
-            return ExecuteProcess(interpreter, null,
-                null, null, fileName, arguments, directory, null,
-                null, null, null, null, ProcessWindowStyle.Normal,
-                eventFlags, null, false, true, true, useUnicode,
-                false, false, false, false, false, true, false,
-                true, false, false, ref id, ref exitCode,
-                ref result, ref error);
+            return ExecuteProcess(
+                interpreter, null, null, null, fileName, arguments,
+                directory, null, null, null, null, null, null, null,
+                ProcessWindowStyle.Normal, eventFlags, null, false,
+                true, true, useUnicode, false, false, false, false,
+                false, true, false, true, false, false, ref id,
+                ref exitCode, ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2944,12 +3157,13 @@ namespace Eagle._Components.Private
         {
             long id = 0;
 
-            return ExecuteProcess(interpreter, null,
-                null, null, fileName, arguments, null, null, null, null,
-                null, null, ProcessWindowStyle.Normal, eventFlags, null,
-                false, true, true, false, false, false, false, false,
-                true, false, false, true, false, false, ref id,
-                ref exitCode, ref result, ref error);
+            return ExecuteProcess(
+                interpreter, null, null, null, fileName, arguments,
+                null, null, null, null, null, null, null, null,
+                ProcessWindowStyle.Normal, eventFlags, null, false,
+                true, true, false, false, false, false, false, true,
+                false, false, true, false, false, ref id, ref exitCode,
+                ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2971,12 +3185,13 @@ namespace Eagle._Components.Private
             ExitCode exitCode = ResultOps.SuccessExitCode();
             Result result = null;
 
-            return ExecuteProcess(interpreter, null,
-                null, null, fileName, arguments, directory, null, null,
-                null, null, null, ProcessWindowStyle.Normal, eventFlags,
-                null, true, false, false, false, false, false, false,
-                false, false, false, false, true, false, false, ref id,
-                ref exitCode, ref result, ref error);
+            return ExecuteProcess(
+                interpreter, null, null, null, fileName, arguments,
+                directory, null, null, null, null, null, null, null,
+                ProcessWindowStyle.Normal, eventFlags, null, true,
+                false, false, false, false, false, false, false, false,
+                false, false, true, false, false, ref id, ref exitCode,
+                ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2997,12 +3212,13 @@ namespace Eagle._Components.Private
             ExitCode exitCode = ResultOps.SuccessExitCode();
             Result result = null;
 
-            return ExecuteProcess(interpreter, null,
-                null, null, fileName, arguments, directory, null, null,
-                null, null, null, ProcessWindowStyle.Normal, eventFlags,
-                null, false, false, false, false, false, false, false,
-                false, false, false, false, true, false, false, ref id,
-                ref exitCode, ref result, ref error);
+            return ExecuteProcess(
+                interpreter, null, null, null, fileName, arguments,
+                directory, null, null, null, null, null, null, null,
+                ProcessWindowStyle.Normal, eventFlags, null, false,
+                false, false, false, false, false, false, false, false,
+                false, false, true, false, false, ref id, ref exitCode,
+                ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3024,12 +3240,13 @@ namespace Eagle._Components.Private
             ExitCode exitCode = ResultOps.SuccessExitCode();
             Result result = null;
 
-            return ExecuteProcess(interpreter, null,
-                null, null, fileName, arguments, directory, null, null,
-                null, null, null, ProcessWindowStyle.Normal, eventFlags,
-                null, false, false, false, false, false, false, false,
-                false, false, false, background, true, false, false,
-                ref id, ref exitCode, ref result, ref error);
+            return ExecuteProcess(
+                interpreter, null, null, null, fileName, arguments,
+                directory, null, null, null, null, null, null, null,
+                ProcessWindowStyle.Normal, eventFlags, null, false,
+                false, false, false, false, false, false, false,
+                false, false, background, true, false, false, ref id,
+                ref exitCode, ref result, ref error);
         }
 #endif
         #endregion
@@ -3199,22 +3416,21 @@ namespace Eagle._Components.Private
 
             MaybeCheckDataReceived("OutputDataReceived", data);
 
-            bool success;
+            bool[] success = { false, false };
 
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                success = (standardOutputs != null) ?
-                    standardOutputs.AppendData(process, data) : false;
-            }
+            success[0] = AppendOutputDataToCapture(process, data);
+            success[1] = AppendOutputDataToLogPath(process, data);
 
-            if (!success)
+            if (!success[0] && !success[1])
             {
                 TraceOps.DebugTrace(String.Format(
-                    "OutputDataReceived: missing builder? {0}: dropping {1}",
+                    "OutputDataReceived: cannot capture " +
+                    "for {0} ({1}, {2}): dropping {3}",
                     EntityOps.GetNameNoThrow(process),
+                    success[0], success[1],
                     FormatOps.DisplayStringLength(data)),
                     typeof(ProcessOps).Name,
-                    TracePriority.ProcessError);
+                    TracePriority.ProcessError2);
             }
 
             DataReceivedEventHandler handler = GetOutputHandler(process);
@@ -3258,19 +3474,18 @@ namespace Eagle._Components.Private
 
             MaybeCheckDataReceived("ErrorDataReceived", data);
 
-            bool success;
+            bool[] success = { false, false };
 
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                success = (standardErrors != null) ?
-                    standardErrors.AppendData(process, data) : false;
-            }
+            success[0] = AppendErrorDataToCapture(process, data);
+            success[1] = AppendErrorDataToLogPath(process, data);
 
-            if (!success)
+            if (!success[0] && !success[1])
             {
                 TraceOps.DebugTrace(String.Format(
-                    "ErrorDataReceived: missing builder? {0}: dropping {1}",
+                    "ErrorDataReceived: cannot capture " +
+                    "for {0} ({1}, {2}): dropping {3}",
                     EntityOps.GetNameNoThrow(process),
+                    success[0], success[1],
                     FormatOps.DisplayStringLength(data)),
                     typeof(ProcessOps).Name,
                     TracePriority.ProcessError);

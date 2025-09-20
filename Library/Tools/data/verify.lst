@@ -678,6 +678,7 @@ set eagle_manifests(source) {
   Eagle/Library/Containers/Private/PolicyWrapperDictionary.cs
   Eagle/Library/Containers/Private/ProcedureWrapperDictionary.cs
   Eagle/Library/Containers/Private/ProcessDataReceivedEventHandlerDictionary.cs
+  Eagle/Library/Containers/Private/ProcessDictionary.cs
   Eagle/Library/Containers/Private/ProcessStringBuilderDictionary.cs
   Eagle/Library/Containers/Private/QueueList.cs
   Eagle/Library/Containers/Private/RegExEnumDictionary.cs
@@ -3566,6 +3567,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Containers/Private/PolicyWrapperDictionary.cs
   src/Library/Containers/Private/ProcedureWrapperDictionary.cs
   src/Library/Containers/Private/ProcessDataReceivedEventHandlerDictionary.cs
+  src/Library/Containers/Private/ProcessDictionary.cs
   src/Library/Containers/Private/ProcessStringBuilderDictionary.cs
   src/Library/Containers/Private/QueueList.cs
   src/Library/Containers/Private/RegExEnumDictionary.cs

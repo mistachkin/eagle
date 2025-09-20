@@ -76,8 +76,8 @@ FEATURE: add the [debug write] sub-command to write a (diagnostic?) message to
 
 FEATURE: add the -object option to the [hash] computation sub-commands.
 
-FEATURE: add the -trace, -escapesubstring, -escaperanges, and -forprocessor
-         options to the [exec] command.
+FEATURE: add the -stdoutlogpath, -stderrlogpath, -trace, -escapesubstring,
+         -escaperanges, and -forprocessor options to the [exec] command.
 
 FEATURE: add the -blobbehavior option to the [sql execut]e sub-command.
 

@@ -3004,7 +3004,7 @@ static void GarudaObjCmdDeleteProc(
      *       pointer to the Tcl interpreter.  It must be valid.
      */
 
-    Tcl_Interp *interp = (Tcl_Interp *) clientData;
+    Tcl_Interp *interp = (Tcl_Interp *)clientData;
 
     if (interp == NULL) {
 	PACKAGE_TRACE(("GarudaObjCmdDeleteProc: no Tcl interpreter\n"));
