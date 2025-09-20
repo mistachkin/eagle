@@ -442,6 +442,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/PluginClientData.cs
   Eagle/Library/Components/Private/PolicyOps.cs
   Eagle/Library/Components/Private/ProcessOps.cs
+  Eagle/Library/Components/Private/ProcessWaitInfo.cs
   Eagle/Library/Components/Private/ProfileOps.cs
   Eagle/Library/Components/Private/ProfilerState.cs
   Eagle/Library/Components/Private/ReadScriptClientData.cs
@@ -3333,6 +3334,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/PluginClientData.cs
   src/Library/Components/Private/PolicyOps.cs
   src/Library/Components/Private/ProcessOps.cs
+  src/Library/Components/Private/ProcessWaitInfo.cs
   src/Library/Components/Private/ProfileOps.cs
   src/Library/Components/Private/ProfilerState.cs
   src/Library/Components/Private/ReadScriptClientData.cs

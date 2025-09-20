@@ -709,6 +709,7 @@
     <Compile Include="Components\Private\PluginClientData.cs" />
     <Compile Include="Components\Private\PolicyOps.cs" />
     <Compile Include="Components\Private\ProcessOps.cs" />
+    <Compile Include="Components\Private\ProcessWaitInfo.cs" />
     <Compile Include="Components\Private\ProfileOps.cs" />
     <Compile Include="Components\Private\ProfilerState.cs" />
     <Compile Include="Components\Private\ReadScriptClientData.cs" />

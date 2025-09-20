@@ -987,7 +987,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static ReturnCode GetCapturedOutput(
+        private static ReturnCode GetCaptureData(
             ProcessStartInfo startInfo, /* in */
             Process process,            /* in */
             bool useShellExecute,       /* in */
@@ -1102,7 +1102,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static ReturnCode TerminateCapturedOutput(
+        private static ReturnCode TerminateForCapture(
             ProcessStartInfo startInfo, /* in */
             Process process,            /* in */
             ref Result error            /* out */
@@ -1513,6 +1513,12 @@ namespace Eagle._Components.Private
             IObject inputObject,            /* in: Opaque object handle where
                                              *     standard input stream should
                                              *     be stored. */
+            string outputLogPath,           /* in: Optional log path where
+                                             *     captured output data should
+                                             *     be appended. */
+            string errorLogPath,            /* in: Optional log path where
+                                             *     captured error data should
+                                             *     be appended. */
             ProcessWindowStyle windowStyle, /* in: Normal, minimized, etc. */
             bool useShellExecute,           /* in: Use ShellExecute instead of
                                              *     CreateProcess? */
@@ -1598,16 +1604,19 @@ namespace Eagle._Components.Private
             //       error channels from the child process for non-background
             //       processes.
             //
-            startInfo.RedirectStandardInput = (!useShellExecute &&
-                (background || (input != null) || (inputObject != null)));
+            startInfo.RedirectStandardInput =
+                (!useShellExecute && (background ||
+                (input != null) || (inputObject != null)));
 
             if (captureOutput)
             {
                 startInfo.RedirectStandardOutput =
-                    (!useShellExecute && !background);
+                    (!useShellExecute &&
+                    (!background || (outputLogPath != null)));
 
                 startInfo.RedirectStandardError =
-                    (!ignoreStdErr && !useShellExecute && !background);
+                    (!ignoreStdErr && !useShellExecute &&
+                    (!background || (errorLogPath != null)));
             }
 
             return startInfo;
@@ -1727,16 +1736,106 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool SafeHasExited(
+            Process process, /* in */
+            bool waitForExit /* in */
+            )
+        {
+            bool hasExited; /* NOT USED */
+
+            return SafeHasExited(process, waitForExit, out hasExited);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool SafeHasExited(
+            Process process,   /* in */
+            bool waitForExit,  /* in */
+            out bool hasExited /* out */
+            )
+        {
+            hasExited = false;
+
+            try
+            {
+                if (process != null)
+                {
+                    if (waitForExit)
+                    {
+                        process.WaitForExit(); /* throw */
+                        hasExited = true; /* REDUNDANT */
+                    }
+                    else
+                    {
+                        hasExited = process.HasExited; /* throw */
+                    }
+
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(ProcessOps).Name,
+                    TracePriority.ProcessError2);
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ProcessWaitCallback(
+            object state /* in */
+            ) /* System.Threading.WaitCallback */
+        {
+            ProcessWaitInfo processWaitInfo = state as ProcessWaitInfo;
+
+            if (processWaitInfo == null)
+                return;
+
+            bool waitForExit = true; /* TODO: Why not? */
+            Result error = null;
+
+            if (ProcessEvents(
+                    processWaitInfo.Interpreter,
+                    processWaitInfo.StartInfo,
+                    processWaitInfo.Process,
+                    processWaitInfo.OutputLogPath,
+                    processWaitInfo.ErrorLogPath,
+                    processWaitInfo.Timeout,
+                    processWaitInfo.EventFlags,
+                    processWaitInfo.UserInterface,
+                    processWaitInfo.NoSleep,
+                    processWaitInfo.KillOnError,
+                    processWaitInfo.Background,
+                    ref waitForExit, /* NOT USED */
+                    ref error) != ReturnCode.Ok)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "ProcessWaitCallback: error = {0}",
+                    FormatOps.WrapOrNull(error)),
+                    typeof(ProcessOps).Name,
+                    TracePriority.ProcessError2);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static ReturnCode ProcessEvents(
-            Interpreter interpreter, /* in */
-            Process process,         /* in */
-            int? timeout,            /* in */
-            EventFlags eventFlags,   /* in */
-            bool userInterface,      /* in */
-            bool noSleep,            /* in */
-            bool killOnError,        /* in */
-            ref bool waitForExit,    /* out */
-            ref Result error         /* out */
+            Interpreter interpreter,    /* in */
+            ProcessStartInfo startInfo, /* in */
+            Process process,            /* in */
+            string outputLogPath,       /* in */
+            string errorLogPath,        /* in */
+            int? timeout,               /* in */
+            EventFlags eventFlags,      /* in */
+            bool userInterface,         /* in */
+            bool noSleep,               /* in */
+            bool killOnError,           /* in */
+            bool background,            /* in */
+            ref bool waitForExit,       /* out */
+            ref Result error            /* out */
             )
         {
             if (process == null)
@@ -1779,9 +1878,15 @@ namespace Eagle._Components.Private
             try
             {
                 //
-                // NOTE: Keep going until the child process has exited.
+                // NOTE: Keep going until child process has exited.  Since
+                //       merely checking the HasExited property can cause
+                //       an exception to be thrown, use the "safe" helper
+                //       method.
                 //
-                while (!process.HasExited) /* throw */
+                bool hasExited; /* REUSED */
+
+                while (SafeHasExited(
+                        process, false, out hasExited) && !hasExited)
                 {
                     //
                     // NOTE: We need a local result because we do not want
@@ -1913,6 +2018,33 @@ namespace Eagle._Components.Private
                     KillProcess(process, false, verbose);
 
                 error = e;
+            }
+            finally
+            {
+                if (background &&
+                    ((outputLogPath != null) || (errorLogPath != null)))
+                {
+                    //
+                    // HACK: Attempt to make sure the target process
+                    //       has (actually) exited by this point, so
+                    //       the outputs captured into the log files
+                    //       are complete.
+                    //
+                    /* IGNORED */
+                    SafeHasExited(process, true);
+
+                    ReturnCode terminateCode;
+                    Result terminateError = null;
+
+                    terminateCode = TerminateForCapture(
+                        startInfo, process, ref terminateError);
+
+                    if (terminateCode != ReturnCode.Ok)
+                    {
+                        DebugOps.Complain(
+                            interpreter, terminateCode, terminateError);
+                    }
+                }
             }
 
             return ReturnCode.Error;
@@ -2864,9 +2996,10 @@ namespace Eagle._Components.Private
 
             startInfo = CreateStartInfo(
                 domainName, userName, password, fileName, arguments,
-                workingDirectory, input, inputObject, windowStyle,
-                useShellExecute, captureOutput, useUnicode, ignoreStdErr,
-                background, ref localError);
+                workingDirectory, input, inputObject, outputLogPath,
+                errorLogPath, windowStyle, useShellExecute,
+                captureOutput, useUnicode, ignoreStdErr, background,
+                ref localError);
 
             if (startInfo == null)
             {
@@ -2974,6 +3107,23 @@ namespace Eagle._Components.Private
                         ref id) || background)
                 {
                     //
+                    // NOTE: If one or both of the log paths are in use,
+                    //       process events on a thread-pool thread and
+                    //       then cleanup the in-memory log path state.
+                    //
+                    if (background && ((outputLogPath != null) ||
+                        (errorLogPath != null)))
+                    {
+                        ThreadOps.QueueUserWorkItem(
+                            new WaitCallback(ProcessWaitCallback),
+                            new ProcessWaitInfo(interpreter,
+                            startInfo, process, outputLogPath,
+                            errorLogPath, timeout, eventFlags,
+                            userInterface, noSleep, killOnError,
+                            background), true);
+                    }
+
+                    //
                     // NOTE: For background child processes, we do not
                     //       wait and we return the PID of the child
                     //       process.  The value may be zero if we did
@@ -2997,9 +3147,10 @@ namespace Eagle._Components.Private
                         localError = null;
 
                         if (ProcessEvents(
-                                interpreter, process, timeout,
+                                interpreter, startInfo, process,
+                                outputLogPath, errorLogPath, timeout,
                                 eventFlags, userInterface, noSleep,
-                                killOnError, ref waitForExit,
+                                killOnError, background, ref waitForExit,
                                 ref localError) != ReturnCode.Ok)
                         {
                             error = localError;
@@ -3077,7 +3228,7 @@ namespace Eagle._Components.Private
                             didWaitForExit = true;
                         }
 
-                        return GetCapturedOutput(
+                        return GetCaptureData(
                             startInfo, process, useShellExecute,
                             keepNewLine, ref result, ref error);
                     }
@@ -3096,16 +3247,20 @@ namespace Eagle._Components.Private
             }
             finally
             {
-                ReturnCode terminateCode;
-                Result terminateError = null;
-
-                terminateCode = TerminateCapturedOutput(
-                    startInfo, process, ref terminateError);
-
-                if (terminateCode != ReturnCode.Ok)
+                if (!background ||
+                    ((outputLogPath == null) && (errorLogPath == null)))
                 {
-                    DebugOps.Complain(
-                        interpreter, terminateCode, terminateError);
+                    ReturnCode terminateCode;
+                    Result terminateError = null;
+
+                    terminateCode = TerminateForCapture(
+                        startInfo, process, ref terminateError);
+
+                    if (terminateCode != ReturnCode.Ok)
+                    {
+                        DebugOps.Complain(
+                            interpreter, terminateCode, terminateError);
+                    }
                 }
             }
 
