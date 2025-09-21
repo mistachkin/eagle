@@ -46,7 +46,7 @@ COMPILE_TIME_ASSERT(unsigned_int_32bits_size_check, sizeof(unsigned int) == 4);
 COMPILE_TIME_ASSERT(UTF8_size_check, sizeof(UTF8) >= sizeof(char));
 COMPILE_TIME_ASSERT(UTF16_size_check, sizeof(UTF16) >= sizeof(Tcl_UniChar));
 COMPILE_TIME_ASSERT(UTF32_size_check, sizeof(UTF32) >= sizeof(wchar_t));
-#endif /* !defined(_WIN32) */
+#endif
 
 #if !defined(FACILITY_CUSTOMER_BIT)
 #define FACILITY_CUSTOMER_BIT		(0x20000000)

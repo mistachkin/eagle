@@ -10124,6 +10124,33 @@ namespace eval ::Eagle {
       return false
     }
 
+    proc eagle_appendExecArgs { viaShell varName args } {
+      upvar 1 $varName command
+
+      set newArgs [list]
+
+      foreach arg $args {
+        set arg [string map [list \\ \\\\ \" \\\"] $arg]
+
+        if {[regexp -- {[\s\"\\]} $arg]} then {
+          lappend newArgs [appendArgs \" $arg \"]
+        } else {
+          lappend newArgs $arg
+        }
+      }
+
+      if {$viaShell} then {
+        set shellCommand [join $newArgs " "]
+        set shellCommand [string map [list ' '\\''] $shellCommand]
+        set shellCommand [appendArgs ' $shellCommand ']
+
+        lappend command [appendArgs \
+            \" $::env(SHELL) " -c " $shellCommand \"]
+      } else {
+        eval lappend command $newArgs
+      }
+    }
+
     proc eagle_shellBuildCommand { shell name args } {
       set result [list]
 

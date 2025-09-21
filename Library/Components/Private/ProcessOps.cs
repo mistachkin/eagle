@@ -24,6 +24,8 @@ using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using ComEnv = Eagle._Components.Private.CommonOps.Environment;
+using SBF = Eagle._Components.Private.StringBuilderFactory;
+using SBC = Eagle._Components.Private.StringBuilderCache;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -620,6 +622,89 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool MaybeAppendStartInfoToLogPaths(
+            string outputLogPath,      /* in: OPTIONAL */
+            string errorLogPath,       /* in: OPTIONAL */
+            string prefix,             /* in: OPTIONAL */
+            ProcessStartInfo startInfo /* in */
+            )
+        {
+            //
+            // NOTE: If one (or both) of the log paths are set, log all
+            //       the important process information to it, as a line
+            //       that is a properly formatted Tcl-style dictionary,
+            //       i.e. as a Tcl-style list of name/value pairs.
+            //
+            if ((startInfo != null) &&
+                ((outputLogPath != null) || (errorLogPath != null)))
+            {
+                if (String.IsNullOrEmpty(prefix))
+                    prefix = FormatOps.DisplayUnknown;
+
+                string logData = String.Format(
+                    "{2}{2}==== {1}: {0} ===={2}{2}", new StringList(
+                    "workingDirectory", startInfo.WorkingDirectory,
+                    "fileName", startInfo.FileName, "arguments",
+                    startInfo.Arguments), prefix, Environment.NewLine);
+
+                if (outputLogPath != null)
+                {
+                    /* IGNORED */
+                    AppendDataToLogPath(outputLogPath, logData);
+                }
+
+                if (errorLogPath != null)
+                {
+                    /* IGNORED */
+                    AppendDataToLogPath(errorLogPath, logData);
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool AppendDataToLogPath(
+            string path, /* in */
+            string data  /* in */
+            )
+        {
+            try
+            {
+                if (data != null)
+                {
+#if NET_40
+                    /* NO RESULT */
+                    File.AppendAllLines(
+                        path, new string[] { data });
+#else
+                    StringBuilder builder = SBF.Create(
+                        data.Length + 2 /* NewLine */);
+
+                    builder.AppendLine(data);
+
+                    /* NO RESULT */
+                    File.AppendAllText(
+                        path, SBC.GetStringAndRelease(
+                        ref builder));
+#endif
+
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(ProcessOps).Name,
+                    TracePriority.ProcessError2);
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static bool AppendOutputDataToLogPath(
             Process process, /* in */
             string data      /* in */
@@ -632,23 +717,12 @@ namespace Eagle._Components.Private
                 if ((outputLogPaths != null) &&
                     outputLogPaths.TryGetValue(process, out path))
                 {
-                    try
-                    {
-                        /* NO RESULT */
-                        File.AppendAllLines(
-                            path, new string[] { data });
-
-                        return true;
-                    }
-                    catch (Exception e)
-                    {
-                        TraceOps.DebugTrace(
-                            e, typeof(ProcessOps).Name,
-                            TracePriority.ProcessError2);
-                    }
+                    return AppendDataToLogPath(path, data);
                 }
-
-                return false;
+                else
+                {
+                    return false;
+                }
             }
         }
 
@@ -666,23 +740,12 @@ namespace Eagle._Components.Private
                 if ((errorLogPaths != null) &&
                     errorLogPaths.TryGetValue(process, out path))
                 {
-                    try
-                    {
-                        /* NO RESULT */
-                        File.AppendAllLines(
-                            path, new string[] { data });
-
-                        return true;
-                    }
-                    catch (Exception e)
-                    {
-                        TraceOps.DebugTrace(
-                            e, typeof(ProcessOps).Name,
-                            TracePriority.ProcessError2);
-                    }
+                    return AppendDataToLogPath(path, data);
                 }
-
-                return false;
+                else
+                {
+                    return false;
+                }
             }
         }
 
@@ -2033,6 +2096,10 @@ namespace Eagle._Components.Private
                     /* IGNORED */
                     SafeHasExited(process, true);
 
+                    /* IGNORED */
+                    MaybeAppendStartInfoToLogPaths(
+                        outputLogPath, errorLogPath, "END", startInfo);
+
                     ReturnCode terminateCode;
                     Result terminateError = null;
 
@@ -3019,8 +3086,12 @@ namespace Eagle._Components.Private
                     true, true);
             }
 
+            /* IGNORED */
+            MaybeAppendStartInfoToLogPaths(
+                outputLogPath, errorLogPath, "START", startInfo);
+
             //
-            // NOTE: Attempt to create a child process OBJECT.  This does
+            // NOTE: Attempt to create child process OBJECT.  This does
             //       not actually start the process.
             //
             Process process;
@@ -3250,6 +3321,10 @@ namespace Eagle._Components.Private
                 if (!background ||
                     ((outputLogPath == null) && (errorLogPath == null)))
                 {
+                    /* IGNORED */
+                    MaybeAppendStartInfoToLogPaths(
+                        outputLogPath, errorLogPath, "END", startInfo);
+
                     ReturnCode terminateCode;
                     Result terminateError = null;
 
