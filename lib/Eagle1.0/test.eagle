@@ -5989,6 +5989,17 @@ namespace eval ::Eagle {
     }
   }
 
+  proc getCurrentTestName {} {
+    set result ""
+
+    if {[info exists ::eagle_tests(CurrentName)]} then {
+      set result $::eagle_tests(CurrentName)
+    }
+
+    maybeInvokeForTester ::afterGetCurrentTestName; # HOOK
+    return $result
+  }
+
   proc getTestName { script asFullName reset } {
     if {[info exists ::eagle_tests(CurrentName)]} then {
       set result $::eagle_tests(CurrentName)
@@ -13514,12 +13525,13 @@ namespace eval ::Eagle {
         testClrExec execTestShell isRandomOrder isBreakOnDemand isBreakOnLeak \
         isStopOnFailure isStopOnLeak isExitOnComplete returnInfoScript \
         runTestPrologue runTestEpilogue hookPuts unhookPuts getTestFile \
-        getTestName runTest testShim tsource getKnownEagleVersions \
-        isStableEagleRelease changeArrayElement enableTestStatisticsLists \
-        shouldRecordTestStatistics shouldReportTestStatistics \
-        maybeRecordTestStatistics maybeReportTestStatistics \
-        recordTestStatistics getNamesForTestStatistics reportTestStatistics \
-        formatList formatListAsDict formatLeakedNames pathToRegexp \
+        getCurrentTestName getTestName runTest testShim tsource \
+        getKnownEagleVersions isStableEagleRelease changeArrayElement \
+        enableTestStatisticsLists shouldRecordTestStatistics \
+        shouldReportTestStatistics maybeRecordTestStatistics \
+        maybeReportTestStatistics recordTestStatistics \
+        getNamesForTestStatistics reportTestStatistics formatList \
+        formatListAsDict formatLeakedNames pathToRegexp \
         assemblyNameToRegexp maybeGetOption inverseLsearchGlob \
         removePathFromFileNames formatDecimal clearTestPercent \
         reportTestPercent reportArrayGet reportTestStatisticCounts \

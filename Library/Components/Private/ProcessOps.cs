@@ -639,10 +639,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static string FormatStartInfoForLogPaths(
+            string prefix,             /* in: OPTIONAL */
+            string logTag,             /* in: OPTIONAL */
+            ProcessStartInfo startInfo /* in */
+            )
+        {
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            builder.AppendLine();
+            builder.AppendLine();
+            builder.Append("==== ");
+
+            if (!String.IsNullOrEmpty(prefix))
+                builder.AppendFormat("{0}: ", prefix);
+
+            builder.Append(new StringList("logTag", logTag,
+                "workingDirectory", startInfo.WorkingDirectory,
+                "fileName", startInfo.FileName, "arguments",
+                startInfo.Arguments));
+
+            builder.Append(" ====");
+            builder.AppendLine();
+            builder.AppendLine();
+
+            return StringBuilderCache.GetStringAndRelease(ref builder);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static bool MaybeAppendStartInfoToLogPaths(
             string outputLogPath,      /* in: OPTIONAL */
             string errorLogPath,       /* in: OPTIONAL */
             string prefix,             /* in: OPTIONAL */
+            string logTag,             /* in: OPTIONAL */
             ProcessStartInfo startInfo /* in */
             )
         {
@@ -657,14 +687,8 @@ namespace Eagle._Components.Private
             if ((startInfo != null) &&
                 ((outputLogPath != null) || (errorLogPath != null)))
             {
-                if (String.IsNullOrEmpty(prefix))
-                    prefix = FormatOps.DisplayUnknown;
-
-                string logData = String.Format(
-                    "{2}{2}==== {1}: {0} ===={2}{2}", new StringList(
-                    "workingDirectory", startInfo.WorkingDirectory,
-                    "fileName", startInfo.FileName, "arguments",
-                    startInfo.Arguments), prefix, Environment.NewLine);
+                string logData = FormatStartInfoForLogPaths(
+                    prefix, logTag, startInfo);
 
                 if ((outputLogPath != null) &&
                     AppendDataToLogPath(outputLogPath, logData))
@@ -842,6 +866,32 @@ namespace Eagle._Components.Private
                     return null;
                 }
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeInvokeDataReceivedEventHandler(
+            DataReceivedEventHandler handler, /* in */
+            object sender,                    /* in */
+            DataReceivedEventArgs e           /* in */
+            )
+        {
+            if (handler != null)
+            {
+                try
+                {
+                    handler(sender, e); /* throw */
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    TraceOps.DebugTrace(
+                        ex, typeof(ProcessOps).Name,
+                        TracePriority.ProcessError2);
+                }
+            }
+
+            return false;
         }
         #endregion
 
@@ -1885,6 +1935,7 @@ namespace Eagle._Components.Private
                     processWaitInfo.Process,
                     processWaitInfo.OutputLogPath,
                     processWaitInfo.ErrorLogPath,
+                    processWaitInfo.LogTag,
                     processWaitInfo.Timeout,
                     processWaitInfo.EventFlags,
                     processWaitInfo.UserInterface,
@@ -1910,6 +1961,7 @@ namespace Eagle._Components.Private
             Process process,            /* in */
             string outputLogPath,       /* in */
             string errorLogPath,        /* in */
+            string logTag,              /* in */
             int? timeout,               /* in */
             EventFlags eventFlags,      /* in */
             bool userInterface,         /* in */
@@ -2116,8 +2168,8 @@ namespace Eagle._Components.Private
                     SafeHasExited(process, true);
 
                     /* IGNORED */
-                    MaybeAppendStartInfoToLogPaths(
-                        outputLogPath, errorLogPath, "END", startInfo);
+                    MaybeAppendStartInfoToLogPaths(outputLogPath,
+                        errorLogPath, "END", logTag, startInfo);
 
                     ReturnCode terminateCode;
                     Result terminateError = null;
@@ -2914,6 +2966,9 @@ namespace Eagle._Components.Private
                                                      *     coming from the
                                                      *     new process, if
                                                      *     any. */
+            string logTag,                  /* in: The optional "tag" string to
+                                             *     include in the log file(s),
+                                             *     if any. */
             ProcessWindowStyle windowStyle, /* in: Normal, minimized, etc. */
             EventFlags eventFlags,          /* in: Event flags to use while
                                              *     waiting for new process to
@@ -3099,8 +3154,8 @@ namespace Eagle._Components.Private
             }
 
             /* IGNORED */
-            MaybeAppendStartInfoToLogPaths(
-                outputLogPath, errorLogPath, "START", startInfo);
+            MaybeAppendStartInfoToLogPaths(outputLogPath,
+                errorLogPath, "START", logTag, startInfo);
 
             //
             // NOTE: Attempt to create child process OBJECT.  This does
@@ -3199,11 +3254,12 @@ namespace Eagle._Components.Private
                     {
                         ThreadOps.QueueUserWorkItem(
                             new WaitCallback(ProcessWaitCallback),
-                            new ProcessWaitInfo(interpreter,
-                            startInfo, process, outputLogPath,
-                            errorLogPath, timeout, eventFlags,
-                            userInterface, noSleep, killOnError,
-                            background), true);
+                            new ProcessWaitInfo(
+                                interpreter, startInfo, process,
+                                outputLogPath, errorLogPath, logTag,
+                                timeout, eventFlags, userInterface,
+                                noSleep, killOnError, background
+                            ), true);
                     }
 
                     //
@@ -3231,9 +3287,10 @@ namespace Eagle._Components.Private
 
                         if (ProcessEvents(
                                 interpreter, startInfo, process,
-                                outputLogPath, errorLogPath, timeout,
-                                eventFlags, userInterface, noSleep,
-                                killOnError, background, ref waitForExit,
+                                outputLogPath, errorLogPath, logTag,
+                                timeout, eventFlags, userInterface,
+                                noSleep, killOnError, background,
+                                ref waitForExit,
                                 ref localError) != ReturnCode.Ok)
                         {
                             error = localError;
@@ -3334,8 +3391,8 @@ namespace Eagle._Components.Private
                     ((outputLogPath == null) && (errorLogPath == null)))
                 {
                     /* IGNORED */
-                    MaybeAppendStartInfoToLogPaths(
-                        outputLogPath, errorLogPath, "END", startInfo);
+                    MaybeAppendStartInfoToLogPaths(outputLogPath,
+                        errorLogPath, "END", logTag, startInfo);
 
                     ReturnCode terminateCode;
                     Result terminateError = null;
@@ -3375,10 +3432,10 @@ namespace Eagle._Components.Private
             return ExecuteProcess(
                 interpreter, null, null, null, fileName, arguments,
                 directory, null, null, null, null, null, null, null,
-                ProcessWindowStyle.Normal, eventFlags, null, false,
-                true, true, useUnicode, false, false, false, false,
-                false, true, false, true, false, false, ref id,
-                ref exitCode, ref result, ref error);
+                null, ProcessWindowStyle.Normal, eventFlags, null,
+                false, true, true, useUnicode, false, false, false,
+                false, false, true, false, true, false, false,
+                ref id, ref exitCode, ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3401,7 +3458,7 @@ namespace Eagle._Components.Private
 
             return ExecuteProcess(
                 interpreter, null, null, null, fileName, arguments,
-                null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null,
                 ProcessWindowStyle.Normal, eventFlags, null, false,
                 true, true, false, false, false, false, false, true,
                 false, false, true, false, false, ref id, ref exitCode,
@@ -3430,10 +3487,10 @@ namespace Eagle._Components.Private
             return ExecuteProcess(
                 interpreter, null, null, null, fileName, arguments,
                 directory, null, null, null, null, null, null, null,
-                ProcessWindowStyle.Normal, eventFlags, null, true,
-                false, false, false, false, false, false, false, false,
-                false, false, true, false, false, ref id, ref exitCode,
-                ref result, ref error);
+                null, ProcessWindowStyle.Normal, eventFlags, null,
+                true, false, false, false, false, false, false,
+                false, false, false, false, true, false, false,
+                ref id, ref exitCode, ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3457,10 +3514,10 @@ namespace Eagle._Components.Private
             return ExecuteProcess(
                 interpreter, null, null, null, fileName, arguments,
                 directory, null, null, null, null, null, null, null,
-                ProcessWindowStyle.Normal, eventFlags, null, false,
-                false, false, false, false, false, false, false, false,
-                false, false, true, false, false, ref id, ref exitCode,
-                ref result, ref error);
+                null, ProcessWindowStyle.Normal, eventFlags, null,
+                false, false, false, false, false, false, false,
+                false, false, false, false, true, false, false,
+                ref id, ref exitCode, ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3485,10 +3542,10 @@ namespace Eagle._Components.Private
             return ExecuteProcess(
                 interpreter, null, null, null, fileName, arguments,
                 directory, null, null, null, null, null, null, null,
-                ProcessWindowStyle.Normal, eventFlags, null, false,
+                null, ProcessWindowStyle.Normal, eventFlags, null,
                 false, false, false, false, false, false, false,
-                false, false, background, true, false, false, ref id,
-                ref exitCode, ref result, ref error);
+                false, false, false, background, true, false, false,
+                ref id, ref exitCode, ref result, ref error);
         }
 #endif
         #endregion
@@ -3658,37 +3715,24 @@ namespace Eagle._Components.Private
 
             MaybeCheckDataReceived("OutputDataReceived", data);
 
-            bool[] success = { false, false };
+            bool[] success = { false, false, false };
 
             success[0] = AppendOutputDataToCapture(process, data);
             success[1] = AppendOutputDataToLogPath(process, data);
 
-            if (!success[0] && !success[1])
+            success[2] = MaybeInvokeDataReceivedEventHandler(
+                GetOutputHandler(process), sender, e);
+
+            if (!success[0] && !success[1] && !success[2])
             {
                 TraceOps.DebugTrace(String.Format(
                     "OutputDataReceived: cannot capture " +
-                    "for {0} ({1}, {2}): dropping {3}",
+                    "for {0} ({1}, {2}, {3}): dropping {4}",
                     EntityOps.GetNameNoThrow(process),
-                    success[0], success[1],
+                    success[0], success[1], success[2],
                     FormatOps.DisplayStringLength(data)),
                     typeof(ProcessOps).Name,
                     TracePriority.ProcessError2);
-            }
-
-            DataReceivedEventHandler handler = GetOutputHandler(process);
-
-            if (handler != null)
-            {
-                try
-                {
-                    handler(sender, e); /* throw */
-                }
-                catch (Exception ex)
-                {
-                    TraceOps.DebugTrace(
-                        ex, typeof(ProcessOps).Name,
-                        TracePriority.ProcessError);
-                }
             }
         }
 
@@ -3716,37 +3760,24 @@ namespace Eagle._Components.Private
 
             MaybeCheckDataReceived("ErrorDataReceived", data);
 
-            bool[] success = { false, false };
+            bool[] success = { false, false, false };
 
             success[0] = AppendErrorDataToCapture(process, data);
             success[1] = AppendErrorDataToLogPath(process, data);
 
-            if (!success[0] && !success[1])
+            success[2] = MaybeInvokeDataReceivedEventHandler(
+                GetErrorHandler(process), sender, e);
+
+            if (!success[0] && !success[1] && !success[2])
             {
                 TraceOps.DebugTrace(String.Format(
                     "ErrorDataReceived: cannot capture " +
-                    "for {0} ({1}, {2}): dropping {3}",
+                    "for {0} ({1}, {2}, {3}): dropping {4}",
                     EntityOps.GetNameNoThrow(process),
-                    success[0], success[1],
+                    success[0], success[1], success[2],
                     FormatOps.DisplayStringLength(data)),
                     typeof(ProcessOps).Name,
                     TracePriority.ProcessError);
-            }
-
-            DataReceivedEventHandler handler = GetErrorHandler(process);
-
-            if (handler != null)
-            {
-                try
-                {
-                    handler(sender, e); /* throw */
-                }
-                catch (Exception ex)
-                {
-                    TraceOps.DebugTrace(
-                        ex, typeof(ProcessOps).Name,
-                        TracePriority.ProcessError);
-                }
             }
         }
         #endregion

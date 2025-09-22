@@ -25,6 +25,7 @@ namespace Eagle._Components.Private
             Process process,            /* in */
             string outputLogPath,       /* in */
             string errorLogPath,        /* in */
+            string logTag,              /* in */
             int? timeout,               /* in */
             EventFlags eventFlags,      /* in */
             bool userInterface,         /* in */
@@ -38,6 +39,7 @@ namespace Eagle._Components.Private
             this.process = process;
             this.outputLogPath = outputLogPath;
             this.errorLogPath = errorLogPath;
+            this.logTag = logTag;
             this.timeout = timeout;
             this.eventFlags = eventFlags;
             this.userInterface = userInterface;
@@ -86,6 +88,14 @@ namespace Eagle._Components.Private
         public string ErrorLogPath
         {
             get { return errorLogPath; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private string logTag;
+        public string LogTag
+        {
+            get { return logTag; }
         }
 
         ///////////////////////////////////////////////////////////////////////
