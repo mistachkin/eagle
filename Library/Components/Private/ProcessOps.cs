@@ -498,6 +498,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static void InitializeOutputsAndErrors(
+            bool captureOutput,  /* in */
+            bool overrideCapture /* in */
+            )
+        {
+            if (captureOutput)
+            {
+                InitializeOutputAndErrorLogPaths();
+                InitializeOutputAndErrorCaptures();
+
+                if (!overrideCapture)
+                    InitializeOutputAndErrorHandlers();
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static int ClearOutputAndErrorLogPaths()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -635,6 +652,8 @@ namespace Eagle._Components.Private
             //       that is a properly formatted Tcl-style dictionary,
             //       i.e. as a Tcl-style list of name/value pairs.
             //
+            int count = 0;
+
             if ((startInfo != null) &&
                 ((outputLogPath != null) || (errorLogPath != null)))
             {
@@ -647,20 +666,20 @@ namespace Eagle._Components.Private
                     "fileName", startInfo.FileName, "arguments",
                     startInfo.Arguments), prefix, Environment.NewLine);
 
-                if (outputLogPath != null)
+                if ((outputLogPath != null) &&
+                    AppendDataToLogPath(outputLogPath, logData))
                 {
-                    /* IGNORED */
-                    AppendDataToLogPath(outputLogPath, logData);
+                    count++;
                 }
 
-                if (errorLogPath != null)
+                if ((errorLogPath != null) &&
+                    AppendDataToLogPath(errorLogPath, logData))
                 {
-                    /* IGNORED */
-                    AppendDataToLogPath(errorLogPath, logData);
+                    count++;
                 }
             }
 
-            return false;
+            return (count > 0);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2952,14 +2971,7 @@ namespace Eagle._Components.Private
             //       the static data used (directly and indirectly) by this
             //       method.
             //
-            if (captureOutput)
-            {
-                InitializeOutputAndErrorLogPaths();
-                InitializeOutputAndErrorCaptures();
-
-                if (!overrideCapture)
-                    InitializeOutputAndErrorHandlers();
-            }
+            InitializeOutputsAndErrors(captureOutput, overrideCapture);
 
             //
             // NOTE: The file name cannot be null or an empty string.  If it
