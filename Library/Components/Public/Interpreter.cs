@@ -48913,6 +48913,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IPackageManager Members
+        public ReturnCode ScanPackages(
+            StringList paths,
+            bool autoPath,
+            ref StringList indexes,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            return PkgScan(
+                this, paths, autoPath, ref indexes, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public ReturnCode AbsentPackage(
             string name,
             Version version,
@@ -50234,6 +50249,22 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
+            StringList indexes = null; /* NOT USED */
+
+            return PkgScan(
+                interpreter, paths, autoPath, ref indexes, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode PkgScan(
+            Interpreter interpreter,
+            StringList paths,
+            bool autoPath,
+            ref StringList indexes,
+            ref Result error
+            )
+        {
             if (interpreter == null)
             {
                 error = "invalid interpreter";
@@ -50260,6 +50291,17 @@ namespace Eagle._Components.Public
                     ref packageIndexes, ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
+            }
+
+            if (packageIndexes != null)
+            {
+                StringList fileNames =
+                    packageIndexes.GetKeysInOrder(false);
+
+                if (indexes != null)
+                    indexes.AddRange(fileNames);
+                else
+                    indexes = new StringList(fileNames);
             }
 
             interpreter.PackageIndexes = packageIndexes;

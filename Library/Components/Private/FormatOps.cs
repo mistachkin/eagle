@@ -88,6 +88,7 @@ namespace Eagle._Components.Private
 
         internal static readonly string DisplayNoResult = "<noResult>";
         internal static readonly string DisplayNone = "<none>";
+        private static readonly string DisplayNotNull = "<notNull>";
         internal static readonly string DisplayNull = "<null>";
         private static readonly string DisplayNullKey = "<nullKey>";
         internal static readonly string DisplayProxy = "<proxy>";
@@ -1874,6 +1875,15 @@ namespace Eagle._Components.Private
             }
 
             return StringBuilderCache.GetStringAndRelease(ref builder);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string NullOrNotNull(
+            object value
+            )
+        {
+            return value != null ? DisplayNotNull : DisplayNull;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

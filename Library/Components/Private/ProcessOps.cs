@@ -645,7 +645,7 @@ namespace Eagle._Components.Private
             ProcessStartInfo startInfo /* in */
             )
         {
-            StringBuilder builder = StringBuilderFactory.Create();
+            StringBuilder builder = SBF.Create();
 
             builder.AppendLine();
             builder.AppendLine();
@@ -663,7 +663,7 @@ namespace Eagle._Components.Private
             builder.AppendLine();
             builder.AppendLine();
 
-            return StringBuilderCache.GetStringAndRelease(ref builder);
+            return SBC.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3698,22 +3698,24 @@ namespace Eagle._Components.Private
             DataReceivedEventArgs e /* in */
             )
         {
+            string methodName = "OutputDataReceived";
             Process process = sender as Process;
 
             if ((process == null) || (e == null))
             {
                 TraceOps.DebugTrace(String.Format(
-                    "OutputDataReceived: missing process {0} -OR- e = {1}",
-                    process != null ? "<notNull>" : FormatOps.DisplayNull,
-                    e != null ? "<notNull>" : FormatOps.DisplayNull),
-                    typeof(ProcessOps).Name, TracePriority.ProcessError);
+                    "{0}: missing process = {1} -OR- e = {2}",
+                    methodName, FormatOps.NullOrNotNull(process),
+                    FormatOps.NullOrNotNull(e)),
+                    typeof(ProcessOps).Name,
+                    TracePriority.ProcessError2);
 
                 return;
             }
 
             string data = e.Data;
 
-            MaybeCheckDataReceived("OutputDataReceived", data);
+            MaybeCheckDataReceived(methodName, data);
 
             bool[] success = { false, false, false };
 
@@ -3726,9 +3728,10 @@ namespace Eagle._Components.Private
             if (!success[0] && !success[1] && !success[2])
             {
                 TraceOps.DebugTrace(String.Format(
-                    "OutputDataReceived: cannot capture " +
-                    "for {0} ({1}, {2}, {3}): dropping {4}",
-                    EntityOps.GetNameNoThrow(process),
+                    "{0}: cannot capture for {1} " +
+                    "({2}, {3}, {4}): dropping {5}",
+                    methodName, FormatOps.WrapOrNull(
+                        EntityOps.GetNameOrIdNoThrow(process)),
                     success[0], success[1], success[2],
                     FormatOps.DisplayStringLength(data)),
                     typeof(ProcessOps).Name,
@@ -3743,22 +3746,24 @@ namespace Eagle._Components.Private
             DataReceivedEventArgs e /* in */
             )
         {
+            string methodName = "ErrorDataReceived";
             Process process = sender as Process;
 
             if ((process == null) || (e == null))
             {
                 TraceOps.DebugTrace(String.Format(
-                    "ErrorDataReceived: missing process {0} -OR- e = {1}",
-                    process != null ? "<notNull>" : FormatOps.DisplayNull,
-                    e != null ? "<notNull>" : FormatOps.DisplayNull),
-                    typeof(ProcessOps).Name, TracePriority.ProcessError);
+                    "{0}: missing process = {1} -OR- e = {2}",
+                    methodName, FormatOps.NullOrNotNull(process),
+                    FormatOps.NullOrNotNull(e)),
+                    typeof(ProcessOps).Name,
+                    TracePriority.ProcessError2);
 
                 return;
             }
 
             string data = e.Data;
 
-            MaybeCheckDataReceived("ErrorDataReceived", data);
+            MaybeCheckDataReceived(methodName, data);
 
             bool[] success = { false, false, false };
 
@@ -3771,13 +3776,14 @@ namespace Eagle._Components.Private
             if (!success[0] && !success[1] && !success[2])
             {
                 TraceOps.DebugTrace(String.Format(
-                    "ErrorDataReceived: cannot capture " +
-                    "for {0} ({1}, {2}, {3}): dropping {4}",
-                    EntityOps.GetNameNoThrow(process),
+                    "{0}: cannot capture for {1} " +
+                    "({2}, {3}, {4}): dropping {5}",
+                    methodName, FormatOps.WrapOrNull(
+                        EntityOps.GetNameOrIdNoThrow(process)),
                     success[0], success[1], success[2],
                     FormatOps.DisplayStringLength(data)),
                     typeof(ProcessOps).Name,
-                    TracePriority.ProcessError);
+                    TracePriority.ProcessError2);
             }
         }
         #endregion

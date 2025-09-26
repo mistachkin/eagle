@@ -12,12 +12,20 @@
 using System;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Containers.Public;
 
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("74ac785b-566a-407f-89ea-325053ca4976")]
     public interface IPackageManager
     {
+        ReturnCode ScanPackages(
+            StringList paths,
+            bool autoPath,
+            ref StringList indexes,
+            ref Result error
+            );
+
         ReturnCode AbsentPackage(
             string name,
             Version version,

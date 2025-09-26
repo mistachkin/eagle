@@ -80,7 +80,7 @@ FEATURE: add the -stdoutlogpath, -stderrlogpath, -trace, -escapesubstring,
          -logtag, -escaperanges, and -forprocessor options to the [exec]
          command.
 
-FEATURE: add the -blobbehavior option to the [sql execut]e sub-command.
+FEATURE: add the -blobbehavior option to the [sql execute] sub-command.
 
 FEATURE: add the NoCritical interpreter creation flag and the NonCritical SDK
          type.

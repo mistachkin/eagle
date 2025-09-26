@@ -2423,7 +2423,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static string GetNameNoThrow(
+        public static object GetNameOrIdNoThrow(
             Process process
             )
         {
@@ -2431,7 +2431,16 @@ namespace Eagle._Components.Private
             {
                 try
                 {
-                    return process.ToString();
+                    return process.ToString(); /* ==> ProcessName */
+                }
+                catch
+                {
+                    // do nothing.
+                }
+
+                try
+                {
+                    return process.Id;
                 }
                 catch
                 {
