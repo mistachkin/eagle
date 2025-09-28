@@ -1,7 +1,7 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
-BUGFIX: fix and/or address Coverity issues from #434153 to #523770.
+BUGFIX: fix and/or address Coverity issues from #434153 to #549062.
 
 BUGFIX: fix the [string map -multipass] option when it is used in combination
         with the exact match mode.  also, honor the -evaluate option for this

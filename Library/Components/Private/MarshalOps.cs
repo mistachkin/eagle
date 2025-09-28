@@ -1403,6 +1403,9 @@ namespace Eagle._Components.Private
 
             byte[] bytes = ReadBytes(ptr, count, canThrow); /* throw? */
 
+            if (bytes == null)
+                return null;
+
             try
             {
                 return encoding.GetString(bytes); /* throw */
