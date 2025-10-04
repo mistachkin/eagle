@@ -144,6 +144,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region PowerShell (for Windows Update) Constants
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static string PowerShellQfeGetUpdatesCommandFileName =
+            "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\PowerShell.exe"; // BUGBUG: Constant?
+
+        private static string PowerShellQfePropertyName = "HotFixID";
+
+        private static string PowerShellQfePropertySeparator =
+            Characters.Colon.ToString();
+
+        private static string PowerShellQfeGetUpdatesCommandArguments =
+            "Get-HotFix | Format-List -Property HotFixID";
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         private const uint defaultPageSize = 4096; /* COMPAT: x86. */
 
         ///////////////////////////////////////////////////////////////////////
@@ -2704,6 +2722,108 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool CanGetWindowsInstalledUpdates(
+            ref GetInstalledUpdatesType? type, /* out */
+            ref string fileName,               /* out */
+            ref string arguments               /* out */
+            )
+        {
+            string localFileName; /* REUSED */
+
+            //
+            // HACK: The "wmic.exe" executable is not available on
+            //       Windows 2000 or Windows XP Home Edition; so,
+            //       check if it exists prior to attempting to use
+            //       it.  Also, it has been removed from the latest
+            //       versions of Windows 11.
+            //
+            localFileName = CommonOps.Environment.ExpandVariables(
+                WmiQfeGetUpdatesCommandFileName);
+
+            if (File.Exists(localFileName))
+            {
+                type = GetInstalledUpdatesType.WmiCommand;
+                fileName = localFileName;
+                arguments = WmiQfeGetUpdatesCommandArguments;
+
+                return true;
+            }
+
+            localFileName = CommonOps.Environment.ExpandVariables(
+                PowerShellQfeGetUpdatesCommandFileName);
+
+            if (File.Exists(localFileName))
+            {
+                type = GetInstalledUpdatesType.PowerShell;
+                fileName = localFileName;
+                arguments = PowerShellQfeGetUpdatesCommandArguments;
+
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool FixupWindowsInstalledUpdates(
+            GetInstalledUpdatesType? type, /* in */
+            ref StringList list            /* in, out */
+            )
+        {
+            if (type != null)
+            {
+                switch ((GetInstalledUpdatesType)type)
+                {
+                    case GetInstalledUpdatesType.WmiCommand:
+                        {
+                            if ((list != null) && (list.Count > 0) &&
+                                SharedStringOps.SystemNoCaseEquals(
+                                    list[0], WmiQfePropertyName))
+                            {
+                                list.RemoveAt(0);
+                                return true;
+                            }
+                            break;
+                        }
+                    case GetInstalledUpdatesType.PowerShell:
+                        {
+                            if (list != null)
+                            {
+                                StringList localList = new StringList();
+                                int count = 0;
+
+                                foreach (string element in list)
+                                {
+                                    if (String.IsNullOrEmpty(element) ||
+                                        SharedStringOps.SystemNoCaseEquals(
+                                            element, PowerShellQfePropertyName) ||
+                                        SharedStringOps.SystemNoCaseEquals(
+                                            element, PowerShellQfePropertySeparator))
+                                    {
+                                        count++;
+                                        continue;
+                                    }
+
+                                    localList.Add(element);
+                                }
+
+                                if (count > 0)
+                                {
+                                    list = localList;
+                                    return true;
+                                }
+                            }
+                            break;
+                        }
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static StringList WindowsGetInstalledUpdates(
             Interpreter interpreter, /* in: OPTIONAL */
             bool asynchronous        /* in */
@@ -2733,19 +2853,15 @@ namespace Eagle._Components.Private
 
             try
             {
-                //
-                // HACK: The "wmic.exe" executable is not available on
-                //       Windows 2000 or Windows XP Home Edition; so,
-                //       check if it exists prior to attempting to use
-                //       it.
-                //
-                string fileName = CommonOps.Environment.ExpandVariables(
-                    WmiQfeGetUpdatesCommandFileName);
+                GetInstalledUpdatesType? type = null;
+                string fileName = null;
+                string arguments = null;
 
-                if (!File.Exists(fileName))
+                if (!CanGetWindowsInstalledUpdates(
+                        ref type, ref fileName, ref arguments))
+                {
                     return null;
-
-                string arguments = WmiQfeGetUpdatesCommandArguments;
+                }
 
                 EventFlags eventFlags = (interpreter != null) ?
                     interpreter.EngineEventFlags : EventFlags.None;
@@ -2771,12 +2887,9 @@ namespace Eagle._Components.Private
 
                         if (installedUpdates != null)
                         {
-                            if ((installedUpdates.Count > 0) &&
-                                SharedStringOps.SystemNoCaseEquals(
-                                    installedUpdates[0], WmiQfePropertyName))
-                            {
-                                installedUpdates.RemoveAt(0);
-                            }
+                            /* IGNORED */
+                            FixupWindowsInstalledUpdates(
+                                type, ref installedUpdates);
 
                             int count = installedUpdates.Count;
 

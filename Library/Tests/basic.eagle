@@ -1585,8 +1585,8 @@ runTest {test basic-1.49 {serialization of ScriptException} -body {
       [expr {[$exception(1) Message] eq [$exception(2) Message]}]
 } -cleanup {
   unset -nocomplain exception stream serializer
-} -constraints [fixConstraints \
-{eagle command.object monoBug30 compile.SERIALIZATION !dotNetCore90}] -result \
+} -constraints [fixConstraints {eagle command.object monoBug30\
+compile.SERIALIZATION !dotNetCore90 !dotNetCore100}] -result \
 {Break {this is a test} Break {this is a test} True True}}
 
 ###############################################################################

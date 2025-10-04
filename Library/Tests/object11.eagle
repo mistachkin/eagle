@@ -22,7 +22,8 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 
 proc getResolveVerbForTypeLoadException {} {
   if {[isEagle] && ([haveConstraint dotNetCore80] || \
-      [haveConstraint dotNetCore90])} then {
+      [haveConstraint dotNetCore90] || \
+      [haveConstraint dotNetCore100])} then {
     return resolve
   } else {
     return load
@@ -39,7 +40,8 @@ proc getLoadVerbForTypeLoadException {} {
 
 proc getInPrepositionForTypeLoadException {} {
   if {[isEagle] && ([haveConstraint dotNetCore80] || \
-      [haveConstraint dotNetCore90])} then {
+      [haveConstraint dotNetCore90] || \
+      [haveConstraint dotNetCore100])} then {
     return in
   } else {
     return from

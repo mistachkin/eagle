@@ -27419,6 +27419,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public ReturnCode AddOrUpdateProcedure(
+            IProcedure procedure,
+            IClientData clientData,
+            ref long token,
+            ref Result result
+            )
+        {
+            CheckDisposed();
+
+            return AddOrUpdateProcedureWithReplace(
+                procedure, clientData, ref token, ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public ReturnCode RenameProcedure(
             string oldName,
             string newName,
@@ -34521,7 +34536,7 @@ namespace Eagle._Components.Public
                     //       See the test "host-1.1" for details.
                     //
 #if CONSOLE
-                    bool throwOnMustBeOpen = false;
+                    bool? savedThrowOnMustBeOpen = null;
 
                     //
                     // NOTE: Is the host providing the underlying
@@ -34541,8 +34556,8 @@ namespace Eagle._Components.Public
                         //       not open during an attempt to
                         //       make use of it.
                         //
-                        _Hosts.Console.ThrowOnMustBeOpen = false;
-                        throwOnMustBeOpen = true;
+                        _Hosts.Console.BeginThrowOnMustBeOpen(
+                            false, out savedThrowOnMustBeOpen);
                     }
                     else
                     {
@@ -34606,7 +34621,7 @@ namespace Eagle._Components.Public
                             ChannelType currentChannelType = channelType;
 
 #if CONSOLE
-                            bool throwOnMustBeOpen2 = false;
+                            bool? savedThrowOnMustBeOpen2 = null;
 
                             //
                             // NOTE: Is the current host providing the underlying
@@ -34626,8 +34641,8 @@ namespace Eagle._Components.Public
                                 //       open during an attempt to make
                                 //       use of it.
                                 //
-                                _Hosts.Console.ThrowOnMustBeOpen = false;
-                                throwOnMustBeOpen2 = true;
+                                _Hosts.Console.BeginThrowOnMustBeOpen(
+                                    false, out savedThrowOnMustBeOpen2);
                             }
                             else
                             {
@@ -35234,11 +35249,8 @@ namespace Eagle._Components.Public
                             }
                             finally
                             {
-                                if (throwOnMustBeOpen2)
-                                {
-                                    _Hosts.Console.ThrowOnMustBeOpen = true;
-                                    throwOnMustBeOpen2 = false;
-                                }
+                                _Hosts.Console.EndThrowOnMustBeOpen(
+                                    ref savedThrowOnMustBeOpen2);
                             }
 #endif
                         }
@@ -35251,11 +35263,8 @@ namespace Eagle._Components.Public
                     }
                     finally
                     {
-                        if (throwOnMustBeOpen)
-                        {
-                            _Hosts.Console.ThrowOnMustBeOpen = true;
-                            throwOnMustBeOpen = false;
-                        }
+                        _Hosts.Console.EndThrowOnMustBeOpen(
+                            ref savedThrowOnMustBeOpen);
                     }
 #endif
                 }

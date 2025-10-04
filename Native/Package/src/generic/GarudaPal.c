@@ -351,10 +351,12 @@ int Pal_MutexLock(
     Tcl_Mutex *mutexPtr,	/* The mutex to lock. */
     pthread_owner_t *ownerPtr)	/* Owner of mutex, if any. */
 {
+    pthread_t self;
+
     if ((mutexPtr == NULL) || (ownerPtr == NULL))
 	return 0;
 
-    pthread_t self = pthread_self();
+    self = pthread_self();
 
     Tcl_MutexLock(&ownerPtr->mutex);
 
@@ -404,11 +406,13 @@ int Pal_MutexUnlock(
     Tcl_Mutex *mutexPtr,	/* The mutex to unlock. */
     pthread_owner_t *ownerPtr)	/* Owner of mutex, if any. */
 {
+    pthread_t self;
+    unsigned depth;
+
     if ((mutexPtr == NULL) || (ownerPtr == NULL))
 	return 0;
 
-    pthread_t self = pthread_self();
-    unsigned depth;
+    self = pthread_self();
 
     Tcl_MutexLock(&ownerPtr->mutex);
 

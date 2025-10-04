@@ -543,18 +543,36 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal static void BeginThrowOnMustBeOpen(
+            bool throwOnMustBeOpen,          /* in */
+            out bool? savedThrowOnMustBeOpen /* out */
+            )
+        {
+            savedThrowOnMustBeOpen = ThrowOnMustBeOpen;
+            ThrowOnMustBeOpen = throwOnMustBeOpen;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal static void EndThrowOnMustBeOpen(
+            ref bool? savedThrowOnMustBeOpen /* in, out */
+            )
+        {
+            if (savedThrowOnMustBeOpen != null)
+            {
+                ThrowOnMustBeOpen = (bool)savedThrowOnMustBeOpen;
+                savedThrowOnMustBeOpen = null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal static bool ThrowOnMustBeOpen
         {
             get
             {
-                try
-                {
-                    return Interlocked.Increment(ref mustBeOpenCount) > 1;
-                }
-                finally
-                {
-                    Interlocked.Decrement(ref mustBeOpenCount);
-                }
+                return Interlocked.CompareExchange(
+                    ref mustBeOpenCount, 0, 0) > 0;
             }
             set
             {

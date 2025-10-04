@@ -969,6 +969,13 @@ namespace Eagle._Interfaces.Public
             ref Result result
             );
 
+        ReturnCode AddOrUpdateProcedure(
+            IProcedure procedure,
+            IClientData clientData,
+            ref long token,
+            ref Result result
+            );
+
         ReturnCode RenameProcedure(
             string oldName,
             string newName,

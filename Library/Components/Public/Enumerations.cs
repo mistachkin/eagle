@@ -11701,23 +11701,25 @@ namespace Eagle._Components.Public
                                         * value is optional.  The special "args" argument is still
                                         * supported.  There must be an even number of arguments to
                                         * call the procedure as they represent name/value pairs. */
-        Obfuscated = 0x100000,         /* The procedure has been obfuscated by a plugin (i.e. its
+        Registered = 0x100000,         /* The procedure has been registered by a plugin (i.e. its
+                                        * body and argument names may be unavailable). */
+        Obfuscated = 0x200000,         /* The procedure has been obfuscated by a plugin (i.e. its
                                         * body and argument names will be unavailable). */
-        NoAttributes = 0x200000,       /* Skip querying and combining the flags, etc, from the
+        NoAttributes = 0x400000,       /* Skip querying and combining the flags, etc, from the
                                         * underlying managed type. */
 
 #if ARGUMENT_CACHE || PARSE_CACHE
-        NonCaching = 0x400000,         /* Disable caching for the body of the procedure.  The exact
+        NonCaching = 0x800000,         /* Disable caching for the body of the procedure.  The exact
                                         * cache(s) that is/are disabled are unspecified and subject
                                         * to change in the future. */
 #endif
 
-        MatchTypes = 0x800000,         /* Enforce restrictions on local variables that pertain to
+        MatchTypes = 0x1000000,        /* Enforce restrictions on local variables that pertain to
                                         * their types.  Variable values can only be changed if they
                                         * are null or have the same type as the previous variable
                                         * value. */
 
-        NoPushFrame = 0x1000000,       /* Skip creating (and pushing) a new call frame and use the
+        NoPushFrame = 0x2000000,       /* Skip creating (and pushing) a new call frame and use the
                                         * existing (current) one instead.  Modified variables will
                                         * be modified in that call frame, including new variables.
                                         * Formal argument names may clash with variables name in
@@ -11729,7 +11731,20 @@ namespace Eagle._Components.Public
                                         * modified in any "easy" way by the target procedure, even
                                         * on purpose. */
 
-        ForDefault = 0x10000000,
+        UserDefined1 = 0x100000000,
+        UserDefined2 = 0x200000000,
+        UserDefined3 = 0x400000000,
+        UserDefined4 = 0x800000000,
+        UserDefined5 = 0x1000000000,
+
+        DefaultArguments = PositionalArguments | ForDefault,
+        TypeOnlyMask = PositionalArguments | NamedArguments,
+
+        UserDefinedMask = UserDefined1 | UserDefined2 |
+                          UserDefined3 | UserDefined4 |
+                          UserDefined5,
+
+        ForDefault = 0x100000000000,
 
         Default = None | ForDefault
     }

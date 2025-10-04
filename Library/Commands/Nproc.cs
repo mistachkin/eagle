@@ -52,10 +52,10 @@ namespace Eagle._Commands
                     {
                         string name = arguments[1];
                         IScriptLocation body = arguments[3];
-                        StringList list = null;
+                        StringList list1 = null;
 
                         code = ListOps.GetOrCopyOrSplitList(
-                            interpreter, arguments[2], true, ref list, ref result);
+                            interpreter, arguments[2], true, ref list1, ref result);
 
                         if (code == ReturnCode.Ok)
                         {
@@ -104,82 +104,19 @@ namespace Eagle._Commands
                                 }
                             }
 
-                            StringPairList list2 = new StringPairList();
+                            StringPairList list2 = null;
 
-                            for (int argumentIndex = 0; argumentIndex < list.Count; argumentIndex++)
-                            {
-                                StringList list3 = null;
-
-                                code = ParserOps<string>.SplitList(
-                                    interpreter, list[argumentIndex], 0,
-                                    Length.Invalid, true, ref list3,
-                                    ref result);
-
-                                if (code != ReturnCode.Ok)
-                                    break;
-
-                                if (list3.Count > 2)
-                                {
-                                    result = String.Format(
-                                        "too many fields in argument specifier \"{0}\"",
-                                        list[argumentIndex]);
-
-                                    code = ReturnCode.Error;
-                                    break;
-                                }
-                                else if ((list3.Count == 0) || String.IsNullOrEmpty(list3[0]))
-                                {
-                                    result = "argument with no name";
-                                    code = ReturnCode.Error;
-                                    break;
-                                }
-                                else if (!Parser.IsSimpleScalarVariableName(list3[0],
-                                        String.Format(Interpreter.ArgumentNotSimpleError, list3[0]),
-                                        String.Format(Interpreter.ArgumentNotScalarError, list3[0]), ref result))
-                                {
-                                    code = ReturnCode.Error;
-                                    break;
-                                }
-
-                                string argName = list3[0];
-                                string argDefault = (list3.Count >= 2) ? list3[1] : null;
-
-                                list2.Add(new StringPair(argName, argDefault));
-                            }
+                            code = RuntimeOps.GetFormalArgumentNamesAndDefaults(
+                                interpreter, list1, ref list2, ref result);
 
                             ArgumentList formalArguments = null;
                             ArgumentDictionary namedArguments = null;
 
                             if (code == ReturnCode.Ok)
                             {
-                                formalArguments = new ArgumentList(
-                                    list2, ArgumentFlags.NameOnly |
-                                    ArgumentFlags.WithName);
-
-                                namedArguments = new ArgumentDictionary();
-
-                                foreach (Argument argument in formalArguments)
-                                {
-                                    if (argument == null)
-                                        continue;
-
-                                    string argumentName = argument.Name;
-
-                                    if (argumentName == null)
-                                        continue;
-
-                                    if (namedArguments.ContainsKey(argumentName))
-                                    {
-                                        result = String.Format(
-                                            "procedure \"{0}\" duplicate argument named \"{1}\"",
-                                            name, argumentName);
-
-                                        code = ReturnCode.Error;
-                                        break;
-                                    }
-
-                                    namedArguments.Add(argumentName, argument);
-                                }
+                                code = RuntimeOps.GetFormalAndNamedArguments(
+                                    name, list2, ref formalArguments, ref namedArguments,
+                                    ref result);
                             }
 
                             if (code == ReturnCode.Ok)

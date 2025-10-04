@@ -110,9 +110,13 @@ namespace Eagle._Containers.Public
                     else if ((@object is ICollection) || (@object is IList))
                     {
                         //
-                        // NOTE: They supplied an collection or list [of some
-                        //       kind] as a parameter.  Add all supported
+                        // NOTE: They supplied a collection or list [of some
+                        //       kind] as a parameter.  Add all (supported?)
                         //       elements to this list.
+                        //
+                        // HACK: The check above cannot be for IEnumerable,
+                        //       because System.String "passes" that check,
+                        //       and we do not want that here.
                         //
                         this.AddRange(
                             (IEnumerable)@object, true, true, false, false);
@@ -143,6 +147,74 @@ namespace Eagle._Containers.Public
 
                         this.Add(argument);
                     }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This is primarily for use by the [apply] and [proc]
+        //          script command implementations and may require some
+        //          breaking changes in the future.
+        //
+        public ArgumentList(
+            StringPairList list,
+            ArgumentFlags flags
+            )
+            : this()
+        {
+            if (list != null)
+            {
+                string variadicName = GetVariadicName();
+                int count = list.Count;
+
+                for (int index = 0; index < count; index++)
+                {
+                    IPair<string> element = list[index];
+
+                    //
+                    // HACK: Skip over any null entries, thus ignoring
+                    //       them.
+                    //
+                    if (element == null)
+                        continue;
+
+                    //
+                    // NOTE: Does this argument list accept a variable
+                    //       numbers of arguments (COMPAT: Tcl)?  If so,
+                    //       add a flag to the final argument to mark it
+                    //       as an "argument list".
+                    //
+                    ArgumentFlags nameFlags = ArgumentFlags.None;
+
+                    if ((variadicName != null) &&
+                        SharedStringOps.SystemEquals(
+                            element.X, variadicName) &&
+                        (index == (count - 1)))
+                    {
+                        nameFlags |= ArgumentFlags.List;
+                    }
+
+                    ArgumentFlags valueFlags = (element.Y != null) ?
+                        ArgumentFlags.HasDefault : ArgumentFlags.None;
+
+                    Argument argument;
+
+                    if (FlagOps.HasFlags(flags, ArgumentFlags.NameOnly, true))
+                    {
+                        argument = Argument.InternalCreate(
+                            flags | nameFlags | valueFlags, element.X,
+                            Argument.NoValue, element.Y);
+                    }
+                    else
+                    {
+                        argument = Argument.InternalCreate(
+                            flags | nameFlags | valueFlags, Argument.NoName,
+                            element.X, element.Y);
+                    }
+
+                    this.Add(argument);
                 }
             }
         }
@@ -202,69 +274,6 @@ namespace Eagle._Containers.Public
                 }
 
                 this.Add(argument);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal ArgumentList( /* NOTE: For [apply] and [proc] use only. */
-            StringPairList list,
-            ArgumentFlags flags
-            )
-            : this()
-        {
-            if (list != null)
-            {
-                string variadicName = GetVariadicName();
-                int count = list.Count;
-
-                for (int index = 0; index < count; index++)
-                {
-                    IPair<string> element = list[index];
-
-                    //
-                    // HACK: Skip over any null entries, thus ignoring
-                    //       them.
-                    //
-                    if (element == null)
-                        continue;
-
-                    //
-                    // NOTE: Does this argument list accept a variable
-                    //       numbers of arguments (COMPAT: Tcl)?  If so,
-                    //       add a flag to the final argument to mark it
-                    //       as an "argument list".
-                    //
-                    ArgumentFlags nameFlags = ArgumentFlags.None;
-
-                    if ((variadicName != null) &&
-                        SharedStringOps.SystemEquals(
-                            element.X, variadicName) &&
-                        (index == (count - 1)))
-                    {
-                        nameFlags |= ArgumentFlags.List;
-                    }
-
-                    ArgumentFlags valueFlags = (element.Y != null) ?
-                        ArgumentFlags.HasDefault : ArgumentFlags.None;
-
-                    Argument argument;
-
-                    if (FlagOps.HasFlags(flags, ArgumentFlags.NameOnly, true))
-                    {
-                        argument = Argument.InternalCreate(
-                            flags | nameFlags | valueFlags, element.X,
-                            Argument.NoValue, element.Y);
-                    }
-                    else
-                    {
-                        argument = Argument.InternalCreate(
-                            flags | nameFlags | valueFlags, Argument.NoName,
-                            element.X, element.Y);
-                    }
-
-                    this.Add(argument);
-                }
             }
         }
         #endregion

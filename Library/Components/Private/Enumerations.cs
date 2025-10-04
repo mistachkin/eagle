@@ -15,6 +15,18 @@ using Eagle._Attributes;
 namespace Eagle._Components.Private
 {
     [Flags()]
+    [ObjectId("232a2243-4899-4455-b6b6-9cc151a4ca56")]
+    internal enum GetInstalledUpdatesType
+    {
+        None = 0x0,
+        Invalid = 0x1,
+        WmiCommand = 0x2, // Use the "wmic.exe" tool.
+        PowerShell = 0x4  // Use the "PowerShell.exe" tool.
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
     [ObjectId("752678c1-c688-4f2d-89a1-01ae342c72f0")]
     internal enum EscapeMode
     {

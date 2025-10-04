@@ -5380,6 +5380,136 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Class Factory Methods
+        public static ReturnCode GetFormalArgumentNamesAndDefaults(
+            Interpreter interpreter,  /* in */
+            StringList list1,         /* in */
+            ref StringPairList list2, /* in, out */
+            ref Result error          /* out */
+            )
+        {
+            if (list1 == null)
+            {
+                error = "invalid formal argument list";
+                return ReturnCode.Error;
+            }
+
+            if (list2 == null)
+                list2 = new StringPairList();
+
+            int count1 = list1.Count;
+
+            for (int index1 = 0; index1 < count1; index1++)
+            {
+                StringList list3 = null;
+
+                if (ParserOps<string>.SplitList(
+                        interpreter, list1[index1], 0,
+                        Length.Invalid, true, ref list3,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                int count3 = list3.Count;
+
+                if (count3 > 2)
+                {
+                    error = String.Format(
+                        "too many fields in argument specifier \"{0}\"",
+                        list1[index1]);
+
+                    return ReturnCode.Error;
+                }
+
+                if (count3 == 0)
+                {
+                    error = "argument without name";
+                    return ReturnCode.Error;
+                }
+
+                string argumentName = list3[0];
+
+                if (String.IsNullOrEmpty(argumentName))
+                {
+                    error = "argument with null / empty name";
+                    return ReturnCode.Error;
+                }
+
+                if (!Parser.IsSimpleScalarVariableName(
+                        argumentName, String.Format(
+                            Interpreter.ArgumentNotSimpleError,
+                            argumentName),
+                        String.Format(
+                            Interpreter.ArgumentNotScalarError,
+                            argumentName),
+                        ref error))
+                {
+                    return ReturnCode.Error;
+                }
+
+                string argumentDefault;
+
+                if (count3 >= 2)
+                    argumentDefault = list3[1];
+                else
+                    argumentDefault = null;
+
+                list2.Add(new StringPair(
+                    argumentName, argumentDefault));
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetFormalAndNamedArguments(
+            string procedureName,                  /* in */
+            StringPairList list2,                  /* in */
+            ref ArgumentList formalArguments,      /* out */
+            ref ArgumentDictionary namedArguments, /* out */
+            ref Result error                       /* out */
+            )
+        {
+            if (list2 == null)
+            {
+                error = "invalid argument name / default list";
+                return ReturnCode.Error;
+            }
+
+            formalArguments = new ArgumentList(list2,
+                ArgumentFlags.NameOnly | ArgumentFlags.WithName);
+
+            namedArguments = new ArgumentDictionary();
+
+            foreach (Argument argument in formalArguments)
+            {
+                if (argument == null)
+                    continue;
+
+                string argumentName = argument.Name;
+
+                if (argumentName == null)
+                    continue;
+
+                if (namedArguments.ContainsKey(argumentName))
+                {
+                    error = String.Format(
+                        "procedure {0} duplicate argument named {1}",
+                        FormatOps.WrapOrNull(procedureName),
+                        FormatOps.WrapOrNull(argumentName));
+
+                    return ReturnCode.Error;
+                }
+
+                namedArguments.Add(argumentName, argument);
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static IProcedure NewCoreProcedure(
             IProcedureData procedureData,
             ref Result error

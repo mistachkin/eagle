@@ -133,7 +133,7 @@ runTest {test object-97.3.2 {assembly qualified member names} -body {
 } -constraints {eagle command.object} -constraintExpression {([haveConstraint \
 mono54OrHigher] || [haveConstraint dotNetCore] || ([haveConstraint dotNet40] \
 && [haveConstraint dotNet46OrHigher])) && ![haveConstraint dotNetCore80] && \
-![haveConstraint dotNetCore90]} \
+![haveConstraint dotNetCore90] && ![haveConstraint dotNetCore100]} \
 -result [appendArgs "{{memberType Method memberName Format}} {{memberType\
 Method memberName Format methodType Method methodName Format callingConvention\
 Standard returnType {{System.String, " [getRuntimeAssemblyName] "}}\

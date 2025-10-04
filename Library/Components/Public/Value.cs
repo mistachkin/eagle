@@ -10965,7 +10965,7 @@ namespace Eagle._Components.Public
                 if (arguments != null)
                 {
                     //
-                    // NOTE: Must be "operator arg ?arg?" unless the number of operands if
+                    // NOTE: Must be "operator arg ?arg?" unless number of operands is
                     //       less than zero (i.e. those values are reserved for special
                     //       cases).
                     //

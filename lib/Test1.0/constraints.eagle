@@ -6956,10 +6956,13 @@ namespace eval ::Eagle {
             #
             if {[isOsWindows11]} then {
               #
-              # NOTE: Is the "September 2022 Update" installed?
+              # NOTE: Is the "September 2022 Update" -OR-
+              #       "September 2023 Update" installed?
               #
               if {[haveTclPlatformOsExtraUpdateName \
-                      "Windows 11, September 2022 Update"]} then {
+                      "Windows 11, September 2022 Update"] || \
+                  [haveTclPlatformOsExtraUpdateName \
+                      "Windows 11, September 2023 Update"]} then {
                 #
                 # NOTE: Return the "special" value.
                 #

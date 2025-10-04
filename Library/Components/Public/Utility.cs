@@ -6658,6 +6658,71 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          procedure management subsystem is completed.
+        //
+        public static ReturnCode GetFormalArgumentNamesAndDefaults(
+            Interpreter interpreter,
+            StringList list1,
+            ref StringPairList list2,
+            ref Result error
+            )
+        {
+            return _RuntimeOps.GetFormalArgumentNamesAndDefaults(
+                interpreter, list1, ref list2, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          procedure management subsystem is completed.
+        //
+        public static ReturnCode GetFormalAndNamedArguments(
+            string procedureName,
+            StringPairList list2,
+            ref ArgumentList formalArguments,
+            ref ArgumentDictionary namedArguments,
+            ref Result error
+            )
+        {
+            return _RuntimeOps.GetFormalAndNamedArguments(
+                procedureName, list2, ref formalArguments,
+                ref namedArguments, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          procedure management subsystem is completed.
+        //
+        public static IProcedure NewProcedure(
+            Interpreter interpreter,
+            string name,
+            string group,
+            string description,
+            ProcedureFlags flags,
+            ArgumentList arguments,
+            ArgumentDictionary namedArguments,
+            ArgumentList overwriteArguments,
+            ArgumentList cleanArguments,
+            string body,
+            IScriptLocation location,
+            IClientData clientData,
+            ref Result error
+            )
+        {
+            return _RuntimeOps.NewProcedure(
+                interpreter, name, group, description, flags,
+                arguments, namedArguments, overwriteArguments,
+                cleanArguments, body, location, clientData,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region .NET Core Wrapper Methods
         //
         // HACK: These wrapper methods are primarily for use by the test
