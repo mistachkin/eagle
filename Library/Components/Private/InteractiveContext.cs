@@ -57,6 +57,7 @@ namespace Eagle._Components.Private
             totalInteractiveInputs = 0;
 
 #if SHELL
+            savedShellArguments = null;
             shellArguments = null;
             shellCallbackData = null;
             interactiveLoopData = null;
@@ -237,6 +238,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        private IList<string> savedShellArguments;
+        public IList<string> SavedShellArguments
+        {
+            get { CheckDisposed(); return savedShellArguments; }
+            set { CheckDisposed(); savedShellArguments = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private IList<string> shellArguments;
         public IList<string> ShellArguments
         {
@@ -392,6 +402,7 @@ namespace Eagle._Components.Private
                     totalInteractiveInputs = 0;
 
 #if SHELL
+                    savedShellArguments = null;
                     shellArguments = null;
                     shellCallbackData = null;
                     interactiveLoopData = null;

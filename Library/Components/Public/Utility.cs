@@ -6588,6 +6588,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          command syntax management subsystem is completed.
+        //
         public static int ClearCachedSyntaxData()
         {
             return SyntaxOps.ClearCache();
@@ -6595,6 +6599,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          command syntax management subsystem is completed.
+        //
         public static ReturnCode LoadAndCacheSyntaxData(
             string text,
             bool unique,
@@ -6608,6 +6616,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          command syntax management subsystem is completed.
+        //
         public static ReturnCode LoadSyntaxData(
             string text,
             bool unique,
@@ -6622,6 +6634,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          command syntax management subsystem is completed.
+        //
         public static ReturnCode LoadSyntaxDataFrom(
             string fileName,
             Encoding encoding,
@@ -6638,6 +6654,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          command syntax management subsystem is completed.
+        //
         public static ReturnCode LoadSyntaxDataFrom(
             string directory,
             Encoding encoding,
@@ -6723,6 +6743,52 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          procedure management subsystem is completed.
+        //
+        public static void ShouldProcedureHaveFlags(
+            Interpreter interpreter,
+            string name,
+            string text,
+            CultureInfo cultureInfo,
+            out bool isLibrary,
+            out bool isPrivate,
+            out bool isFast,
+            out bool isAtomic,
+            out bool isInline,
+#if ARGUMENT_CACHE || PARSE_CACHE
+            out bool isNonCaching,
+#endif
+            out bool isMatchTypes,
+            out ArgumentList overwriteArguments,
+            out ArgumentList cleanArguments
+            )
+        {
+            ScriptOps.ShouldProcedureHaveFlags(
+                interpreter, name, text, cultureInfo, out isLibrary,
+                out isPrivate, out isFast, out isAtomic, out isInline,
+#if ARGUMENT_CACHE || PARSE_CACHE
+                out isNonCaching,
+#endif
+                out isMatchTypes, out overwriteArguments, out cleanArguments);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          procedure management subsystem is completed.
+        //
+        public static string FormatAnnotation(
+            string annotation
+            )
+        {
+            return ScriptOps.FormatAnnotation(annotation);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region .NET Core Wrapper Methods
         //
         // HACK: These wrapper methods are primarily for use by the test
@@ -6739,6 +6805,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // HACK: These wrapper methods are primarily for use by the test
+        //       suite due to a bug in the .NET Core runtime, see:
+        //
+        //       https://github.com/dotnet/coreclr/issues/15662
+        //
         public static Type GetType(
             string typeName,
             bool throwOnError,

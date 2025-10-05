@@ -6956,17 +6956,24 @@ namespace eval ::Eagle {
             #
             if {[isOsWindows11]} then {
               #
-              # NOTE: Is the "September 2022 Update" -OR-
-              #       "September 2023 Update" installed?
+              # NOTE: Is the "September 2022 Update" -OR- a
+              #       subsequent Windows 11 update installed?
+              #
+              # TODO: Verify this is correct as soon as the
+              #       MSDN documentation is updated.
               #
               if {[haveTclPlatformOsExtraUpdateName \
                       "Windows 11, September 2022 Update"] || \
                   [haveTclPlatformOsExtraUpdateName \
-                      "Windows 11, September 2023 Update"]} then {
+                      "Windows 11, October 2023 Update"] || \
+                  [haveTclPlatformOsExtraUpdateName \
+                      "Windows 11, October 2024 Update"] || \
+                  [haveTclPlatformOsExtraUpdateName \
+                      "Windows 11, September 2025 Update"]} then {
                 #
                 # NOTE: Return the "special" value.
                 #
-                return 533320; # BUGBUG: September 2022 Update only?
+                return 533320; # BUGBUG: September 2022 Update / later only?
               }
             }
           }

@@ -4156,7 +4156,9 @@ if {![info exists no([file tail [info script]])]} then {
     checkForOperatingSystemUpdate $test_channel "Windows 10, October 2022 Update"
     checkForOperatingSystemUpdate $test_channel "Windows 11, RTM"
     checkForOperatingSystemUpdate $test_channel "Windows 11, September 2022 Update"
-    checkForOperatingSystemUpdate $test_channel "Windows 11, September 2023 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 11, October 2023 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 11, October 2024 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 11, September 2025 Update"
   }
 
   #############################################################################

@@ -73,7 +73,7 @@ namespace Eagle._Commands
         //
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "active", "administrator", "appdomain",
-            "args", "assembly", "base",
+            "args", "argv", "assembly", "base",
             "binary", "bindertypes", "body",
             "callbacks", "channels", "clr",
             "cmdcount", "cmdline", "cmdtype",
@@ -253,6 +253,19 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"info args procName ?defaults?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "argv":
+                                    {
+                                        if (arguments.Count == 2)
+                                        {
+                                            result = new StringList(interpreter.SavedShellArguments);
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"info argv\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

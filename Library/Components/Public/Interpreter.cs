@@ -1042,6 +1042,7 @@ namespace Eagle._Components.Public
         private int totalInteractiveInputs;
 
 #if SHELL
+        private IList<string> savedShellArguments;
         private IList<string> shellArguments;
         private IShellCallbackData shellCallbackData;
         private IInteractiveLoopData interactiveLoopData;
@@ -42361,6 +42362,12 @@ namespace Eagle._Components.Public
             )
         {
 #if MAYBE_ENTERPRISE_LOCKDOWN
+            //
+            // NOTE: *SECURITY* Since trusted remote URI
+            //       content is not under the control of
+            //       the enterprise customer, it must be
+            //       disallowed when lockdown is enabled.
+            //
             if (IsEnterpriseLockdownEnabled())
                 return false;
 #endif
@@ -79941,6 +79948,7 @@ namespace Eagle._Components.Public
                 ///////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+                SavedShellArguments = null;
                 ShellArguments = null;
                 ShellCallbackData = null;
                 InteractiveLoopData = null;
@@ -85582,16 +85590,18 @@ namespace Eagle._Components.Public
             string childName = null;
             bool invalidInterpreter = false;
 
+            IList<string> savedArgv = (args != null) ? new StringList(args) : null;
             IList<string> argv = (args != null) ? new StringList(args) : null;
 
             TraceOps.DebugTrace(String.Format(
                 "PrivateShellMainCore: entered, interpreter = {0}, " +
-                "callbackData = {1}, clientData = {2}, argv = {3}, " +
-                "whatIf = {4}, initialize = {5}, loop = {6}, " +
-                "interactive = {7}, result = {8}",
+                "callbackData = {1}, clientData = {2}, savedArgv = {3}, " +
+                "argv = {4}, whatIf = {5}, initialize = {6}, loop = {7}, " +
+                "interactive = {8}, result = {9}",
                 FormatOps.InterpreterNoThrow(interpreter),
                 FormatOps.ShellCallbackData(callbackData),
                 FormatOps.WrapOrNull(clientData),
+                FormatOps.WrapOrNull(true, true, savedArgv),
                 FormatOps.WrapOrNull(true, true, argv), whatIf,
                 initialize, loop, interactive, FormatOps.WrapOrNull(
                 true, true, result)), typeof(Interpreter).Name,
@@ -85635,6 +85645,14 @@ namespace Eagle._Components.Public
 
             if (!whatIf)
             {
+                //
+                // NOTE: Save the original command line arguments passed by
+                //       the caller.  Later, the [info argv] sub-command can
+                //       be used to inspect them (from "unsafe" interpreters
+                //       only).
+                //
+                activeInterpreter.SavedShellArguments = savedArgv;
+
                 //
                 // NOTE: Initially, start out with no extra shell arguments.
                 //       Later on, if a script ends up modifying this list,
@@ -90253,13 +90271,14 @@ namespace Eagle._Components.Public
 
             TraceOps.DebugTrace(String.Format(
                 "PrivateShellMainCore: exited, interpreter = {0}, " +
-                "callbackData = {1}, clientData = {2}, argv = {3}, " +
-                "whatIf = {4}, initialize = {5}, loop = {6}, " +
-                "interactive = {7}, dispose = {8}, result = {9}, " +
-                "exitCode = {10}",
+                "callbackData = {1}, clientData = {2}, savedArgv = {3}, " +
+                "argv = {4}, whatIf = {5}, initialize = {6}, loop = {7}, " +
+                "interactive = {8}, dispose = {9}, result = {10}, " +
+                "exitCode = {11}",
                 FormatOps.InterpreterNoThrow(interpreter),
                 FormatOps.ShellCallbackData(callbackData),
                 FormatOps.WrapOrNull(clientData),
+                FormatOps.WrapOrNull(true, true, savedArgv),
                 FormatOps.WrapOrNull(true, true, argv), whatIf,
                 initialize, loop, interactive, dispose,
                 FormatOps.WrapOrNull(true, true, result), exitCode),
@@ -103709,6 +103728,46 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        internal IList<string> SavedShellArguments
+        {
+            get
+            {
+                // CheckDisposed();
+
+#if THREADING
+                IInteractiveContext context = GetInteractiveContext();
+
+                if (context != null)
+                    return context.SavedShellArguments;
+                else
+                    return null;
+#else
+                lock (syncRoot)
+                {
+                    return savedShellArguments;
+                }
+#endif
+            }
+            private set
+            {
+                // CheckDisposed();
+
+#if THREADING
+                IInteractiveContext context = GetInteractiveContext();
+
+                if (context != null)
+                    context.SavedShellArguments = value;
+#else
+                lock (syncRoot)
+                {
+                    savedShellArguments = value;
+                }
+#endif
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private IList<string> ShellArguments
         {
             get
@@ -109056,6 +109115,11 @@ namespace Eagle._Components.Public
                     list.Add("TotalInteractiveInputs", totalInteractiveInputs.ToString());
 
 #if SHELL
+                IList<string> savedShellArguments = SavedShellArguments; /* NOTE: Context only. */
+
+                if (empty || ((savedShellArguments != null) && (savedShellArguments.Count > 0)))
+                    list.Add("SavedShellArguments", FormatOps.DisplayList(savedShellArguments as IList));
+
                 IList<string> shellArguments = ShellArguments; /* NOTE: Context only. */
 
                 if (empty || ((shellArguments != null) && (shellArguments.Count > 0)))
@@ -117820,6 +117884,7 @@ namespace Eagle._Components.Public
                     totalInteractiveInputs = 0;
 
 #if SHELL
+                    savedShellArguments = null;
                     shellArguments = null;
                     shellCallbackData = null;
                     interactiveLoopData = null;

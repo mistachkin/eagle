@@ -106,8 +106,14 @@ namespace Eagle._Components.Private
         private const int Windows11September2022UpdateBuildNumber = 22621;
         private const string Windows11September2022UpdateName = "Windows 11, September 2022 Update";
 
-        private const int Windows11September2023UpdateBuildNumber = 22631;
-        private const string Windows11September2023UpdateName = "Windows 11, September 2023 Update";
+        private const int Windows11October2023UpdateBuildNumber = 22631;
+        private const string Windows11October2023UpdateName = "Windows 11, October 2023 Update";
+
+        private const int Windows11October2024UpdateBuildNumber = 26100;
+        private const string Windows11October2024UpdateName = "Windows 11, October 2024 Update";
+
+        private const int Windows11September2025UpdateBuildNumber = 26200;
+        private const string Windows11September2025UpdateName = "Windows 11, September 2025 Update";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -153,7 +159,7 @@ namespace Eagle._Components.Private
 
         private static string PowerShellQfePropertyName = "HotFixID";
 
-        private static string PowerShellQfePropertySeparator =
+        private static string PowerShellQfeValueSeparator =
             Characters.Colon.ToString();
 
         private static string PowerShellQfeGetUpdatesCommandArguments =
@@ -1932,7 +1938,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -1958,7 +1964,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -1984,7 +1990,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2010,7 +2016,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2036,7 +2042,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2062,7 +2068,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2088,7 +2094,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2114,7 +2120,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2140,7 +2146,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2166,7 +2172,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2192,7 +2198,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2218,7 +2224,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2244,7 +2250,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2288,7 +2294,7 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
@@ -2304,7 +2310,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static bool IsWindows11September2023Update()
+        public static bool IsWindows11October2023Update()
         {
             Version osVersion = null;
 
@@ -2314,13 +2320,65 @@ namespace Eagle._Components.Private
             //
             // BUGBUG: The language in MSDN seems to strongly imply that
             //         the build number must be an exact match for the
-            //         associated .NET Framework version to be inclued
+            //         associated .NET Framework version to be included
             //         with the operating system; therefore, use the
             //         "equal to" operator here, not the "greater than
             //         or equal to" operator.
             //
             if ((osVersion != null) &&
-                (osVersion.Build == Windows11September2023UpdateBuildNumber))
+                (osVersion.Build == Windows11October2023UpdateBuildNumber))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsWindows11October2024Update()
+        {
+            Version osVersion = null;
+
+            if (!IsWindows11OrHigher(ref osVersion))
+                return false;
+
+            //
+            // BUGBUG: The language in MSDN seems to strongly imply that
+            //         the build number must be an exact match for the
+            //         associated .NET Framework version to be included
+            //         with the operating system; therefore, use the
+            //         "equal to" operator here, not the "greater than
+            //         or equal to" operator.
+            //
+            if ((osVersion != null) &&
+                (osVersion.Build == Windows11October2024UpdateBuildNumber))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsWindows11September2025Update()
+        {
+            Version osVersion = null;
+
+            if (!IsWindows11OrHigher(ref osVersion))
+                return false;
+
+            //
+            // BUGBUG: The language in MSDN seems to strongly imply that
+            //         the build number must be an exact match for the
+            //         associated .NET Framework version to be included
+            //         with the operating system; therefore, use the
+            //         "equal to" operator here, not the "greater than
+            //         or equal to" operator.
+            //
+            if ((osVersion != null) &&
+                (osVersion.Build == Windows11September2025UpdateBuildNumber))
             {
                 return true;
             }
@@ -2771,52 +2829,51 @@ namespace Eagle._Components.Private
             ref StringList list            /* in, out */
             )
         {
-            if (type != null)
+            if ((type == null) || (list == null))
+                return false;
+
+            switch ((GetInstalledUpdatesType)type)
             {
-                switch ((GetInstalledUpdatesType)type)
-                {
-                    case GetInstalledUpdatesType.WmiCommand:
+                case GetInstalledUpdatesType.WmiCommand:
+                    {
+                        if ((list.Count > 0) &&
+                            SharedStringOps.SystemNoCaseEquals(
+                                list[0], WmiQfePropertyName))
                         {
-                            if ((list != null) && (list.Count > 0) &&
+                            list.RemoveAt(0);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case GetInstalledUpdatesType.PowerShell:
+                    {
+                        StringList localList = new StringList();
+                        int count = 0;
+
+                        foreach (string element in list)
+                        {
+                            if (String.IsNullOrEmpty(element) ||
                                 SharedStringOps.SystemNoCaseEquals(
-                                    list[0], WmiQfePropertyName))
+                                    element, PowerShellQfePropertyName) ||
+                                SharedStringOps.SystemNoCaseEquals(
+                                    element, PowerShellQfeValueSeparator))
                             {
-                                list.RemoveAt(0);
-                                return true;
+                                count++;
+                                continue;
                             }
-                            break;
+
+                            localList.Add(element);
                         }
-                    case GetInstalledUpdatesType.PowerShell:
+
+                        if (count > 0)
                         {
-                            if (list != null)
-                            {
-                                StringList localList = new StringList();
-                                int count = 0;
-
-                                foreach (string element in list)
-                                {
-                                    if (String.IsNullOrEmpty(element) ||
-                                        SharedStringOps.SystemNoCaseEquals(
-                                            element, PowerShellQfePropertyName) ||
-                                        SharedStringOps.SystemNoCaseEquals(
-                                            element, PowerShellQfePropertySeparator))
-                                    {
-                                        count++;
-                                        continue;
-                                    }
-
-                                    localList.Add(element);
-                                }
-
-                                if (count > 0)
-                                {
-                                    list = localList;
-                                    return true;
-                                }
-                            }
-                            break;
+                            list = localList;
+                            return true;
                         }
-                }
+
+                        break;
+                    }
             }
 
             return false;
@@ -2860,6 +2917,13 @@ namespace Eagle._Components.Private
                 if (!CanGetWindowsInstalledUpdates(
                         ref type, ref fileName, ref arguments))
                 {
+                    TraceOps.DebugTrace(String.Format(
+                        "WindowsGetInstalledUpdates: " +
+                        "unavailable, interpreter = {0}",
+                        FormatOps.InterpreterNoThrow(
+                        interpreter)), typeof(PlatformOps).Name,
+                        TracePriority.PlatformDebug);
+
                     return null;
                 }
 
@@ -3011,8 +3075,12 @@ namespace Eagle._Components.Private
                         return Windows11RtmName;
                     case Windows11September2022UpdateBuildNumber:
                         return Windows11September2022UpdateName;
-                    case Windows11September2023UpdateBuildNumber:
-                        return Windows11September2023UpdateName;
+                    case Windows11October2023UpdateBuildNumber:
+                        return Windows11October2023UpdateName;
+                    case Windows11October2024UpdateBuildNumber:
+                        return Windows11October2024UpdateName;
+                    case Windows11September2025UpdateBuildNumber:
+                        return Windows11September2025UpdateName;
                 }
             }
 

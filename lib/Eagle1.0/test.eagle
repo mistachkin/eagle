@@ -7138,7 +7138,10 @@ namespace eval ::Eagle {
 
       if {$array($statistic,after) > $array($statistic,before)} then {
         lappend array(statistics,leaked) $statistic
-        lappend ::eagle_debugger(leakedNames) $name $statistic
+
+        if {![isTestUncountedLeak array $statistic]} then {
+          lappend ::eagle_debugger(leakedNames) $name $statistic
+        }
 
         maybeInvokeForTester [appendArgs ::leaked_ $statistic]; # HOOK
 
@@ -7161,13 +7164,7 @@ namespace eval ::Eagle {
           }
         }
 
-        if {[info exists array(uncounted,before)] && \
-            [lsearch -exact $array(uncounted,before) $statistic] != -1} then {
-          continue
-        }
-
-        if {[info exists array(uncounted,after)] && \
-            [lsearch -exact $array(uncounted,after) $statistic] != -1} then {
+        if {[isTestUncountedLeak array $statistic]} then {
           continue
         }
 
@@ -8611,6 +8608,22 @@ namespace eval ::Eagle {
         return unknown
       }
     }
+  }
+
+  proc isTestUncountedLeak { statsVarName statistic } {
+    upvar 1 $statsVarName array
+
+    if {[info exists array(uncounted,before)] && \
+        [lsearch -exact $array(uncounted,before) $statistic] != -1} then {
+      return true
+    }
+
+    if {[info exists array(uncounted,after)] && \
+        [lsearch -exact $array(uncounted,after) $statistic] != -1} then {
+      return true
+    }
+
+    return false
   }
 
   proc calculateTestConstraintCounts {
@@ -13538,8 +13551,9 @@ namespace eval ::Eagle {
         runAllTests isTestSuiteRunning getTestChannelOrDefault \
         tryVerifyTestPath checkForAndSetTestPath configureTcltest \
         machineToPlatform architectureForPlatform \
-        calculateTestConstraintCounts getRemoteMessageRaiseError \
-        getRemoteMessageLimit getRemoteMessageRetries encodeRemoteMessage \
+        isTestUncountedLeak calculateTestConstraintCounts \
+        getRemoteMessageRaiseError getRemoteMessageLimit \
+        getRemoteMessageRetries encodeRemoteMessage \
         getRemoteMessageDirectory getRemoteMessageFileName \
         isLogRemoteMessageOk logRemoteMessage logRemoteMessageFile \
         logRemoteMessageQueue logRemoteMessageWrapper getRemoteMessageHeader \

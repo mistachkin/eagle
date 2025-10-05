@@ -39,6 +39,7 @@ namespace Eagle._Interfaces.Private
         int TotalInteractiveInputs { get; set; }
 
 #if SHELL
+        IList<string> SavedShellArguments { get; set; }
         IList<string> ShellArguments { get; set; }
         IShellCallbackData ShellCallbackData { get; set; }
         IInteractiveLoopData InteractiveLoopData { get; set; }

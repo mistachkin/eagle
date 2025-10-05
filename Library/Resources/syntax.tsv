@@ -280,6 +280,7 @@ info active	info active ?pattern?
 info administrator	info administrator
 info appdomain	info appdomain
 info args	info args procName ?defaults?
+info argv	info argv
 info assembly	info assembly ?entry?
 info base	info base
 info binary	info binary ?forceDefault?
