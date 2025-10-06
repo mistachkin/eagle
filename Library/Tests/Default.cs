@@ -38156,7 +38156,7 @@ namespace Eagle._Tests
                         return (bool)namespaces;
 
                     if (interpreter != null)
-                        return interpreter.AreNamespacesEnabled();
+                        return interpreter.InternalAreNamespacesEnabled();
 
                     return DefaultNamespaces;
                 }

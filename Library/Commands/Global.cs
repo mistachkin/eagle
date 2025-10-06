@@ -70,7 +70,7 @@ namespace Eagle._Commands
                     if ((localFrame != null) &&
                         !interpreter.IsGlobalCallFrame(localFrame))
                     {
-                        bool useNamespaces = interpreter.AreNamespacesEnabled();
+                        bool useNamespaces = interpreter.InternalAreNamespacesEnabled();
 
                         for (int argumentIndex = 1;
                                 argumentIndex < arguments.Count;

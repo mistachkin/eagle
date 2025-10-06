@@ -95,7 +95,7 @@ namespace Eagle._Commands
                                         {
                                             lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                                             {
-                                                if (interpreter.AreNamespacesEnabled())
+                                                if (interpreter.InternalAreNamespacesEnabled())
                                                 {
                                                     if (interpreter.HasScopes(ref result))
                                                     {
@@ -859,7 +859,7 @@ namespace Eagle._Commands
                                         {
                                             lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                                             {
-                                                if (interpreter.AreNamespacesEnabled())
+                                                if (interpreter.InternalAreNamespacesEnabled())
                                                 {
                                                     if (interpreter.HasScopes(ref result))
                                                     {

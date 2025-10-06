@@ -6789,6 +6789,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          namespace management subsystem is completed.
+        //
+        public static string MakeQualifiedName(
+            Interpreter interpreter,
+            string name,
+            bool absolute
+            )
+        {
+            return NamespaceOps.MakeQualifiedName(
+                interpreter, name, absolute);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          namespace management subsystem is completed.
+        //
+        public static string TailOnly(
+            string name
+            )
+        {
+            return NamespaceOps.TailOnly(name);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region .NET Core Wrapper Methods
         //
         // HACK: These wrapper methods are primarily for use by the test

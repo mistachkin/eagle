@@ -2195,7 +2195,7 @@ namespace Eagle._Components.Private
             //       when namespace support has not been enabled for
             //       the interpreter.
             //
-            if (!interpreter.AreNamespacesEnabled())
+            if (!interpreter.InternalAreNamespacesEnabled())
                 return ReturnCode.Ok;
 
             ICallFrame frame = null;
@@ -7620,7 +7620,7 @@ namespace Eagle._Components.Private
                 // NOTE: Is the interpreter running with namespaces enabled?
                 //       If so, extra steps must be taken later.
                 //
-                bool useNamespaces = interpreter.AreNamespacesEnabled();
+                bool useNamespaces = interpreter.InternalAreNamespacesEnabled();
 
                 //
                 // NOTE: *NAMESPACES* Need to make sure the correct frame is

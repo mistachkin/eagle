@@ -882,7 +882,7 @@ namespace Eagle._Commands
                                                         // HACK: Inherit the default "use namespaces" setting
                                                         //       from the parent interpreter.
                                                         //
-                                                        bool namespaces = interpreter.AreNamespacesEnabled();
+                                                        bool namespaces = interpreter.InternalAreNamespacesEnabled();
 
                                                         if (options.IsPresent("-namespaces"))
                                                             namespaces = true;

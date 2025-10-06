@@ -710,7 +710,7 @@ namespace Eagle._Components.Public
                     // NOTE: Are namespaces currently enabled for this
                     //       interpreter?
                     //
-                    useNamespaces = interpreter.AreNamespacesEnabled();
+                    useNamespaces = interpreter.InternalAreNamespacesEnabled();
 
                     //
                     // NOTE: If namespaces are enabled, create a global

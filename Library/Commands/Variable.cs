@@ -82,7 +82,7 @@ namespace Eagle._Commands
                     return ReturnCode.Error;
                 }
 
-                bool useNamespaces = interpreter.AreNamespacesEnabled();
+                bool useNamespaces = interpreter.InternalAreNamespacesEnabled();
                 INamespace currentNamespace = null;
 
                 if (useNamespaces &&

@@ -2691,7 +2691,7 @@ namespace Eagle._Commands
 
                                                         if (variable != null)
                                                         {
-                                                            if (interpreter.AreNamespacesEnabled())
+                                                            if (interpreter.InternalAreNamespacesEnabled())
                                                             {
                                                                 result = FormatOps.VariableName(
                                                                     variable.QualifiedName, linkIndex);

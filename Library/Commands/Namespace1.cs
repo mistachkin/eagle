@@ -277,7 +277,7 @@ namespace Eagle._Commands
                                             }
 
                                             if (code == ReturnCode.Ok)
-                                                result = interpreter.AreNamespacesEnabled();
+                                                result = interpreter.InternalAreNamespacesEnabled();
                                         }
                                         else
                                         {

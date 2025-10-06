@@ -3168,7 +3168,7 @@ namespace Eagle._Components.Private
             // NOTE: Before doing anything else, determine if namespaces are
             //       currently enabled or disabled.
             //
-            bool useNamespaces = interpreter.AreNamespacesEnabled();
+            bool useNamespaces = interpreter.InternalAreNamespacesEnabled();
 
             //
             // NOTE: Attempt to set the [namespace] command to point to either

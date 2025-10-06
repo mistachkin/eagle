@@ -3030,7 +3030,7 @@ namespace Eagle._Components.Public
                                                 }
                                                 else
                                                 {
-                                                    if (AreNamespacesEnabled())
+                                                    if (InternalAreNamespacesEnabled())
                                                     {
                                                         INamespace @namespace = NamespaceOps.Lookup(
                                                             this, nextString, true, false, ref error);
@@ -3055,7 +3055,7 @@ namespace Eagle._Components.Public
                                                 }
                                                 else
                                                 {
-                                                    if (AreNamespacesEnabled())
+                                                    if (InternalAreNamespacesEnabled())
                                                     {
                                                         INamespace @namespace = NamespaceOps.Lookup(
                                                             this, nextString, false, false, ref error);
@@ -13928,7 +13928,7 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
                 }
 
-                bool useNamespaces = !noNamespaces && AreNamespacesEnabled();
+                bool useNamespaces = !noNamespaces && InternalAreNamespacesEnabled();
                 Result localError = null;
 
                 if (useNamespaces && (NamespaceOps.LookupParent(
@@ -13992,7 +13992,7 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
                 }
 
-                bool useNamespaces = !noNamespaces && AreNamespacesEnabled();
+                bool useNamespaces = !noNamespaces && InternalAreNamespacesEnabled();
                 Result localError = null;
 
                 if (useNamespaces && (NamespaceOps.LookupParent(
@@ -14029,7 +14029,7 @@ namespace Eagle._Components.Public
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                bool useNamespaces = !noNamespaces && AreNamespacesEnabled();
+                bool useNamespaces = !noNamespaces && InternalAreNamespacesEnabled();
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -16502,6 +16502,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region INamespace
+        public bool AreNamespacesEnabled()
+        {
+            CheckDisposed();
+
+            return InternalAreNamespacesEnabled();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public ReturnCode LookupNamespace(
             string name,
             bool absolute,
@@ -16511,7 +16520,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            if (!AreNamespacesEnabled())
+            if (!InternalAreNamespacesEnabled())
             {
                 error = "namespaces not available";
                 return ReturnCode.Error;
@@ -16539,7 +16548,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            if (!AreNamespacesEnabled())
+            if (!InternalAreNamespacesEnabled())
             {
                 error = "namespaces not available";
                 return ReturnCode.Error;
@@ -17015,7 +17024,7 @@ namespace Eagle._Components.Public
 
                 if (PrivateHasIExecutes(ref localError))
                 {
-                    if (AreNamespacesEnabled())
+                    if (InternalAreNamespacesEnabled())
                     {
                         INamespace currentNamespace = null;
 
@@ -17137,7 +17146,7 @@ namespace Eagle._Components.Public
 
                 Result localError = null;
 
-                if (AreNamespacesEnabled() && (NamespaceOps.LookupParent(
+                if (InternalAreNamespacesEnabled() && (NamespaceOps.LookupParent(
                         this, name, false, true, true, ref localError) == null))
                 {
                     result = String.Format(
@@ -17699,7 +17708,7 @@ namespace Eagle._Components.Public
 
                 if (PrivateHasHiddenIExecutes(ref localError))
                 {
-                    if (AreNamespacesEnabled())
+                    if (InternalAreNamespacesEnabled())
                     {
                         INamespace currentNamespace = null;
 
@@ -17782,7 +17791,7 @@ namespace Eagle._Components.Public
                                 {
                                     if (IsValidAnyIExecuteName(newName, noNamespaces, ref result) == ReturnCode.Ok)
                                     {
-                                        bool useNamespaces = !noNamespaces && AreNamespacesEnabled();
+                                        bool useNamespaces = !noNamespaces && InternalAreNamespacesEnabled();
 
                                         if (!useNamespaces ||
                                             RenameImportInNamespaces(oldName, newName, ref result) == ReturnCode.Ok)
@@ -17861,7 +17870,7 @@ namespace Eagle._Components.Public
 
             try
             {
-                if (AreNamespacesEnabled() &&
+                if (InternalAreNamespacesEnabled() &&
                     RemoveImportFromNamespaces(name, ref result) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
@@ -21740,7 +21749,7 @@ namespace Eagle._Components.Public
 
                 if (PrivateHasCommands(ref localError))
                 {
-                    if (AreNamespacesEnabled())
+                    if (InternalAreNamespacesEnabled())
                     {
                         INamespace currentNamespace = null;
 
@@ -22288,7 +22297,7 @@ namespace Eagle._Components.Public
 
                 Result localError = null;
 
-                if (AreNamespacesEnabled() && (NamespaceOps.LookupParent(
+                if (InternalAreNamespacesEnabled() && (NamespaceOps.LookupParent(
                         this, name, false, true, true, ref localError) == null))
                 {
                     result = String.Format(
@@ -23176,7 +23185,7 @@ namespace Eagle._Components.Public
 
                     pattern = NamespaceOps.TrimLeading(pattern, ref absolute);
 
-                    if (absolute || !AreNamespacesEnabled())
+                    if (absolute || !InternalAreNamespacesEnabled())
                     {
                         if (pattern == null)
                         {
@@ -23717,7 +23726,7 @@ namespace Eagle._Components.Public
                                     {
                                         if (IsValidAnyIExecuteName(newName, noNamespaces, ref result) == ReturnCode.Ok)
                                         {
-                                            bool useNamespaces = !noNamespaces && AreNamespacesEnabled();
+                                            bool useNamespaces = !noNamespaces && InternalAreNamespacesEnabled();
 
                                             if (!useNamespaces ||
                                                 RenameImportInNamespaces(oldName, newName, ref result) == ReturnCode.Ok)
@@ -23808,7 +23817,7 @@ namespace Eagle._Components.Public
 
             try
             {
-                if (AreNamespacesEnabled() &&
+                if (InternalAreNamespacesEnabled() &&
                     RemoveImportFromNamespaces(name, ref result) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
@@ -25928,7 +25937,7 @@ namespace Eagle._Components.Public
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                if (AreNamespacesEnabled())
+                if (InternalAreNamespacesEnabled())
                 {
                     if (GetCurrentNamespaceViaResolvers(
                             null, LookupFlags.Default,
@@ -26507,7 +26516,7 @@ namespace Eagle._Components.Public
 
                     if (execute != null)
                     {
-                        if (AreNamespacesEnabled())
+                        if (InternalAreNamespacesEnabled())
                         {
                             INamespace @namespace = NamespaceOps.Lookup(
                                 this, TclVars.Namespace.MathFunctionName, true, true,
@@ -26991,7 +27000,7 @@ namespace Eagle._Components.Public
                 //       to Eagle, respectively.  This can only be done for function
                 //       instances that also implmement the IExecute interface.
                 //
-                if (AreNamespacesEnabled())
+                if (InternalAreNamespacesEnabled())
                 {
                     //
                     // BUGBUG: If any of the parent namespaces are already deleted,
@@ -27325,7 +27334,7 @@ namespace Eagle._Components.Public
 
                 if (PrivateHasProcedures(ref localError))
                 {
-                    if (AreNamespacesEnabled())
+                    if (InternalAreNamespacesEnabled())
                     {
                         INamespace currentNamespace = null;
 
@@ -28174,7 +28183,7 @@ namespace Eagle._Components.Public
 
                 if (PrivateHasHiddenProcedures(ref localError))
                 {
-                    if (AreNamespacesEnabled())
+                    if (InternalAreNamespacesEnabled())
                     {
                         INamespace currentNamespace = null;
 
@@ -28354,7 +28363,7 @@ namespace Eagle._Components.Public
 
                 Result localError = null;
 
-                if (AreNamespacesEnabled() && (NamespaceOps.LookupParent(
+                if (InternalAreNamespacesEnabled() && (NamespaceOps.LookupParent(
                         this, name, false, true, false, ref localError) == null))
                 {
                     result = String.Format(
@@ -28524,7 +28533,7 @@ namespace Eagle._Components.Public
                                     {
                                         if (IsValidAnyIExecuteName(newName, noNamespaces, ref result) == ReturnCode.Ok)
                                         {
-                                            bool useNamespaces = !noNamespaces && AreNamespacesEnabled();
+                                            bool useNamespaces = !noNamespaces && InternalAreNamespacesEnabled();
 
                                             if (!useNamespaces ||
                                                 RenameImportInNamespaces(oldName, newName, ref result) == ReturnCode.Ok)
@@ -28613,7 +28622,7 @@ namespace Eagle._Components.Public
 
             try
             {
-                if (AreNamespacesEnabled() &&
+                if (InternalAreNamespacesEnabled() &&
                     RemoveImportFromNamespaces(name, ref result) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
@@ -30915,7 +30924,7 @@ namespace Eagle._Components.Public
 
                 if (PrivateHasHiddenCommands(ref localError))
                 {
-                    if (AreNamespacesEnabled())
+                    if (InternalAreNamespacesEnabled())
                     {
                         INamespace currentNamespace = null;
 
@@ -31008,7 +31017,7 @@ namespace Eagle._Components.Public
                                     {
                                         if (IsValidAnyHiddenIExecuteName(newName, noNamespaces, ref result) == ReturnCode.Ok)
                                         {
-                                            bool useNamespaces = !noNamespaces && AreNamespacesEnabled();
+                                            bool useNamespaces = !noNamespaces && InternalAreNamespacesEnabled();
 
                                             if (!useNamespaces ||
                                                 RenameImportInNamespaces(oldName, newName, ref result) == ReturnCode.Ok)
@@ -31475,7 +31484,7 @@ namespace Eagle._Components.Public
                                     {
                                         if (IsValidAnyHiddenIExecuteName(newName, noNamespaces, ref result) == ReturnCode.Ok)
                                         {
-                                            bool useNamespaces = !noNamespaces && AreNamespacesEnabled();
+                                            bool useNamespaces = !noNamespaces && InternalAreNamespacesEnabled();
 
                                             if (!useNamespaces ||
                                                 RenameImportInNamespaces(oldName, newName, ref result) == ReturnCode.Ok)
@@ -31909,7 +31918,7 @@ namespace Eagle._Components.Public
                                 {
                                     if (IsValidAnyHiddenIExecuteName(newName, noNamespaces, ref result) == ReturnCode.Ok)
                                     {
-                                        bool useNamespaces = !noNamespaces && AreNamespacesEnabled();
+                                        bool useNamespaces = !noNamespaces && InternalAreNamespacesEnabled();
 
                                         if (!useNamespaces ||
                                             RenameImportInNamespaces(oldName, newName, ref result) == ReturnCode.Ok)
@@ -32826,7 +32835,7 @@ namespace Eagle._Components.Public
 
                     if (execute != null)
                     {
-                        if (AreNamespacesEnabled())
+                        if (InternalAreNamespacesEnabled())
                         {
                             INamespace @namespace = NamespaceOps.Lookup(
                                 this, TclVars.Namespace.MathOperatorName, true, true,
@@ -36181,7 +36190,7 @@ namespace Eagle._Components.Public
                 if ((type == null) || String.IsNullOrEmpty(name))
                     return @default;
 
-                if (!AreNamespacesEnabled())
+                if (!InternalAreNamespacesEnabled())
                     return @default;
 
                 Assembly assembly = type.Assembly;
@@ -36222,7 +36231,7 @@ namespace Eagle._Components.Public
                 if (!HasObjectAliasNamespaces(ref error))
                     return ReturnCode.Error;
 
-                if (!AreNamespacesEnabled())
+                if (!InternalAreNamespacesEnabled())
                 {
                     error = "namespaces not available";
                     return ReturnCode.Error;
@@ -36430,7 +36439,7 @@ namespace Eagle._Components.Public
             // NOTE: If the variable is invalid -OR- namespaces are not
             //       enabled, do nothing and return false.
             //
-            if ((variable == null) || !AreNamespacesEnabled())
+            if ((variable == null) || !InternalAreNamespacesEnabled())
                 return false;
 
             //
@@ -36482,7 +36491,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Namespace Status Support
-        internal bool AreNamespacesEnabled()
+        internal bool InternalAreNamespacesEnabled()
         {
             return RuntimeOps.AreNamespacesEnabled(createFlags);
         }
@@ -36887,7 +36896,7 @@ namespace Eagle._Components.Public
             {
                 bool pendingCleanup = IsPendingCleanup();
 
-                if (pendingCleanup && AreNamespacesEnabled())
+                if (pendingCleanup && InternalAreNamespacesEnabled())
                 {
                     if (pendingNamespaces == null)
                     {
@@ -36991,7 +37000,7 @@ namespace Eagle._Components.Public
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                if (AreNamespacesEnabled())
+                if (InternalAreNamespacesEnabled())
                 {
                     INamespace @namespace = NamespaceOps.Lookup(
                         this, oldName, false, false);
@@ -37042,7 +37051,7 @@ namespace Eagle._Components.Public
                 //
                 // NOTE: Phase 0: Verify all parameters and initial state.
                 //
-                if (!AreNamespacesEnabled())
+                if (!InternalAreNamespacesEnabled())
                 {
                     result = "namespaces not available";
                     return ReturnCode.Error;
@@ -37330,7 +37339,7 @@ namespace Eagle._Components.Public
             {
                 INamespace @namespace = null;
 
-                if (AreNamespacesEnabled())
+                if (InternalAreNamespacesEnabled())
                 {
                     @namespace = NamespaceOps.Lookup(this, name, false, false);
 
@@ -37362,7 +37371,7 @@ namespace Eagle._Components.Public
                 if (!IsModifiable(false, ref result))
                     return ReturnCode.Error;
 
-                bool useNamespaces = AreNamespacesEnabled();
+                bool useNamespaces = InternalAreNamespacesEnabled();
 
                 if (useNamespaces && (@namespace == null))
                 {
@@ -44420,7 +44429,7 @@ namespace Eagle._Components.Public
         {
             get
             {
-                if (!disposed && AreNamespacesEnabled())
+                if (!disposed && InternalAreNamespacesEnabled())
                 {
                     string result;
                     INamespace currentNamespace = null;
@@ -44449,7 +44458,7 @@ namespace Eagle._Components.Public
             }
             set
             {
-                if (!disposed && AreNamespacesEnabled())
+                if (!disposed && InternalAreNamespacesEnabled())
                 {
                     INamespace currentNamespace = null;
 
@@ -67271,7 +67280,7 @@ namespace Eagle._Components.Public
                 }
                 else
                 {
-                    bool useNamespaces = AreNamespacesEnabled();
+                    bool useNamespaces = InternalAreNamespacesEnabled();
 
                     if (useNamespaces && (pattern != null))
                     {
@@ -79411,7 +79420,7 @@ namespace Eagle._Components.Public
                 ///////////////////////////////////////////////////////////////////////////////////////
 
                 #region Namespaces
-                PreSetupNamespaces(AreNamespacesEnabled(), true, false);
+                PreSetupNamespaces(InternalAreNamespacesEnabled(), true, false);
                 #endregion
 
                 ///////////////////////////////////////////////////////////////////////////////////////
@@ -97486,7 +97495,7 @@ namespace Eagle._Components.Public
             if (oldCommandName == null)
                 return;
 
-            bool useNamespaces = !noNamespaces && AreNamespacesEnabled();
+            bool useNamespaces = !noNamespaces && InternalAreNamespacesEnabled();
 
             if (useNamespaces && !NamespaceOps.IsQualifiedName(newCommandName))
             {
@@ -97895,7 +97904,7 @@ namespace Eagle._Components.Public
             string aliasName
             )
         {
-            if (!AreNamespacesEnabled())
+            if (!InternalAreNamespacesEnabled())
                 return true;
 
             return !String.IsNullOrEmpty(
@@ -105466,7 +105475,7 @@ namespace Eagle._Components.Public
         {
             CallFrameFlags result = CallFrameFlags.InfoLevel;
 
-            if (!AreNamespacesEnabled())
+            if (!InternalAreNamespacesEnabled())
                 result &= ~CallFrameFlags.Namespace;
 
             return result;
@@ -106452,7 +106461,7 @@ namespace Eagle._Components.Public
                 //
                 // NOTE: If necessary, enter the namespace context.
                 //
-                if (AreNamespacesEnabled())
+                if (InternalAreNamespacesEnabled())
                     EnterNamespaceCallFrame(newFrame);
 
                 //
@@ -106492,7 +106501,7 @@ namespace Eagle._Components.Public
                 //
                 // NOTE: If necessary, exit the namespace context.
                 //
-                if (AreNamespacesEnabled())
+                if (InternalAreNamespacesEnabled())
                     ExitNamespaceCallFrame(newFrame);
 
                 //
@@ -107199,7 +107208,7 @@ namespace Eagle._Components.Public
         {
             INamespace @namespace = null;
 
-            if (AreNamespacesEnabled())
+            if (InternalAreNamespacesEnabled())
                 @namespace = NamespaceOps.LookupParent(this, name, false, true, false);
 
             return NewProcedureCallFrame(
@@ -110296,9 +110305,9 @@ namespace Eagle._Components.Public
                     list.Add("ThrowOnFeatureNotSupported",
                         throwOnFeatureNotSupported.ToString());
 
-                if (empty || AreNamespacesEnabled())
+                if (empty || InternalAreNamespacesEnabled())
                     list.Add("AreNamespacesEnabled",
-                        AreNamespacesEnabled().ToString());
+                        InternalAreNamespacesEnabled().ToString());
 
                 if (empty || (traceTextWriter != null))
                     list.Add("TraceTextWriter", (traceTextWriter != null) ?

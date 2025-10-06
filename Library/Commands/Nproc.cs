@@ -155,7 +155,7 @@ namespace Eagle._Commands
                                     Result error = null;
 
                                     procedure = RuntimeOps.NewProcedure(
-                                        interpreter, interpreter.AreNamespacesEnabled() ?
+                                        interpreter, interpreter.InternalAreNamespacesEnabled() ?
                                         NamespaceOps.MakeQualifiedName(interpreter, name) :
                                         ScriptOps.MakeCommandName(name), null, null,
                                         procedureFlags, formalArguments, namedArguments,

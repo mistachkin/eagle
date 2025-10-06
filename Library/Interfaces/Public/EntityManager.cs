@@ -125,6 +125,8 @@ namespace Eagle._Interfaces.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        bool AreNamespacesEnabled();
+
         ReturnCode LookupNamespace(
             string name,
             bool absolute,
