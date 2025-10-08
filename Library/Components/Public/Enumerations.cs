@@ -2212,6 +2212,9 @@ namespace Eagle._Components.Public
                                        * user-defined code should have
                                        * already been canceled. */
 
+        Exit = 0x20000,               /* Used when making sure a process
+                                       * has exited. */
+
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         Variable = 0x200000,          /* This is reserved for future

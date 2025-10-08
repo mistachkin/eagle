@@ -2431,7 +2431,10 @@ namespace Eagle._Components.Private
             {
                 try
                 {
-                    return process.ToString(); /* ==> ProcessName */
+                    ProcessStartInfo startInfo = process.StartInfo;
+
+                    if (startInfo != null)
+                        return startInfo.FileName;
                 }
                 catch
                 {

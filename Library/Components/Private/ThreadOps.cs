@@ -768,6 +768,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: This is the number of milliseconds to wait when waiting for
+        //       a process to exit before processing events and trying again
+        //       (possibly), when running on Mono or the .NET Framework.
+        //
+        // HACK: These are purposely not read-only.
+        //
+#if MONO || MONO_HACKS
+        private static int defaultMonoExitTimeout =
+            2 * EventManager.MinimumSleepTime;
+#endif
+
+        private static int defaultDotNetExitTimeout =
+            EventManager.MinimumSleepTime;
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if NETWORK
         //
         // NOTE: This is the number of milliseconds to wait when contacting a
@@ -1022,6 +1039,18 @@ namespace Eagle._Components.Private
 #endif
 
             return defaultDotNetJoinTimeout;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int GetDefaultExitTimeout()
+        {
+#if MONO || MONO_HACKS
+            if (isMono)
+                return defaultMonoExitTimeout;
+#endif
+
+            return defaultDotNetExitTimeout;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1299,6 +1328,11 @@ namespace Eagle._Components.Private
                 case TimeoutType.Join:
                     {
                         timeout = GetDefaultJoinTimeout();
+                        break;
+                    }
+                case TimeoutType.Exit:
+                    {
+                        timeout = GetDefaultExitTimeout();
                         break;
                     }
 #if NETWORK

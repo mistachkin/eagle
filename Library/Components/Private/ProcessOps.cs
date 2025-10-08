@@ -62,6 +62,13 @@ namespace Eagle._Components.Private
         // HACK: This is purposely not read-only.
         //
         private static int? StringBuilderCapacity = null;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool DoNotWaitForever = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -1852,38 +1859,69 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: This method is NEVER allowed to return any infinite timeout
+        //       value, i.e. it cannot return a value that is negative -AND-
+        //       it cannot return null, because some (potential) callers use
+        //       that value to indicate "wait forever".
+        //
         private static int GetWaitForExitTimeout(
-            Interpreter interpreter, /* in */
+            Interpreter interpreter, /* in: OPTIONAL */
             int? timeout             /* in */
             )
         {
+            int localTimeout; /* REUSED */
+
             if (timeout != null)
-                return (int)timeout;
+            {
+                localTimeout = (int)timeout;
 
-            if (interpreter == null)
-                return EventManager.MinimumSleepTime;
+                if (localTimeout >= 0)
+                    return localTimeout;
+            }
 
-            return interpreter.GetMinimumSleepTime(SleepType.Process);
+            if (interpreter != null)
+            {
+                localTimeout = interpreter.GetMinimumSleepTime(
+                    SleepType.Process);
+
+                if (localTimeout >= 0)
+                    return localTimeout;
+            }
+
+            localTimeout = ThreadOps.GetDefaultTimeout(
+                interpreter, TimeoutType.Exit);
+
+            if (localTimeout >= 0)
+                return localTimeout;
+
+            return EventManager.MinimumSleepTime;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static bool SafeHasExited(
-            Process process, /* in */
-            bool waitForExit /* in */
+            Interpreter interpreter, /* in */
+            Process process,         /* in */
+            int? timeout,            /* in */
+            bool waitForExit         /* in */
             )
         {
             bool hasExited; /* NOT USED */
 
-            return SafeHasExited(process, waitForExit, out hasExited);
+            return SafeHasExited(
+                interpreter, process, timeout, waitForExit,
+                out hasExited);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static bool SafeHasExited(
-            Process process,   /* in */
-            bool waitForExit,  /* in */
-            out bool hasExited /* out */
+            Interpreter interpreter, /* in */
+            Process process,         /* in */
+            int? timeout,            /* in */
+            bool waitForExit,        /* in */
+            out bool hasExited       /* out */
             )
         {
             hasExited = false;
@@ -1894,15 +1932,22 @@ namespace Eagle._Components.Private
                 {
                     if (waitForExit)
                     {
-                        process.WaitForExit(); /* throw */
-                        hasExited = true; /* REDUNDANT */
+                        return WaitForExit(
+                            interpreter, process, timeout, false,
+                            ref hasExited); /* throw */
                     }
                     else
                     {
                         hasExited = process.HasExited; /* throw */
-                    }
 
-                    return true;
+                        TraceOps.DebugTrace(String.Format(
+                            "SafeHasExited: {0} ==> EXITED (?) {1}",
+                            EntityOps.GetNameOrIdNoThrow(process),
+                            hasExited), typeof(ProcessOps).Name,
+                            TracePriority.ProcessDebug);
+
+                        return true;
+                    }
                 }
             }
             catch (Exception e)
@@ -2017,10 +2062,17 @@ namespace Eagle._Components.Private
                 //       an exception to be thrown, use the "safe" helper
                 //       method.
                 //
+                // BUGFIX: Even if the process exits immediately, we really
+                //         should process events at least once prior to our
+                //         loop exiting, if possible.
+                //
+                int checkEventsCount = 0;
                 bool hasExited; /* REUSED */
 
-                while (SafeHasExited(
-                        process, false, out hasExited) && !hasExited)
+                while (((checkEventsCount == 0) && (interpreter != null)) ||
+                    (SafeHasExited(
+                        interpreter, process, null, false, out hasExited) &&
+                    !hasExited))
                 {
                     //
                     // NOTE: We need a local result because we do not want
@@ -2030,7 +2082,9 @@ namespace Eagle._Components.Private
                     //       However, we will change the overall result if
                     //       a halting error is encountered, e.g. script
                     //       has been canceled, interpreter not ready, etc.
-                    //       Process any pending events that may be queued.
+                    //       Process any pending events that may be queued
+                    //       to this thread -AND- that satisfy the current
+                    //       event flags for the interpreter involved.
                     //
                     Result localResult; /* REUSED */
 
@@ -2049,12 +2103,20 @@ namespace Eagle._Components.Private
                             error = localResult;
                             return ReturnCode.Error;
                         }
+
+                        //
+                        // NOTE: Zero or more engine events have (again?)
+                        //       been successfully processed, increment
+                        //       the (loop invariant) counter associated
+                        //       with that.
+                        //
+                        checkEventsCount++;
                     }
 
 #if WINFORMS
                     //
-                    // NOTE: If requested, process pending window messages
-                    //       on this thread as well.
+                    // NOTE: If requested, process any pending window(s)
+                    //       messages on this thread as well.
                     //
                     if (userInterface)
                     {
@@ -2073,11 +2135,11 @@ namespace Eagle._Components.Private
                     // NOTE: Prevent this loop from needlessly spinning
                     //       while waiting for the child process to exit.
                     //
-                    int localTimeout = GetWaitForExitTimeout(interpreter,
-                        timeout);
+                    hasExited = false; /* REDUNDANT? */
 
-                    if ((localTimeout > 0) &&
-                        process.WaitForExit(localTimeout)) /* throw */
+                    if (WaitForExit(
+                            interpreter, process, timeout, false,
+                            ref hasExited) && hasExited) /* throw */
                     {
                         //
                         // NOTE: The child process has now exited, bail
@@ -2165,7 +2227,7 @@ namespace Eagle._Components.Private
                     //       are complete.
                     //
                     /* IGNORED */
-                    SafeHasExited(process, true);
+                    SafeHasExited(interpreter, process, null, true);
 
                     /* IGNORED */
                     MaybeAppendStartInfoToLogPaths(outputLogPath,
@@ -2926,6 +2988,82 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private WaitForExit Helper Methods
+        private static bool WaitForExit(
+            Interpreter interpreter, /* in: OPTIONAL */
+            Process process,         /* in */
+            int? timeout,            /* in: OPTIONAL */
+            bool canWaitForever,     /* in */
+            ref bool hasExited       /* out */
+            )
+        {
+            if (process == null)
+                return false;
+
+        retry:
+
+            int localTimeout;
+
+            if (timeout != null)
+            {
+                localTimeout = GetWaitForExitTimeout(
+                    interpreter, timeout);
+
+                if (process.WaitForExit(
+                        localTimeout)) /* throw */
+                {
+                    hasExited = true;
+
+                    TraceOps.DebugTrace(String.Format(
+                        "WaitForExit: EXITED {0}, timeout {1}",
+                        EntityOps.GetNameOrIdNoThrow(process),
+                        localTimeout), typeof(ProcessOps).Name,
+                        TracePriority.ProcessDebug2);
+                }
+                else
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "WaitForExit: RUNNING {0}, timeout {1}",
+                        EntityOps.GetNameOrIdNoThrow(process),
+                        localTimeout), typeof(ProcessOps).Name,
+                        TracePriority.ProcessDebug);
+                }
+            }
+            else
+            {
+                if (!canWaitForever || DoNotWaitForever) /* RARE */
+                {
+                    localTimeout = GetWaitForExitTimeout(
+                        interpreter, timeout);
+
+                    TraceOps.DebugTrace(String.Format(
+                        "WaitForExit: RETRYING {0}, timeout {1}",
+                        EntityOps.GetNameOrIdNoThrow(process),
+                        localTimeout), typeof(ProcessOps).Name,
+                        TracePriority.ProcessDebug2);
+
+                    timeout = localTimeout;
+                    goto retry;
+                }
+                else
+                {
+                    process.WaitForExit(); /* throw */
+                    hasExited = true;
+
+                    TraceOps.DebugTrace(String.Format(
+                        "WaitForExit: EXITED {0}, no timeout",
+                        EntityOps.GetNameOrIdNoThrow(process)),
+                        typeof(ProcessOps).Name,
+                        TracePriority.ProcessDebug2);
+                }
+            }
+
+            return true;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Public ExecuteProcess Methods
         public static ReturnCode ExecuteProcess(
             Interpreter interpreter,        /* in: Interpreter context to use,
@@ -3302,26 +3440,20 @@ namespace Eagle._Components.Private
                     // NOTE: If necessary, block until we are sure that
                     //       we have received all pending output from
                     //       the process and just to make sure that the
-                    //       process has actually exited (apparently,
+                    //       process has *actually* exited (apparently,
                     //       the HasExited property cannot always be
                     //       trusted).  Also, if the caller did not
                     //       choose to process events while waiting,
-                    //       this should keep us in sync.
+                    //       this should keep us synchronized anyhow.
                     //
                     bool didWaitForExit = false;
 
                     if (waitForExit)
                     {
-                        if (timeout != null)
-                        {
-                            process.WaitForExit(
-                                (int)timeout); /* throw */
-                        }
-                        else
-                        {
-                            process.WaitForExit(); /* throw */
-                            didWaitForExit = true;
-                        }
+                        /* IGNORED */
+                        WaitForExit(
+                            interpreter, process, timeout, true,
+                            ref didWaitForExit); /* throw */
                     }
 
                     //
@@ -3338,8 +3470,10 @@ namespace Eagle._Components.Private
                         //
                         if (!didWaitForExit)
                         {
-                            process.WaitForExit(); /* throw */
-                            didWaitForExit = true;
+                            /* IGNORED */
+                            WaitForExit(
+                                interpreter, process, null, true,
+                                ref didWaitForExit); /* throw */
                         }
 
                         exitCode = (ExitCode)process.ExitCode; /* throw */
@@ -3364,8 +3498,10 @@ namespace Eagle._Components.Private
                         //
                         if (!didWaitForExit)
                         {
-                            process.WaitForExit(); /* throw */
-                            didWaitForExit = true;
+                            /* IGNORED */
+                            WaitForExit(
+                                interpreter, process, null, true,
+                                ref didWaitForExit); /* throw */
                         }
 
                         return GetCaptureData(
