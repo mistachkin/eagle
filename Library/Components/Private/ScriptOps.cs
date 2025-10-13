@@ -1916,20 +1916,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void ShouldProcedureHaveFlags(
-            Interpreter interpreter,
-            string name,
-            string text,
-            CultureInfo cultureInfo,
-            out bool isLibrary,
-            out bool isFast,
-            out bool isAtomic,
-            out bool isInline,
+            Interpreter interpreter,             /* in */
+            string name,                         /* in */
+            string text,                         /* in */
+            CultureInfo cultureInfo,             /* in */
+            out bool isLibrary,                  /* out */
+            out bool isFast,                     /* out */
+            out bool isAtomic,                   /* out */
+            out bool isInline,                   /* out */
 #if ARGUMENT_CACHE || PARSE_CACHE
-            out bool isNonCaching,
+            out bool isNonCaching,               /* out */
 #endif
-            out bool isMatchTypes,
-            out ArgumentList overwriteArguments,
-            out ArgumentList cleanArguments
+            out bool isMatchTypes,               /* out */
+            out ArgumentList overwriteArguments, /* out */
+            out ArgumentList cleanArguments      /* out */
             )
         {
             bool isPrivate; /* NOT USED */
@@ -1995,21 +1995,21 @@ namespace Eagle._Components.Private
         //       ANNOTATION_WAS_FOUND <<private:1>> ==> true
         //
         public static void ShouldProcedureHaveFlags(
-            Interpreter interpreter,
-            string name,
-            string text,
-            CultureInfo cultureInfo,
-            out bool isLibrary,
-            out bool isPrivate,
-            out bool isFast,
-            out bool isAtomic,
-            out bool isInline,
+            Interpreter interpreter,             /* in */
+            string name,                         /* in */
+            string text,                         /* in */
+            CultureInfo cultureInfo,             /* in */
+            out bool isLibrary,                  /* out */
+            out bool isPrivate,                  /* out */
+            out bool isFast,                     /* out */
+            out bool isAtomic,                   /* out */
+            out bool isInline,                   /* out */
 #if ARGUMENT_CACHE || PARSE_CACHE
-            out bool isNonCaching,
+            out bool isNonCaching,               /* out */
 #endif
-            out bool isMatchTypes,
-            out ArgumentList overwriteArguments,
-            out ArgumentList cleanArguments
+            out bool isMatchTypes,               /* out */
+            out ArgumentList overwriteArguments, /* out */
+            out ArgumentList cleanArguments      /* out */
             )
         {
             ResultList errors = null;
@@ -2154,11 +2154,96 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: This method overload is ONLY for use by the
+        //          [apply] and [napply] command implementations.
+        //
+        public static ReturnCode SanityCheckProcedureFlags(
+            bool isLibrary,    /* in */
+            bool isFast,       /* in */
+            bool isAtomic,     /* in */
+            bool isInline,     /* in */
+#if ARGUMENT_CACHE || PARSE_CACHE
+            bool isNonCaching, /* in */
+#endif
+            bool isMatchTypes, /* in */
+            ref Result error   /* out */
+            )
+        {
+            ProcedureFlags procedureFlags = ProcedureFlags.None; /* NOT USED */
+
+            return SanityCheckAndModifyProcedureFlags(
+                isLibrary, false, isFast, isAtomic, isInline,
+#if ARGUMENT_CACHE || PARSE_CACHE
+                isNonCaching,
+#endif
+                isMatchTypes, ref procedureFlags, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode SanityCheckAndModifyProcedureFlags(
+            bool isLibrary,                    /* in */
+            bool isPrivate,                    /* in */
+            bool isFast,                       /* in */
+            bool isAtomic,                     /* in */
+            bool isInline,                     /* in */
+#if ARGUMENT_CACHE || PARSE_CACHE
+            bool isNonCaching,                 /* in */
+#endif
+            bool isMatchTypes,                 /* in */
+            ref ProcedureFlags procedureFlags, /* in, out */
+            ref Result error                   /* out */
+            )
+        {
+            if (isInline && (isFast || isMatchTypes))
+            {
+                error = String.Format(
+                    "cannot use the procedure annotations {0} or {1} " +
+                    "with the {2} procedure annotation.",
+                    FormatOps.WrapOrNull(
+                        FormatAnnotation(Annotations.Fast)),
+                    FormatOps.WrapOrNull(
+                        FormatAnnotation(Annotations.MatchTypes)),
+                    FormatOps.WrapOrNull(
+                        FormatAnnotation(Annotations.Inline)));
+
+                return ReturnCode.Error;
+            }
+
+            if (isPrivate)
+                procedureFlags |= ProcedureFlags.Private;
+
+            if (!isInline && isLibrary)
+                procedureFlags |= ProcedureFlags.Library;
+
+            if (isFast)
+                procedureFlags |= ProcedureFlags.Fast;
+
+            if (isAtomic)
+                procedureFlags |= ProcedureFlags.Atomic;
+
+            if (isInline)
+                procedureFlags |= ProcedureFlags.NoPushFrame;
+
+#if ARGUMENT_CACHE || PARSE_CACHE
+            if (isLibrary || isNonCaching)
+                procedureFlags |= ProcedureFlags.NonCaching;
+#endif
+
+            if (isMatchTypes)
+                procedureFlags |= ProcedureFlags.MatchTypes;
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode MaybeCheckProcedureCaller(
-            Interpreter interpreter,
-            IProcedure procedure,
-            ref ProcedureFlags procedureFlags,
-            ref Result error
+            Interpreter interpreter,           /* in */
+            IProcedure procedure,              /* in */
+            ref ProcedureFlags procedureFlags, /* out */
+            ref Result error                   /* out */
             )
         {
             if (interpreter == null) /* REDUNDANT? */

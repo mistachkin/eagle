@@ -22,9 +22,13 @@ namespace Eagle._Interfaces.Public
     public interface ICallback : ICallbackData
     {
         Delegate GetDelegate(
-            Type delegateType, Type returnType, TypeList parameterTypes,
-            MarshalFlagsList parameterMarshalFlags, bool throwOnBindFailure,
-            ref Result error);
+            Type delegateType,
+            Type returnType,
+            TypeList parameterTypes,
+            MarshalFlagsList parameterMarshalFlags,
+            bool throwOnBindFailure,
+            ref Result error
+        );
 
         AsyncCallback GetAsyncCallback();
         EventHandler GetEventHandler();
@@ -36,27 +40,73 @@ namespace Eagle._Interfaces.Public
         GenericCallback GetGenericCallback();
         DynamicInvokeCallback GetDynamicInvokeCallback();
 
-        void FireAsyncCallback(IAsyncResult ar); /* System.AsyncCallback */
-        void FireEventHandler(object sender, EventArgs e); /* System.EventHandler */
+        void FireAsyncCallback(
+            IAsyncResult ar
+        ); /* System.AsyncCallback */
+
+        void FireEventHandler(
+            object sender,
+            EventArgs e
+        ); /* System.EventHandler */
 
         void FireThreadStart(); /* System.Threading.ThreadStart */
-        void FireParameterizedThreadStart(object obj); /* System.Threading.ParameterizedThreadStart */
-        void FireWaitCallback(object state); /* System.Threading.WaitCallback */
+        void FireParameterizedThreadStart(
+            object obj
+        ); /* System.Threading.ParameterizedThreadStart */
+
+        void FireWaitCallback(
+            object state
+        ); /* System.Threading.WaitCallback */
 
         void FireGenericCallback(); /* Eagle._Components.Public.Delegates.GenericCallback */
-        object FireDynamicInvokeCallback(params object[] args); /* System.Delegate.DynamicInvoke */
 
-        void FireAsyncCallback(IAsyncResult ar, StringList arguments);
-        void FireEventHandler(object sender, EventArgs e, StringList arguments);
+        object FireDynamicInvokeCallback(
+            params object[] args
+        ); /* System.Delegate.DynamicInvoke */
 
-        void FireThreadStart(StringList arguments);
-        void FireParameterizedThreadStart(object obj, StringList arguments);
-        void FireWaitCallback(object state, StringList arguments);
+        void FireAsyncCallback(
+            IAsyncResult ar,
+            StringList arguments
+        );
 
-        void FireGenericCallback(StringList arguments);
-        object FireDynamicInvokeCallback(object[] args, StringList arguments);
+        void FireEventHandler(
+            object sender,
+            EventArgs e,
+            StringList arguments
+        );
 
-        ReturnCode Invoke(StringList arguments, ref Result result);
-        ReturnCode Invoke(StringList arguments, ref Result result, ref int errorLine);
+        void FireThreadStart(
+            StringList arguments
+        );
+
+        void FireParameterizedThreadStart(
+            object obj,
+            StringList arguments
+        );
+
+        void FireWaitCallback(
+            object state,
+            StringList arguments
+        );
+
+        void FireGenericCallback(
+            StringList arguments
+        );
+
+        object FireDynamicInvokeCallback(
+            object[] args,
+            StringList arguments
+        );
+
+        ReturnCode Invoke(
+            StringList arguments,
+            ref Result result
+        );
+
+        ReturnCode Invoke(
+            StringList arguments,
+            ref Result result,
+            ref int errorLine
+        );
     }
 }

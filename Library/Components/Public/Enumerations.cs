@@ -140,6 +140,8 @@ namespace Eagle._Components.Public
         AllowAnyIp = 0x100000,
         AllowAnyPort = 0x200000,
 
+        NoSort = 0x400000,
+
 #if NET_40
         MaybeIPv6 = IPv6,
 #else

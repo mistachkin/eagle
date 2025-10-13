@@ -3047,6 +3047,12 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
+                    TraceOps.DebugTrace(String.Format(
+                        "WaitForExit: WAITING {0}, no timeout",
+                        EntityOps.GetNameOrIdNoThrow(process)),
+                        typeof(ProcessOps).Name,
+                        TracePriority.ProcessDebug2);
+
                     process.WaitForExit(); /* throw */
                     hasExited = true;
 

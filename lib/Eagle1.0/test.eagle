@@ -10566,15 +10566,19 @@ namespace eval ::Eagle {
     proc eagle_setupPromptScript { {enable ""} } {
       if {[string length $enable] > 0} then {
         if {$enable} then {
-          set ::tcl_prompt1 [eagle_getShellPromptScript]
-          set ::tcl_prompt3 [eagle_getShellPromptScript]
-          set ::tcl_prompt5 [eagle_getShellPromptScript]
-          set ::tcl_prompt7 [eagle_getShellPromptScript]
+          set script [eagle_getShellPromptScript]
+
+          set ::tcl_prompt1 $script
+          set ::tcl_prompt3 $script
+          set ::tcl_prompt5 $script
+          set ::tcl_prompt7 $script
         } else {
           unset -nocomplain ::tcl_prompt1 ::tcl_prompt3 \
               ::tcl_prompt5 ::tcl_prompt7
         }
       } else {
+        set script [eagle_getShellPromptScript]
+
         foreach varName [list \
             ::tcl_prompt1 ::tcl_prompt3 ::tcl_prompt5 \
             ::tcl_prompt7] {
@@ -10583,8 +10587,7 @@ namespace eval ::Eagle {
             return false
           }
 
-          if {![string equal [set $varName] \
-              [eagle_getShellPromptScript]]} then {
+          if {![string equal [set $varName] $script]} then {
             return false
           }
         }

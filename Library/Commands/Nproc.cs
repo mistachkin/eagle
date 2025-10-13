@@ -59,22 +59,24 @@ namespace Eagle._Commands
 
                         if (code == ReturnCode.Ok)
                         {
-                            bool isLibrary = false;
-                            bool isPrivate = false;
-                            bool isFast = false;
-                            bool isAtomic = false;
-                            bool isInline = false;
-
-#if ARGUMENT_CACHE || PARSE_CACHE
-                            bool isNonCaching = false;
-#endif
-
-                            bool isMatchTypes = false;
                             ArgumentList overwriteArguments = null;
                             ArgumentList cleanArguments = null;
+                            ProcedureFlags procedureFlags = ProcedureFlags.None;
 
                             if (!interpreter.InternalIsSafe())
                             {
+                                bool isLibrary;
+                                bool isPrivate;
+                                bool isFast;
+                                bool isAtomic;
+                                bool isInline;
+
+#if ARGUMENT_CACHE || PARSE_CACHE
+                                bool isNonCaching;
+#endif
+
+                                bool isMatchTypes;
+
                                 ScriptOps.ShouldProcedureHaveFlags(
                                     interpreter, name, (Argument)body,
                                     interpreter.InternalCultureInfo,
@@ -87,21 +89,15 @@ namespace Eagle._Commands
                                     out isMatchTypes, out overwriteArguments,
                                     out cleanArguments);
 
-                                if (isInline && (isFast || isMatchTypes))
-                                {
-                                    result = String.Format(
-                                        "cannot use the procedure annotations {0} or {1} " +
-                                        "with the {2} procedure annotation.",
-                                        FormatOps.WrapOrNull(
-                                            ScriptOps.FormatAnnotation(Annotations.Fast)),
-                                        FormatOps.WrapOrNull(
-                                            ScriptOps.FormatAnnotation(Annotations.MatchTypes)),
-                                        FormatOps.WrapOrNull(
-                                            ScriptOps.FormatAnnotation(Annotations.Inline)));
+                                code = ScriptOps.SanityCheckAndModifyProcedureFlags(
+                                    isLibrary, isPrivate, isFast, isAtomic, isInline,
+#if ARGUMENT_CACHE || PARSE_CACHE
+                                    isNonCaching,
+#endif
+                                    isMatchTypes, ref procedureFlags, ref result);
 
-                                    code = ReturnCode.Error;
+                                if (code != ReturnCode.Ok)
                                     goto done;
-                                }
                             }
 
                             StringPairList list2 = null;
@@ -123,33 +119,9 @@ namespace Eagle._Commands
                             {
                                 lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                                 {
-                                    ProcedureFlags procedureFlags = interpreter.ProcedureFlags;
-
+                                    procedureFlags |= interpreter.ProcedureFlags;
                                     procedureFlags &= ~ProcedureFlags.PositionalArguments;
                                     procedureFlags |= ProcedureFlags.NamedArguments;
-
-                                    if (isPrivate)
-                                        procedureFlags |= ProcedureFlags.Private;
-
-                                    if (!isInline && isLibrary)
-                                        procedureFlags |= ProcedureFlags.Library;
-
-                                    if (isFast)
-                                        procedureFlags |= ProcedureFlags.Fast;
-
-                                    if (isAtomic)
-                                        procedureFlags |= ProcedureFlags.Atomic;
-
-                                    if (isInline)
-                                        procedureFlags |= ProcedureFlags.NoPushFrame;
-
-#if ARGUMENT_CACHE || PARSE_CACHE
-                                    if (isLibrary || isNonCaching)
-                                        procedureFlags |= ProcedureFlags.NonCaching;
-#endif
-
-                                    if (isMatchTypes)
-                                        procedureFlags |= ProcedureFlags.MatchTypes;
 
                                     IProcedure procedure;
                                     Result error = null;

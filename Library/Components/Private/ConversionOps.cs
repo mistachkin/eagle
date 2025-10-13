@@ -707,6 +707,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        public static byte[] Reverse(
+            byte[] bytes /* in */
+            )
+        {
+            if (bytes != null)
+            {
+                byte[] reverseBytes;
+                int length = bytes.Length;
+
+                reverseBytes = new byte[length];
+
+                Array.Copy(bytes, reverseBytes, length);
+                Array.Reverse(reverseBytes);
+
+                return reverseBytes;
+            }
+            else
+            {
+                return bytes;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         public static bool ToBool(_Public.Boolean X) /* SAFE */
         {
             return (X != _Public.Boolean.False) ? true : false;

@@ -4,6 +4,26 @@ scriptdir=`dirname "$BASH_SOURCE"`
 extradefs="$@"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
+  basedir="/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-x64"
+  # basedir="/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-arm64"
+else
+  basedir="/usr/share/dotnet/packs/Microsoft.NETCore.App.Host.linux-x64"
+fi
+
+if [ -z "${DOTNET_SDK_VERSION:-}" ]; then
+  DOTNET_SDK_VERSION="$(
+    for d in "$basedir"/*/; do
+      name=${d%/}; name=${name##*/}
+      core=${name%%-*}
+      case $core in ''|*[!0-9.]* ) continue ;; esac
+      IFS=. read -r a b c x <<<"$core"
+      stable=0; [[ $name != *-* ]] && stable=1
+      printf '%09d%09d%09d%09d %d %s\n' "${a:-0}" "${b:-0}" "${c:-0}" "${x:-0}" "$stable" "$name"
+    done | sort | tail -n1 | awk '{print $3}'
+  )"
+fi
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
   binsubdir=netcoreapp3.0
   libname=libGarudaCore.dylib
   # NOTE: No longer works in 10.14+
@@ -11,16 +31,16 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   gccflags="-arch x86_64"
   platlibs=""
   tcldir=-L/usr/local/opt/tcl-tk/lib
-  dncdir=/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-x64/$DOTNET_SDK_VERSION/runtimes/osx-x64/native
+  dncdir=$basedir/$DOTNET_SDK_VERSION/runtimes/osx-x64/native
   # For Apple Silicon, use:
-  # dncdir=/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-arm64/$DOTNET_SDK_VERSION/runtimes/osx-arm64/native
+  # dncdir=$basedir/$DOTNET_SDK_VERSION/runtimes/osx-arm64/native
 else
   binsubdir=netcoreapp3.0
   libname=libGarudaCore.so
   gccflags=""
   platlibs="-ldl"
   tcldir=-L/usr/lib/x86_64-linux-gnu
-  dncdir=/usr/share/dotnet/packs/Microsoft.NETCore.App.Host.linux-x64/$DOTNET_SDK_VERSION/runtimes/linux-x64/native
+  dncdir=$basedir/$DOTNET_SDK_VERSION/runtimes/linux-x64/native
 fi
 
 if grep -q hostfxr_get_dotnet_environment_info_fn "$dncdir/hostfxr.h" 2>/dev/null; then

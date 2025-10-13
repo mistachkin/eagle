@@ -9774,8 +9774,11 @@ namespace Eagle._Components.Private
                 //       host, it cannot be disposed from a script without
                 //       causing serious problems.  Set the flags accordingly.
                 //
-                if (Object.ReferenceEquals(value, interpreter.InternalHost))
+                if ((interpreter != null) && Object.ReferenceEquals(
+                        value, interpreter.InternalHost))
+                {
                     objectFlags |= ObjectFlags.NoDispose;
+                }
             }
 #if DEBUGGER
             else if (value is IDebugger)
@@ -9797,8 +9800,11 @@ namespace Eagle._Components.Private
                 //       it cannot be disposed from a script without causing
                 //       serious problems.  Set the flag accordingly.
                 //
-                if (Object.ReferenceEquals(value, interpreter.Debugger))
+                if ((interpreter != null) && Object.ReferenceEquals(
+                        value, interpreter.Debugger))
+                {
                     objectFlags |= ObjectFlags.NoDispose;
+                }
             }
 #endif
             else if (value is IEventManager)
@@ -9820,8 +9826,11 @@ namespace Eagle._Components.Private
                 //       it cannot be disposed from a script without causing
                 //       serious problems.  Set the flag accordingly.
                 //
-                if (Object.ReferenceEquals(value, interpreter.EventManager))
+                if ((interpreter != null) && Object.ReferenceEquals(
+                        value, interpreter.EventManager))
+                {
                     objectFlags |= ObjectFlags.NoDispose;
+                }
             }
 #if THREADING
             else if (value is IContextManager)
@@ -9843,7 +9852,7 @@ namespace Eagle._Components.Private
                 //       it cannot be disposed from a script without causing
                 //       serious problems.  Set the flag accordingly.
                 //
-                if (Object.ReferenceEquals(
+                if ((interpreter != null) && Object.ReferenceEquals(
                         value, interpreter.InternalContextManager))
                 {
                     objectFlags |= ObjectFlags.NoDispose;
@@ -10096,6 +10105,26 @@ namespace Eagle._Components.Private
             }
 #endif
 #endif
+            else if (value is ICallback)
+            {
+                //
+                // BUGFIX: If this object represents an active interpreter
+                //         callback, it cannot be disposed from a script
+                //         without causing serious problems.  Set the flags
+                //         accordingly.
+                //
+                if ((interpreter != null) && (interpreter.HaveCallback(
+                        value, LookupFlags.NoVerbose) == ReturnCode.Ok))
+                {
+                    objectFlags |= ObjectFlags.NoDispose;
+                }
+
+                //
+                // HACK: This object type is (probably) part of the Eagle
+                //       core library.  We (should) know how to handle it.
+                //
+                wellKnown = true;
+            }
             else if (value != null)
             {
                 //

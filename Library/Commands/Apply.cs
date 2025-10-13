@@ -112,21 +112,15 @@ namespace Eagle._Commands
                                         out isMatchTypes, out overwriteArguments,
                                         out cleanArguments);
 
-                                    if (isInline && (isFast || isMatchTypes))
-                                    {
-                                        result = String.Format(
-                                            "cannot use the procedure annotations {0} or {1} " +
-                                            "with the {2} procedure annotation.",
-                                            FormatOps.WrapOrNull(
-                                                ScriptOps.FormatAnnotation(Annotations.Fast)),
-                                            FormatOps.WrapOrNull(
-                                                ScriptOps.FormatAnnotation(Annotations.MatchTypes)),
-                                            FormatOps.WrapOrNull(
-                                                ScriptOps.FormatAnnotation(Annotations.Inline)));
+                                    code = ScriptOps.SanityCheckProcedureFlags(
+                                        isLibrary, isFast, isAtomic, isInline,
+#if ARGUMENT_CACHE || PARSE_CACHE
+                                        isNonCaching,
+#endif
+                                        isMatchTypes, ref result);
 
-                                        code = ReturnCode.Error;
+                                    if (code != ReturnCode.Ok)
                                         goto done;
-                                    }
                                 }
 
                                 byte[] hashValue = arguments[1].GetHashValue(ref result);

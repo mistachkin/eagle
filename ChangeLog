@@ -3,6 +3,9 @@
 
 BUGFIX: fix and/or address Coverity issues from #434153 to #549062.
 
+BUGFIX: do not allow an ICallback that is in use by the current interpreter to
+        be disposed via an opaque object handle.
+
 BUGFIX: fix the [string map -multipass] option when it is used in combination
         with the exact match mode.  also, honor the -evaluate option for this
         situation as well.

@@ -6549,6 +6549,34 @@ namespace Eagle._Components.Public
             return SocketOps.MatchViaCIDR(
                 address, patterns, ipFlags, out index, ref error);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode Collapse_IPv4_CIDR(
+            IEnumerable<string> patterns,
+            IpFlags ipFlags,
+            ref StringList merged,
+            ref Result error
+            )
+        {
+            return SocketOps.Collapse_IPv4_CIDR(
+                patterns, ipFlags, ref merged, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_40
+        public static ReturnCode Collapse_IPv6_CIDR(
+            IEnumerable<string> patterns,
+            IpFlags ipFlags,
+            ref StringList merged,
+            ref Result error
+            )
+        {
+            return SocketOps.Collapse_IPv6_CIDR(
+                patterns, ipFlags, ref merged, ref error);
+        }
+#endif
 #endif
 
         ///////////////////////////////////////////////////////////////////////
@@ -6780,11 +6808,27 @@ namespace Eagle._Components.Public
         // WARNING: *EXPERIMENTAL* This API may change until the core
         //          procedure management subsystem is completed.
         //
-        public static string FormatAnnotation(
-            string annotation
+        public static ReturnCode SanityCheckAndModifyProcedureFlags(
+            bool isLibrary,
+            bool isPrivate,
+            bool isFast,
+            bool isAtomic,
+            bool isInline,
+#if ARGUMENT_CACHE || PARSE_CACHE
+            bool isNonCaching,
+#endif
+            bool isMatchTypes,
+            ref ProcedureFlags procedureFlags,
+            ref Result error
             )
         {
-            return ScriptOps.FormatAnnotation(annotation);
+            return ScriptOps.SanityCheckAndModifyProcedureFlags(
+                isLibrary, isPrivate, isFast, isAtomic,
+                isInline,
+#if ARGUMENT_CACHE || PARSE_CACHE
+                isNonCaching,
+#endif
+                isMatchTypes, ref procedureFlags, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

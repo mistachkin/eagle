@@ -16739,6 +16739,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private
+        internal ReturnCode HaveCallback(
+            object value,           /* in */
+            LookupFlags lookupFlags /* in */
+            )
+        {
+            string name = null; /* NOT USED */
+            Result error = null; /* NOT USED */
+
+            return PrivateGetCallback(value, lookupFlags, ref name, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal string CallbacksToString(
             string pattern,
             bool noCase
@@ -16825,6 +16838,76 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private ReturnCode PrivateGetCallback(
+            object value,            /* in */
+            LookupFlags lookupFlags, /* in */
+            ref string name,         /* out */
+            ref Result error         /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!PrivateHasCallbacks(ref error))
+                    return ReturnCode.Error;
+
+                if (callbacks.Count > 0)
+                {
+                    foreach (CallbackPair pair in callbacks)
+                    {
+                        ICallback localCallback = pair.Value;
+
+                        if (Object.ReferenceEquals(localCallback, value))
+                        {
+                            if ((localCallback == null) && FlagOps.HasFlags(
+                                    lookupFlags, LookupFlags.Validate, true))
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                name = pair.Key;
+                                return ReturnCode.Ok;
+                            }
+                        }
+                    }
+                }
+
+                //
+                // HACK: Prevent ToString method from throwing any
+                //       exceptions here (e.g. proxy).
+                //
+                try
+                {
+                    if (!AppDomainOps.IsTransparentProxy(value))
+                    {
+                        error = FlagOps.HasFlags(
+                            lookupFlags, LookupFlags.Verbose, true) ?
+                            String.Format(
+                                "invalid callback {0}",
+                                FormatOps.WrapOrNull(value)) :
+                            "invalid callback";
+                    }
+                    else
+                    {
+                        error = "invalid callback";
+                    }
+                }
+                catch (Exception e)
+                {
+                    error = FlagOps.HasFlags(
+                        lookupFlags, LookupFlags.Verbose, true) ?
+                        String.Format(
+                            "invalid callback: {0}",
+                            e) :
+                        "invalid callback";
+                }
+
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal ReturnCode GetCallback(
             Delegate @delegate,
             LookupFlags lookupFlags,
@@ -16869,12 +16952,16 @@ namespace Eagle._Components.Public
                             if (localCallback == null)
                                 continue;
 
-                            if (Object.ReferenceEquals(localCallback.Delegate, @delegate))
+                            Delegate localDelegate = localCallback.Delegate;
+
+                            if (Object.ReferenceEquals(localDelegate, @delegate))
                             {
+                                CallbackFlags localFlags = localCallback.CallbackFlags;
+
                                 if (((hasFlags == CallbackFlags.None) ||
-                                        FlagOps.HasFlags(localCallback.CallbackFlags, hasFlags, hasAll)) &&
+                                        FlagOps.HasFlags(localFlags, hasFlags, hasAll)) &&
                                     ((notHasFlags == CallbackFlags.None) ||
-                                        !FlagOps.HasFlags(localCallback.CallbackFlags, notHasFlags, notHasAll)))
+                                        !FlagOps.HasFlags(localFlags, notHasFlags, notHasAll)))
                                 {
                                     name = pair.Key;
                                     callback = localCallback;

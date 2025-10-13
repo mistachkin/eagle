@@ -53,6 +53,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private const int ByteBits = 8;
         private const int IPv4Parts = 4;
         private const byte IPv4Bits = 32;
 
@@ -73,7 +74,6 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private const int ByteBits = 8;
         private const int IPv6Parts = 8;
         private const byte IPv6Bits = 128;
         private const string IPv6Format = "x";
@@ -82,6 +82,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private const int SizeOfTwoULong = 2 * sizeof(ulong);
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly BigInteger IPv6Mask =
+            (BigInteger.One << IPv6Bits) - BigInteger.One;
 #endif
         #endregion
 
@@ -408,13 +413,19 @@ namespace Eagle._Components.Private
                 return false;
             }
 
-            byte[] bytes = address.GetAddressBytes();
+            byte[] addressBytes = address.GetAddressBytes();
 
-            if ((bytes == null) || (bytes.Length != sizeof(uint)))
+            if ((addressBytes == null) ||
+                (addressBytes.Length != sizeof(uint)))
+            {
                 return false;
+            }
 
-            leftWord = (ushort)((bytes[0] << ByteBits) | bytes[1]);
-            rightWord = (ushort)((bytes[2] << ByteBits) | bytes[3]);
+            leftWord = (ushort)((addressBytes[0] << ByteBits) |
+                addressBytes[1]);
+
+            rightWord = (ushort)((addressBytes[2] << ByteBits) |
+                addressBytes[3]);
 
             return true;
         }
@@ -1007,18 +1018,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_40
-        private static BigInteger GetMaximumValueForIPv6()
+        private static BigInteger FromAddressBytes(
+            byte[] addressBytes /* in */
+            )
         {
-            /* Step #1: 0x0000000000000000FFFFFFFFFFFFFFFF */
-            BigInteger result = ulong.MaxValue;
+            if (addressBytes != null)
+            {
+                byte[] newAddressBytes;
+                int length = addressBytes.Length;
 
-            /* Step #2: 0xFFFFFFFFFFFFFFFF0000000000000000 */
-            result <<= (IPv6Bits / 2);
+                newAddressBytes = new byte[length + 1];
 
-            /* Step #3: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF */
-            result |= ulong.MaxValue;
+                Array.Copy(ConversionOps.Reverse(
+                    addressBytes), 0, newAddressBytes, 0, length);
 
-            return result;
+                return new BigInteger(newAddressBytes);
+            }
+
+            return default(BigInteger);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1060,7 +1077,7 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
-                    maskValue = GetMaximumValueForIPv6();
+                    maskValue = IPv6Mask;
                     maskValue <<= ((int)(IPv6Bits - prefixLength));
                 }
 
@@ -1074,14 +1091,8 @@ namespace Eagle._Components.Private
                 if (!IsIPv6(prefixBytes, ipFlags, ref error))
                     return null;
 
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(addressBytes);
-                    Array.Reverse(prefixBytes);
-                }
-
-                BigInteger addressValue = new BigInteger(addressBytes);
-                BigInteger prefixValue = new BigInteger(prefixBytes);
+                BigInteger addressValue = FromAddressBytes(addressBytes);
+                BigInteger prefixValue = FromAddressBytes(prefixBytes);
 
                 addressValue &= maskValue;
                 prefixValue &= maskValue;
@@ -2860,6 +2871,616 @@ namespace Eagle._Components.Private
 
             return Port.Invalid;
         }
-#endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region CIDR Range IPv4 Methods
+        #region CIDR Range IPv4 Structure
+        [ObjectId("314a76e0-da3b-4015-b9cb-43564db30cb0")]
+        private struct CIDR_Range_IPv4
+        {
+            internal byte PrefixLength;
+            internal uint Start;
+            internal uint End;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IComparer<CIDR_Range_IPv4> Helper Class
+        [ObjectId("4fa3431c-d634-4e05-a2b6-1f39b6670075")]
+        private sealed class CIDR_Range_IPv4_Comparer :
+                IComparer<CIDR_Range_IPv4>
+        {
+            #region IComparer<CIDR_Range_IPv4> Overrides
+            public int Compare(
+                CIDR_Range_IPv4 x, /* in */
+                CIDR_Range_IPv4 y  /* in */
+                )
+            {
+                int result = x.Start.CompareTo(y.Start);
+
+                if (result != 0)
+                    return result;
+
+                return x.End.CompareTo(y.End);
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static uint GetMask_IPv4(
+            byte prefixLength /* in */
+            )
+        {
+            if (prefixLength == 0)
+                return 0;
+
+            return uint.MaxValue << (IPv4Bits - prefixLength);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int CountTrailingZeros(
+            uint value /* in */
+            )
+        {
+            if (value == 0)
+                return sizeof(uint) * ByteBits;
+
+            int count = 0;
+
+            while ((value & 1) == 0)
+            {
+                count++;
+                value >>= 1;
+            }
+
+            return count;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int FloorLog2(
+            ulong value /* in */
+            )
+        {
+            int position = -1;
+
+            while (value != 0)
+            {
+                value >>= 1;
+                position++;
+            }
+
+            return position;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static byte[] ToAddressBytes(
+            uint value /* in */
+            )
+        {
+            byte[] addressBytes = new byte[sizeof(uint)];
+
+            addressBytes[0] = (byte)((value >> 24) & 0xFF);
+            addressBytes[1] = (byte)((value >> 16) & 0xFF);
+            addressBytes[2] = (byte)((value >> 8) & 0xFF);
+            addressBytes[3] = (byte)(value & 0xFF);
+
+            return addressBytes;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool RangeFromCIDR(
+            string pattern,            /* in */
+            IpFlags ipFlags,           /* in */
+            ref CIDR_Range_IPv4 range, /* out */
+            ref Result error           /* out */
+            )
+        {
+            IPAddress prefix;
+            byte prefixLength;
+
+            if (!IsValidCIDR(
+                    pattern, ipFlags, out prefix, out prefixLength,
+                    ref error))
+            {
+                return false;
+            }
+
+            if (prefix.AddressFamily != AddressFamily.InterNetwork)
+            {
+                error = "invalid IPv4 CIDR: unexpected address family";
+                return false;
+            }
+
+            if (prefixLength > IPv4Bits)
+            {
+                error = "invalid IPv4 CIDR prefix length";
+                return false;
+            }
+
+            byte[] addressBytes = prefix.GetAddressBytes();
+
+            uint address = ((uint)addressBytes[0] << 24) |
+                           ((uint)addressBytes[1] << 16) |
+                           ((uint)addressBytes[2] << 8) |
+                           ((uint)addressBytes[3]);
+
+            uint mask = GetMask_IPv4(prefixLength);
+            uint start = address & mask;
+            uint end = start | ~mask;
+
+            range.PrefixLength = prefixLength;
+            range.Start = start;
+            range.End = end;
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void RangeToCIDR(
+            CIDR_Range_IPv4 range, /* in */
+            IpFlags ipFlags,       /* in */
+            StringList output,     /* in, out */
+            ref Result error       /* out */
+            )
+        {
+            uint current = range.Start;
+            uint end = range.End;
+
+            while (current <= end)
+            {
+                int suffixBits = CountTrailingZeros(current);
+                int prefixBits = IPv4Bits - suffixBits;
+
+                ulong remaining = (ulong)end - (ulong)current + 1;
+
+                int remainingBits = FloorLog2(remaining);
+                int remainingPrefixBits = IPv4Bits - remainingBits;
+
+                if (remainingPrefixBits > prefixBits)
+                    prefixBits = remainingPrefixBits;
+
+                if (prefixBits < 0)
+                    prefixBits = 0;
+
+                if (prefixBits > IPv4Bits)
+                    prefixBits = IPv4Bits;
+
+                byte[] addressBytes = ToAddressBytes(current);
+
+                output.Add(String.Format(
+                    "{0}/{1}", new IPAddress(addressBytes), prefixBits));
+
+                uint blockMask = GetMask_IPv4((byte)prefixBits);
+                uint blockEnd = current | ~blockMask;
+
+                if (blockEnd == uint.MaxValue)
+                    break;
+
+                current = blockEnd + 1;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static List<CIDR_Range_IPv4> MergeRanges(
+            List<CIDR_Range_IPv4> ranges /* in */
+            )
+        {
+            List<CIDR_Range_IPv4> merged = new List<CIDR_Range_IPv4>();
+
+            if (ranges == null)
+                return merged;
+
+            int count = ranges.Count;
+
+            if (count == 0)
+                return merged;
+
+            ranges.Sort(new CIDR_Range_IPv4_Comparer());
+
+            CIDR_Range_IPv4 current = ranges[0];
+
+            for (int index = 1; index < count; index++)
+            {
+                CIDR_Range_IPv4 next = ranges[index];
+
+                if ((ulong)next.Start <= (ulong)current.End + 1)
+                {
+                    if (next.End > current.End)
+                        current.End = next.End;
+                }
+                else
+                {
+                    merged.Add(current);
+                    current = next;
+                }
+            }
+
+            merged.Add(current);
+            return merged;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode Collapse_IPv4_CIDR(
+            IEnumerable<string> patterns, /* in */
+            IpFlags ipFlags,              /* in */
+            ref StringList merged,        /* in, out */
+            ref Result error              /* out */
+            )
+        {
+            if (patterns == null)
+            {
+                error = "invalid CIDR list";
+                return ReturnCode.Error;
+            }
+
+            List<CIDR_Range_IPv4> ranges = new List<CIDR_Range_IPv4>();
+
+            foreach (string pattern in patterns)
+            {
+                if (pattern == null)
+                    continue;
+
+                CIDR_Range_IPv4 range = default(CIDR_Range_IPv4);
+
+                if (!RangeFromCIDR(
+                        pattern, ipFlags, ref range, ref error))
+                {
+                    return ReturnCode.Error;
+                }
+
+                ranges.Add(range);
+            }
+
+            List<CIDR_Range_IPv4> localMerged = MergeRanges(ranges);
+            int count = localMerged.Count;
+            StringList output = new StringList();
+
+            for (int index = 0; index < count; index++)
+            {
+                Result localError = null;
+
+                RangeToCIDR(
+                    localMerged[index], ipFlags, output,
+                    ref localError);
+
+                if (localError != null)
+                {
+                    error = localError;
+                    return ReturnCode.Error;
+                }
+            }
+
+            if (!FlagOps.HasFlags(ipFlags, IpFlags.NoSort, true))
+                output.Sort(StringComparer.Ordinal);
+
+            if (merged != null)
+                merged.AddRange(output);
+            else
+                merged = output;
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region CIDR Range IPv6 Methods
+#if NET_40
+        #region CIDR Range IPv6 Structure
+        [ObjectId("4dcb044a-fccd-42aa-a8d9-abc530d90afe")]
+        private struct CIDR_Range_IPv6
+        {
+            internal byte PrefixLength;
+            internal BigInteger Start;
+            internal BigInteger End;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IComparer<CIDR_Range_IPv6> Helper Class
+        [ObjectId("bc503872-d909-4107-821e-28bb53b96d6b")]
+        private sealed class CIDR_Range_IPv6_Comparer :
+                IComparer<CIDR_Range_IPv6>
+        {
+            #region IComparer<CIDR_Range_IPv6> Overrides
+            public int Compare(
+                CIDR_Range_IPv6 x, /* in */
+                CIDR_Range_IPv6 y  /* in */
+                )
+            {
+                int result = x.Start.CompareTo(y.Start);
+
+                if (result != 0)
+                    return result;
+
+                return x.End.CompareTo(y.End);
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static BigInteger GetMask_IPv6(
+            byte prefixLength /* in */
+            )
+        {
+            if (prefixLength == 0)
+                return BigInteger.Zero;
+
+            BigInteger ones = BigInteger.One << prefixLength;
+
+            ones -= BigInteger.One;
+
+            return ones << (IPv6Bits - prefixLength);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int CountTrailingZeros(
+            BigInteger value /* in */
+            )
+        {
+            if (value.IsZero)
+                return IPv6Bits;
+
+            int count = 0;
+
+            while ((value & BigInteger.One) == BigInteger.Zero)
+            {
+                count++;
+                value >>= 1;
+            }
+
+            return count;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int FloorLog2(
+            BigInteger value /* in */
+            )
+        {
+            int position = -1;
+
+            while (value > BigInteger.Zero)
+            {
+                value >>= 1;
+                position++;
+            }
+
+            return position;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static byte[] ToAddressBytes(
+            BigInteger value /* in */
+            )
+        {
+            byte[] addressBytes = new byte[SizeOfTwoULong];
+            byte[] valueBytes = value.ToByteArray();
+
+            int valueLength = valueBytes.Length;
+
+            int addressLength = (valueLength < SizeOfTwoULong) ?
+                valueLength : SizeOfTwoULong;
+
+            int lastIndex = SizeOfTwoULong - 1;
+
+            for (int index = 0; index < addressLength; index++)
+                addressBytes[lastIndex - index] = valueBytes[index];
+
+            return addressBytes;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool RangeFromCIDR(
+            string pattern,            /* in */
+            IpFlags ipFlags,           /* in */
+            ref CIDR_Range_IPv6 range, /* out */
+            ref Result error           /* out */
+            )
+        {
+            IPAddress prefix;
+            byte prefixLength;
+
+            if (!IsValidCIDR(
+                    pattern, ipFlags, out prefix, out prefixLength,
+                    ref error))
+            {
+                return false;
+            }
+
+            if (prefix.AddressFamily != AddressFamily.InterNetworkV6)
+            {
+                error = "invalid IPv6 CIDR: unexpected address family";
+                return false;
+            }
+
+            if (prefixLength > IPv6Bits)
+            {
+                error = "invalid IPv6 CIDR prefix length";
+                return false;
+            }
+
+            byte[] addressBytes = prefix.GetAddressBytes();
+
+            BigInteger address = FromAddressBytes(addressBytes);
+            BigInteger mask = GetMask_IPv6(prefixLength);
+            BigInteger start = address & mask;
+            BigInteger end = start | (IPv6Mask ^ mask);
+
+            range.PrefixLength = prefixLength;
+            range.Start = start;
+            range.End = end;
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void RangeToCIDR(
+            CIDR_Range_IPv6 range, /* in */
+            IpFlags ipFlags,       /* in */
+            StringList output,     /* in, out */
+            ref Result error       /* out */
+            )
+        {
+            BigInteger current = range.Start;
+            BigInteger end = range.End;
+
+            while (current <= end)
+            {
+                int suffixBits = CountTrailingZeros(current);
+                int prefixBits = IPv6Bits - suffixBits;
+
+                BigInteger remaining = (end - current) + BigInteger.One;
+
+                int remainingBits = FloorLog2(remaining);
+                int remainingPrefixBits = IPv6Bits - remainingBits;
+
+                if (remainingPrefixBits > prefixBits)
+                    prefixBits = remainingPrefixBits;
+
+                if (prefixBits < 0)
+                    prefixBits = 0;
+
+                if (prefixBits > IPv6Bits)
+                    prefixBits = IPv6Bits;
+
+                byte[] addressBytes = ToAddressBytes(current);
+
+                output.Add(String.Format(
+                    "{0}/{1}", new IPAddress(addressBytes), prefixBits));
+
+                BigInteger blockMask = GetMask_IPv6((byte)prefixBits);
+                BigInteger blockEnd = current | (IPv6Mask ^ blockMask);
+
+                if (blockEnd == IPv6Mask)
+                    break;
+
+                current = blockEnd + BigInteger.One;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static List<CIDR_Range_IPv6> MergeRanges(
+            List<CIDR_Range_IPv6> ranges /* in */
+            )
+        {
+            List<CIDR_Range_IPv6> merged = new List<CIDR_Range_IPv6>();
+
+            if (ranges == null)
+                return merged;
+
+            int count = ranges.Count;
+
+            if (count == 0)
+                return merged;
+
+            ranges.Sort(new CIDR_Range_IPv6_Comparer());
+
+            CIDR_Range_IPv6 current = ranges[0];
+
+            for (int index = 1; index < count; index++)
+            {
+                CIDR_Range_IPv6 next = ranges[index];
+
+                if (next.Start <= (current.End + BigInteger.One))
+                {
+                    if (next.End > current.End)
+                        current.End = next.End;
+                }
+                else
+                {
+                    merged.Add(current);
+                    current = next;
+                }
+            }
+
+            merged.Add(current);
+            return merged;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode Collapse_IPv6_CIDR(
+            IEnumerable<string> patterns, /* in */
+            IpFlags ipFlags,              /* in */
+            ref StringList merged,        /* in, out */
+            ref Result error              /* out */
+            )
+        {
+            if (patterns == null)
+            {
+                error = "invalid CIDR list";
+                return ReturnCode.Error;
+            }
+
+            List<CIDR_Range_IPv6> ranges = new List<CIDR_Range_IPv6>();
+
+            foreach (string pattern in patterns)
+            {
+                if (pattern == null)
+                    continue;
+
+                CIDR_Range_IPv6 range = default(CIDR_Range_IPv6);
+
+                if (!RangeFromCIDR(
+                        pattern, ipFlags, ref range, ref error))
+                {
+                    return ReturnCode.Error;
+                }
+
+                ranges.Add(range);
+            }
+
+            List<CIDR_Range_IPv6> localMerged = MergeRanges(ranges);
+            int count = localMerged.Count;
+            StringList output = new StringList();
+
+            for (int index = 0; index < count; index++)
+            {
+                Result localError = null;
+
+                RangeToCIDR(
+                    localMerged[index], ipFlags, output,
+                    ref localError);
+
+                if (localError != null)
+                {
+                    error = localError;
+                    return ReturnCode.Error;
+                }
+            }
+
+            if (!FlagOps.HasFlags(ipFlags, IpFlags.NoSort, true))
+                output.Sort(StringComparer.Ordinal);
+
+            if (merged != null)
+                merged.AddRange(output);
+            else
+                merged = output;
+
+            return ReturnCode.Ok;
+        }
+#endif
+        #endregion
     }
 }
