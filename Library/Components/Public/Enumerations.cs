@@ -10699,6 +10699,7 @@ namespace Eagle._Components.Public
         NamesOnly = 0x10000000000000,           /* Only return member names when listing, not
                                                  * full method signatures, etc. */
         UnqualifiedNames = 0x20000000000000,    /* Only return non-qualified member names. */
+        ForceNewCallback = 0x40000000000000,    /* Do not use cached CommandCallback instances. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -10707,6 +10708,11 @@ namespace Eagle._Components.Public
         SimpleCallbackWarningMask = NoDelegateCallback | NoGenericCallback |
                                     DynamicCallback | CallbackParameterNames |
                                     ForMask,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        MethodHookMask = Default | DynamicCallback | ForceNewCallback |
+                         ForMask,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 

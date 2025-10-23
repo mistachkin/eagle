@@ -14819,6 +14819,24 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        private string TestInstanceStringMethod(
+            string value
+            )
+        {
+            return value;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void TestVoidInstanceMethod(
+            string value
+            )
+        {
+            TestVoidMethod(value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private bool TestListTransformCallback(
             IList<string> list
             )
@@ -15956,7 +15974,25 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Methods for Ad-Hoc Commands
-        private static void TestVoidMethod(
+        private static string TestStaticStringMethod(
+            string value
+            )
+        {
+            return value;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void TestVoidMethod( /* COMPAT: Eagle beta. */
+            string value
+            )
+        {
+            TestVoidStaticMethod(value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void TestVoidStaticMethod(
             string value
             )
         {

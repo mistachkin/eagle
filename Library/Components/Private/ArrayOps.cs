@@ -1110,6 +1110,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool Equals(
+            byte[] array1,
+            byte[] array2,
+            int startIndex,
+            int length
+            )
+        {
+            return GenericCompareOps<byte>.Equals(
+                array1, array2, startIndex, length);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static int IndexOf(
             byte[] array1,
             byte[] array2

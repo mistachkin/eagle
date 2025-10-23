@@ -82,8 +82,8 @@ namespace Eagle._Components.Public
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
         internal static void AddInfo(
-            StringPairList list,
-            DetailFlags detailFlags
+            StringPairList list,    /* in */
+            DetailFlags detailFlags /* in */
             )
         {
             if (list == null)
@@ -125,6 +125,43 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool TryGetCallback(
+            object firstArgument,  /* in */
+            out ICallback callback /* out */
+            )
+        {
+            callback = firstArgument as ICallback;
+
+            if (callback != null)
+                return true;
+
+            if (firstArgument == null)
+                return false;
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (callbacks == null)
+                    return false;
+
+                if (callbacks.TryGetValue(firstArgument, out callback))
+                    return true;
+
+                //
+                // TODO: Contemplate putting this lookup into a loop where
+                //       we traverse through the base type up to the root,
+                //       i.e. typeof(object).
+                //
+                Type firstArgumentType = firstArgument.GetType();
+
+                if (callbacks.TryGetValue(firstArgumentType, out callback))
+                    return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: This is for use by CommandCallback.GetDynamicDelegate()
         //       only.
@@ -137,11 +174,14 @@ namespace Eagle._Components.Public
                 {
                     Type type = typeof(CommandCallbackWrapper);
 
-                    if ((type != null) && (DynamicInvokeMethodName != null))
+                    if ((type != null) &&
+                        (DynamicInvokeMethodName != null))
                     {
                         dynamicInvokeMethodInfo = type.GetMethod(
-                            DynamicInvokeMethodName, ObjectOps.GetBindingFlags(
-                                MetaBindingFlags.PublicStaticMethod, true));
+                            DynamicInvokeMethodName,
+                            ObjectOps.GetBindingFlags(
+                                MetaBindingFlags.PublicStaticMethod,
+                                true));
                     }
                 }
 
@@ -155,7 +195,7 @@ namespace Eagle._Components.Public
         // NOTE: This is for use by CommandCallback.Dispose(bool) only.
         //
         internal static int Cleanup(
-            ICallback callback
+            ICallback callback /* in */
             )
         {
             CallbackDictionary localCallbacks;
@@ -194,30 +234,28 @@ namespace Eagle._Components.Public
 
         #region Public Static Methods
         //
-        // HACK: This is used by CommandCallback.GetDynamicDelegate(), in
-        //       some circumstances, as the method called to service the
-        //       incoming delegate (i.e. EmitDelegateWrapperMethodBody
-        //       emits a "Callvirt" or "Call" MSIL instruction with this
-        //       method as the destination).
+        // HACK: This is used by CommandCallback.GetDynamicDelegate and
+        //       CommandCallback.GetMethod, in some circumstances, as
+        //       methods called to service the incoming delegate (e.g.
+        //       EmitDelegateWrapperMethodBody) emits a "Callvirt" or
+        //       "Call" MSIL instruction with this method as the
+        //       destination).  Quite similar handling also applies to
+        //       the CommandCallback.GetMethod method.
         //
         public static object StaticFireDynamicInvokeCallback(
-            object firstArgument,
-            object[] args
+            object firstArgument, /* in */
+            object[] args         /* in */
             )
         {
             ICallback callback;
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            if (!TryGetCallback(firstArgument, out callback))
             {
-                if ((firstArgument == null) || (callbacks == null) ||
-                    !callbacks.TryGetValue(firstArgument, out callback))
-                {
-                    throw new ScriptException(String.Format(
-                        "{0} for object {1} with hash code {2} not found",
-                        typeof(ICallback), FormatOps.WrapOrNull(
-                        firstArgument), FormatOps.WrapHashCode(
-                        firstArgument)));
-                }
+                throw new ScriptException(String.Format(
+                    "{0} for object {1} with hash code {2} not found",
+                    typeof(ICallback), FormatOps.WrapOrNull(
+                    firstArgument), FormatOps.WrapHashCode(
+                    firstArgument)));
             }
 
 #if false
@@ -243,16 +281,16 @@ namespace Eagle._Components.Public
 
         #region Static "Factory" Methods
         //
-        // NOTE: This is for use by CommandCallback.GetDynamicDelegate()
-        //       only.
+        // NOTE: This is for use by the CommandCallback.GetDynamicDelegate
+        //       and CommandCallback.GetMethod methods only.
         //
         internal static ReturnCode Create(
-            object value,       /* in */
-            ICallback callback, /* in */
-            ref Result error    /* out */
+            object firstArgument, /* in */
+            ICallback callback,   /* in */
+            ref Result error      /* out */
             )
         {
-            if (value == null)
+            if (firstArgument == null)
             {
                 error = "invalid object instance";
                 return ReturnCode.Error;
@@ -272,7 +310,7 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
                 }
 
-                callbacks[value] = callback;
+                callbacks[firstArgument] = callback;
             }
 
             return ReturnCode.Ok;

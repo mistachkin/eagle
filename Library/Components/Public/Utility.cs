@@ -3661,6 +3661,17 @@ namespace Eagle._Components.Public
         // WARNING: *EXPERIMENTAL* This API may change until the core
         //          marshaller subsystem is completed.
         //
+        public static BindingFlags GetDefaultBindingFlags()
+        {
+            return ObjectOps.GetDefaultBindingFlags();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: *EXPERIMENTAL* This API may change until the core
+        //          marshaller subsystem is completed.
+        //
         public static OptionDictionary GetFixupReturnValueOptions()
         {
             return ObjectOps.GetFixupReturnValueOptions();
@@ -4062,6 +4073,13 @@ namespace Eagle._Components.Public
         public static bool IsDotNetCore()
         {
             return CommonOps.Runtime.IsDotNetCore();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsDotNetCore5xOrHigher()
+        {
+            return CommonOps.Runtime.IsDotNetCore5xOrHigher();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5092,6 +5110,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool ArrayEquals(
+            byte[] array1,
+            byte[] array2,
+            int startIndex,
+            int length
+            )
+        {
+            return ArrayOps.Equals(array1, array2, startIndex, length);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static int ArrayIndexOf(
             byte[] array1,
             byte[] array2
@@ -5282,6 +5312,37 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        public static IntPtr LoadLibrary(
+            string fileName,
+            out int lastError
+            )
+        {
+            return NativeOps.LoadLibrary(fileName, out lastError);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static IntPtr GetProcAddress(
+            IntPtr module,
+            string name,
+            out int lastError
+            )
+        {
+            return NativeOps.GetProcAddress(module, name, out lastError);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool FreeLibrary(
+            IntPtr module,
+            out int lastError
+            )
+        {
+            return NativeOps.FreeLibrary(module, out lastError);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string MaybeGetErrorMessage()
         {
             return NativeOps.MaybeGetErrorMessage();
@@ -5757,9 +5818,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool IsMacintoshOperatingSystem()
+        {
+            return PlatformOps.IsMacintoshOperatingSystem();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool IsUnixOperatingSystem()
         {
             return PlatformOps.IsUnixOperatingSystem();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsLinuxOperatingSystem()
+        {
+            return PlatformOps.IsLinuxOperatingSystem();
         }
 
         ///////////////////////////////////////////////////////////////////////

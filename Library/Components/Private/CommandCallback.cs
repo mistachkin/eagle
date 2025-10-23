@@ -21,6 +21,7 @@ using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using _ClientData = Eagle._Components.Public.ClientData;
+using CCW = Eagle._Components.Public.CommandCallbackWrapper;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -277,7 +278,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is used by GetDynamicDelegate(), in some circumstances,
         //       as the method called to service the incoming delegate (i.e.
-        //       EmitDelegateWrapperMethodBody emits a "Callvirt" or "Call"
+        //       EmitDelegateWrapperMethodBody emits a "Callvirt" -OR- "Call"
         //       MSIL instruction with this method as the destination).
         //
         /* [static --> this] System.Delegate.DynamicInvoke */
@@ -594,12 +595,20 @@ namespace Eagle._Components.Private
 
         private static void ProcessMarshalFlags(
             MarshalFlags marshalFlags,
+            out bool throwOnBindFailure,
+            out bool forceNewCallback,
             out bool useDelegateCallback,
             out bool useGenericCallback,
             out bool useDynamicCallback,
             out bool useCallbackParameterNames
             )
         {
+            throwOnBindFailure = FlagOps.HasFlags(
+                marshalFlags, MarshalFlags.ThrowOnBindFailure, true);
+
+            forceNewCallback = FlagOps.HasFlags(
+                marshalFlags, MarshalFlags.ForceNewCallback, true);
+
             useDelegateCallback = !FlagOps.HasFlags(
                 marshalFlags, MarshalFlags.NoDelegateCallback, true);
 
@@ -891,6 +900,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        private Interpreter GetInterpreter()
+        {
+            return interpreter;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private void AddArgument(
             int index,                    /* in */
             string value,                 /* in */
@@ -920,9 +936,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private bool NeedToCreateDelegate(
-            Type newDelegateType,        /* in */
-            Type returnType,             /* in */
-            TypeList parameterTypes,     /* in */
+            Type newDelegateType,        /* in: OPTIONAL */
+            Type returnType,             /* in: OPTIONAL */
+            TypeList parameterTypes,     /* in: OPTIONAL */
             bool useOriginalDelegateType /* in */
             )
         {
@@ -1044,6 +1060,98 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static MethodInfo GetMethodInfo(
+            Type delegateType, /* in */
+            ref Result error   /* out */
+            )
+        {
+            MethodInfo methodInfo;
+            string typeName;
+
+            if (delegateType != null)
+            {
+                //
+                // NOTE: Use the StaticFireDynamicInvokeCallback static
+                //       method from this class as the method to act as
+                //       a "trampoline" for the generated IL method body.
+                //       This works because the created DynamicMethod is
+                //       logically also part of this class.
+                //
+                typeName = typeof(CommandCallback).Name;
+                methodInfo = GetDynamicInvokeMethodInfo();
+            }
+            else
+            {
+                //
+                // NOTE: Use the StaticFireDynamicInvokeCallback static
+                //       method from the CommandCallbackWrapper class as
+                //       the method to act as a "trampoline" for the
+                //       generated IL method body.  This is necessary
+                //       because the new Delegate type logically resides
+                //       outside of this assembly and can only access
+                //       public members in this assembly.  Furthermore,
+                //       in order for the Delegate and MethodInfo
+                //       signatures to match up correctly (i.e. not throw
+                //       runtime exceptions), this cannot be an instance
+                //       method (why not?).
+                //
+                typeName = typeof(CCW).Name;
+                methodInfo = CCW.GetDynamicInvokeMethodInfo();
+            }
+
+            if (methodInfo == null)
+            {
+                error = String.Format(
+                    "missing \"{0}.StaticFireDynamicInvokeCallback\" method.",
+                    typeName);
+
+                return null;
+            }
+
+            return methodInfo;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static object CreateInstance(
+            Type type,        /* in */
+            bool useFieldInfo /* in */
+            )
+        {
+            //
+            // HACK: Always create instance of the (new) type, i.e.
+            //       even if the field (below) is not found.
+            //
+            object result = Activator.CreateInstance(type);
+
+            //
+            // BUGFIX: In order to support scenarios where the (new)
+            //         target method could be invoked directly (i.e.
+            //         without going through the delegate), some new
+            //         code is required here.  Namely, we must have
+            //         a (brand new) type with its own static field
+            //         that can hold the right object value for the
+            //         "firstArgument" parameter value to the static
+            //         StaticFireDynamicInvokeCallback (trampoline)
+            //         method in the CommandCallbackWrapper class.
+            //
+            if (useFieldInfo)
+            {
+                BindingFlags bindingFlags = ObjectOps.GetBindingFlags(
+                    MetaBindingFlags.PrivateStatic, true);
+
+                FieldInfo fieldInfo = type.GetField(
+                    DelegateOps.FirstArgumentFieldName, bindingFlags);
+
+                if (fieldInfo != null)
+                    fieldInfo.SetValue(result, result);
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if EMIT
         private Delegate GetDynamicDelegate(
             string name,                            /* in */
@@ -1068,146 +1176,100 @@ namespace Eagle._Components.Private
             }
 
             Type newDelegateType = delegateType;
-            MethodInfo methodInfo;
 
-            if (newDelegateType != null)
+            MethodInfo methodInfo = GetMethodInfo(
+                newDelegateType, ref error);
+
+            if (methodInfo == null)
+                return null;
+
+            Interpreter interpreter = GetInterpreter();
+
+            if (interpreter == null)
             {
-                //
-                // NOTE: Use the StaticFireDynamicInvokeCallback static method
-                //       from this class as the method to act as a "trampoline"
-                //       for the generated IL method body.  This works because
-                //       the created DynamicMethod is logically also part of
-                //       this class.
-                //
-                methodInfo = GetDynamicInvokeMethodInfo();
-
-                if (methodInfo == null)
-                {
-                    error = String.Format(
-                        "missing \"{0}.StaticFireDynamicInvokeCallback\" method.",
-                        typeof(CommandCallback).Name);
-
-                    return null;
-                }
-            }
-            else
-            {
-                //
-                // NOTE: Use the StaticFireDynamicInvokeCallback static method
-                //       from the CommandCallbackWrapper class as the method
-                //       to act as a "trampoline" for the generated IL method
-                //       body.  This is necessary because the new Delegate type
-                //       logically resides outside of this assembly and can only
-                //       access public members in this assembly.  Furthermore,
-                //       in order for the Delegate and MethodInfo signatures to
-                //       match up correctly (i.e. not throw runtime exceptions),
-                //       this cannot be an instance method (why not?).
-                //
-                methodInfo = CommandCallbackWrapper.GetDynamicInvokeMethodInfo();
-
-                if (methodInfo == null)
-                {
-                    error = String.Format(
-                        "missing \"{0}.StaticFireDynamicInvokeCallback\" method.",
-                        typeof(CommandCallbackWrapper).Name);
-
-                    return null;
-                }
+                error = "invalid interpreter";
+                return null;
             }
 
             try
             {
-                Interpreter interpreter = this.Interpreter;
-
-                if (interpreter != null)
+                if (newDelegateType != null)
                 {
-                    if (newDelegateType != null)
+                    TypeList newParameterTypes = new TypeList();
+
+                    newParameterTypes.Add(typeof(ICallback));
+                    newParameterTypes.AddRange(parameterTypes);
+
+                    if (name == null)
+                        name = DelegateOps.MakeDelegateName(interpreter);
+
+                    DynamicMethod dynamicMethod = new DynamicMethod(
+                        name, returnType, newParameterTypes.ToArray(),
+                        GetType(), true);
+
+                    ILGenerator generator = dynamicMethod.GetILGenerator();
+
+                    DelegateOps.EmitDelegateWrapperMethodBody(
+                        generator, methodInfo, returnType, parameterTypes,
+                        true);
+
+                    Delegate newDelegate = dynamicMethod.CreateDelegate(
+                        newDelegateType, this);
+
+                    if (newDelegate != null)
                     {
-                        TypeList newParameterTypes = new TypeList();
+                        if (delegateType == null)
+                            delegateType = newDelegateType;
 
-                        newParameterTypes.Add(typeof(ICallback));
-                        newParameterTypes.AddRange(parameterTypes);
-
-                        if (name == null)
-                            name = DelegateOps.MakeDelegateName(interpreter);
-
-                        DynamicMethod dynamicMethod = new DynamicMethod(
-                            name, returnType, newParameterTypes.ToArray(),
-                            GetType(), true);
-
-                        ILGenerator generator = dynamicMethod.GetILGenerator();
-
-                        DelegateOps.EmitDelegateWrapperMethodBody(
-                            generator, methodInfo, returnType, parameterTypes,
-                            true);
-
-                        Delegate newDelegate = dynamicMethod.CreateDelegate(
-                            newDelegateType, this);
-
-                        if (newDelegate != null)
-                        {
-                            if (delegateType == null)
-                                delegateType = newDelegateType;
-
-                            return newDelegate;
-                        }
-                        else
-                        {
-                            error = String.Format(
-                                "bad delegate of type {0} for dynamic method {1}",
-                                newDelegateType, dynamicMethod);
-                        }
+                        return newDelegate;
                     }
                     else
                     {
-                        TypeList newParameterTypes = new TypeList();
-
-                        newParameterTypes.Add(typeof(object));
-                        newParameterTypes.AddRange(parameterTypes);
-
-                        Type newWrapperType = null;
-
-                        if (DelegateOps.CreateManagedDelegateType(interpreter,
-                                null, null, null, null, returnType, parameterTypes,
-                                ref newDelegateType, ref error) == ReturnCode.Ok &&
-                            DelegateOps.CreateDelegateWrapperMethod(
-                                interpreter, null, null, null, null, methodInfo,
-                                returnType, parameterTypes, ref newWrapperType,
-                                ref error) == ReturnCode.Ok)
-                        {
-                            object newObject = Activator.CreateInstance(
-                                newWrapperType);
-
-                            if (CommandCallbackWrapper.Create(
-                                    newObject, this, ref error) == ReturnCode.Ok)
-                            {
-                                MethodInfo newMethodInfo = newWrapperType.GetMethod(
-                                    DelegateOps.InvokeMethodName);
-
-                                Delegate newDelegate = Delegate.CreateDelegate(
-                                    newDelegateType, newObject, newMethodInfo,
-                                    throwOnBindFailure);
-
-                                if (newDelegate != null)
-                                {
-                                    if (delegateType == null)
-                                        delegateType = newDelegateType;
-
-                                    return newDelegate;
-                                }
-                                else
-                                {
-                                    error = String.Format(
-                                        "bad delegate of type {0} for method {1}",
-                                        newDelegateType, newMethodInfo);
-                                }
-                            }
-                        }
+                        error = String.Format(
+                            "bad delegate of type {0} for dynamic method {1}",
+                            newDelegateType, dynamicMethod);
                     }
                 }
                 else
                 {
-                    error = "invalid interpreter";
+                    Type newWrapperType = null;
+
+                    if ((DelegateOps.CreateManagedDelegateType(
+                            interpreter, null, null, null, null, returnType,
+                            parameterTypes, ref newDelegateType,
+                            ref error) == ReturnCode.Ok) &&
+                        (DelegateOps.CreateDelegateWrapperMethod(
+                            interpreter, null, null, null, null, methodInfo,
+                            returnType, parameterTypes, ref newWrapperType,
+                            ref error) == ReturnCode.Ok))
+                    {
+                        object newObject = CreateInstance(newWrapperType, false);
+
+                        if (CCW.Create(
+                                newObject, this, ref error) == ReturnCode.Ok)
+                        {
+                            MethodInfo newMethodInfo = newWrapperType.GetMethod(
+                                DelegateOps.InvokeMethodName);
+
+                            Delegate newDelegate = Delegate.CreateDelegate(
+                                newDelegateType, newObject, newMethodInfo,
+                                throwOnBindFailure);
+
+                            if (newDelegate != null)
+                            {
+                                if (delegateType == null)
+                                    delegateType = newDelegateType;
+
+                                return newDelegate;
+                            }
+                            else
+                            {
+                                error = String.Format(
+                                    "bad delegate of type {0} for method {1}",
+                                    newDelegateType, newMethodInfo);
+                            }
+                        }
+                    }
                 }
             }
             catch (Exception e)
@@ -1629,7 +1691,7 @@ namespace Eagle._Components.Private
         private Interpreter interpreter; /* NOT OWNED */
         public Interpreter Interpreter
         {
-            get { CheckDisposed(); return interpreter; }
+            get { CheckDisposed(); return GetInterpreter(); }
         }
         #endregion
 
@@ -1947,18 +2009,116 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public Delegate GetDelegate(
-            Type delegateType,                      /* in */
+#if EMIT
+        public MethodBase GetMethod(
+            MethodBase oldMethod,                   /* in */
             Type returnType,                        /* in */
             TypeList parameterTypes,                /* in */
             MarshalFlagsList parameterMarshalFlags, /* in: OPTIONAL */
-            bool throwOnBindFailure,                /* in */
+            object firstArgument,                   /* in: OPTIONAL */
+            MarshalFlags marshalFlags,              /* in */
             ref Result error                        /* out */
             )
         {
             CheckDisposed();
 
-            if (NeedToCreateDelegate(
+            if (oldMethod == null)
+            {
+                error = "invalid old method";
+                return null;
+            }
+
+            if (returnType == null)
+            {
+                error = "invalid return type";
+                return null;
+            }
+
+            if (parameterTypes == null)
+            {
+                error = "invalid parameter types";
+                return null;
+            }
+
+            MethodInfo newMethodInfo = GetMethodInfo(null, ref error);
+
+            if (newMethodInfo == null)
+                return null;
+
+            Interpreter interpreter = GetInterpreter();
+
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return null;
+            }
+
+            try
+            {
+                Type newWrapperType = null;
+
+                if (DelegateOps.CreateWrapperMethod(
+                        interpreter, null, null, null, null,
+                        newMethodInfo, returnType, parameterTypes,
+                        oldMethod.IsStatic, ref newWrapperType,
+                        ref error) == ReturnCode.Ok)
+                {
+                    object newObject = CreateInstance(
+                        newWrapperType, true);
+
+                    object newFirstArgument = (firstArgument != null) ?
+                        firstArgument : oldMethod.DeclaringType;
+
+                    if ((CCW.Create(newObject, this,
+                            ref error) == ReturnCode.Ok) &&
+                        (CCW.Create(newFirstArgument, this,
+                            ref error) == ReturnCode.Ok))
+                    {
+                        return newWrapperType.GetMethod(
+                            DelegateOps.InvokeMethodName);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return null;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public Delegate GetDelegate(
+            Type delegateType,                      /* in */
+            Type returnType,                        /* in */
+            TypeList parameterTypes,                /* in */
+            MarshalFlagsList parameterMarshalFlags, /* in: OPTIONAL */
+            MarshalFlags marshalFlags,              /* in */
+            ref Result error                        /* out */
+            )
+        {
+            CheckDisposed();
+
+            //
+            // NOTE: Process configured marshal flags into the various boolean
+            //       flags.
+            //
+            bool throwOnBindFailure;
+            bool forceNewCallback;
+            bool useDelegateCallback;
+            bool useGenericCallback;
+            bool useDynamicCallback;
+            bool useCallbackParameterNames;
+
+            ProcessMarshalFlags(
+                marshalFlags, out throwOnBindFailure,
+                out forceNewCallback, out useDelegateCallback,
+                out useGenericCallback, out useDynamicCallback,
+                out useCallbackParameterNames);
+
+            if (forceNewCallback || NeedToCreateDelegate(
                     delegateType, returnType, parameterTypes, true))
             {
                 //
@@ -1966,19 +2126,6 @@ namespace Eagle._Components.Private
                 //       signature for the method to invoke.
                 //
                 MethodInfo methodInfo = null;
-
-                //
-                // NOTE: Process the configured marshal flags into the various
-                //       boolean flags.
-                //
-                bool useDelegateCallback;
-                bool useGenericCallback;
-                bool useDynamicCallback;
-                bool useCallbackParameterNames;
-
-                ProcessMarshalFlags(
-                    marshalFlags, out useDelegateCallback, out useGenericCallback,
-                    out useDynamicCallback, out useCallbackParameterNames);
 
                 //
                 // NOTE: Determine if the specified delegate type is just the
@@ -2019,7 +2166,7 @@ namespace Eagle._Components.Private
                     //         if one of the correct type information has
                     //         already been created.
                     //
-                    if (!NeedToCreateDelegate(
+                    if (!forceNewCallback && !NeedToCreateDelegate(
                             newDelegateType, newReturnType, newParameterTypes,
                             false))
                     {
@@ -2162,7 +2309,7 @@ namespace Eagle._Components.Private
                 out fireAndForget, out complain, out disposeThread,
                 out throwOnError, out useParameterNames);
 
-            Interpreter interpreter = this.Interpreter;
+            Interpreter interpreter = GetInterpreter();
 
             try
             {
@@ -2317,7 +2464,7 @@ namespace Eagle._Components.Private
                 out fireAndForget, out complain, out disposeThread,
                 out throwOnError, out useParameterNames);
 
-            Interpreter interpreter = this.Interpreter;
+            Interpreter interpreter = GetInterpreter();
 
             try
             {
@@ -2737,7 +2884,7 @@ namespace Eagle._Components.Private
                 out fireAndForget, out complain, out disposeThread,
                 out throwOnError);
 
-            Interpreter interpreter = this.Interpreter;
+            Interpreter interpreter = GetInterpreter();
 
             try
             {
@@ -2847,7 +2994,7 @@ namespace Eagle._Components.Private
                 out fireAndForget, out complain, out disposeThread,
                 out throwOnError, out useParameterNames);
 
-            Interpreter interpreter = this.Interpreter;
+            Interpreter interpreter = GetInterpreter();
 
             try
             {
@@ -2993,7 +3140,7 @@ namespace Eagle._Components.Private
                 out complain, out disposeThread, out throwOnError,
                 out useParameterNames);
 
-            Interpreter interpreter = this.Interpreter;
+            Interpreter interpreter = GetInterpreter();
 
             try
             {
@@ -3239,7 +3386,7 @@ namespace Eagle._Components.Private
                     //       instance from the public callback wrapper.
                     //
                     /* IGNORED */
-                    CommandCallbackWrapper.Cleanup(this);
+                    CCW.Cleanup(this);
 
                     //
                     // NOTE: The contained interpreter is NOT OWNED by

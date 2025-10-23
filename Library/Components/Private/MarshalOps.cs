@@ -330,7 +330,12 @@ namespace Eagle._Components.Private
         //
         #region Dead Code
 #if DEAD_CODE
+#if !NET_STANDARD_20 || !NET_STANDARD_21
         private static Encoding UTF8 = null;
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static Encoding UTF16 = null;
 #endif
         #endregion
@@ -1437,7 +1442,7 @@ namespace Eagle._Components.Private
             // HACK: This method is officially available
             //       starting with the .NET Standard 2.1.
             //
-            return Marshal.PtrToStringUTF8(ptr, len);
+            return Marshal.PtrToStringUTF8(ptr, count);
 #else
             Encoding encoding = UTF8;
 

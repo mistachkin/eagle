@@ -881,6 +881,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static BindingFlags GetDefaultBindingFlags()
+        {
+            return DefaultBindingFlags;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static MarshalFlags GetDefaultMarshalFlags()
         {
             return DefaultMarshalFlags;

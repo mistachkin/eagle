@@ -3178,7 +3178,7 @@ namespace Eagle._Components.Private
                                                     {
                                                         Delegate @delegate = callback.GetDelegate(
                                                             type, returnType, parameterTypes,
-                                                            parameterMarshalFlags, throwOnBindFailure,
+                                                            parameterMarshalFlags, marshalFlags,
                                                             ref error); /* throw */
 
                                                         if (@delegate != null)

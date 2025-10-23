@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Reflection;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -21,12 +22,24 @@ namespace Eagle._Interfaces.Public
     [ObjectId("39dd45ed-3da6-48ee-83b1-1f2f5ec64500")]
     public interface ICallback : ICallbackData
     {
+#if EMIT
+        MethodBase GetMethod(
+            MethodBase oldMethod,
+            Type returnType,
+            TypeList parameterTypes,
+            MarshalFlagsList parameterMarshalFlags,
+            object firstArgument,
+            MarshalFlags marshalFlags,
+            ref Result error
+        );
+#endif
+
         Delegate GetDelegate(
             Type delegateType,
             Type returnType,
             TypeList parameterTypes,
             MarshalFlagsList parameterMarshalFlags,
-            bool throwOnBindFailure,
+            MarshalFlags marshalFlags,
             ref Result error
         );
 

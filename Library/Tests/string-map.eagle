@@ -2765,6 +2765,188 @@ runTest {test split-100.1 {[split] with empty string} -body {
 
 ###############################################################################
 
+runTest {test cidr-merge-1.1 {CIDR merging for IPv4 / IPv6} -body {
+  foreach type {IPv4 IPv6} lists {
+    {
+      {
+        {10.1.2.0/24}
+        {10.0.0.0/24 10.0.1.0/24}
+        {10.0.0.0/24 10.0.0.128/25}
+        {10.0.0.0/25 10.0.0.64/26}
+        {10.0.0.0/24 10.0.2.0/24}
+        {0.0.0.0/26 0.0.0.64/26 0.0.0.128/26 0.0.0.192/26}
+        {10.0.0.0/24 10.0.0.0/24}
+        {10.0.1.0/24 10.0.0.0/24}
+        {192.168.0.0/32 192.168.0.1/32}
+        {10.0.0.255/32 10.0.1.0/32}
+        {0.0.0.0/0 10.0.0.0/8}
+        {}
+        {null 10.0.0.0/25 10.0.0.128/25}
+        {2001:db8::/32}
+        {1.2.3.4/33}
+        {1.2.3.4}
+        {
+          10.0.0.1/32 10.0.0.2/32 10.0.0.3/32
+          10.0.0.4/32 10.0.0.5/32 10.0.0.6/32
+          10.0.0.7/32
+        }
+        {10.0.0.0/25 10.0.0.128/26}
+        {0.0.0.0/32 255.255.255.255/32}
+        {0.0.0.0/1 128.0.0.0/1}
+        {10.0.255.0/24 10.1.0.0/24}
+        {null 0.0.0.0/0 10.0.0.0/24 10.0.0.0/24}
+        {10.0.0.0/31 10.0.0.2/31}
+        {10.0.0.0/32 10.0.0.2/31 10.0.0.4/31}
+        {10.0.0.1/32 10.0.0.1/32 10.0.0.1/32}
+        {10.0.0.0/25 10.0.0.128/25 10.0.2.0/24}
+      } {
+        {10.1.2.0/24}
+        {10.0.0.0/23}
+        {10.0.0.0/24}
+        {10.0.0.0/25}
+        {10.0.0.0/24 10.0.2.0/24}
+        {0.0.0.0/24}
+        {10.0.0.0/24}
+        {10.0.0.0/23}
+        {192.168.0.0/31}
+        {10.0.0.255/32 10.0.1.0/32}
+        {0.0.0.0/0}
+        {}
+        {10.0.0.0/24}
+        {invalid IPv4 CIDR: unexpected address family}
+        {bad IPv4 prefix length 33}
+        {split CIDR pattern into 1}
+        {10.0.0.1/32 10.0.0.2/31 10.0.0.4/30}
+        {10.0.0.0/25 10.0.0.128/26}
+        {0.0.0.0/32 255.255.255.255/32}
+        {0.0.0.0/0}
+        {10.0.255.0/24 10.1.0.0/24}
+        {0.0.0.0/0}
+        {10.0.0.0/30}
+        {10.0.0.0/32 10.0.0.2/31 10.0.0.4/31}
+        {10.0.0.1/32}
+        {10.0.0.0/24 10.0.2.0/24}
+      }
+    } {
+      {
+        {2001:db8::/64}
+        {2001:db8::/33 2001:db8:8000::/33}
+        {2001:db8::/48 2001:db8:0:1::/64}
+        {2001:db8:1::/64 2001:db8:3::/64}
+        {2001:db8::/48 2001:db8::/48}
+        {2001:db8::/65 2001:db8:0:0:8000::/65}
+        {::1/128}
+        {ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128}
+        {::/0 2001:db8::/32}
+        {null 2001:db8::/64 2001:db8:0:0:8000::/65}
+        {2001:db8::/64 2001:db8:0:2::/64 2001:db8:0:3::/64}
+        {10.0.0.0/8}
+        {2001:db8::/129}
+        {2001:db8::}
+        {
+          2001:db8::1/128 2001:db8::2/128 2001:db8::3/128 2001:db8::4/128
+          2001:db8::5/128 2001:db8::6/128 2001:db8::7/128
+        }
+        {2001:db8::ffff/128 2001:db8::1:0/128}
+        {8000::/1 ::/1}
+        {2001:db8::/127 2001:db8::2/127}
+        {::/128 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128}
+        {2001:db8::1/126}
+        {2001:db8::/64 2001:db8:0:1::/64}
+        {2001:db8::/124 2001:db8::10/124}
+        {null ::/0 2001:db8::/32}
+      } {
+        {2001:db8::/64}
+        {2001:db8::/32}
+        {2001:db8::/48}
+        {2001:db8:1::/64 2001:db8:3::/64}
+        {2001:db8::/48}
+        {2001:db8::/64}
+        {::1/128}
+        {ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128}
+        {::/0}
+        {2001:db8::/64}
+        {2001:db8:0:2::/63 2001:db8::/64}
+        {invalid IPv6 CIDR: unexpected address family}
+        {bad IPv6 prefix length 129}
+        {split CIDR pattern into 1}
+        {2001:db8::1/128 2001:db8::2/127 2001:db8::4/126}
+        {2001:db8::1:0/128 2001:db8::ffff/128}
+        {::/0}
+        {2001:db8::/126}
+        {::/128 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128}
+        {2001:db8::/126}
+        {2001:db8::/63}
+        {2001:db8::/123}
+        {::/0}
+      }
+    }
+  } {
+    # HACK: The IPv6 support requires the BigInteger class.
+    if {$type eq "IPv6" && ![haveConstraint tip237]} then {
+      continue
+    }
+
+    foreach input [lindex $lists 0] output [lindex $lists 1] {
+      regsub -all -- {\s+} $input " " input
+      regsub -all -- {\s+} $output " " output
+
+      set list [object create -alias StringList]
+      foreach element $input {$list Add $element}
+
+      set merged null; set error null
+
+      set code [object invoke \
+          Utility [appendArgs Collapse_ $type _CIDR] $list \
+          Default merged error]
+
+      if {$code eq "Ok"} then {
+        if {$merged ne $output} then {
+          if {[string length $input] == 0} then {
+            set input <none>
+          }
+
+          if {[string length $output] == 0} then {
+            set output <none>
+          }
+
+          if {[string length $merged] == 0} then {
+            set merged <none>
+          }
+
+          error [appendArgs \
+              $type " FAIL: " $merged " versus " \
+              $output " from " $input]
+        }
+      } else {
+        set error [getStringFromObjectHandle $error]
+
+        if {$error ne $output} then {
+          if {[string length $input] == 0} then {
+            set input <none>
+          }
+
+          if {[string length $output] == 0} then {
+            set output <none>
+          }
+
+          if {[string length $error] == 0} then {
+            set error <none>
+          }
+
+          error [appendArgs \
+              $type " FAIL: \{" $error "\} versus \{" \
+              $output "\} from " $input]
+        }
+      }
+    }
+  }
+} -cleanup {
+  unset -nocomplain type lists input output list element code merged error
+} -constraints {eagle command.object} -result {}}
+
+###############################################################################
+
 if {[isEagle]} then {
   catch {purgeAndCleanup $test_channel after}
 }

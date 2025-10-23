@@ -37,9 +37,16 @@ namespace Eagle._Components.Private
             TypeAttributes.AnsiClass | TypeAttributes.AutoLayout |
             TypeAttributes.NotPublic | TypeAttributes.Sealed;
 
-        private const MethodAttributes DefaultMethodAttributes =
+        private const MethodAttributes DefaultInstanceMethodAttributes =
             MethodAttributes.Public | MethodAttributes.HideBySig |
             MethodAttributes.Virtual | MethodAttributes.NewSlot;
+
+        private const MethodAttributes DefaultStaticMethodAttributes =
+            MethodAttributes.Public | MethodAttributes.HideBySig |
+            MethodAttributes.Static;
+
+        private const FieldAttributes DefaultFieldAttributes =
+            FieldAttributes.Private | FieldAttributes.Static;
 
         private const CallingConventions DefaultCallingConventions =
             CallingConventions.Standard;
@@ -69,7 +76,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        internal const string FirstArgumentFieldName = "firstArgument";
         internal const string InvokeMethodName = "Invoke";
+
         private const string BeginInvokeMethodName = "BeginInvoke";
         private const string EndInvokeMethodName = "EndInvoke";
 
@@ -86,7 +95,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static MethodInfo GetInvokeMethod(
-            Type type
+            Type type /* in */
             )
         {
             if (type == null)
@@ -100,7 +109,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool NeedReturnType(
-            Type type
+            Type type /* in */
             )
         {
             return (type != null) && (type != typeof(void));
@@ -109,8 +118,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool NeedReturnType(
-            Delegate @delegate,
-            ref Type type
+            Delegate @delegate, /* in */
+            ref Type type       /* out */
             )
         {
             if (@delegate == null)
@@ -129,7 +138,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool NeedBoxOpCode(
-            Type type
+            Type type /* in */
             )
         {
             if (type == null)
@@ -147,7 +156,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static OpCode GetOpCodeForLdind(
-            Type type
+            Type type /* in */
             )
         {
             if (type == typeof(System.Boolean))
@@ -183,7 +192,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static OpCode GetOpCodeForStind(
-            Type type
+            Type type /* in */
             )
         {
             if (type == typeof(System.Boolean))
@@ -219,8 +228,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void VerifyDynamicDelegateMethodInfo(
-            MethodInfo methodInfo,
-            bool callbackOnly
+            MethodInfo methodInfo, /* in */
+            bool callbackOnly      /* in */
             )
         {
             if (methodInfo == null)
@@ -251,13 +260,15 @@ namespace Eagle._Components.Private
                 parameterInfo[1].ParameterType
             };
 
-            if (callbackOnly &&
-                (parameterTypes[0] != typeof(ICallback)))
+            Type firstArgumentType = callbackOnly ?
+                typeof(ICallback) : typeof(object);
+
+            if (parameterTypes[0] != firstArgumentType)
             {
                 throw new ArgumentException(String.Format(
                     "parameter #0 type mismatch {0} versus {1}",
                     FormatOps.WrapOrNull(parameterTypes[0]),
-                    FormatOps.WrapOrNull(typeof(ICallback))));
+                    FormatOps.WrapOrNull(firstArgumentType)));
             }
 
             if (parameterTypes[1] != typeof(object[]))
@@ -274,7 +285,7 @@ namespace Eagle._Components.Private
         #region Dead Code
 #if DEAD_CODE
         private static OpCode? GetOpCodeForConv(
-            Type type
+            Type type /* in */
             )
         {
             if (type == typeof(System.Boolean))
@@ -313,16 +324,150 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static void EmitDelegateWrapperMethodBody(
-            ILGenerator generator,
-            MethodInfo methodInfo,
-            Type returnType,
-            TypeList parameterTypes,
-            bool callbackOnly
+        public static void EmitWrapperMethodBody(
+            ILGenerator generator,   /* in */
+            MethodInfo methodInfo,   /* in */
+            FieldInfo fieldInfo,     /* in */
+            Type returnType,         /* in */
+            TypeList parameterTypes, /* in */
+            bool callbackOnly        /* in */
             )
         {
             if (generator == null)
                 throw new ArgumentNullException("generator");
+
+            if (methodInfo == null)
+                throw new ArgumentNullException("methodInfo");
+
+            if ((fieldInfo != null) && !fieldInfo.IsStatic)
+                throw new ArgumentException("must be static", "fieldInfo");
+
+            if ((returnType != null) && returnType.IsByRef)
+                throw new NotSupportedException("ref-return unsupported");
+
+            VerifyDynamicDelegateMethodInfo(methodInfo, callbackOnly);
+
+            LocalBuilder args = generator.DeclareLocal(typeof(object[]));
+            LocalBuilder result = null;
+
+            if (NeedReturnType(returnType))
+                result = generator.DeclareLocal(returnType);
+
+            generator.Emit(OpCodes.Nop);
+
+            bool haveFieldInfo = (fieldInfo != null);
+            bool haveParameters = (parameterTypes != null);
+            int parameterCount = haveParameters ? parameterTypes.Count : 0;
+
+            generator.Emit(OpCodes.Ldc_I4, parameterCount);
+            generator.Emit(OpCodes.Newarr, typeof(object));
+            generator.Emit(OpCodes.Stloc, args);
+
+            int baseIndex = haveFieldInfo ? 0 : 1;
+
+            if (haveParameters)
+            {
+                for (int index = 0; index < parameterCount; index++)
+                {
+                    Type parameterType = parameterTypes[index];
+
+                    if (parameterType == null)
+                        continue;
+
+                    generator.Emit(OpCodes.Ldloc, args);
+                    generator.Emit(OpCodes.Ldc_I4, index);
+                    generator.Emit(OpCodes.Ldarg, index + baseIndex);
+
+                    bool output = parameterType.IsByRef;
+
+                    Type elementType = output ?
+                        parameterType.GetElementType() : parameterType;
+
+                    if (output)
+                        generator.Emit(GetOpCodeForLdind(elementType));
+
+                    if (NeedBoxOpCode(elementType))
+                        generator.Emit(OpCodes.Box, elementType);
+
+                    generator.Emit(OpCodes.Stelem_Ref); /* object[] */
+                }
+            }
+
+            if (haveFieldInfo)
+                generator.Emit(OpCodes.Ldsfld, fieldInfo);
+            else
+                generator.Emit(OpCodes.Ldarg_0); /* this */
+
+            generator.Emit(OpCodes.Ldloc, args);
+
+            if (methodInfo.IsStatic)
+                generator.Emit(OpCodes.Call, methodInfo); /* Invoke */
+            else
+                generator.Emit(OpCodes.Callvirt, methodInfo); /* Invoke */
+
+            if (NeedReturnType(returnType))
+            {
+                if (NeedBoxOpCode(returnType))
+                    generator.Emit(OpCodes.Unbox_Any, returnType);
+                else if (returnType != typeof(object))
+                    generator.Emit(OpCodes.Castclass, returnType);
+
+                generator.Emit(OpCodes.Stloc, result);
+            }
+            else
+            {
+                generator.Emit(OpCodes.Pop);
+            }
+
+            if (haveParameters)
+            {
+                for (int index = 0; index < parameterCount; index++)
+                {
+                    Type parameterType = parameterTypes[index];
+
+                    if ((parameterType == null) || !parameterType.IsByRef)
+                        continue;
+
+                    generator.Emit(OpCodes.Ldarg, index + baseIndex);
+                    generator.Emit(OpCodes.Ldloc, args);
+                    generator.Emit(OpCodes.Ldc_I4, index);
+                    generator.Emit(OpCodes.Ldelem_Ref); /* object[] */
+
+                    Type elementType = parameterType.GetElementType();
+
+                    if (NeedBoxOpCode(elementType))
+                        generator.Emit(OpCodes.Unbox_Any, elementType);
+                    else if (elementType != typeof(object))
+                        generator.Emit(OpCodes.Castclass, elementType);
+
+                    generator.Emit(GetOpCodeForStind(elementType));
+                }
+            }
+
+            if (NeedReturnType(returnType))
+                generator.Emit(OpCodes.Ldloc, result);
+
+            generator.Emit(OpCodes.Ret);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void EmitDelegateWrapperMethodBody(
+            ILGenerator generator,   /* in */
+            MethodInfo methodInfo,   /* in */
+            Type returnType,         /* in */
+            TypeList parameterTypes, /* in */
+            bool callbackOnly        /* in */
+            )
+        {
+            if (generator == null)
+                throw new ArgumentNullException("generator");
+
+            if (methodInfo == null)
+                throw new ArgumentNullException("methodInfo");
+
+            if ((returnType != null) && returnType.IsByRef)
+                throw new NotSupportedException("ref-return unsupported");
 
             VerifyDynamicDelegateMethodInfo(methodInfo, callbackOnly);
 
@@ -372,10 +517,10 @@ namespace Eagle._Components.Private
             generator.Emit(OpCodes.Ldarg_0); /* this */
             generator.Emit(OpCodes.Ldloc, args);
 
-            if (methodInfo.IsVirtual && !methodInfo.IsFinal)
-                generator.Emit(OpCodes.Callvirt, methodInfo); /* Invoke */
-            else
+            if (methodInfo.IsStatic)
                 generator.Emit(OpCodes.Call, methodInfo); /* Invoke */
+            else
+                generator.Emit(OpCodes.Callvirt, methodInfo); /* Invoke */
 
             if (NeedReturnType(returnType))
             {
@@ -426,7 +571,7 @@ namespace Eagle._Components.Private
 
 #if NATIVE && LIBRARY
         private static string MakeIDelegateName(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             return FormatOps.Id(
@@ -437,7 +582,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static string MakeIModuleName(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             return FormatOps.Id(
@@ -449,7 +594,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static string MakeDelegateName(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             return FormatOps.Id(
@@ -460,7 +605,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static AssemblyName MakeAssemblyName(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             return new AssemblyName(FormatOps.Id(
@@ -471,7 +616,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static string MakeModuleName(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             return FormatOps.Id(
@@ -482,7 +627,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static string MakeTypeName(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             return FormatOps.Id(
@@ -494,12 +639,12 @@ namespace Eagle._Components.Private
 
 #if NATIVE && LIBRARY
         public static ReturnCode LoadNativeModule(
-            Interpreter interpreter,
-            ModuleFlags flags,
-            string fileName,
-            string moduleName,
-            ref IModule module,
-            ref Result error
+            Interpreter interpreter, /* in */
+            ModuleFlags flags,       /* in */
+            string fileName,         /* in */
+            string moduleName,       /* in */
+            ref IModule module,      /* out */
+            ref Result error         /* out */
             )
         {
             int loaded = 0;
@@ -514,16 +659,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode CreateDelegateWrapperMethod(
-            Interpreter interpreter,
-            AppDomain appDomain,
-            AssemblyName assemblyName,
-            string moduleName,
-            string typeName,
-            MethodInfo methodInfo,
-            Type returnType,
-            TypeList parameterTypes,
-            ref Type type,
-            ref Result error
+            Interpreter interpreter,   /* in */
+            AppDomain appDomain,       /* in */
+            AssemblyName assemblyName, /* in */
+            string moduleName,         /* in */
+            string typeName,           /* in */
+            MethodInfo methodInfo,     /* in */
+            Type returnType,           /* in */
+            TypeList parameterTypes,   /* in */
+            ref Type type,             /* out */
+            ref Result error           /* out */
             )
         {
             AppDomain localAppDomain;
@@ -542,7 +687,8 @@ namespace Eagle._Components.Private
                     moduleName : MakeModuleName(interpreter),
                 (typeName != null) ?
                     typeName : MakeTypeName(interpreter),
-                methodInfo, returnType, parameterTypes, ref error);
+                methodInfo, returnType, parameterTypes,
+                ref error);
 
             return (type != null) ? ReturnCode.Ok : ReturnCode.Error;
         }
@@ -550,14 +696,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static Type CreateDelegateWrapperMethod(
-            AppDomain appDomain,
-            AssemblyName assemblyName,
-            string moduleName,
-            string typeName,
-            MethodInfo methodInfo,
-            Type returnType,
-            TypeList parameterTypes,
-            ref Result error
+            AppDomain appDomain,       /* in */
+            AssemblyName assemblyName, /* in */
+            string moduleName,         /* in */
+            string typeName,           /* in */
+            MethodInfo methodInfo,     /* in */
+            Type returnType,           /* in */
+            TypeList parameterTypes,   /* in */
+            ref Result error           /* out */
             )
         {
             if (appDomain == null)
@@ -603,15 +749,137 @@ namespace Eagle._Components.Private
                     typeName, DefaultClassTypeAttributes, typeof(object));
 
                 MethodBuilder methodBuilder = typeBuilder.DefineMethod(
-                    InvokeMethodName, DefaultMethodAttributes,
+                    InvokeMethodName, DefaultInstanceMethodAttributes,
                     DefaultCallingConventions, returnType,
-                    (parameterTypes != null) ? parameterTypes.ToArray() :
-                    null);
+                    (parameterTypes != null) ? parameterTypes.ToArray() : null);
 
                 ILGenerator generator = methodBuilder.GetILGenerator();
 
                 EmitDelegateWrapperMethodBody(
                     generator, methodInfo, returnType, parameterTypes, false);
+
+#if NET_STANDARD_20 && NET_CORE_REFERENCES
+                type = typeBuilder.CreateTypeInfo();
+#else
+                type = typeBuilder.CreateType();
+#endif
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return type;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CreateWrapperMethod(
+            Interpreter interpreter,   /* in */
+            AppDomain appDomain,       /* in */
+            AssemblyName assemblyName, /* in */
+            string moduleName,         /* in */
+            string typeName,           /* in */
+            MethodInfo methodInfo,     /* in */
+            Type returnType,           /* in */
+            TypeList parameterTypes,   /* in */
+            bool useStaticMethod,      /* in */
+            ref Type type,             /* out */
+            ref Result error           /* out */
+            )
+        {
+            AppDomain localAppDomain;
+
+            if (appDomain != null)
+                localAppDomain = appDomain;
+            else if (interpreter != null)
+                localAppDomain = interpreter.GetAppDomain();
+            else
+                localAppDomain = null;
+
+            type = CreateWrapperMethod(localAppDomain,
+                (assemblyName != null) ?
+                    assemblyName : MakeAssemblyName(interpreter),
+                (moduleName != null) ?
+                    moduleName : MakeModuleName(interpreter),
+                (typeName != null) ?
+                    typeName : MakeTypeName(interpreter),
+                methodInfo, returnType, parameterTypes,
+                useStaticMethod, ref error);
+
+            return (type != null) ? ReturnCode.Ok : ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static Type CreateWrapperMethod(
+            AppDomain appDomain,       /* in */
+            AssemblyName assemblyName, /* in */
+            string moduleName,         /* in */
+            string typeName,           /* in */
+            MethodInfo methodInfo,     /* in */
+            Type returnType,           /* in */
+            TypeList parameterTypes,   /* in */
+            bool useStaticMethod,      /* in */
+            ref Result error           /* out */
+            )
+        {
+            if (appDomain == null)
+            {
+                error = "invalid application domain";
+                return null;
+            }
+
+            if (assemblyName == null)
+            {
+                error = "invalid assembly name";
+                return null;
+            }
+
+            if (String.IsNullOrEmpty(moduleName))
+            {
+                error = "invalid module name";
+                return null;
+            }
+
+            if (String.IsNullOrEmpty(typeName))
+            {
+                error = "invalid type name";
+                return null;
+            }
+
+            Type type = null;
+
+            try
+            {
+#if NET_STANDARD_20 && NET_CORE_REFERENCES
+                AssemblyBuilder assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
+                    assemblyName, DefaultManagedAssemblyBuilderAccess);
+#else
+                AssemblyBuilder assemblyBuilder = appDomain.DefineDynamicAssembly(
+                    assemblyName, DefaultManagedAssemblyBuilderAccess);
+#endif
+
+                ModuleBuilder moduleBuilder = assemblyBuilder.DefineDynamicModule(
+                    moduleName);
+
+                TypeBuilder typeBuilder = moduleBuilder.DefineType(
+                    typeName, DefaultClassTypeAttributes, typeof(object));
+
+                FieldBuilder fieldBuilder = useStaticMethod ? typeBuilder.DefineField(
+                    FirstArgumentFieldName, typeof(object), DefaultFieldAttributes) : null;
+
+                MethodBuilder methodBuilder = typeBuilder.DefineMethod(
+                    InvokeMethodName, useStaticMethod ?
+                        DefaultStaticMethodAttributes : DefaultInstanceMethodAttributes,
+                    DefaultCallingConventions, returnType,
+                    (parameterTypes != null) ? parameterTypes.ToArray() : null);
+
+                ILGenerator generator = methodBuilder.GetILGenerator();
+
+                EmitWrapperMethodBody(
+                    generator, methodInfo, fieldBuilder, returnType,
+                    parameterTypes, false);
 
 #if NET_STANDARD_20 && NET_CORE_REFERENCES
                 type = typeBuilder.CreateTypeInfo();
@@ -668,15 +936,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode CreateManagedDelegateType(
-            Interpreter interpreter,
-            AppDomain appDomain,
-            AssemblyName assemblyName,
-            string moduleName,
-            string typeName,
-            Type returnType,
-            TypeList parameterTypes,
-            ref Type type,
-            ref Result error
+            Interpreter interpreter,   /* in */
+            AppDomain appDomain,       /* in */
+            AssemblyName assemblyName, /* in */
+            string moduleName,         /* in */
+            string typeName,           /* in */
+            Type returnType,           /* in */
+            TypeList parameterTypes,   /* in */
+            ref Type type,             /* out */
+            ref Result error           /* out */
             )
         {
             AppDomain localAppDomain;
@@ -703,13 +971,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static Type CreateManagedDelegateType(
-            AppDomain appDomain,
-            AssemblyName assemblyName,
-            string moduleName,
-            string typeName,
-            Type returnType,
-            TypeList parameterTypes,
-            ref Result error
+            AppDomain appDomain,       /* in */
+            AssemblyName assemblyName, /* in */
+            string moduleName,         /* in */
+            string typeName,           /* in */
+            Type returnType,           /* in */
+            TypeList parameterTypes,   /* in */
+            ref Result error           /* out */
             )
         {
             if (appDomain == null)
@@ -761,8 +1029,9 @@ namespace Eagle._Components.Private
                 constructorBuilder.SetImplementationFlags(DefaultMethodImplAttributes);
 
                 MethodBuilder methodBuilder = typeBuilder.DefineMethod(
-                    InvokeMethodName, DefaultMethodAttributes, DefaultCallingConventions,
-                    returnType, (parameterTypes != null) ? parameterTypes.ToArray() : null);
+                    InvokeMethodName, DefaultInstanceMethodAttributes,
+                    DefaultCallingConventions, returnType,
+                    (parameterTypes != null) ? parameterTypes.ToArray() : null);
 
                 methodBuilder.SetImplementationFlags(DefaultMethodImplAttributes);
 
@@ -773,7 +1042,7 @@ namespace Eagle._Components.Private
                 beginParameterTypes.Add(typeof(object));
 
                 methodBuilder = typeBuilder.DefineMethod(BeginInvokeMethodName,
-                    DefaultMethodAttributes, DefaultCallingConventions,
+                    DefaultInstanceMethodAttributes, DefaultCallingConventions,
                     typeof(IAsyncResult), beginParameterTypes.ToArray());
 
                 methodBuilder.SetImplementationFlags(DefaultMethodImplAttributes);
@@ -788,7 +1057,7 @@ namespace Eagle._Components.Private
                 endParameterTypes.Add(typeof(IAsyncResult));
 
                 methodBuilder = typeBuilder.DefineMethod(EndInvokeMethodName,
-                    DefaultMethodAttributes, DefaultCallingConventions,
+                    DefaultInstanceMethodAttributes, DefaultCallingConventions,
                     returnType, endParameterTypes.ToArray());
 
                 methodBuilder.SetImplementationFlags(DefaultMethodImplAttributes);
@@ -811,24 +1080,24 @@ namespace Eagle._Components.Private
 
 #if NATIVE && LIBRARY
         public static ReturnCode CreateNativeDelegateType(
-            Interpreter interpreter,
-            AppDomain appDomain,
-            AssemblyName assemblyName,
-            string moduleName,
-            string typeName,
-            CallingConvention callingConvention,
-            bool bestFitMapping,
-            CharSet charSet,
-            bool setLastError,
-            bool throwOnUnmappableChar,
-            Type returnType,
-            TypeList parameterTypes,
-            string delegateName,
-            IModule module,
-            string functionName,
-            IntPtr address,
-            ref IDelegate @delegate,
-            ref Result error
+            Interpreter interpreter,             /* in */
+            AppDomain appDomain,                 /* in */
+            AssemblyName assemblyName,           /* in */
+            string moduleName,                   /* in */
+            string typeName,                     /* in */
+            CallingConvention callingConvention, /* in */
+            bool bestFitMapping,                 /* in */
+            CharSet charSet,                     /* in */
+            bool setLastError,                   /* in */
+            bool throwOnUnmappableChar,          /* in */
+            Type returnType,                     /* in */
+            TypeList parameterTypes,             /* in */
+            string delegateName,                 /* in */
+            IModule module,                      /* in */
+            string functionName,                 /* in */
+            IntPtr address,                      /* in */
+            ref IDelegate @delegate,             /* out */
+            ref Result error                     /* out */
             )
         {
             AppDomain localAppDomain;
@@ -867,18 +1136,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static Type CreateNativeDelegateType(
-            AppDomain appDomain,
-            AssemblyName assemblyName,
-            string moduleName,
-            string typeName,
-            CallingConvention callingConvention,
-            bool bestFitMapping,
-            CharSet charSet,
-            bool setLastError,
-            bool throwOnUnmappableChar,
-            Type returnType,
-            TypeList parameterTypes,
-            ref Result error
+            AppDomain appDomain,                 /* in */
+            AssemblyName assemblyName,           /* in */
+            string moduleName,                   /* in */
+            string typeName,                     /* in */
+            CallingConvention callingConvention, /* in */
+            bool bestFitMapping,                 /* in */
+            CharSet charSet,                     /* in */
+            bool setLastError,                   /* in */
+            bool throwOnUnmappableChar,          /* in */
+            Type returnType,                     /* in */
+            TypeList parameterTypes,             /* in */
+            ref Result error                     /* out */
             )
         {
             if (appDomain == null)
@@ -930,8 +1199,9 @@ namespace Eagle._Components.Private
                 constructorBuilder.SetImplementationFlags(DefaultMethodImplAttributes);
 
                 MethodBuilder methodBuilder = typeBuilder.DefineMethod(
-                    InvokeMethodName, DefaultMethodAttributes, DefaultCallingConventions,
-                    returnType, (parameterTypes != null) ? parameterTypes.ToArray() : null);
+                    InvokeMethodName, DefaultInstanceMethodAttributes,
+                    DefaultCallingConventions, returnType,
+                    (parameterTypes != null) ? parameterTypes.ToArray() : null);
 
                 methodBuilder.SetImplementationFlags(DefaultMethodImplAttributes);
 
@@ -942,7 +1212,7 @@ namespace Eagle._Components.Private
                 beginParameterTypes.Add(typeof(object));
 
                 methodBuilder = typeBuilder.DefineMethod(BeginInvokeMethodName,
-                    DefaultMethodAttributes, DefaultCallingConventions,
+                    DefaultInstanceMethodAttributes, DefaultCallingConventions,
                     typeof(IAsyncResult), beginParameterTypes.ToArray());
 
                 methodBuilder.SetImplementationFlags(DefaultMethodImplAttributes);
@@ -957,7 +1227,7 @@ namespace Eagle._Components.Private
                 endParameterTypes.Add(typeof(IAsyncResult));
 
                 methodBuilder = typeBuilder.DefineMethod(EndInvokeMethodName,
-                    DefaultMethodAttributes, DefaultCallingConventions,
+                    DefaultInstanceMethodAttributes, DefaultCallingConventions,
                     returnType, endParameterTypes.ToArray());
 
                 methodBuilder.SetImplementationFlags(DefaultMethodImplAttributes);

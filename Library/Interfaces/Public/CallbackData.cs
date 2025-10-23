@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Reflection;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;

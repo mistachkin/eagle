@@ -68,6 +68,21 @@ namespace Eagle._Components.Private
         public static bool Equals(
             T[] array1,
             T[] array2,
+            int startIndex,
+            int length
+            )
+        {
+            int compare = 0;
+            int failIndex = Index.Invalid;
+
+            return Equals(array1, array2, startIndex, length, ref compare, ref failIndex);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool Equals(
+            T[] array1,
+            T[] array2,
             int length,
             ref int compare
             )
@@ -82,6 +97,20 @@ namespace Eagle._Components.Private
         public static bool Equals(
             T[] array1,
             T[] array2,
+            int length,
+            ref int compare,
+            ref int failIndex
+            )
+        {
+            return Equals(array1, array2, Index.Invalid, length, ref compare, ref failIndex);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool Equals(
+            T[] array1,
+            T[] array2,
+            int startIndex,
             int length,
             ref int compare,
             ref int failIndex
@@ -132,7 +161,22 @@ namespace Eagle._Components.Private
                 localLength = length;
             }
 
-            for (int index = 0; index < localLength; index++)
+            if (startIndex < 0)
+            {
+                //
+                // NOTE: Use "automatic" handling.  Start at first index.
+                //
+                startIndex = 0;
+            }
+            else if (startIndex >= localLength)
+            {
+                //
+                // NOTE: This index is out of bounds, fail now.
+                //
+                return false;
+            }
+
+            for (int index = startIndex; index < localLength; index++)
             {
                 T element1 = array1[index];
                 T element2 = array2[index];
