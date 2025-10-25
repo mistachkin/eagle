@@ -7812,6 +7812,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if EMIT
         public static ReturnCode GetDelegateMethods(
             Type type,
             DelegateFlags delegateFlags,
@@ -8216,6 +8217,7 @@ namespace Eagle._Components.Private
 
             return (errorCount > 0) ? ReturnCode.Error : ReturnCode.Ok;
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -8255,8 +8257,10 @@ namespace Eagle._Components.Private
         {
             if ((type == typeof(_Commands.Default)) ||
                 (type == typeof(_Commands._Delegate)) ||
+#if EMIT
                 (type == typeof(_Commands.SubDelegate)) ||
                 (type == typeof(_Commands.Automatic)) ||
+#endif
                 (type == typeof(_Commands.Ensemble)) ||
                 (type == typeof(_Commands.Core)) ||
                 (type == typeof(_Commands.Stub)) ||
@@ -8280,10 +8284,12 @@ namespace Eagle._Components.Private
                     typeName, typeof(_Commands.Default).FullName) ||
                 SharedStringOps.SystemEquals(
                     typeName, typeof(_Commands._Delegate).FullName) ||
+#if EMIT
                 SharedStringOps.SystemEquals(
                     typeName, typeof(_Commands.SubDelegate).FullName) ||
                 SharedStringOps.SystemEquals(
                     typeName, typeof(_Commands.Automatic).FullName) ||
+#endif
                 SharedStringOps.SystemEquals(
                     typeName, typeof(_Commands.Ensemble).FullName) ||
                 SharedStringOps.SystemEquals(

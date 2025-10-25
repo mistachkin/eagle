@@ -10,7 +10,11 @@
  */
 
 using System;
+
+#if EMIT
 using System.Reflection;
+#endif
+
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -25,6 +29,12 @@ namespace Eagle._Interfaces.Public
         CallbackFlags CallbackFlags { get; set; }
         ByRefArgumentFlags ByRefArgumentFlags { get; }
         StringList Arguments { get; }
+
+#if EMIT
+        MethodBase OldMethod { get; }
+        MethodBase NewMethod { get; }
+#endif
+
         Delegate Delegate { get; }
 
         Type OriginalDelegateType { get; }

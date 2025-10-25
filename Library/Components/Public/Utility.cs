@@ -4084,6 +4084,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool IsDotNetCore7xOrHigher()
+        {
+            return CommonOps.Runtime.IsDotNetCore7xOrHigher();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool IsInteractive()
         {
             return WindowOps.IsInteractive();

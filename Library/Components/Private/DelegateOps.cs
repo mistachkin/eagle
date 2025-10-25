@@ -712,6 +712,12 @@ namespace Eagle._Components.Private
                 return null;
             }
 
+            if (!AppDomainOps.IsCurrent(appDomain))
+            {
+                error = "application domain must be current";
+                return null;
+            }
+
             if (assemblyName == null)
             {
                 error = "invalid assembly name";
@@ -827,6 +833,12 @@ namespace Eagle._Components.Private
             if (appDomain == null)
             {
                 error = "invalid application domain";
+                return null;
+            }
+
+            if (!AppDomainOps.IsCurrent(appDomain))
+            {
+                error = "application domain must be current";
                 return null;
             }
 
@@ -983,6 +995,12 @@ namespace Eagle._Components.Private
             if (appDomain == null)
             {
                 error = "invalid application domain";
+                return null;
+            }
+
+            if (!AppDomainOps.IsCurrent(appDomain))
+            {
+                error = "application domain must be current";
                 return null;
             }
 
@@ -1153,6 +1171,12 @@ namespace Eagle._Components.Private
             if (appDomain == null)
             {
                 error = "invalid application domain";
+                return null;
+            }
+
+            if (!AppDomainOps.IsCurrent(appDomain))
+            {
+                error = "application domain must be current";
                 return null;
             }
 

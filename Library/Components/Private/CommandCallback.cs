@@ -1113,6 +1113,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if EMIT
         private static object CreateInstance(
             Type type,        /* in */
             bool useFieldInfo /* in */
@@ -1120,7 +1121,8 @@ namespace Eagle._Components.Private
         {
             //
             // HACK: Always create instance of the (new) type, i.e.
-            //       even if the field (below) is not found.
+            //       even if the field (below) is not found or not
+            //       needed.
             //
             object result = Activator.CreateInstance(type);
 
@@ -1152,7 +1154,6 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if EMIT
         private Delegate GetDynamicDelegate(
             string name,                            /* in */
             Type returnType,                        /* in */
@@ -1298,6 +1299,19 @@ namespace Eagle._Components.Private
 
             return false;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if EMIT
+        private void SetMethods(
+            MethodBase oldMethod, /* in */
+            MethodBase newMethod  /* in */
+            )
+        {
+            this.oldMethod = oldMethod;
+            this.newMethod = newMethod;
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -1805,6 +1819,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if EMIT
+        private MethodBase oldMethod;
+        public MethodBase OldMethod
+        {
+            get { CheckDisposed(); return oldMethod; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private MethodBase newMethod;
+        public MethodBase NewMethod
+        {
+            get { CheckDisposed(); return newMethod; }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         private Delegate @delegate;
         public Delegate Delegate
         {
@@ -2074,8 +2106,12 @@ namespace Eagle._Components.Private
                         (CCW.Create(newFirstArgument, this,
                             ref error) == ReturnCode.Ok))
                     {
-                        return newWrapperType.GetMethod(
+                        MethodBase newMethod = newWrapperType.GetMethod(
                             DelegateOps.InvokeMethodName);
+
+                        SetMethods(oldMethod, newMethod);
+
+                        return newMethod;
                     }
                 }
             }

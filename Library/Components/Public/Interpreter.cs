@@ -15885,8 +15885,10 @@ namespace Eagle._Components.Public
                     name, lookupFlags, ref localCommand,
                     ref localError) == ReturnCode.Ok)
             {
-                if ((localCommand is _Commands.Automatic) ||
-                    (localCommand is _Commands.Ensemble) ||
+                if ((localCommand is _Commands.Ensemble) ||
+#if EMIT
+                    (localCommand is _Commands.Automatic) ||
+#endif
                     (localCommand is _Commands.Stub))
                 {
                     command = localCommand;
@@ -15914,8 +15916,10 @@ namespace Eagle._Components.Public
                         name, lookupFlags, ref localCommand,
                         ref localError) == ReturnCode.Ok)
                 {
-                    if ((localCommand is _Commands.Automatic) ||
-                        (localCommand is _Commands.Ensemble) ||
+                    if ((localCommand is _Commands.Ensemble) ||
+#if EMIT
+                        (localCommand is _Commands.Automatic) ||
+#endif
                         (localCommand is _Commands.Stub))
                     {
                         command = localCommand;
@@ -22152,6 +22156,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if EMIT
         public ReturnCode AddAutomaticCommands(
             IPlugin plugin,                            /* in */
             IClientData clientData,                    /* in */
@@ -22250,6 +22255,7 @@ namespace Eagle._Components.Public
                 }
             }
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -24241,6 +24247,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISubCommand
+#if EMIT
         public ReturnCode AddSubCommands(
             string name,                          /* in */
             Type type,                            /* in: OPTIONAL with "object" */
@@ -24365,6 +24372,7 @@ namespace Eagle._Components.Public
 
             return AddCommand(command, clientData, ref token, ref result);
         }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

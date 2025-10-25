@@ -532,6 +532,10 @@ namespace Eagle._Constants
             "OFFICIAL_BINARY",
 #endif
 
+#if OPEN_SSL
+            "OPEN_SSL",
+#endif
+
 #if PARSE_CACHE
             "PARSE_CACHE",
 #endif

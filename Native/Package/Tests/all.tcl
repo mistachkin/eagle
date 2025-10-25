@@ -181,6 +181,25 @@ namespace eval ::Garuda {
   # NOTE: Stolen from "helper.tcl" because this procedure is needed prior to
   #       the Garuda package being loaded.
   #
+  proc shouldForceCoreClr {} {
+    global env
+
+    #
+    # NOTE: Assume that the .NET Framework is only available on Windows
+    #       -AND- that Mono will never support the native hosting APIs,
+    #       hence the only option left is the .NET (Core?) runtime.
+    #
+    if {[info exists env(FORCE_DOTNET_CORE)] || ![isWindows]} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  #
+  # NOTE: Stolen from "helper.tcl" because this procedure is needed prior to
+  #       the Garuda package being loaded.
+  #
   proc hasUseCoreClr { {varName ""} {default ""} } {
     global env
     variable useCoreClr
@@ -231,15 +250,8 @@ namespace eval ::Garuda {
   #       the Garuda package being loaded.
   #
   proc isDotNetCore { {default ""} } {
-    global env
-
-    if {[info exists env(FORCE_DOTNET_CORE)] || ![isWindows]} then {
-      #
-      # NOTE: Assume that the .NET Framework is only available on Windows
-      #       -AND- that Mono will never support the native hosting APIs,
-      #       hence the only option left is the .NET (Core?) runtime.
-      #
-      return true
+    if {[shouldForceCoreClr]} then {
+      return true; # FORCED
     }
 
     if {[hasUseCoreClr result]} then {
@@ -452,6 +464,7 @@ namespace eval ::Garuda {
 
   proc setupTestPackageConfigurations { force } {
     variable testPackageConfigurations; # DEFAULT: {DebugDll ReleaseDll ""}
+    variable testUseCoreClr
 
     if {$force || ![info exists testPackageConfigurations]} then {
       #
@@ -473,6 +486,18 @@ namespace eval ::Garuda {
         lappend testPackageConfigurations ReleaseDll${::test_flags(-suffix)}
         lappend testPackageConfigurations Debug${::test_flags(-suffix)}
         lappend testPackageConfigurations Release${::test_flags(-suffix)}
+      }
+
+      #
+      # NOTE: If we are dealing with the CoreCLR runtime, also append those
+      #       specific configurations (with their suffixes) as well.
+      #
+      if {[string is true -strict $testUseCoreClr]} then {
+        lappend testPackageConfigurations \
+            DebugNetStandard2X DebugNetStandard21 DebugNetStandard20
+
+        lappend testPackageConfigurations \
+            ReleaseNetStandard2X ReleaseNetStandard21 ReleaseNetStandard20
       }
 
       lappend testPackageConfigurations DebugDll ReleaseDll

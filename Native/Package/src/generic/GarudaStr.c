@@ -20,6 +20,8 @@
 
 #if defined(_WIN32)
 #  include <windows.h>		    /* NOTE: For LoadLibraryW, etc. */
+#else
+#  include <pthread.h>		    /* NOTE: For pthread_self, etc. */
 #endif
 
 #if defined(USE_CORE_CLR)

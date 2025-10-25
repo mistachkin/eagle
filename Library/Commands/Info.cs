@@ -261,7 +261,13 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            result = new StringList(interpreter.SavedShellArguments);
+#if SHELL
+                                            result = new StringList(
+                                                interpreter.SavedShellArguments);
+#else
+                                            result = "not implemented";
+                                            code = ReturnCode.Error;
+#endif
                                         }
                                         else
                                         {

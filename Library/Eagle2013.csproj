@@ -126,7 +126,6 @@
     <Compile Include="Commands\Append.cs" />
     <Compile Include="Commands\Apply.cs" />
     <Compile Include="Commands\Array.cs" />
-    <Compile Include="Commands\Automatic.cs" />
     <Compile Include="Commands\Base64.cs" />
     <Compile Include="Commands\Bgerror.cs" />
     <Compile Include="Commands\Break.cs" />
@@ -214,7 +213,6 @@
     <Compile Include="Commands\Split.cs" />
     <Compile Include="Commands\String.cs" />
     <Compile Include="Commands\Stub.cs" />
-    <Compile Include="Commands\SubDelegate.cs" />
     <Compile Include="Commands\Subst.cs" />
     <Compile Include="Commands\Switch.cs" />
     <Compile Include="Commands\Tell.cs" />
@@ -1385,6 +1383,9 @@
     <DefineConstants>$(DefineConstants);USE_NAMESPACES</DefineConstants>
   </PropertyGroup>
   <!-- BEGIN Eagle Enterprise Edition SECTION -->
+  <PropertyGroup Condition="'$(EagleOpenSsl)' != '' And '$(EagleOpenSsl)' != 'false'">
+    <DefineConstants>$(DefineConstants);OPEN_SSL</DefineConstants>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(EagleObfuscation)' != '' And '$(EagleObfuscation)' != 'false'">
     <DefineConstants>$(DefineConstants);OBFUSCATION</DefineConstants>
   </PropertyGroup>
@@ -1517,6 +1518,8 @@
     <Compile Include="Components\Private\NativeConsole.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleEmit)' != 'false'">
+    <Compile Include="Commands\Automatic.cs" />
+    <Compile Include="Commands\SubDelegate.cs" />
     <Compile Include="Components\Private\DelegateOps.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleEmit)' != 'false' And

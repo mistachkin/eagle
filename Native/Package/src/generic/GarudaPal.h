@@ -19,6 +19,10 @@
 
 #if !defined(_WIN32)
 
+#ifndef _Pal_Atomic
+#define _Pal_Atomic _Atomic
+#endif
+
 #ifndef _CONST_DEFINED
 #define _CONST_DEFINED
 #define CONST const
@@ -214,6 +218,13 @@ typedef void *HMODULE;
 		((HRESULT)((((unsigned int)(SEVERITY_ERROR)) << 31) | \
 		(FACILITY_CUSTOMER_CRT) | ((x) & 0xFFFF)))
 #endif
+
+#else /* defined(_WIN32) */
+
+#ifndef _Pal_Atomic
+#define _Pal_Atomic
+#endif
+
 #endif /* !defined(_WIN32) */
 
 /*

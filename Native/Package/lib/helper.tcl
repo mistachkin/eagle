@@ -181,6 +181,24 @@ namespace eval ::Garuda {
   #
   # NOTE: Also defined in and used by "all.tcl".
   #
+  proc shouldForceCoreClr {} {
+    global env
+
+    #
+    # NOTE: Assume that the .NET Framework is only available on Windows
+    #       -AND- that Mono will never support the native hosting APIs,
+    #       hence the only option left is the .NET (Core?) runtime.
+    #
+    if {[info exists env(FORCE_DOTNET_CORE)] || ![isWindows]} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  #
+  # NOTE: Also defined in and used by "all.tcl".
+  #
   proc hasUseCoreClr { {varName ""} {default ""} } {
     global env
     variable useCoreClr
@@ -230,15 +248,8 @@ namespace eval ::Garuda {
   # NOTE: Also defined in and used by "all.tcl".
   #
   proc isDotNetCore { {default ""} } {; # NOT USED: DO NOT REMOVE.
-    global env
-
-    if {[info exists env(FORCE_DOTNET_CORE)] || ![isWindows]} then {
-      #
-      # NOTE: Assume that the .NET Framework is only available on Windows
-      #       -AND- that Mono will never support the native hosting APIs,
-      #       hence the only option left is the .NET (Core?) runtime.
-      #
-      return true
+    if {[shouldForceCoreClr]} then {
+      return true; # FORCED
     }
 
     if {[hasUseCoreClr result]} then {
@@ -1162,9 +1173,6 @@ namespace eval ::Garuda {
       set fileName(1) [file join $packagePath \
           [getPackageBinaryFileNameOnly $packageName false]]; # CLR
 
-      set fileName(2) [file join $packagePath \
-          [getPackageBinaryFileNameOnly $packageName true]]; # CoreCLR
-
       if {[isValidFile $fileName(1)]} then {
         maybeLogViaCommand \
             "Found CLR shared library \"$fileName(1)\" (installed)..."
@@ -1174,6 +1182,9 @@ namespace eval ::Garuda {
         maybeLogViaCommand \
             "Missing CLR shared library \"$fileName(1)\" (installed)..."
       }
+
+      set fileName(2) [file join $packagePath \
+          [getPackageBinaryFileNameOnly $packageName true]]; # CoreCLR
 
       if {[isValidFile $fileName(2)]} then {
         maybeLogViaCommand \
@@ -2088,7 +2099,9 @@ namespace eval ::Garuda {
       #       something.  If there is no explicit override set, a default
       #       value of empty string will be used.
       #
-      if {[hasUseCoreClr result]} then {
+      if {[shouldForceCoreClr]} then {
+        set useCoreClr true; # FORCED
+      } elseif {[hasUseCoreClr result]} then {
         set useCoreClr $result
       } else {
         set useCoreClr ""
@@ -2384,6 +2397,8 @@ namespace eval ::Garuda {
         # NOTE: First, add each of the default configurations with the build
         #       suffix appended to them.
         #
+        lappend assemblyConfigurations DebugDll${::test_flags(-suffix)}
+        lappend assemblyConfigurations ReleaseDll${::test_flags(-suffix)}
         lappend assemblyConfigurations Debug${::test_flags(-suffix)}
         lappend assemblyConfigurations Release${::test_flags(-suffix)}
       }
@@ -2403,6 +2418,7 @@ namespace eval ::Garuda {
       #
       # NOTE: Finally, always add the default build configurations last.
       #
+      lappend assemblyConfigurations DebugDll ReleaseDll
       lappend assemblyConfigurations Debug Release ""
     }
 

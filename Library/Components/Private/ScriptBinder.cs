@@ -32,6 +32,9 @@ namespace Eagle._Components.Private
     //       it uses the Binder object contained in the "binder" field of
     //       this class, not the methods of the base class.
     //
+#if SERIALIZATION
+    [Serializable()]
+#endif
     [ObjectId("0e087802-e964-4900-b687-79bbc4332079")]
     internal sealed class ScriptBinder : Binder, IScriptBinder, IHaveInterpreter
     {

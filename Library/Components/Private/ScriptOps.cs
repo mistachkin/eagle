@@ -6038,6 +6038,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if EMIT
         public static ReturnCode HandleDelegateResult(
             Interpreter interpreter,     /* in */
             Delegate @delegate,          /* in */
@@ -6086,6 +6087,7 @@ namespace Eagle._Components.Private
 
             return ReturnCode.Ok;
         }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -8348,6 +8350,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if EMIT
         public static ICommand NewSubDelegateCommand(
             string name,
             IClientData clientData,
@@ -8401,6 +8404,7 @@ namespace Eagle._Components.Private
 
             return command;
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 

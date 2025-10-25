@@ -158,7 +158,7 @@ static LPWSTR packageFileName;
  *       interlocked API functions can be used with it.
  */
 
-static volatile LONG lTclStubs = 0;
+static volatile _Pal_Atomic LONG lTclStubs = 0;
 
 /*
  * NOTE: The Tcl library module handle.  This is needed to pass to the bridge

@@ -260,8 +260,19 @@ HMODULE get_tcl_module_handle(void)
 
     memset(&info, 0, sizeof(Dl_info));
 
+#if defined(USE_TCL_STUBS)
+    /*
+     * HACK: For some reason, Clang on macOS wants to be difficult
+     *       here.  It cannot deduce that "Tcl_CreateInterp" is a
+     *       macro defined via the Tcl stubs mechanism; therefore,
+     *       force the issue.
+     */
+    if (dladdr((void *)tclStubsPtr->tcl_CreateInterp, &info) == 0)
+        return NULL;
+#else
     if (dladdr((void *)Tcl_CreateInterp, &info) == 0)
         return NULL;
+#endif
 
     if (info.dli_fname == NULL)
         return NULL;

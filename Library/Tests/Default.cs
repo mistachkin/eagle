@@ -3978,6 +3978,7 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if EMIT
         public static ReturnCode TestAddStaticSubCommands(
             Interpreter interpreter,
             string name,
@@ -4019,6 +4020,7 @@ namespace Eagle._Tests
                 DelegateFlags.PublicStaticMask, ref token,
                 ref result);
         }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -13183,6 +13185,7 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Methods for AddSubCommands
+#if EMIT
         public ReturnCode TestAddInstanceSubCommands(
             Interpreter interpreter,
             string name,
@@ -13229,6 +13232,7 @@ namespace Eagle._Tests
                 DelegateFlags.PublicInstanceMask, ref token,
                 ref result);
         }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

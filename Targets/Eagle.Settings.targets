@@ -1794,6 +1794,16 @@
     -->
 
     <!--
+        NOTE: Do we want to use OpenSSL-based cryptography APIs on platforms
+              that may require it, e.g. macOS?  By default, this is disabled.
+              If this is enabled, some cryptography primities may be supplied
+              by the installed OpenSSL library.
+    -->
+    <!--
+    <EagleOpenSsl Condition="'$(EagleOpenSsl)' == ''">false</EagleOpenSsl>
+    -->
+
+    <!--
         NOTE: Do we want to use the ObfuscationAttribute class to mark various
               interfaces, classes, and properties as immune from the obfuscation
               processing, if any?  By default, this is enabled.  If this is

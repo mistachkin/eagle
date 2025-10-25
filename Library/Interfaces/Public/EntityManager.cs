@@ -568,6 +568,7 @@ namespace Eagle._Interfaces.Public
             ref Result result
             );
 
+#if EMIT
         ReturnCode AddAutomaticCommands(
             IPlugin plugin,
             IClientData clientData,
@@ -581,6 +582,7 @@ namespace Eagle._Interfaces.Public
             ref LongList tokens,
             ref Result result
             );
+#endif
 
         ReturnCode AddSubCommand(
             string name,
@@ -697,6 +699,7 @@ namespace Eagle._Interfaces.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if EMIT
         ReturnCode AddSubCommands(
             string name, /* commandName */
             Type type,
@@ -718,6 +721,7 @@ namespace Eagle._Interfaces.Public
             ref long token,
             ref Result result
             );
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 

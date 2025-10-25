@@ -11,6 +11,11 @@
 
 using System;
 using System.Collections.Generic;
+
+#if SERIALIZATION
+using System.Runtime.Serialization;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
@@ -24,6 +29,9 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+#if SERIALIZATION
+    [Serializable()]
+#endif
     [ObjectId("e5b4fd82-6b1f-4a20-8074-45629b66c413")]
     internal sealed class TypeChangeTypeCallbackDictionary : Dictionary<Type, ChangeTypeCallback>
     {
@@ -43,6 +51,21 @@ namespace Eagle._Containers.Private
         {
             // do nothing.
         }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Protected Constructors
+#if SERIALIZATION
+        private TypeChangeTypeCallbackDictionary(
+            SerializationInfo info,
+            StreamingContext context
+            )
+            : base(info, context)
+        {
+            // do nothing.
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

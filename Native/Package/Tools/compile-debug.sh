@@ -2,45 +2,39 @@
 
 scriptdir=`dirname "$BASH_SOURCE"`
 extradefs="$@"
+machine=$(uname -m)
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  basedir="/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-x64"
-  # basedir="/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-arm64"
+  if [[ "$machine" == "arm64" ]]; then
+    basedir="/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-arm64"
+  else
+    basedir="/usr/local/share/dotnet/packs/Microsoft.NETCore.App.Host.osx-x64"
+  fi
 else
   basedir="/usr/share/dotnet/packs/Microsoft.NETCore.App.Host.linux-x64"
-fi
-
-if [ -z "${DOTNET_SDK_VERSION:-}" ]; then
-  DOTNET_SDK_VERSION="$(
-    for d in "$basedir"/*/; do
-      name=${d%/}; name=${name##*/}
-      core=${name%%-*}
-      case $core in ''|*[!0-9.]* ) continue ;; esac
-      IFS=. read -r a b c x <<<"$core"
-      stable=0; [[ $name != *-* ]] && stable=1
-      printf '%09d%09d%09d%09d %d %s\n' "${a:-0}" "${b:-0}" "${c:-0}" "${x:-0}" "$stable" "$name"
-    done | sort | tail -n1 | awk '{print $3}'
-  )"
 fi
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
   binsubdir=netcoreapp3.0
   libname=libGarudaCore.dylib
-  # NOTE: No longer works in 10.14+
-  # gccflags="-arch i386 -arch x86_64"
-  gccflags="-arch x86_64"
+  if [[ "$machine" == "arm64" ]]; then
+    gccflags="-arch arm64 -Wno-pointer-sign -D_DARWIN_C_SOURCE=1"
+    dncdir=$basedir/$DOTNET_SDK_VERSION/runtimes/osx-arm64/native
+  else
+    # NOTE: No longer works in 10.14+
+    # gccflags="-arch i386 -arch x86_64"
+    gccflags="-arch x86_64 -Wno-pointer-sign -D_DARWIN_C_SOURCE=1"
+    dncdir=$basedir/$DOTNET_SDK_VERSION/runtimes/osx-x64/native
+  fi
   platlibs=""
-  tcldir=-L/usr/local/opt/tcl-tk/lib
-  dncdir=$basedir/$DOTNET_SDK_VERSION/runtimes/osx-x64/native
-  # For Apple Silicon, use:
-  # dncdir=$basedir/$DOTNET_SDK_VERSION/runtimes/osx-arm64/native
+  tcldir=-L/opt/homebrew/opt/tcl-tk@8/lib
 else
   binsubdir=netcoreapp3.0
   libname=libGarudaCore.so
   gccflags=""
+  dncdir=$basedir/$DOTNET_SDK_VERSION/runtimes/linux-x64/native
   platlibs="-ldl"
   tcldir=-L/usr/lib/x86_64-linux-gnu
-  dncdir=$basedir/$DOTNET_SDK_VERSION/runtimes/linux-x64/native
 fi
 
 if grep -q hostfxr_get_dotnet_environment_info_fn "$dncdir/hostfxr.h" 2>/dev/null; then

@@ -27,13 +27,13 @@ package ifneeded Garuda 1.0 \
     [list source [file join $dir garuda.tcl]]; # NOTE: Auto-detect runtime.
 
 package ifneeded GarudaDotNetFx 1.0 \
-    [list namespace eval ::Garuda {
+    [string map [list %dir% $dir] [list namespace eval ::Garuda {
       variable useCoreClr false
-      uplevel 1 {source [file join $dir garuda.tcl]}
-    }]; # NOTE: Force use of .NET Framework runtime and load extension.
+      uplevel 1 {source [file join {%dir%} garuda.tcl]}
+    }]]; # NOTE: Force use of .NET Framework runtime and load extension.
 
 package ifneeded GarudaDotNetCore 1.0 \
-    [list namespace eval ::Garuda {
+    [string map [list %dir% $dir] [list namespace eval ::Garuda {
       variable useCoreClr true
-      uplevel 1 {source [file join $dir garuda.tcl]}
-    }]; # NOTE: Force use of .NET (Core?) runtime and load extension.
+      uplevel 1 {source [file join {%dir%} garuda.tcl]}
+    }]]; # NOTE: Force use of .NET (Core?) runtime and load extension.

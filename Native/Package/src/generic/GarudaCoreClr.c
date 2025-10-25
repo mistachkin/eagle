@@ -26,6 +26,7 @@
 #  include <windows.h>		/* NOTE: For LoadLibraryW, etc. */
 #else
 #  include <errno.h>		/* NOTE: For errno, etc. */
+#  include <pthread.h>		/* NOTE: For pthread_self, etc. */
 #  include <dlfcn.h>		/* NOTE: For dlopen, dladdr, Dl_info, etc. */
 #endif
 
