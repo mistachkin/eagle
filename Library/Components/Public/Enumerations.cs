@@ -4229,24 +4229,26 @@ namespace Eagle._Components.Public
                                       * path. */
         NoSerialNumber = 0x2000,     /* Skip including any of the volume serial
                                       * number information for a given path. */
-        PerUser = 0x4000,            /* Attempt to include per-user information
+        LinkSerialNumber = 0x4000,   /* Use the link itself to calculate the
+                                      * associated serial number. */
+        PerUser = 0x8000,            /* Attempt to include per-user information
                                       * when extracting metadata from candidate
                                       * paths. */
-        PerProcess = 0x8000,         /* Include process information. */
-        ProcessHashCode = 0x10000,   /* Include unique hash of the process
+        PerProcess = 0x10000,        /* Include process information. */
+        ProcessHashCode = 0x20000,   /* Include unique hash of the process
                                       * executable code. */
-        NoRegistry = 0x20000,        /* Avoid using the Windows registry. */
-        RegistryOnly = 0x40000,      /* Only use the Windows registry. */
-        SerialNumberOnly = 0x80000,  /* Only use the volume serial number. */
+        NoRegistry = 0x40000,        /* Avoid using the Windows registry. */
+        RegistryOnly = 0x80000,      /* Only use the Windows registry. */
+        SerialNumberOnly = 0x100000, /* Only use the volume serial number. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForDefault = 0x100000,
+        ForDefault = 0x1000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region WARNING: FOR HARPY USE ONLY
-        ForHarpy = 0x200000,
+        ForHarpy = 0x2000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 

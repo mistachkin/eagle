@@ -819,6 +819,8 @@ namespace Eagle._Commands
 #endif
                                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-security", null),
                                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nosecurity", null),
+                                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nocorepolicies", null),
+                                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nopluginpolicies", null),
                                             Option.CreateEndOfOptions()
                                         });
 
@@ -909,6 +911,16 @@ namespace Eagle._Commands
 
                                                         if (options.IsPresent("-nofunctions"))
                                                             noFunctions = true;
+
+                                                        bool noCorePolicies = false;
+
+                                                        if (options.IsPresent("-nocorepolicies"))
+                                                            noCorePolicies = true;
+
+                                                        bool noPluginPolicies = false;
+
+                                                        if (options.IsPresent("-nopluginpolicies"))
+                                                            noPluginPolicies = true;
 
                                                         bool variables = true;
 
@@ -1027,7 +1039,7 @@ namespace Eagle._Commands
 #if NATIVE && TCL
                                                             , out findFlags, out loadFlags
 #endif
-                                                            );
+                                                        );
 
                                                         //
                                                         // NOTE: Enable full namespace support?
@@ -1173,6 +1185,9 @@ namespace Eagle._Commands
                                                         if (noFunctions)
                                                             createFlags |= CreateFlags.NoFunctions;
 
+                                                        if (noCorePolicies)
+                                                            createFlags |= CreateFlags.NoCorePolicies;
+
                                                         if (FlagOps.HasFlags(sdkType, SdkType.Security, true))
                                                             createFlags |= CreateFlags.SecuritySdk;
 
@@ -1192,6 +1207,9 @@ namespace Eagle._Commands
                                                             //
                                                             initializeFlags |= InitializeFlags.NoTraceAutoPath;
                                                         }
+
+                                                        if (noPluginPolicies)
+                                                            pluginFlags |= PluginFlags.NoPolicies;
 
                                                         code = interpreter.CreateInterpreter(
                                                             path, clientData, ruleSet, createFlags,

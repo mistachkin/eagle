@@ -8520,9 +8520,71 @@ namespace Eagle._Components.Private
         {
             try
             {
+                bool checkLinks = FlagOps.HasFlags(
+                    flags, PathFlags.LinkSerialNumber, true);
+
                 UNM.linux_stat buf;
 
-                if (UNM.linux_xstat(0, path, out buf) == 0)
+                if ((!checkLinks &&
+                    (UNM.linux_xstat(0, path, out buf) == 0)) ||
+                    (checkLinks &&
+                    (UNM.linux_lxstat(0, path, out buf) == 0)))
+                {
+                    //
+                    // TODO: Possibly revisit this algorithm in the future.
+                    //
+                    UlongList list = new UlongList();
+
+                    list.Add(buf.st_dev);
+
+                    if (FlagOps.HasFlags(
+                            flags, PathFlags.StableSerialNumber, true))
+                    {
+                        list.Add(buf.st_size);
+                    }
+                    else
+                    {
+                        list.Add(buf.st_ino);
+                    }
+
+                    serialNumber = CalculateSerialNumber(
+                        path, flags, list.ToArray());
+
+                    return true;
+                }
+                else
+                {
+                    error = NativeOps.GetErrorMessage();
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool MacintoshTryGetSerialNumber(
+            string path,
+            PathFlags flags,
+            ref string serialNumber,
+            ref Result error
+            )
+        {
+            try
+            {
+                bool checkLinks = FlagOps.HasFlags(
+                    flags, PathFlags.LinkSerialNumber, true);
+
+                UNM.macos_stat_buf buf;
+
+                if ((!checkLinks &&
+                    (UNM.macos_stat(path, out buf) == 0)) ||
+                    (checkLinks &&
+                    (UNM.macos_lstat(path, out buf) == 0)))
                 {
                     //
                     // TODO: Possibly revisit this algorithm in the future.
@@ -8582,6 +8644,12 @@ namespace Eagle._Components.Private
             if (PlatformOps.IsLinuxOperatingSystem())
             {
                 return LinuxTryGetSerialNumber(
+                    path, flags, ref serialNumber, ref error);
+            }
+
+            if (PlatformOps.IsMacintoshOperatingSystem())
+            {
+                return MacintoshTryGetSerialNumber(
                     path, flags, ref serialNumber, ref error);
             }
 #endif
