@@ -10,6 +10,12 @@
  */
 
 using System;
+
+#if NET_STANDARD_20
+using System.Security.Cryptography.Pkcs;
+using System.Security.Cryptography.X509Certificates;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Containers.Public;
@@ -17,7 +23,7 @@ using Eagle._Containers.Public;
 namespace Eagle._Components.Private
 {
     [ObjectId("51860eb6-c91c-484b-a41a-8663909108f6")]
-    internal static class WinTrustDotNet
+    internal static partial class WinTrustDotNet
     {
         #region Private Constants
         //
@@ -26,6 +32,97 @@ namespace Eagle._Components.Private
         //       compile-time option is disabled.
         //
         private const uint ERROR_SUCCESS = 0;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Methods
+        private static bool MaybeAddError(
+            ref ResultList errors, /* in, out */
+            Result error           /* in */
+            )
+        {
+            if (error == null)
+                return false;
+
+            if (errors == null)
+                errors = new ResultList();
+
+            errors.Add(error);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeMatchTrustedFileHash(
+            Interpreter interpreter,  /* in: OPTIONAL */
+            StringList trustedHashes, /* in: OPTIONAL */
+            string fileName,          /* in */
+            ref ResultList errors     /* in, out */
+            )
+        {
+            if (!RuntimeOps.ShouldForceTrustedHashes() &&
+                !CommonOps.Runtime.IsDotNetCore())
+            {
+                MaybeAddError(ref errors,
+                    "not supported on this platform");
+
+                return false;
+            }
+
+            if (!RuntimeOps.ShouldUseTrustedHashes())
+            {
+                MaybeAddError(ref errors,
+                    "trusted hashes are disabled");
+
+                return false;
+            }
+
+            Result localError = null;
+
+            if (!PolicyOps.IsTrustedFile(
+                    interpreter, trustedHashes, fileName,
+                    ref localError))
+            {
+                MaybeAddError(ref errors, String.Format(
+                    "file hash not trusted: {0}", localError));
+
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool TryVerifyPeFileSignature(
+            string fileName,      /* in */
+            ref ResultList errors /* in, out */
+            )
+        {
+#if NET_STANDARD_20
+            try
+            {
+                VerificationResult result = VerifyPeFileSignature(
+                    fileName); /* throw */
+
+                if ((result != null) && result.AllValid)
+                    return true;
+
+                MaybeAddError(ref errors, String.Format(
+                    "signature verification failed: {0}", result));
+            }
+            catch (Exception e)
+            {
+                MaybeAddError(ref errors, e);
+            }
+#else
+            MaybeAddError(ref errors,
+                "not supported on this platform");
+#endif
+
+            return false;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -65,6 +162,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        //
+        // BUGBUG: There was no way to verify the trust status of
+        //         an executable file signed with an Authenticode
+        //         certificate when running on the .NET Core 2.x
+        //         (or 3.x) runtimes, unless we also happen to be
+        //         running on Windows.  This method should not be
+        //         called when running on Windows or when running
+        //         on the .NET Framework.
+        //
         private static ReturnCode IsFileTrusted(
             Interpreter interpreter,  /* in */
             StringList trustedHashes, /* in */
@@ -78,55 +184,38 @@ namespace Eagle._Components.Private
             ref Result error          /* out */
             )
         {
-            ReturnCode code;
+            ReturnCode code = ReturnCode.Error;
+            ResultList errors = null;
 
             if (String.IsNullOrEmpty(fileName))
             {
-                error = "invalid file name";
-                code = ReturnCode.Error;
+                MaybeAddError(ref errors,
+                    "invalid file name");
 
                 goto done;
             }
 
-            if (!RuntimeOps.ShouldForceTrustedHashes() &&
-                !CommonOps.Runtime.IsDotNetCore())
+            if (TryVerifyPeFileSignature(fileName, ref errors))
             {
-                error = "not supported on this platform";
-                code = ReturnCode.Error;
+                returnValue = (int)ERROR_SUCCESS;
+                code = ReturnCode.Ok;
 
                 goto done;
             }
 
-            //
-            // BUGBUG: There is no way to verify the trust status of
-            //         an executable file signed with an Authenticode
-            //         certificate when running on the .NET Core 2.x
-            //         (or 3.x) runtimes, unless we also happen to be
-            //         running on Windows.  This method should not be
-            //         called when running on Windows.
-            //
-            if (!CommonOps.Environment.DoesVariableExist(
-                    EnvVars.NoTrustedHashes))
+            if (MaybeMatchTrustedFileHash(
+                    interpreter, trustedHashes, fileName, ref errors))
             {
-                if (PolicyOps.IsTrustedFile(
-                        interpreter, trustedHashes,
-                        fileName, ref error))
-                {
-                    returnValue = (int)ERROR_SUCCESS;
-                    code = ReturnCode.Ok;
-                }
-                else
-                {
-                    code = ReturnCode.Error;
-                }
-            }
-            else
-            {
-                error = "trusted hashes are disabled";
-                code = ReturnCode.Error;
+                returnValue = (int)ERROR_SUCCESS;
+                code = ReturnCode.Ok;
+
+                goto done;
             }
 
         done:
+
+            if (errors != null)
+                error = errors;
 
             bool success = (code == ReturnCode.Ok) &&
                 (returnValue == ERROR_SUCCESS);

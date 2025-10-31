@@ -14,6 +14,7 @@ using System;
 #if DRAWING
 using System.Drawing;
 using System.Drawing.Text;
+using System.IO;
 #endif
 
 using System.Threading;
@@ -94,8 +95,7 @@ namespace Eagle._Components.Private
             //       alone.
             //
             private static FormEventResultTriplet DefaultResult =
-                new AnyTriplet<bool?, bool?, ReturnCode?>(
-                    null, true, null);
+                new AnyTriplet<bool?, bool?, ReturnCode?>(null, true, null);
             #endregion
 
             ///////////////////////////////////////////////////////////////////
@@ -476,8 +476,7 @@ namespace Eagle._Components.Private
 
                     thread = ShellOps.CreateInteractiveLoopThread(
                         GetInterpreterFromSender(sender, false),
-                        InteractiveLoopData.Create(), true,
-                        ref error);
+                        InteractiveLoopData.Create(), true, ref error);
 
                     if (thread == null)
                     {
@@ -579,6 +578,7 @@ namespace Eagle._Components.Private
         //
         private static int DefaultWidth = 600;
         private static int DefaultHeight = 300;
+        private static int BiggerFontSizeMultiplier = 2;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -597,11 +597,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if DRAWING
+        //
+        // NOTE: These are purposely set to the "legacy" defaults,
+        //       which may not be ideal in high-DPI environments.
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static bool UseAutoScaleDpi = false;
+        private static SizeF? ForceAutoScaleDpi = null;
+        private static SizeF? FallbackAutoScaleDpi = null;
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // HACK: These are purposely not read-only.
         //
         private static bool UseActiveInterpreter = false;
         private static bool AllowHotKeys = false;
+        private static bool StrictStopThread = false;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -665,6 +680,15 @@ namespace Eagle._Components.Private
             bool empty = HostOps.HasEmptyContent(detailFlags);
             StringPairList localList = new StringPairList();
 
+            int localProcessRunning = Interlocked.CompareExchange(
+                ref ProcessRunning, 0, 0);
+
+            if (empty || (localProcessRunning != 0))
+            {
+                localList.Add("ProcessRunning",
+                    localProcessRunning.ToString());
+            }
+
             if (empty || (LoopWaitMicroseconds != 0))
             {
                 localList.Add("LoopWaitMicroseconds",
@@ -677,14 +701,21 @@ namespace Eagle._Components.Private
                     RequestWaitMilliseconds.ToString());
             }
 
-            int localProcessRunning = Interlocked.CompareExchange(
-                ref ProcessRunning, 0, 0);
+            if (empty || (DisposeSleepMilliseconds != 0))
+                localList.Add("DisposeSleepMilliseconds",
+                    DisposeSleepMilliseconds.ToString());
 
-            if (empty || (localProcessRunning != 0))
-            {
-                localList.Add("ProcessRunning",
-                    localProcessRunning.ToString());
-            }
+            if (empty || (DisposeMinimumMilliseconds != null))
+                localList.Add("DisposeMinimumMilliseconds",
+                    (DisposeMinimumMilliseconds != null) ?
+                        ((int)DisposeMinimumMilliseconds).ToString() :
+                        FormatOps.DisplayNull);
+
+            if (empty || (DisposeMaximumMilliseconds != null))
+                localList.Add("DisposeMaximumMilliseconds",
+                    (DisposeMaximumMilliseconds != null) ?
+                        ((int)DisposeMaximumMilliseconds).ToString() :
+                        FormatOps.DisplayNull);
 
             if (empty || NoComplain)
                 localList.Add("NoComplain", NoComplain.ToString());
@@ -695,11 +726,18 @@ namespace Eagle._Components.Private
             if (empty || ForceStayOpen)
                 localList.Add("ForceStayOpen", ForceStayOpen.ToString());
 
+            if (empty || TraceWait)
+                localList.Add("TraceWait", TraceWait.ToString());
+
             if (empty || (DefaultWidth != 0))
                 localList.Add("DefaultWidth", DefaultWidth.ToString());
 
             if (empty || (DefaultHeight != 0))
                 localList.Add("DefaultHeight", DefaultHeight.ToString());
+
+            if (empty || (BiggerFontSizeMultiplier != 0))
+                localList.Add("BiggerFontSizeMultiplier",
+                    BiggerFontSizeMultiplier.ToString());
 
             if (empty || (DefaultFontSize != 0.0f))
                 localList.Add("DefaultFontSize", DefaultFontSize.ToString());
@@ -710,6 +748,23 @@ namespace Eagle._Components.Private
             if (empty || DefaultCanClose)
                 localList.Add("DefaultCanClose", DefaultCanClose.ToString());
 
+#if DRAWING
+            if (empty || UseAutoScaleDpi)
+                localList.Add("UseAutoScaleDpi", UseAutoScaleDpi.ToString());
+
+            if (empty || (ForceAutoScaleDpi != null))
+                localList.Add("ForceAutoScaleDpi",
+                    (ForceAutoScaleDpi != null) ?
+                        ((SizeF)ForceAutoScaleDpi).ToString() :
+                        FormatOps.DisplayNull);
+
+            if (empty || (FallbackAutoScaleDpi != null))
+                localList.Add("FallbackAutoScaleDpi",
+                    (FallbackAutoScaleDpi != null) ?
+                        ((SizeF)FallbackAutoScaleDpi).ToString() :
+                        FormatOps.DisplayNull);
+#endif
+
             if (empty || UseActiveInterpreter)
             {
                 localList.Add("UseActiveInterpreter",
@@ -718,6 +773,9 @@ namespace Eagle._Components.Private
 
             if (empty || AllowHotKeys)
                 localList.Add("AllowHotKeys", AllowHotKeys.ToString());
+
+            if (empty || StrictStopThread)
+                localList.Add("StrictStopThread", StrictStopThread.ToString());
 
 #if NATIVE && WINDOWS && TEST
             if (empty || (ownerWindowType != NativeWindowType.None))
@@ -966,34 +1024,6 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Windows.Forms.Form Event Handlers
-#if DRAWING
-        private static void HandleResize(
-            object sender, /* in */
-            EventArgs e    /* in */
-            )
-        {
-            //
-            // HACK: If the status thread is getting read to close
-            //       the form, skip doing anything else.
-            //
-            Interpreter interpreter = GetInterpreterFromSender(
-                sender, false);
-
-            if (interpreter == null)
-                return;
-
-            Form form = GetFormFromSender(sender, false);
-
-            if (form == null)
-                return;
-
-            FormOps.ResizeControl(
-                FormOps.GetFirstControl(form), form.ClientSize);
-        }
-#endif
-
-        ///////////////////////////////////////////////////////////////////////
-
         private static void HandleKeyUp(
             object sender, /* in */
             KeyEventArgs e /* in */
@@ -1045,7 +1075,7 @@ namespace Eagle._Components.Private
             if (interpreter == null)
                 return;
 
-            StopThreadOrMaybeComplain(interpreter, true, true);
+            StopThreadOrMaybeComplain(interpreter, null, true);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1632,7 +1662,10 @@ namespace Eagle._Components.Private
                         {
                             success = true;
 
+                            /* SET */
                             interpreter.StatusStartEventName = startEventName;
+
+                            /* SET */
                             interpreter.StatusDoneEventName = doneEventName;
                         }
                         else
@@ -1725,6 +1758,22 @@ namespace Eagle._Components.Private
             // TODO: Use Mono detection here?
             //
             return DisposeMaximumMilliseconds;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool GetSynchronous(
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool? synchronous        /* in: OPTIONAL */
+            )
+        {
+            if (synchronous != null)
+                return (bool)synchronous;
+
+            if (interpreter != null)
+                return !interpreter.IsStatusThread();
+
+            return false; /* FAIL-SAFE: No deadlock. */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1884,7 +1933,7 @@ namespace Eagle._Components.Private
 
         public static ReturnCode StopThread(
             Interpreter interpreter, /* in */
-            bool synchronous         /* in */
+            bool? synchronous        /* in */
             )
         {
             Result error = null;
@@ -1896,7 +1945,7 @@ namespace Eagle._Components.Private
 
         public static ReturnCode StopThread(
             Interpreter interpreter, /* in */
-            bool synchronous,        /* in */
+            bool? synchronous,       /* in */
             ref Result error         /* out */
             )
         {
@@ -1923,26 +1972,64 @@ namespace Eagle._Components.Private
                         return ReturnCode.Error;
                     }
 
+                    bool localSynchronous = GetSynchronous(
+                        interpreter, synchronous);
+
+                    Thread thread = interpreter.StatusThread;
+
+                    if (localSynchronous && (thread != null) &&
+                        (thread == Thread.CurrentThread))
+                    {
+                        error = "cannot wait synchronously on current thread";
+                        return ReturnCode.Error;
+                    }
+
                     string doneEventName = interpreter.StatusDoneEventName;
 
                     if (doneEventName == null)
                     {
-                        error = "invalid status done event name";
-                        return ReturnCode.Error;
+                        if (thread != null)
+                        {
+                            //
+                            // HACK: This "error condition" is not super
+                            //       important; however, it can be nice
+                            //       to see a trace message when it has
+                            //       been hit, since it should be quite
+                            //       rare.  Meanwhile, it also purposely
+                            //       updates the callers error message
+                            //       so they can see it too, even upon a
+                            //       nominal "successful" result.
+                            //
+                            error = "invalid status done event name";
+
+                            TraceOps.DebugTrace(String.Format(
+                                "StopThread: error = {0}",
+                                FormatOps.WrapOrNull(error)),
+                                typeof(StatusFormOps).Name,
+                                TracePriority.StatusDebug);
+
+                            return StrictStopThread ?
+                                ReturnCode.Error : ReturnCode.Ok;
+                        }
+                        else
+                        {
+                            return ReturnCode.Ok;
+                        }
                     }
 
                     bool success = false;
 
+                    /* DISABLE */
                     interpreter.StatusDoneEventName = null;
 
                     try
                     {
-                        doneEvent = ThreadOps.OpenEvent(doneEventName);
+                        doneEvent = ThreadOps.CreateEvent(doneEventName);
 
                         if (doneEvent == null)
                         {
                             error = String.Format(
-                                "cannot signal done event {0}",
+                                "cannot create done event {0}",
                                 FormatOps.WrapOrNull(doneEventName));
 
                             return ReturnCode.Error;
@@ -1961,10 +2048,8 @@ namespace Eagle._Components.Private
                             return ReturnCode.Error;
                         }
 
-                        if (synchronous)
+                        if (localSynchronous)
                         {
-                            Thread thread = interpreter.StatusThread;
-
                             try
                             {
                                 /* NO RESULT */
@@ -1979,6 +2064,14 @@ namespace Eagle._Components.Private
                                 interpreter.MaybeResetStatusThread(
                                     thread, true);
                             }
+
+                            //
+                            // HACK: At this point, we SHOULD only
+                            //       be waiting for the thread to
+                            //       exit, so we can drop the lock.
+                            //
+                            interpreter.InternalExitLock(
+                                ref locked); /* TRANSACTIONAL */
 
                             //
                             // HACK: On Mono, always wait a minimum of
@@ -1999,8 +2092,32 @@ namespace Eagle._Components.Private
                     {
                         if (!success)
                         {
-                            /* RESTORE */
-                            interpreter.StatusDoneEventName = doneEventName;
+                            interpreter.InternalHardTryLock(
+                                ref locked); /* TRANSACTIONAL */
+
+                            //
+                            // HACK: At this point, it does not
+                            //       really matter if we got the
+                            //       lock again, because we are
+                            //       handling a rare (?) failure
+                            //       and we need to restore the
+                            //       previous state.
+                            //
+                            if (!locked)
+                            {
+                                TraceOps.LockTrace("StopThread",
+                                    typeof(StatusFormOps).Name,
+                                    false, TracePriority.LockWarning,
+                                    interpreter.MaybeWhoHasLock());
+                            }
+
+                            //
+                            // WARNING: This method will only reset
+                            //          the "done" event name if it
+                            //          is still null at this point.
+                            //
+                            interpreter.MaybeRestoreStatusDoneEventName(
+                                doneEventName);
                         }
                     }
                 }
@@ -2026,7 +2143,7 @@ namespace Eagle._Components.Private
 
         private static void StopThreadOrMaybeComplain(
             Interpreter interpreter, /* in */
-            bool synchronous         /* in */
+            bool? synchronous        /* in */
             )
         {
             /* NO RESULT */
@@ -2038,7 +2155,7 @@ namespace Eagle._Components.Private
 
         private static void StopThreadOrMaybeComplain(
             Interpreter interpreter, /* in */
-            bool synchronous,        /* in */
+            bool? synchronous,       /* in */
             bool noComplain          /* in */
             )
         {
@@ -2107,7 +2224,7 @@ namespace Eagle._Components.Private
 
         public static ReturnCode Clear(
             Interpreter interpreter, /* in */
-            bool asynchronous,       /* in */
+            bool? synchronous,       /* in */
             ref Result error         /* out */
             )
         {
@@ -2127,12 +2244,19 @@ namespace Eagle._Components.Private
                 //       from using the text box via its message
                 //       loop *after* this check and *before* we
                 //       actually interact with the text box.
+                //       In that particular case, everything is
+                //       fine because you cannot logically clear
+                //       a status text box that no longer exists.
+                //       Furthermore, the FormOps methods are
+                //       hardened against exceptions, including
+                //       those involving WinForm disposal.
                 //
                 if (levels == SecondaryLevels)
                 {
-                    return FormOps.ClearText(
-                        GetTextBox(interpreter),
-                        asynchronous, ref error);
+                    return FormOps.ClearText(GetTextBox(
+                        interpreter), !GetSynchronous(
+                        interpreter, synchronous),
+                        ref error);
                 }
                 else
                 {
@@ -2159,7 +2283,7 @@ namespace Eagle._Components.Private
         public static ReturnCode Report(
             Interpreter interpreter, /* in */
             string text,             /* in */
-            bool asynchronous,       /* in */
+            bool? synchronous,       /* in */
             ref Result error         /* out */
             )
         {
@@ -2179,12 +2303,18 @@ namespace Eagle._Components.Private
                 //       from using the text box via its message
                 //       loop *after* this check and *before* we
                 //       actually interact with the text box.
+                //       In that particular case, everything is
+                //       fine because you cannot logically clear
+                //       a status text box that no longer exists.
+                //       Furthermore, the FormOps methods are
+                //       hardened against exceptions, including
+                //       those involving WinForm disposal.
                 //
                 if (levels == SecondaryLevels)
                 {
-                    return FormOps.AppendToText(
-                        GetTextBox(interpreter), text,
-                        asynchronous, ref error);
+                    return FormOps.AppendToText(GetTextBox(
+                        interpreter), text, !GetSynchronous(
+                        interpreter, synchronous), ref error);
                 }
                 else
                 {
@@ -2223,9 +2353,11 @@ namespace Eagle._Components.Private
                 textBox = new TextBox();
 
                 textBox.ReadOnly = true;
-                textBox.AutoSize = true;
+                textBox.AutoSize = false;
                 textBox.Multiline = true;
+                textBox.WordWrap = false;
                 textBox.ScrollBars = ScrollBars.Both;
+                textBox.Dock = DockStyle.Fill;
 
 #if DRAWING
                 textBox.Font = MakeFont(
@@ -2267,6 +2399,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if DRAWING
+        private static SizeF? GetAutoScaleDpi(
+            Control control /* in */
+            )
+        {
+            SizeF? result = ForceAutoScaleDpi;
+
+            if (result != null)
+                return result;
+
+            result = FallbackAutoScaleDpi;
+
+            if (control == null)
+                return result;
+
+            using (Graphics graphics = control.CreateGraphics())
+            {
+                if (graphics == null)
+                    return result;
+
+                return new SizeF(graphics.DpiX, graphics.DpiY);
+            }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static ReturnCode Create(
             string text,         /* in: OPTIONAL */
             object tag,          /* in: OPTIONAL */
@@ -2292,6 +2451,19 @@ namespace Eagle._Components.Private
 
                 localForm = new Form();
 
+#if DRAWING
+                if (UseAutoScaleDpi)
+                {
+                    SizeF? dpi = GetAutoScaleDpi(localForm);
+
+                    if (dpi != null)
+                    {
+                        localForm.AutoScaleDimensions = (SizeF)dpi;
+                        localForm.AutoScaleMode = AutoScaleMode.Dpi;
+                    }
+                }
+#endif
+
                 localForm.SuspendLayout();
                 localForm.Controls.Add(localTextBox);
                 success[0] = true;
@@ -2303,13 +2475,6 @@ namespace Eagle._Components.Private
                 localForm.Width = DefaultWidth;
                 localForm.Height = DefaultHeight;
                 localForm.TopMost = topMost;
-
-#if DRAWING
-                FormOps.ResizeControl(
-                    localTextBox, localForm.ClientSize);
-
-                localForm.Resize += new EventHandler(HandleResize);
-#endif
 
                 localForm.KeyUp += new KeyEventHandler(HandleKeyUp);
 
@@ -2330,10 +2495,11 @@ namespace Eagle._Components.Private
                     }
 
 #if DRAWING
-                    Icon icon = new Icon(
-                        AssemblyOps.GetIconStream());
-
-                    localForm.Icon = icon;
+                    using (Stream stream = AssemblyOps.GetIconStream())
+                    {
+                        if (stream != null)
+                            localForm.Icon = new Icon(stream);
+                    }
 #endif
                 }
 #endif
@@ -2364,7 +2530,7 @@ namespace Eagle._Components.Private
 
                 if (!success[1] && (localForm != null))
                 {
-                    localForm.Close();
+                    localForm.Dispose();
                     localForm = null;
                 }
             }
@@ -2381,12 +2547,12 @@ namespace Eagle._Components.Private
             )
         {
             if (emSize != null)
-                return (float)emSize * 2;
+                return (float)emSize * BiggerFontSizeMultiplier;
 
             if (font == null)
                 return DefaultFontSize;
 
-            return font.Size * 2;
+            return font.Size * BiggerFontSizeMultiplier;
         }
 
         ///////////////////////////////////////////////////////////////////////

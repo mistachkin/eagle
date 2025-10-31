@@ -438,6 +438,10 @@ memberName ShellMainCore methodType Method methodName ShellMainCore\
 callingConvention Standard returnType EComP.ExitCode parameterTypes\
 {EComP.Interpreter EIP.IShellCallbackData EIP.IClientData\
 {System.Collections.Generic.IEnumerable`1[System.String]} System.Boolean\
+System.Boolean EComP.Result&}} {memberType Method memberName ShellMainCore\
+methodType Method methodName ShellMainCore callingConvention Standard\
+returnType EComP.ExitCode parameterTypes {EComP.Interpreter\
+{System.Collections.Generic.IEnumerable`1[System.String]} System.Boolean\
 System.Boolean EComP.Result&}} {memberType Method memberName TryStaticLock\
 methodType Method methodName TryStaticLock callingConvention Standard\
 returnType System.Void parameterTypes System.Boolean&} {memberType Method\

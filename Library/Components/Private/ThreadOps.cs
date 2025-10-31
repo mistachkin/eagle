@@ -2089,6 +2089,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region EventWaitHandle Helper Methods
+        private static EventResetMode GetEventResetMode(
+            bool automatic /* in */
+            )
+        {
+            return automatic ?
+                EventResetMode.AutoReset : EventResetMode.ManualReset;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static EventWaitHandle CreateEvent(
             bool automatic /* in */
             )
@@ -2099,8 +2109,7 @@ namespace Eagle._Components.Private
                 Interlocked.Increment(ref eventActiveCount);
 
                 return new EventWaitHandle(
-                    false, automatic ? EventResetMode.AutoReset :
-                    EventResetMode.ManualReset);
+                    false, GetEventResetMode(automatic));
             }
             catch (Exception e)
             {
@@ -2136,8 +2145,7 @@ namespace Eagle._Components.Private
                 if (ShouldUseNamedEvents())
                 {
                     NamedEventWaitHandle @event = new NamedEventWaitHandle(
-                        false, automatic ? EventResetMode.AutoReset :
-                        EventResetMode.ManualReset, name);
+                        false, GetEventResetMode(automatic), name);
 
                     AddNamedEventForCreate(name, @event);
 
@@ -2146,8 +2154,7 @@ namespace Eagle._Components.Private
                 else
                 {
                     return new EventWaitHandle(
-                        false, automatic ? EventResetMode.AutoReset :
-                        EventResetMode.ManualReset, name);
+                        false, GetEventResetMode(automatic), name);
                 }
             }
             catch (Exception e)

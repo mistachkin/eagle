@@ -2189,6 +2189,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if NATIVE && WINDOWS
+        public void AttachOrOpenNativeConsole(
+            bool ignoreOpen, /* in */
+            bool attach,     /* in */
+            bool force       /* in */
+            )
+        {
+            if (!ignoreOpen && NativeConsole.IsOpen())
+                return;
+
+            hostCreateFlags |= HostCreateFlags.EmbeddedConsoleUse;
+
+            if (!attach)
+                hostCreateFlags &= ~HostCreateFlags.AttachConsole;
+
+            if (force)
+                hostCreateFlags |= HostCreateFlags.ForceConsole;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public ReturnCode MaybeSetRuleSet(
             IRuleSet ruleSet, /* in */
             ref Result error  /* out */

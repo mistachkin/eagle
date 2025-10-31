@@ -14,7 +14,9 @@
     <tags>automation console database dynamic extensibility functional integration interop interpreter mono msbuild parser plugin powershell reflection scripting sockets tcl/tk winforms wix wpf</tags>
     <copyright>Copyright &#x00A9; 2007-2012 by Joe Mistachkin.  All rights reserved.</copyright>
     <dependencies>
-      <group targetFramework="netstandard2.1" />
+      <group targetFramework="netstandard2.1">
+        <dependency id="System.Security.Cryptography.Pkcs" version="[7.0.3,8.0.0)" />
+      </group>
     </dependencies>
   </metadata>
   <files>

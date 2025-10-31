@@ -1355,7 +1355,7 @@ namespace Eagle._Components.Public
         private int statusLevels;
         private int statusDisposed;
         private long statusIterations;
-        private bool statusSynchronous;
+        private bool? statusSynchronous;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -62397,8 +62397,7 @@ namespace Eagle._Components.Public
             }
 
             return StatusFormOps.Clear(
-                this, !GetStatusSynchronous(false, false),
-                ref error);
+                this, GetStatusSynchronous(false, false), ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -62419,16 +62418,15 @@ namespace Eagle._Components.Public
             }
 
             return StatusFormOps.Report(
-                this, text, !GetStatusSynchronous(false, false),
-                ref error);
+                this, text, GetStatusSynchronous(false, false), ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private
-        private bool GetStatusSynchronous(
-            bool dispose,
-            bool stop
+        private bool? GetStatusSynchronous(
+            bool dispose, /* in: Being called via Dispose(), et al? */
+            bool stop     /* in: Being called to stop status thread? */
             )
         {
             if (!dispose && stop &&
@@ -73592,6 +73590,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal bool IsStatusThread()
+        {
+            return IsStatusThread(Thread.CurrentThread);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool IsStatusThread(
+            Thread thread /* in */
+            )
+        {
+            Thread oldThread = Interlocked.CompareExchange(
+                ref statusThread, null, null);
+
+            if (oldThread == null)
+                return false;
+
+            return Object.ReferenceEquals(oldThread, thread);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal Thread StatusThread
         {
             get { return Interlocked.CompareExchange(ref statusThread, null, null); }
@@ -73611,6 +73631,19 @@ namespace Eagle._Components.Public
         {
             get { return Interlocked.CompareExchange(ref statusDoneEventName, null, null); }
             set { Interlocked.Exchange(ref statusDoneEventName, value); }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal bool MaybeRestoreStatusDoneEventName(
+            string value /* in */
+            )
+        {
+            if (value == null)
+                return false;
+
+            return Interlocked.CompareExchange(
+                ref statusDoneEventName, value, null) == null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -79089,7 +79122,7 @@ namespace Eagle._Components.Public
             this.statusLevels = 0;
             this.statusDisposed = 0;
             this.statusIterations = 0;
-            this.statusSynchronous = false;
+            this.statusSynchronous = null;
             this.keyEventMap = null;
 #endif
             #endregion
@@ -90430,6 +90463,21 @@ namespace Eagle._Components.Public
             }
         }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ExitCode ShellMainCore(
+            Interpreter interpreter,  /* in */
+            IEnumerable<string> args, /* in: OPTIONAL */
+            bool initialize,          /* in */
+            bool loop,                /* in */
+            ref Result result         /* in, out */
+            ) /* ENTRY-POINT, THREAD-SAFE, RE-ENTRANT */
+        {
+            return ShellMainCore(
+                interpreter, null, null, args,
+                initialize, loop, ref result);
+        }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -110484,8 +110532,9 @@ namespace Eagle._Components.Public
                 if (empty || (statusIterations != 0))
                     list.Add("StatusIterations", statusIterations.ToString());
 
-                if (empty || statusSynchronous)
-                    list.Add("StatusSynchronous", statusSynchronous.ToString());
+                if (empty || (statusSynchronous != null))
+                    list.Add("StatusSynchronous", (statusSynchronous != null) ?
+                        ((bool)statusSynchronous).ToString() : FormatOps.DisplayNull);
 #endif
 
                 if (empty || (provideEntropy != null))
@@ -121710,7 +121759,7 @@ namespace Eagle._Components.Public
 
 #if WINFORMS
         private void MaybeStopStatusThread(
-            bool synchronous /* in */
+            bool? synchronous /* in */
             )
         {
             //

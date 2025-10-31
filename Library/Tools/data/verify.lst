@@ -502,6 +502,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/Vars.cs
   Eagle/Library/Components/Private/WebOps.cs
   Eagle/Library/Components/Private/WinTrustDotNet.cs
+  Eagle/Library/Components/Private/WinTrustDotNet2.cs
   Eagle/Library/Components/Private/WinTrustMono.cs
   Eagle/Library/Components/Private/WinTrustOps.cs
   Eagle/Library/Components/Private/WindowOps.cs
@@ -3395,6 +3396,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/WebOps.cs
   src/Library/Components/Private/WindowOps.cs
   src/Library/Components/Private/WinTrustDotNet.cs
+  src/Library/Components/Private/WinTrustDotNet2.cs
   src/Library/Components/Private/WinTrustMono.cs
   src/Library/Components/Private/WinTrustOps.cs
   src/Library/Components/Private/XmlOps.cs

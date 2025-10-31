@@ -6944,6 +6944,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if NATIVE && WINDOWS
+        public static ReturnCode AttachOrOpenNativeConsole(
+            bool force,
+            bool attach,
+            ref bool? attached,
+            ref Result error
+            )
+        {
+            return NativeConsole.AttachOrOpen(
+                force, attach, ref attached, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CloseNativeConsole(
+            ref Result error
+            )
+        {
+            return NativeConsole.Close(ref error);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region .NET Core Wrapper Methods
         //
         // HACK: These wrapper methods are primarily for use by the test
@@ -6973,6 +6997,76 @@ namespace Eagle._Components.Public
             )
         {
             return Type.GetType(typeName, throwOnError, ignoreCase);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static Type GetAnyType(
+            Interpreter interpreter, /* in: OPTIONAL */
+            string typeName,         /* in */
+            TypeList objectTypes,    /* in: OPTIONAL */
+            ValueFlags? valueFlags   /* in: OPTIONAL */
+            )
+        {
+            ResultList errors = null;
+
+            return GetAnyType(
+                interpreter, typeName, objectTypes,
+                valueFlags, ref errors);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static Type GetAnyType(
+            Interpreter interpreter, /* in: OPTIONAL */
+            string typeName,         /* in */
+            TypeList objectTypes,    /* in: OPTIONAL */
+            ValueFlags? valueFlags,  /* in: OPTIONAL */
+            ref ResultList errors    /* in, out */
+            )
+        {
+            if (interpreter == null)
+                interpreter = Interpreter.GetAny();
+
+            AppDomain appDomain;
+            CultureInfo cultureInfo;
+
+            if (interpreter != null)
+            {
+                appDomain = interpreter.GetAppDomain();
+                cultureInfo = interpreter.InternalCultureInfo;
+            }
+            else
+            {
+                appDomain = AppDomainOps.GetCurrent();
+                cultureInfo = Value.GetDefaultCulture();
+            }
+
+            //
+            // HACK: Make sure that value of Defaults.ValueFlags
+            //       gets used for the final value flags.
+            //
+            ValueFlags localValueFlags = Value.GetTypeValueFlags(
+                (valueFlags != null) ? (ValueFlags)valueFlags :
+                ValueFlags.None, false, false, false, false);
+
+            Type type = null;
+
+            if (Value.GetAnyType(
+                    interpreter, typeName, objectTypes,
+                    appDomain, localValueFlags, cultureInfo,
+                    ref type, ref errors) == ReturnCode.Ok)
+            {
+                return type;
+            }
+            else
+            {
+                TraceOps.DebugTrace(
+                    (Result)errors, typeof(Utility).Name,
+                    TracePriority.MarshalError);
+
+                return null;
+            }
         }
         #endregion
         #endregion

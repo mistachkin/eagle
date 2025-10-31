@@ -2027,6 +2027,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool ShouldUseTrustedHashes()
+        {
+            return !CommonOps.Environment.DoesVariableExist(
+                EnvVars.NoTrustedHashes);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool ShouldForceTrustedHashes()
         {
             return CommonOps.Environment.DoesVariableExist(

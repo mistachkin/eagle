@@ -95,6 +95,8 @@
     <Deterministic>False</Deterministic>
     <EnableDefaultItems>false</EnableDefaultItems>
     <UseAppHost>false</UseAppHost>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     <EagleBaseIntermediateOutputPath Condition="'$(EagleBaseIntermediateOutputPath)' == ''">false</EagleBaseIntermediateOutputPath>
     <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == '' And '$(EagleNetStandard21)' == 'false'">NetStandard20</EagleConfigurationSuffix>
     <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == '' And '$(EagleNetStandard21)' != 'false'">NetStandard21</EagleConfigurationSuffix>
@@ -449,6 +451,30 @@
 
   <ItemGroup Condition="'$(EagleNetStandard20)' == 'false'">
     <Reference Include="System" />
+  </ItemGroup>
+
+  <!--
+  ******************************************************************************
+  **                      .NET Core Assembly References                       **
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: This is only necessary because the .NET Core runtime does not
+            have built-in checking of Authenticode signed executable files,
+            i.e. which is necessary for non-Windows platforms; therefore,
+            we built our own, based upon several components defined in the
+            following package(s).
+  -->
+  <ItemGroup Condition="'$(EagleNetStandard20)' != 'false' And
+                        '$(EagleNetStandard21)' == 'false' And
+                        '$(EagleNetCoreReferences)' != 'false'">
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="5.0.1" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(EagleNetStandard20)' != 'false' And
+                        '$(EagleNetStandard21)' != 'false' And
+                        '$(EagleNetCoreReferences)' != 'false'">
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
   </ItemGroup>
 
   <!--
