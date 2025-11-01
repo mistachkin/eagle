@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using System.Data;
 #endif
 
+using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 
@@ -2160,11 +2161,144 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: This is for the [exec] command using the currently active
+        //       interpreter.
+        //
+        public static OptionDictionary GetExecOptions()
+        {
+            return GetExecOptions(Interpreter.GetActive());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is for the [exec] command.
+        //
+        public static OptionDictionary GetExecOptions(
+            Interpreter interpreter
+            )
+        {
+            EventFlags eventFlags = (interpreter != null) ?
+                interpreter.EngineEventFlags : EventFlags.None;
+
+            return new OptionDictionary(
+                new IOption[] {
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-nopreviousprocessid", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-trace", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-debug", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-nonormalize", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-noellipsis", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-commandline", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-forprocessor", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-dequote", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-quoteall", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-unicode", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-ignorestderr", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-overridecapture", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-killonerror", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-keepnewline", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-noexitcode", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-nocapture", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-nocaptureinput", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-nocaptureoutput", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-shell", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-nocarriagereturns", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-setall", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-trimall", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-noevents", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-nosleep", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-nointerpreter", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-userinterface", null),
+                new Option(typeof(ExitCode), OptionFlags.MustHaveEnumValue,
+                    Index.Invalid, Index.Invalid, "-success", null),
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-domainname", null),
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-username", null),
+                new Option(null, OptionFlags.MustHaveSecureStringValue,
+                    Index.Invalid, Index.Invalid, "-password", null),
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-escaperanges", null), // index range list
+                new Option(null, OptionFlags.MustHaveListValue, Index.Invalid,
+                    Index.Invalid, "-escapesubstring", null), // command
+                new Option(null, OptionFlags.MustHaveListValue, Index.Invalid,
+                    Index.Invalid, "-preprocessarguments", null), // command
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-directory", null), // working directory
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-processid", null), // varName
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-exitcode", null), // varName
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-stdin", null), // varName
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-stdout", null),// varName
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-stderr", null), // varName
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-stdinobject", null), // varName
+                new Option(null, OptionFlags.MustHaveCallbackValue,
+                    Index.Invalid, Index.Invalid, "-startcallback", null),
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-stdoutlogpath", null),
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-stderrlogpath", null),
+                new Option(null, OptionFlags.MustHaveCallbackValue,
+                    Index.Invalid, Index.Invalid, "-stdoutcallback", null),
+                new Option(null, OptionFlags.MustHaveCallbackValue,
+                    Index.Invalid, Index.Invalid, "-stderrcallback", null),
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-logtag", null),
+                new Option(null, OptionFlags.MustHaveIntegerValue,
+                    Index.Invalid, Index.Invalid, "-timeout", null),
+                new Option(typeof(ObjectFlags), OptionFlags.MustHaveEnumValue,
+                    Index.Invalid, Index.Invalid, "-objectflags",
+                    new Variant(DefaultObjectFlags | ObjectFlags.NoDispose)),
+                new Option(typeof(EventFlags), OptionFlags.MustHaveEnumValue,
+                    Index.Invalid, Index.Invalid, "-eventflags",
+                    new Variant(eventFlags)),
+                new Option(typeof(ProcessWindowStyle),
+                    OptionFlags.MustHaveEnumValue, Index.Invalid,
+                    Index.Invalid, "-windowstyle",
+                    new Variant(ProcessWindowStyle.Normal)),
+                Option.CreateEndOfOptions()
+            });
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if DATA
         //
         // NOTE: This is for the [sql execute] sub-command.
         //
-        private static OptionDictionary GetExecuteOnlyOptions()
+        private static OptionDictionary GetSqlExecuteOnlyOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2255,10 +2389,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [sql execute] sub-command.
         //
-        public static OptionDictionary GetExecuteOptions()
+        public static OptionDictionary GetSqlExecuteOptions()
         {
             return new OptionDictionary(
-                GetExecuteOnlyOptions(), GetFixupReturnValueOptions());
+                GetSqlExecuteOnlyOptions(), GetFixupReturnValueOptions());
         }
 #endif
 
@@ -3169,10 +3303,8 @@ namespace Eagle._Components.Private
                 case ObjectOptionType.Exception:         // [debug exception]
                     return GetExceptionOptions();        //
 #endif                                                   //
-#if DATA                                                 //
-                case ObjectOptionType.Execute:           // [sql execute]
-                    return GetExecuteOptions();          //
-#endif                                                   //
+                case ObjectOptionType.Exec:              // [exec]
+                    return GetExecOptions();             //
                 case ObjectOptionType.FireCallback:      // CommandCallback
                     return null;                         // N/A
                 case ObjectOptionType.FixupReturnValue:  // MarshalOps
@@ -3219,6 +3351,10 @@ namespace Eagle._Components.Private
 #endif                                                   //
                 case ObjectOptionType.SimpleCallback:    // ToCommandCallback
                     return GetSimpleCallbackOptions();   //
+#if DATA                                                 //
+                case ObjectOptionType.SqlExecute:        // [sql execute]
+                    return GetSqlExecuteOptions();       //
+#endif                                                   //
                 case ObjectOptionType.Type:              // [object type]
                     return GetTypeOptions();             //
                 case ObjectOptionType.UnaliasNamespace:  // [object unaliasnamespace]
@@ -4259,7 +4395,7 @@ namespace Eagle._Components.Private
                 // NOTE: These flags are needed because of the precise
                 //       signature of the "HandleOps.Identity" method.
                 //
-                bindingFlags |= ObjectOps.GetBindingFlags(
+                bindingFlags |= GetBindingFlags(
                     MetaBindingFlags.PublicStaticMethod, true);
             }
 

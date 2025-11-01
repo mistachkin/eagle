@@ -251,7 +251,7 @@ namespace Eagle._Commands
 
                                         if (argumentCount >= 4)
                                         {
-                                            OptionDictionary options = ObjectOps.GetExecuteOptions();
+                                            OptionDictionary options = ObjectOps.GetSqlExecuteOptions();
 
                                             int argumentIndex = Index.Invalid;
 
@@ -631,7 +631,7 @@ namespace Eagle._Commands
 
                                         if (argumentCount >= 4)
                                         {
-                                            OptionDictionary options = ObjectOps.GetExecuteOptions();
+                                            OptionDictionary options = ObjectOps.GetSqlExecuteOptions();
 
                                             int argumentIndex = Index.Invalid;
 

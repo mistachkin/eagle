@@ -1154,6 +1154,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasFlags(
+            OptionFlags flags,
+            OptionFlags hasFlags,
+            bool all
+            )
+        {
+            return FlagOps.HasFlags(flags, hasFlags, all);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
             TracePriority flags,
             TracePriority hasFlags,
             bool all

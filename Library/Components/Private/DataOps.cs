@@ -2835,7 +2835,7 @@ namespace Eagle._Components.Private
                             return ReturnCode.Error;
 
                         ObjectOptionType objectOptionType =
-                            ObjectOptionType.Execute |
+                            ObjectOptionType.SqlExecute |
                             ObjectOps.GetOptionType(aliasRaw, aliasAll);
 
                         if (MarshalOps.FixupReturnValue(
@@ -3074,7 +3074,7 @@ namespace Eagle._Components.Private
                 case DbResultFormat.DataReader:
                     {
                         ObjectOptionType objectOptionType =
-                            ObjectOptionType.Execute |
+                            ObjectOptionType.SqlExecute |
                             ObjectOps.GetOptionType(aliasRaw, aliasAll);
 
                         if (MarshalOps.FixupReturnValue(

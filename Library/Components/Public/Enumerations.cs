@@ -6295,40 +6295,41 @@ namespace Eagle._Components.Public
 #endif
 
 #if DATA
-        Execute = 0x4000,                /* For [sql execute]. */
+        SqlExecute = 0x4000,                /* For [sql execute]. */
 #endif
 
-        FireCallback = 0x8000,           /* For the CommandCallback class. */
-        FixupReturnValue = 0x10000,      /* For the MarshalOps.FixupReturnValue method(s). */
-        ForEach = 0x20000,               /* For [object foreach]. */
-        Get = 0x40000,                   /* For [object get]. */
-        Import = 0x80000,                /* For [object import]. */
-        Invoke = 0x100000,               /* For [object invoke]. */
-        InvokeOnly = 0x200000,           /* For [object invoke]. */
-        InvokeRaw = 0x400000,            /* For [object invokeraw]. */
-        InvokeRawOnly = 0x800000,        /* For [object invokeraw]. */
-        InvokeAll = 0x1000000,           /* For [object invokeall]. */
-        InvokeShared = 0x2000000,        /* For [object invoke] / [object invokeraw]. */
-        InvokeSharedOnly = 0x4000000,    /* For [object invoke] / [object invokeraw]. */
-        IsDisposed = 0x8000000,          /* For [object isdisposed]. */
-        IsNull = 0x10000000,             /* For [object isnull]. */
-        IsOfType = 0x20000000,           /* For [object isoftype]. */
-        Load = 0x40000000,               /* For [object load]. */
-        Members = 0x80000000,            /* For [object members]. */
-        Read = 0x100000000,              /* For [read]. */
-        ReadOnly = 0x200000000,          /* For [read]. */
-        Search = 0x400000000,            /* For [object search]. */
+        Exec = 0x8000,                /* For [exec]. */
+        FireCallback = 0x10000,          /* For the CommandCallback class. */
+        FixupReturnValue = 0x20000,      /* For the MarshalOps.FixupReturnValue method(s). */
+        ForEach = 0x40000,               /* For [object foreach]. */
+        Get = 0x80000,                   /* For [object get]. */
+        Import = 0x100000,               /* For [object import]. */
+        Invoke = 0x200000,               /* For [object invoke]. */
+        InvokeOnly = 0x400000,           /* For [object invoke]. */
+        InvokeRaw = 0x800000,            /* For [object invokeraw]. */
+        InvokeRawOnly = 0x1000000,       /* For [object invokeraw]. */
+        InvokeAll = 0x2000000,           /* For [object invokeall]. */
+        InvokeShared = 0x4000000,        /* For [object invoke] / [object invokeraw]. */
+        InvokeSharedOnly = 0x8000000,    /* For [object invoke] / [object invokeraw]. */
+        IsDisposed = 0x10000000,         /* For [object isdisposed]. */
+        IsNull = 0x20000000,             /* For [object isnull]. */
+        IsOfType = 0x40000000,           /* For [object isoftype]. */
+        Load = 0x80000000,               /* For [object load]. */
+        Members = 0x100000000,           /* For [object members]. */
+        Read = 0x200000000,              /* For [read]. */
+        ReadOnly = 0x400000000,          /* For [read]. */
+        Search = 0x800000000,            /* For [object search]. */
 
 #if XML && SERIALIZATION
-        Serialize = 0x800000000,         /* For [xml serialize]. */
+        Serialize = 0x1000000000,        /* For [xml serialize]. */
 #endif
 
-        SimpleCallback = 0x1000000000,   /* For ConversionOps.ToCommandCallback method. */
-        Type = 0x2000000000,             /* For [object type]. */
-        UnaliasNamespace = 0x4000000000, /* For [object unaliasnamespace]. */
-        Undeclare = 0x8000000000,        /* For [object undeclare]. */
-        Unimport = 0x10000000000,        /* For [object unimport]. */
-        Untype = 0x20000000000,          /* For [object untype]. */
+        SimpleCallback = 0x2000000000,   /* For ConversionOps.ToCommandCallback method. */
+        Type = 0x4000000000,             /* For [object type]. */
+        UnaliasNamespace = 0x8000000000, /* For [object unaliasnamespace]. */
+        Undeclare = 0x10000000000,       /* For [object undeclare]. */
+        Unimport = 0x20000000000,        /* For [object unimport]. */
+        Untype = 0x40000000000,          /* For [object untype]. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -6387,6 +6388,7 @@ namespace Eagle._Components.Public
         //
         OtherCommandMask = Call |
             Certificate | // [library certificate]
+            Exec |
 #if CALLBACK_QUEUE
             Dequeue |
 #endif
@@ -6400,7 +6402,7 @@ namespace Eagle._Components.Public
             Exception |
 #endif
 #if DATA
-            Execute |
+            SqlExecute |
 #endif
             Read |
 #if XML && SERIALIZATION

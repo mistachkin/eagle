@@ -1053,11 +1053,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode PostSetupForCapture(
-            ProcessStartInfo startInfo, /* in */
-            Process process,            /* in */
-            string input,               /* in */
-            IObject inputObject,        /* in, out */
-            ref Result error            /* out */
+            ProcessStartInfo startInfo,     /* in */
+            Process process,                /* in */
+            string input,                   /* in */
+            IObject inputObject,            /* in, out */
+            ref StreamWriter standardInput, /* out */
+            ref Result error                /* out */
             )
         {
             if (startInfo == null)
@@ -1097,7 +1098,7 @@ namespace Eagle._Components.Private
                 {
                     if ((input != null) || (inputObject != null))
                     {
-                        StreamWriter standardInput = process.StandardInput;
+                        standardInput = process.StandardInput;
 
                         if (input != null)
                         {
@@ -3356,10 +3357,13 @@ namespace Eagle._Components.Private
                 //         be accessed prior to actually starting the
                 //         process, do that now.
                 //
+                StreamWriter standardInput = null;
+
                 localError = null;
 
                 if (PostSetupForCapture(
-                        startInfo, process, input, inputObject,
+                        startInfo, process, input,
+                        inputObject, ref standardInput,
                         ref localError) != ReturnCode.Ok)
                 {
                     error = localError;
@@ -3374,6 +3378,17 @@ namespace Eagle._Components.Private
                 //
                 if (startHandler != null)
                     startHandler(process, new EventArgs());
+
+                //
+                // NOTE: At this point, we must close the standard input
+                //       pipe for the child process as it may be waiting
+                //       for this to be closed for it to exit.
+                //
+                if (standardInput != null)
+                {
+                    standardInput.Close();
+                    standardInput = null;
+                }
 
                 //
                 // NOTE: Give caller the Id for newly started process.

@@ -58,117 +58,7 @@ namespace Eagle._Commands
 
                     if (argumentCount >= 2)
                     {
-                        ObjectFlags objectFlags =
-                            ObjectOps.GetDefaultObjectFlags() | ObjectFlags.NoDispose;
-
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nopreviousprocessid", null), // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-trace", null),               // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-debug", null),               // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nonormalize", null),         // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-noellipsis", null),          // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-commandline", null),         // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-forprocessor", null),        // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-dequote", null),             // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-quoteall", null),            // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-unicode", null),             // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-ignorestderr", null),        // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-overridecapture", null),     // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-killonerror", null),         // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-keepnewline", null),         // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-noexitcode", null),          // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nocapture", null),           // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nocaptureinput", null),      // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nocaptureoutput", null),     // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-shell", null),               // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nocarriagereturns", null),   // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-setall", null),              // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-trimall", null),             // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-noevents", null),            // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nosleep", null),             // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nointerpreter", null),       // simple switch
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-userinterface", null),       // simple switch
-                            new Option(typeof(ExitCode), OptionFlags.MustHaveEnumValue,
-                                Index.Invalid, Index.Invalid, "-success", null), // success exit code
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-domainname", null), // domain name
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-username", null), // domain user name
-                            new Option(null, OptionFlags.MustHaveSecureStringValue, Index.Invalid,
-                                Index.Invalid, "-password", null), // domain password
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-escaperanges", null), // index range list
-                            new Option(null, OptionFlags.MustHaveListValue, Index.Invalid,
-                                Index.Invalid, "-escapesubstring", null), // command
-                            new Option(null, OptionFlags.MustHaveListValue, Index.Invalid,
-                                Index.Invalid, "-preprocessarguments", null), // command
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-directory", null), // working directory name
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-processid", null), // varName for processId
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-exitcode", null), // varName for exitCode
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-stdin", null),  // varName for StdIn input
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-stdout", null), // varName for StdOut output
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-stderr", null), // varName for StdErr output
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-stdinobject", null),    // varName for StdIn object
-                            new Option(null, OptionFlags.MustHaveCallbackValue, Index.Invalid,
-                                Index.Invalid, "-startcallback", null),  // callback for process start
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-stdoutlogpath", null),  // log path for StdOut output
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-stderrlogpath", null),  // log path for StdErr output
-                            new Option(null, OptionFlags.MustHaveCallbackValue, Index.Invalid,
-                                Index.Invalid, "-stdoutcallback", null), // callback for StdOut output
-                            new Option(null, OptionFlags.MustHaveCallbackValue, Index.Invalid,
-                                Index.Invalid, "-stderrcallback", null), // callback for StdErr output
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-logtag", null),         // optional "tag" for logging
-                            new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid,
-                                Index.Invalid, "-timeout", null), // exit wait milliseconds
-                            new Option(typeof(ObjectFlags), OptionFlags.MustHaveEnumValue,
-                                Index.Invalid, Index.Invalid, "-objectflags",
-                                new Variant(objectFlags)), // for FixupReturnValue, etc.
-                            new Option(typeof(EventFlags), OptionFlags.MustHaveEnumValue,
-                                Index.Invalid, Index.Invalid, "-eventflags",
-                                new Variant(interpreter.EngineEventFlags)), // for [after], etc.
-                            new Option(typeof(ProcessWindowStyle), OptionFlags.MustHaveEnumValue,
-                                Index.Invalid, Index.Invalid, "-windowstyle",
-                                new Variant(ProcessWindowStyle.Normal)), // minimized, etc.
-                            Option.CreateEndOfOptions()
-                        });
-
+                        OptionDictionary options = ObjectOps.GetExecOptions(interpreter);
                         int argumentIndex = Index.Invalid;
 
                         code = interpreter.GetOptions(options, arguments, 0, 1,
@@ -315,6 +205,10 @@ namespace Eagle._Commands
                                     useShellExecute = true;
 
                                 IVariant value = null;
+
+                                ObjectFlags objectFlags =
+                                    ObjectOps.GetDefaultObjectFlags() |
+                                    ObjectFlags.NoDispose;
 
                                 if (options.IsPresent("-objectflags", ref value))
                                     objectFlags = (ObjectFlags)value.Value;
@@ -666,6 +560,13 @@ namespace Eagle._Commands
                                         processId, exitCode, FormatOps.WrapOrNull(normalize, ellipsis, result),
                                         FormatOps.WrapOrNull(normalize, ellipsis, error)),
                                         typeof(Exec).Name, priority);
+                                }
+
+                                if (!attempted &&
+                                    (code != ReturnCode.Ok) && (result != null) && (error == null))
+                                {
+                                    error = result;
+                                    result = null;
                                 }
 
                                 ResultList setErrors = null;
