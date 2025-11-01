@@ -338,6 +338,10 @@ namespace Eagle._Commands
                                     argumentStopIndex--;
                                     background = true;
                                 }
+                                else if (options.IsPresent("-background"))
+                                {
+                                    background = true;
+                                }
 
                                 string execFileName = arguments[argumentIndex];
 

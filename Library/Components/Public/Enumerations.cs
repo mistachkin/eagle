@@ -5607,7 +5607,7 @@ namespace Eagle._Components.Public
         StandardAndHideNonStandard = Standard | HideNonStandard,
 
         //
-        // NOTE: For core library use only.
+        // NOTE: For (core) library use only.
         //
         CoreCommandSetMask = SafeAndHideUnsafe | StandardAndHideNonStandard,
 
@@ -6295,10 +6295,10 @@ namespace Eagle._Components.Public
 #endif
 
 #if DATA
-        SqlExecute = 0x4000,                /* For [sql execute]. */
+        SqlExecute = 0x4000,             /* For [sql execute]. */
 #endif
 
-        Exec = 0x8000,                /* For [exec]. */
+        Exec = 0x8000,                   /* For [exec]. */
         FireCallback = 0x10000,          /* For the CommandCallback class. */
         FixupReturnValue = 0x20000,      /* For the MarshalOps.FixupReturnValue method(s). */
         ForEach = 0x40000,               /* For [object foreach]. */
@@ -8346,6 +8346,102 @@ namespace Eagle._Components.Public
         Default = StopOnEndOfOptions | StopOnListOfOptions |
                   StopOnUnknownOption | StopOnAmbiguousOption |
                   StopOnNonOption
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
+    [ObjectId("e013eac5-99ff-4bdd-a389-14ae5b4b974b")]
+    public enum OptionCategory : ulong
+    {
+        None = 0x0,
+
+        Category01 = 0x1,                /* WARNING: For (core) library use only. */
+        Category02 = 0x2,                /* WARNING: For (core) library use only. */
+        Category03 = 0x4,                /* WARNING: For (core) library use only. */
+        Category04 = 0x8,                /* WARNING: For (core) library use only. */
+        Category05 = 0x10,               /* WARNING: For (core) library use only. */
+        Category06 = 0x20,               /* WARNING: For (core) library use only. */
+        Category07 = 0x40,               /* WARNING: For (core) library use only. */
+        Category08 = 0x80,               /* WARNING: For (core) library use only. */
+        Category09 = 0x100,              /* WARNING: For (core) library use only. */
+        Category10 = 0x200,              /* WARNING: For (core) library use only. */
+        Category11 = 0x400,              /* WARNING: For (core) library use only. */
+        Category12 = 0x800,              /* WARNING: For (core) library use only. */
+        Category13 = 0x1000,             /* WARNING: For (core) library use only. */
+        Category14 = 0x2000,             /* WARNING: For (core) library use only. */
+        Category15 = 0x4000,             /* WARNING: For (core) library use only. */
+        Category16 = 0x8000,             /* WARNING: For (core) library use only. */
+        Category17 = 0x10000,            /* WARNING: For (external) plugin use only. */
+        Category18 = 0x20000,            /* WARNING: For (external) plugin use only. */
+        Category19 = 0x40000,            /* WARNING: For (external) plugin use only. */
+        Category20 = 0x80000,            /* WARNING: For (external) plugin use only. */
+        Category21 = 0x100000,           /* WARNING: For (external) plugin use only. */
+        Category22 = 0x200000,           /* WARNING: For (external) plugin use only. */
+        Category23 = 0x400000,           /* WARNING: For (external) plugin use only. */
+        Category24 = 0x800000,           /* WARNING: For (external) plugin use only. */
+        Category25 = 0x1000000,          /* WARNING: For (external) plugin use only. */
+        Category26 = 0x2000000,          /* WARNING: For (external) plugin use only. */
+        Category27 = 0x4000000,          /* WARNING: For (external) plugin use only. */
+        Category28 = 0x8000000,          /* WARNING: For (external) plugin use only. */
+        Category29 = 0x10000000,         /* WARNING: For (external) plugin use only. */
+        Category30 = 0x20000000,         /* WARNING: For (external) plugin use only. */
+        Category31 = 0x40000000,         /* WARNING: For (external) plugin use only. */
+        Category32 = 0x80000000,         /* WARNING: For (external) plugin use only. */
+        Category33 = 0x100000000,        /* NOTE: Available for general use. */
+        Category34 = 0x200000000,        /* NOTE: Available for general use. */
+        Category35 = 0x400000000,        /* NOTE: Available for general use. */
+        Category36 = 0x800000000,        /* NOTE: Available for general use. */
+        Category37 = 0x1000000000,       /* NOTE: Available for general use. */
+        Category38 = 0x2000000000,       /* NOTE: Available for general use. */
+        Category39 = 0x4000000000,       /* NOTE: Available for general use. */
+        Category40 = 0x8000000000,       /* NOTE: Available for general use. */
+        Category41 = 0x10000000000,      /* NOTE: Available for general use. */
+        Category42 = 0x20000000000,      /* NOTE: Available for general use. */
+        Category43 = 0x40000000000,      /* NOTE: Available for general use. */
+        Category44 = 0x80000000000,      /* NOTE: Available for general use. */
+        Category45 = 0x100000000000,     /* NOTE: Available for general use. */
+        Category46 = 0x200000000000,     /* NOTE: Available for general use. */
+        Category47 = 0x400000000000,     /* NOTE: Available for general use. */
+        Category48 = 0x800000000000,     /* NOTE: Available for general use. */
+        Category49 = 0x1000000000000,    /* NOTE: For (third-party) applications. */
+        Category50 = 0x2000000000000,    /* NOTE: For (third-party) applications. */
+        Category51 = 0x4000000000000,    /* NOTE: For (third-party) applications. */
+        Category52 = 0x8000000000000,    /* NOTE: For (third-party) applications. */
+        Category53 = 0x10000000000000,   /* NOTE: For (third-party) applications. */
+        Category54 = 0x20000000000000,   /* NOTE: For (third-party) applications. */
+        Category55 = 0x40000000000000,   /* NOTE: For (third-party) applications. */
+        Category56 = 0x80000000000000,   /* NOTE: For (third-party) applications. */
+        Category57 = 0x100000000000000,  /* NOTE: For (third-party) applications. */
+        Category58 = 0x200000000000000,  /* NOTE: For (third-party) applications. */
+        Category59 = 0x400000000000000,  /* NOTE: For (third-party) applications. */
+        Category60 = 0x800000000000000,  /* NOTE: For (third-party) applications. */
+        Category61 = 0x1000000000000000, /* NOTE: For (third-party) applications. */
+        Category62 = 0x2000000000000000, /* NOTE: For (third-party) applications. */
+        Category63 = 0x4000000000000000, /* NOTE: For (third-party) applications. */
+        Category64 = 0x8000000000000000, /* NOTE: For (third-party) applications. */
+
+        ReservedMask = Category01 | Category02 | Category03 | Category04 |
+                       Category05 | Category06 | Category07 | Category08 |
+                       Category09 | Category10 | Category11 | Category12 |
+                       Category13 | Category14 | Category15 | Category16,
+
+        PluginMask = Category17 | Category18 | Category19 | Category20 |
+                     Category21 | Category22 | Category23 | Category24 |
+                     Category25 | Category26 | Category27 | Category28 |
+                     Category29 | Category30 | Category31 | Category32,
+
+        GeneralMask = Category33 | Category34 | Category35 | Category36 |
+                      Category37 | Category38 | Category39 | Category40 |
+                      Category41 | Category42 | Category43 | Category44 |
+                      Category45 | Category46 | Category47 | Category48,
+
+        UserMask = Category49 | Category50 | Category51 | Category52 |
+                   Category53 | Category54 | Category55 | Category56 |
+                   Category57 | Category58 | Category59 | Category60 |
+                   Category61 | Category62 | Category63 | Category64,
+
+        AllMask = ReservedMask | PluginMask | GeneralMask | UserMask
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -10541,7 +10637,7 @@ namespace Eagle._Components.Public
         ThrowOnError = 0x40000,        /* Throw an exception if the evaluated script returns an
                                         * error? */
         External = 0x80000,            /* The command callback was created via the Utility class.
-                                        * This flag is for core library use only. */
+                                        * This flag is For (core) library use only. */
         UseOwner = 0x100000,           /* The callback script should be handled by the owner of
                                         * the interpreter being used instead of being directly
                                         * evaluated. */

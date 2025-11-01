@@ -20,6 +20,7 @@ namespace Eagle._Interfaces.Public
     public interface IOption : IIdentifier
     {
         Type Type { get; set; }
+        OptionCategory Categories { get; set; }
         OptionFlags Flags { get; set; }
         int GroupIndex { get; set; }
         int Index { get; set; }
@@ -30,6 +31,7 @@ namespace Eagle._Interfaces.Public
         IVariant DefaultValue { get; }
         object DefaultInnerValue { get; }
 
+        bool HasCategories(OptionCategory categories, bool all);
         bool HasFlags(OptionFlags flags, bool all);
 
         bool IsStrict(OptionDictionary options);

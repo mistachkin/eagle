@@ -33,6 +33,13 @@ namespace Eagle._Components.Public
         IOption
     {
         #region Private Constants
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static OptionCategory defaultCategories = OptionCategory.None;
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static readonly char OptionCharacter = Characters.MinusSign;
         private static readonly string OptionPrefix = OptionCharacter.ToString();
         #endregion
@@ -70,6 +77,22 @@ namespace Eagle._Components.Public
             int index,         /* in */
             string name,       /* in */
             IVariant value     /* in */
+            ) : this(type, defaultCategories, flags,
+                     groupIndex, index, name, value)
+        {
+            // do nothing.
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public Option(
+            Type type,                 /* in */
+            OptionCategory categories, /* in */
+            OptionFlags flags,         /* in */
+            int groupIndex,            /* in */
+            int index,                 /* in */
+            string name,               /* in */
+            IVariant value             /* in */
             )
         {
             this.kind = IdentifierKind.Option;
@@ -77,6 +100,7 @@ namespace Eagle._Components.Public
             this.description = null;
             this.clientData = null;
             this.type = type;
+            this.categories = categories;
             this.flags = flags;
             this.groupIndex = groupIndex;
             this.index = index;
@@ -168,6 +192,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private OptionCategory categories;
+        public OptionCategory Categories
+        {
+            get { return categories; }
+            set { categories = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private OptionFlags flags;
         public OptionFlags Flags
         {
@@ -228,6 +261,16 @@ namespace Eagle._Components.Public
         public object DefaultInnerValue
         {
             get { return (defaultValue != null) ? defaultValue.Value : null; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool HasCategories(
+            OptionCategory categories,
+            bool all
+            )
+        {
+            return FlagOps.HasFlags(this.categories, categories, all);
         }
 
         ///////////////////////////////////////////////////////////////////////

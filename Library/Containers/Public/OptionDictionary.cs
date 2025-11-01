@@ -24,6 +24,9 @@ using Eagle._Constants;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
+using OptionPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Interfaces.Public.IOption>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -56,6 +59,18 @@ namespace Eagle._Containers.Public
             bool system
             )
             : base()
+        {
+            if (system)
+                AddSystemOptions(false, true);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private OptionDictionary(
+            OptionDictionary options,
+            bool system
+            )
+            : base(options)
         {
             if (system)
                 AddSystemOptions(false, true);
@@ -914,6 +929,51 @@ namespace Eagle._Containers.Public
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public OptionDictionary Filter(
+            OptionCategory? categories,
+            bool all,
+            bool system
+            )
+        {
+            return Filter(this, categories, all, system);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static OptionDictionary Filter(
+            OptionDictionary options,
+            OptionCategory? categories,
+            bool all,
+            bool system
+            )
+        {
+            if (options == null) // NOTE: Garbage in, garbage out.
+                return null;
+
+            if (categories == null) // NOTE: Ok, unfiltered.
+                return options;
+
+            OptionDictionary result = new OptionDictionary(system);
+            OptionCategory localCategories = (OptionCategory)categories;
+
+            foreach (OptionPair pair in options)
+            {
+                IOption option = pair.Value;
+
+                if (option == null)
+                    continue;
+
+                if (!option.HasCategories(localCategories, all))
+                    continue;
+
+                result.Add(pair.Key, pair.Value);
+            }
+
+            return result;
         }
         #endregion
 

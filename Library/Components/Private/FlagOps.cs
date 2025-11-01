@@ -1324,6 +1324,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasFlags(
+            OptionCategory flags,
+            OptionCategory hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != OptionCategory.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
             OptionFlags flags,
             OptionFlags hasFlags,
             bool all
