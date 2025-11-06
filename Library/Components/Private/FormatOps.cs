@@ -78,6 +78,8 @@ namespace Eagle._Components.Private
         private static readonly string NoPlatformName = "none";
         private static readonly string UnknownTypeName = "unknown";
 
+        internal static readonly string DisplayInfinite = "<infinite>";
+
         internal static readonly string DisplayNoMessage = "<noMessage>";
         internal static readonly string DisplayNoCategory = "<noCategory>";
 

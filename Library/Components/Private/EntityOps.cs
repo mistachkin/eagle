@@ -407,6 +407,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool IsNoRename(
+            IFunction function
+            )
+        {
+            return (function != null) ?
+                FlagOps.HasFlags(function.Flags,
+                    FunctionFlags.NoRename, true) : false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool IsNoToken(
             IFunction function
             )

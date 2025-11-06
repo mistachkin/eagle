@@ -35,7 +35,7 @@ if {[isEagle]} then {
       ![info exists no(skipSomeFormatTests)]} then {
     set skipNames [list]
 
-    if {![haveConstraint tip237]} then {
+    if {![haveConstraint tip237] || ![haveConstraint bigIntegers]} then {
       lappend skipNames format-1.12; # NOTE: Needs BigNum.
       lappend skipNames managed-format-1.12; # NOTE: Needs BigNum.
       lappend skipNames native-format-1.12; # NOTE: Needs BigNum.

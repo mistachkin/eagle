@@ -180,23 +180,39 @@ namespace Eagle._Components.Private
                 //       one based on the specified arguments, add it to the
                 //       interpreter, and return it.
                 //
-                if (interpreter.GetCallback(name,
-                        LookupFlags.Exists, ref callback) != ReturnCode.Ok)
+                if (interpreter.GetCallback(
+                        name, LookupFlags.Exists,
+                        ref callback) != ReturnCode.Ok)
                 {
-                    callback = new CommandCallback(
-                        name, null, null, clientData, marshalFlags,
-                        callbackFlags, objectFlags, byRefArgumentFlags,
-                        interpreter, arguments);
+                    bool success = false;
 
-                    if (interpreter.AddCallback(callback, clientData,
-                            ref error) != ReturnCode.Ok)
+                    try
                     {
-                        callback = null;
+                        callback = new CommandCallback(
+                            name, null, null, clientData,
+                            marshalFlags, callbackFlags,
+                            objectFlags, byRefArgumentFlags,
+                            interpreter, arguments);
+
+                        if (interpreter.AddCallback(
+                                callback, clientData,
+                                ref error) == ReturnCode.Ok)
+                        {
+                            success = true;
+
+                            /* IGNORED */
+                            Interlocked.Increment(ref addedCount);
+                        }
                     }
-                    else
+                    finally
                     {
-                        /* IGNORED */
-                        Interlocked.Increment(ref addedCount);
+                        if (!success && (callback != null))
+                        {
+                            ObjectOps.TryDisposeOrComplain<ICallback>(
+                                interpreter, ref callback);
+
+                            callback = null;
+                        }
                     }
                 }
                 else if (callback == null)

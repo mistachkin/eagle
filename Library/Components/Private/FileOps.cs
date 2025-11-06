@@ -3229,6 +3229,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static void MaybeSetCurrentDirectory(
+            string directory /* in */
+            )
+        {
+            MaybeSetCurrentDirectory(ref directory);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void MaybeSetCurrentDirectory(
+            ref string directory /* in, out */
+            )
+        {
+            if (directory == null)
+                return;
+
+            try
+            {
+                Directory.SetCurrentDirectory(directory); /* throw */
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(Interpreter).Name,
+                    TracePriority.CleanupError);
+            }
+
+            directory = null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode CleanupPaths(
             Interpreter interpreter,
             PathDictionary<CleanupPathClientData> paths,
@@ -3274,7 +3306,7 @@ namespace Eagle._Components.Private
 
             try
             {
-                Directory.SetCurrentDirectory(
+                MaybeSetCurrentDirectory(
                     GlobalState.GetAnyEntryAssemblyPath());
 
                 int errorCount = 0;
@@ -3385,22 +3417,7 @@ namespace Eagle._Components.Private
             }
             finally
             {
-                if (savedDirectory != null)
-                {
-                    try
-                    {
-                        Directory.SetCurrentDirectory(
-                            savedDirectory); /* throw */
-                    }
-                    catch (Exception e)
-                    {
-                        TraceOps.DebugTrace(
-                            e, typeof(Interpreter).Name,
-                            TracePriority.CleanupError);
-                    }
-
-                    savedDirectory = null;
-                }
+                MaybeSetCurrentDirectory(ref savedDirectory);
             }
         }
 

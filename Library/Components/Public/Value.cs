@@ -1621,6 +1621,11 @@ namespace Eagle._Components.Public
                 }
             }
 
+#if NET_40
+            bool allowBigIntegers = ScriptOps.HasFlags(
+                interpreter, InterpreterFlags.AllowBigIntegers, true);
+#endif
+
             GetWideIntegerStyles(out styles);
 
             ulong ulongValue = 0;
@@ -1628,23 +1633,27 @@ namespace Eagle._Components.Public
             if (ulong.TryParse(
                     text, styles, formatProvider, out ulongValue))
             {
-                value = GetIntegerOrWideInteger(ConversionOps.ToLong(
-                    ulongValue));
+#if NET_40
+                if (!allowBigIntegers || (ulongValue <= long.MaxValue))
+#endif
+                {
+                    value = GetIntegerOrWideInteger(ConversionOps.ToLong(
+                        ulongValue));
 
-                return ReturnCode.Ok;
+                    return ReturnCode.Ok;
+                }
             }
 
 #if NET_40
-            if (ScriptOps.HasFlags(
-                    interpreter, InterpreterFlags.AllowBigIntegers, true))
+            if (allowBigIntegers)
             {
                 BigInteger bigIntegerValue = BigInteger.Zero; /* REUSED */
 
                 done = false;
 
                 if (ParseBigIntegerWithRadixPrefix(
-                        text, flags, cultureInfo, ref done, ref bigIntegerValue,
-                        ref error) != ReturnCode.Ok)
+                        text, flags, cultureInfo, ref done,
+                        ref bigIntegerValue, ref error) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }

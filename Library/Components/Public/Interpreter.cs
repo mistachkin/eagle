@@ -414,6 +414,14 @@ namespace Eagle._Components.Public
             null, /* IInteractiveHost.ReadLine: in */
             null  /* IInteractiveHost.ReadLine: out */
         };
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: How many times have we successfully been able to read input
+        //       from the interactive user?
+        //
+        private static long readCount = 0;
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -26604,7 +26612,7 @@ namespace Eagle._Components.Public
                     // HACK: This is part of an ugly hack to add "tcl::mathfunc::*" and
                     //       "tcl::mathop::*" support for [expr] functions and operators
                     //       to Eagle, respectively.  This can only be done for function
-                    //       instances that also implmement the IExecute interface.
+                    //       instances that also implement the IExecute interface.
                     //
                     IExecute execute = function as IExecute;
                     long token2; /* REUSED */
@@ -26790,6 +26798,21 @@ namespace Eagle._Components.Public
 
                 return code;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode RenameFunction(
+            string oldName,
+            string newName,
+            bool delete,
+            ref Result result
+            )
+        {
+            CheckDisposed();
+
+            return PrivateRenameFunction(
+                oldName, newName, delete, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -27069,6 +27092,94 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private ReturnCode PrivateRenameFunction(
+            string oldName,
+            string newName,
+            bool delete,
+            ref Result result
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!IsModifiable(false, ref result))
+                    return ReturnCode.Error;
+
+                if (PrivateHasFunctions(ref result))
+                {
+                    if (!delete || !String.IsNullOrEmpty(newName))
+                    {
+                        IFunction oldFunction = null;
+
+                        if (GetFunction(oldName, LookupFlags.Default, ref oldFunction, ref result) == ReturnCode.Ok)
+                        {
+                            if (!EntityOps.IsReadOnly(oldFunction))
+                            {
+                                if (EntityOps.IsNoRename(oldFunction))
+                                    return ReturnCode.Ok;
+
+                                FunctionWrapper oldWrapper = oldFunction as FunctionWrapper;
+
+                                if (oldWrapper != null)
+                                {
+                                    if (PrivateDoesFunctionExist(newName) != ReturnCode.Ok)
+                                    {
+                                        //
+                                        // NOTE: New name, same token.
+                                        //
+                                        oldWrapper.Name = newName;
+
+                                        /* IGNORED */
+                                        functions.Rename(oldName, newName);
+
+#if NOTIFY
+                                        /* IGNORED */
+                                        CheckNotification(
+                                            NotifyType.Function, NotifyFlags.Renamed,
+                                            new ObjectTriplet(oldFunction, oldName, newName), this,
+                                            null, null, null, ref result);
+#endif
+
+                                        result = String.Empty;
+                                        return ReturnCode.Ok;
+                                    }
+                                    else
+                                    {
+                                        result = String.Format(
+                                            "can't rename {0}: function already exists",
+                                            FormatOps.WrapOrNull(oldName));
+                                    }
+                                }
+                                else
+                                {
+                                    result = String.Format(
+                                        "can't rename {0}: invalid function wrapper",
+                                        FormatOps.WrapOrNull(oldName));
+                                }
+                            }
+                            else
+                            {
+                                result = "function is read-only";
+                            }
+                        }
+                        else
+                        {
+                            result = String.Format(
+                                "can't rename {0}: function doesn't exist",
+                                FormatOps.WrapOrNull(oldName));
+                        }
+                    }
+                    else
+                    {
+                        return PrivateRemoveFunction(oldName, null, ref result);
+                    }
+                }
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private ReturnCode PrivateRemoveFunction(
             string name,
             long token,
@@ -27093,7 +27204,7 @@ namespace Eagle._Components.Public
                 // HACK: This is part of an ugly hack to add "tcl::mathfunc::*" and
                 //       "tcl::mathop::*" support for [expr] functions and operators
                 //       to Eagle, respectively.  This can only be done for function
-                //       instances that also implmement the IExecute interface.
+                //       instances that also implement the IExecute interface.
                 //
                 if (InternalAreNamespacesEnabled())
                 {
@@ -27249,6 +27360,20 @@ namespace Eagle._Components.Public
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ReturnCode PrivateRemoveFunction(
+            string name,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            long token = 0; /* NOT USED */
+
+            return InternalRemoveFunction(
+                name, clientData, ref token, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -30295,7 +30420,7 @@ namespace Eagle._Components.Public
             Result error = null;
 
             return PrivateGetDbConnection(
-                name, LookupFlags.Exists, ref connection, ref error);
+                name, lookupFlags, ref connection, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -30309,7 +30434,7 @@ namespace Eagle._Components.Public
             Result error = null;
 
             return PrivateGetDbTransaction(
-                name, LookupFlags.Exists, ref transaction, ref error);
+                name, lookupFlags, ref transaction, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -32923,7 +33048,7 @@ namespace Eagle._Components.Public
                     // HACK: This is part of an ugly hack to add "tcl::mathfunc::*" and
                     //       "tcl::mathop::*" support for [expr] functions and operators
                     //       to Eagle, respectively.  This can only be done for operator
-                    //       instances that also implmement the IExecute interface.
+                    //       instances that also implement the IExecute interface.
                     //
                     IExecute execute = @operator as IExecute;
                     long token2; /* REUSED */
@@ -79010,6 +79135,31 @@ namespace Eagle._Components.Public
                 this, localHost, overwriteIsolatedHost);
 #endif
 
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            //
+            // HACK: To make troubleshooting interpreter host integration issues
+            //       (somewhat) easier, emit a diagnostic message when the first
+            //       interpreter is (being) created to show which host is being
+            //       used, its creation flags, and its resulting flags.
+            //
+            if (GlobalState.CountInterpreters(true) == 0)
+            {
+                TraceOps.DebugTrace(String.Format(
+                        "PreSetupHost (P:{0} A:{1} T:{2})",
+                        ProcessOps.GetId(), /* NOTE: Not typo. */
+                        AppDomainOps.GetCurrentId(),
+                        GlobalState.GetCurrentSystemThreadId()), null,
+                    typeof(Interpreter).Name, TracePriority.StartupInform2,
+                    false, "hostCreateFlags", hostCreateFlags, "hostType",
+                    AppDomainOps.MaybeGetTypeOrComplain(localHost),
+                    "hostFlags", HostOps.GetHostFlags(localHost),
+                    "hostOwned", localHostOwned, "hostCreateError",
+                    createError);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             return ReturnCode.Ok;
         }
 
@@ -86281,6 +86431,28 @@ namespace Eagle._Components.Public
             retries++;
 
             //
+            // HACK: This if statement should not be strictly needed
+            //       here because we should never get to this point
+            //       with a null active interpreter; however, we may
+            //       (?) need to placate static analysis tools.
+            //
+            if (activeInterpreter == null) /* IMPOSSIBLE (?) */
+            {
+                result = "invalid active interpreter";
+
+                if (!whatIf)
+                {
+                    HostOps.WriteConsoleOrComplain(
+                        ReturnCode.Error, result);
+                }
+
+                exitCode = ShellOps.FailureExitCode(
+                    activeInterpreter);
+
+                goto done;
+            }
+
+            //
             // NOTE: In debug mode, always show the modified command
             //       line arguments.
             //
@@ -91144,6 +91316,8 @@ namespace Eagle._Components.Public
                         result = interactiveHost.ReadLine(
                             ref value); /* throw */
 
+                        Interlocked.Increment(ref readCount);
+
                         lock (staticSyncRoot) /* TRANSACTIONAL */
                         {
                             if ((readValue != null) &&
@@ -91192,9 +91366,11 @@ namespace Eagle._Components.Public
                             TracePriority.HostError);
                     }
                 }
-                catch
+                catch (Exception e)
                 {
-                    // do nothing.
+                    TraceOps.DebugTrace(
+                        e, typeof(Interpreter).Name,
+                        TracePriority.HostError);
                 }
             }
 
@@ -108821,6 +108997,11 @@ namespace Eagle._Components.Public
 
                 if (FlagOps.HasFlags(detailFlags, DetailFlags.ThreadInfo, true))
                     GetHostThreadInfo(ref list, detailFlags);
+
+                long localReadCount = Interlocked.CompareExchange(ref readCount, 0, 0);
+
+                if (empty || (localReadCount > 0))
+                    list.Add("ReadCount", localReadCount.ToString());
 
                 int disableCreationCount = Interlocked.CompareExchange(
                     ref globalDisableCreationCount, 0, 0);

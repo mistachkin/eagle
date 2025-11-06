@@ -2355,7 +2355,7 @@ namespace Eagle._Components.Private
                 textBox.ReadOnly = true;
                 textBox.AutoSize = false;
                 textBox.Multiline = true;
-                textBox.WordWrap = false;
+                textBox.WordWrap = true;
                 textBox.ScrollBars = ScrollBars.Both;
                 textBox.Dock = DockStyle.Fill;
 

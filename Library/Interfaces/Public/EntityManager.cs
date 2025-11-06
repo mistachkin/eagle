@@ -918,6 +918,13 @@ namespace Eagle._Interfaces.Public
             ref Result result
             );
 
+        ReturnCode RenameFunction(
+            string oldName,
+            string newName,
+            bool delete,
+            ref Result result
+            );
+
         ReturnCode RemoveFunction(
             long token,
             IClientData clientData,

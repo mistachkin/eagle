@@ -743,13 +743,34 @@ unset -nocomplain line
 
 ###############################################################################
 
-runTest {test expr-1.28 {int/wide literal type handling} -body {
+runTest {test expr-1.28.1 {int/wide literal type handling} -body {
   list [expr {9223372036854775807}] [expr {9223372036854775807 + 1}] \
       [expr {9223372036854775807 - 1}] [expr {-9223372036854775808}] \
       [expr {-9223372036854775808 + 1}] [expr {-9223372036854775808 - 1}]
-} -constraints {tcl84} -result {9223372036854775807 -9223372036854775808\
-9223372036854775806 -9223372036854775808 -9223372036854775807\
-9223372036854775807}}
+} -constraints {tcl tcl84} -result \
+{9223372036854775807 -9223372036854775808 9223372036854775806\
+-9223372036854775808 -9223372036854775807 9223372036854775807}}
+
+###############################################################################
+
+runTest {test expr-1.28.2 {int/wide literal type handling} -body {
+  list [expr {9223372036854775807}] [expr {9223372036854775807 + 1}] \
+      [expr {9223372036854775807 - 1}] [expr {-9223372036854775808}] \
+      [expr {-9223372036854775808 + 1}] [expr {-9223372036854775808 - 1}]
+} -constraints {eagle} -constraintExpression \
+{![haveConstraint tip237] || ![haveConstraint bigIntegers]} -result \
+{9223372036854775807 -9223372036854775808 9223372036854775806\
+-9223372036854775808 -9223372036854775807 9223372036854775807}}
+
+###############################################################################
+
+runTest {test expr-1.28.3 {int/wide literal type handling} -body {
+  list [expr {9223372036854775807}] [expr {9223372036854775807 + 1}] \
+      [expr {9223372036854775807 - 1}] [expr {-9223372036854775808}] \
+      [expr {-9223372036854775808 + 1}] [expr {-9223372036854775808 - 1}]
+} -constraints {tcl84 tip237 bigIntegers} -result \
+{9223372036854775807 -9223372036854775808 9223372036854775806\
+-9223372036854775808 -9223372036854775807 -9223372036854775809}}
 
 ###############################################################################
 
@@ -781,10 +802,18 @@ runTest {test expr-1.31 {int/wide operand type handling} -body {
 
 ###############################################################################
 
-runTest {test expr-1.32 {signed wide detection during parsing} -body {
+runTest {test expr-1.32.1 {signed wide detection during parsing} -body {
   list [expr {typeof(9223372036854775807+0)}] \
       [expr {typeof(-9223372036854775808+0)}]
-} -constraints {eagle} -result {wide wide}}
+} -constraints {eagle} -constraintExpression {![haveConstraint tip237] || \
+![haveConstraint bigIntegers]} -result {wide wide}}
+
+###############################################################################
+
+runTest {test expr-1.32.2 {signed wide detection during parsing} -body {
+  list [expr {typeof(9223372036854775807+0)}] \
+      [expr {typeof(-9223372036854775808+0)}]
+} -constraints {eagle tip237 bigIntegers} -result {wide entier}}
 
 ###############################################################################
 

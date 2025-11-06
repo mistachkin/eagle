@@ -1062,13 +1062,13 @@ namespace Eagle._Components.Private
             if (list == null)
                 return;
 
-            bool locked = false;
+            bool localLocked = false;
 
             try
             {
-                TryLock(ref locked); /* TRANSACTIONAL */
+                TryLock(ref localLocked); /* TRANSACTIONAL */
 
-                if (locked)
+                if (localLocked)
                 {
                     bool empty = HostOps.HasEmptyContent(detailFlags);
                     StringPairList localList = new StringPairList();
@@ -1226,7 +1226,7 @@ namespace Eagle._Components.Private
             }
             finally
             {
-                ExitLock(ref locked); /* TRANSACTIONAL */
+                ExitLock(ref localLocked); /* TRANSACTIONAL */
             }
         }
         #endregion

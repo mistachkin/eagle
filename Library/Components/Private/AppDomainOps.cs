@@ -636,6 +636,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static Type MaybeGetTypeOrComplain(
+            object value
+            )
+        {
+            try
+            {
+                return MaybeGetType(value); /* throw */
+            }
+            catch (Exception e)
+            {
+                DebugOps.Complain(ReturnCode.Error, e);
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static Type MaybeGetType(
             object value
             )

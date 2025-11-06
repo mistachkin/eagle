@@ -3800,6 +3800,10 @@ if {![info exists no([file tail [info script]])]} then {
     checkForNamespaces $test_channel [haveConstraint quiet]
   }
 
+  if {![info exists no(allowBigIntegers)]} then {
+    checkForAllowBigIntegers $test_channel
+  }
+
   if {![info exists no(tip127)]} then {
     checkForTip127 $test_channel
   }

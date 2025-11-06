@@ -793,7 +793,7 @@ namespace Eagle._Components.Private
                 //
                 // NOTE: Do something "fake" but useful here.
                 //
-                Thread.Sleep(0); /* throw */
+                Thread.Sleep(1); /* throw */
 #endif
 
                 /* IGNORED */

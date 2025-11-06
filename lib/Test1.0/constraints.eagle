@@ -2775,6 +2775,18 @@ namespace eval ::Eagle {
     }
   }
 
+  proc checkForAllowBigIntegers { channel } {
+    tputs $channel "---- checking for AllowBigIntegers... "
+
+    if {[hasAllowBigIntegers]} then {
+      addConstraint bigIntegers
+
+      tputs $channel yes\n
+    } else {
+      tputs $channel no\n
+    }
+  }
+
   proc checkForTip127 { channel } {
     tputs $channel "---- checking for TIP #127... "
 
@@ -2843,7 +2855,7 @@ namespace eval ::Eagle {
     tputs $channel "---- checking for TIP #237... "
 
     #
-    # NOTE: Is the interpreter TIP #237 ready?
+    # NOTE: Does the interpreter have TIP #237 support?
     #
     if {[catch {expr {entier(0)}}] == 0} then {
       addConstraint tip237
@@ -4179,8 +4191,7 @@ namespace eval ::Eagle {
     }
 
     proc checkForGlobalTip285 { channel } {
-      tputs $channel [appendArgs \
-          "---- checking for global TIP #285... "]
+      tputs $channel "---- checking for global TIP #285... "
 
       if {[catch {interp resetcancel {} -global}] == 0} then {
         addConstraint globalTip285
@@ -4197,8 +4208,7 @@ namespace eval ::Eagle {
     }
 
     proc checkForIeee754r2008 { channel } {
-      tputs $channel [appendArgs \
-          "---- checking for IEEE 754-2008... "]
+      tputs $channel "---- checking for IEEE 754-2008... "
 
       if {[catch {expr {pi()}} pi] == 0} then {
         #
@@ -4218,8 +4228,7 @@ namespace eval ::Eagle {
     }
 
     proc checkForSystemDataSQLite { channel } {
-      tputs $channel [appendArgs \
-          "---- checking for System.Data.SQLite assembly... "]
+      tputs $channel "---- checking for System.Data.SQLite assembly... "
 
       if {[haveConstraint file_System.Data.SQLite.dll]} then {
         if {[catch {
@@ -7478,16 +7487,16 @@ namespace eval ::Eagle {
         checkForEFormat checkForNamespaces checkForTestExec \
         checkForTestMachine checkForTestPlatform checkForTestConfiguration \
         checkForTestNamePrefix checkForTestSuffix checkForGnuScreen \
-        checkForFile checkForPathFile checkForNativeCode checkForTip127 \
-        checkForTip182 checkForTip194 checkForTip207 checkForTip237 \
-        checkForTip241 checkForTip285 checkForTip405 checkForTip421 \
-        checkForTip426 checkForTip429 checkForTip440 checkForTip461 \
-        checkForTip463 checkForTip471 checkForTip508 checkForTip521 \
-        checkForTiming checkForPerformance checkForBigLists \
-        checkForProcessorIntensive checkForFileSystemIntensive \
-        checkForTimeIntensive checkForFullTest checkForMemoryIntensive \
-        checkForStackIntensive ulimitStackSizeToBytes getUlimitC99 \
-        compileViaC99 checkForStackSize checkForInteractive \
+        checkForFile checkForPathFile checkForNativeCode \
+        checkForAllowBigIntegers checkForTip127 checkForTip182 \
+        checkForTip194 checkForTip207 checkForTip237 checkForTip241 \
+        checkForTip285 checkForTip405 checkForTip421 checkForTip426 \
+        checkForTip429 checkForTip440 checkForTip461 checkForTip463 \
+        checkForTip471 checkForTip508 checkForTip521 checkForTiming \
+        checkForPerformance checkForBigLists checkForProcessorIntensive \
+        checkForFileSystemIntensive checkForTimeIntensive checkForFullTest \
+        checkForMemoryIntensive checkForStackIntensive ulimitStackSizeToBytes \
+        getUlimitC99 compileViaC99 checkForStackSize checkForInteractive \
         checkForInteractiveFocus checkForInteractiveCommand \
         checkForUserInteraction checkForOfflineMode checkForNetwork \
         maybeDownloadFromUri checkForInternet checkForTlsOk \

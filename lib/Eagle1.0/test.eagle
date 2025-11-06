@@ -1956,6 +1956,22 @@ namespace eval ::Eagle {
     return $result
   }
 
+  proc hasInterpreterFlags { flags all } {
+    return [object invoke -flags +NonPublic \
+        Eagle._Components.Private.ScriptOps HasFlags "" $flags $all]
+  }
+
+  proc hasAllowBigIntegers {} {
+    if {[isEagle]} then {
+      return [hasInterpreterFlags AllowBigIntegers true]
+    } else {
+      #
+      # NOTE: Native Tcl has no way to disable big integers.
+      #
+      return true
+    }
+  }
+
   proc enableFlags {
           memberName {newFlags ""} {enable ""} {memberType Field}
           {typeName Interpreter} {objectName Interpreter.GetActive} } {
@@ -13496,6 +13512,7 @@ namespace eval ::Eagle {
         removeConstraintFromArgv enableSystemAliasFlags setupSystemAliases \
         reopenHost breakpoint debugBreakWithNewConsole setupTestPackageVars \
         getTestRunTag setupTestRunTag makeProcedureCommand enableFlags \
+        hasInterpreterFlags hasAllowBigIntegers \
         enableDataFlags enableHostFlags enableInterpreterFlags \
         enableInterpreterStateFlags enablePluginFlags \
         enableSharedProcedureFlags enableContextProcedureFlags \

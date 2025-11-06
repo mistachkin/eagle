@@ -159,7 +159,7 @@ namespace Eagle._Components.Private
                 {
                     InitializePriorities(
                         CommonOps.Environment.GetVariable(
-                                EnvVars.TracePriorityLimits));
+                            EnvVars.TracePriorityLimits));
                 }
 
                 if (force || (trippedPriorities == null))
@@ -200,7 +200,10 @@ namespace Eagle._Components.Private
                     priorityMask = (TracePriority)enumValue;
             }
 
-            priorities = TraceOps.CreateTracePriorities(priorityMask, 0);
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                priorities = TraceOps.CreateTracePriorities(priorityMask, 0);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////

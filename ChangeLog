@@ -1,7 +1,7 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
-BUGFIX: fix and/or address Coverity issues from #434153 to #549062.
+BUGFIX: fix and/or address Coverity issues from #434153 to #551150.
 
 BUGFIX: do not allow an ICallback that is in use by the current interpreter to
         be disposed via an opaque object handle.
@@ -69,6 +69,8 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
+
+FEATURE: add support for renaming [expr] functions via [rename].
 
 FEATURE: add the [file tildeexpand] sub-command.
 

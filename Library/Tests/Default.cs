@@ -1985,11 +1985,34 @@ namespace Eagle._Tests
         {
             if (setup)
             {
-                ScriptComplain scriptComplain = new ScriptComplain(
-                    text, engineFlags);
+                bool success = false;
+                ScriptComplain scriptComplain = null;
 
-                Interpreter.ComplainCallback = new ComplainCallback(
-                    scriptComplain.Complain);
+                try
+                {
+                    scriptComplain = new ScriptComplain(
+                        text, engineFlags);
+
+                    ComplainCallback callback = new ComplainCallback(
+                        scriptComplain.Complain);
+
+                    Interpreter.ComplainCallback = callback;
+
+                    success = true;
+                }
+                finally
+                {
+                    if (scriptComplain != null)
+                    {
+                        if (!success)
+                        {
+                            ObjectOps.DisposeOrTrace<ScriptComplain>(
+                                interpreter, ref scriptComplain);
+                        }
+
+                        scriptComplain = null;
+                    }
+                }
             }
             else
             {

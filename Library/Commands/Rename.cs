@@ -169,6 +169,21 @@ namespace Eagle._Commands
                     return ReturnCode.Error;
                 }
             }
+            else if (kind == IdentifierKind.Function)
+            {
+                if (interpreter.RenameFunction(
+                        oldName, newName, delete,
+                        ref localResult) == ReturnCode.Ok)
+                {
+                    result = String.Empty;
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    result = localResult;
+                    return ReturnCode.Error;
+                }
+            }
             else
             {
                 if (interpreter.RenameAnyIExecute(oldName,

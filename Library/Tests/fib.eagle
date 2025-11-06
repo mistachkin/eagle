@@ -47,7 +47,7 @@ runTest {test fib-1.2 {iterative fibonacci sequence (entier)} -setup {
   }
 } -body {
   fib 10000
-} -constraints {tip237} -cleanup {
+} -constraints {tip237 bigIntegers} -cleanup {
   rename fib ""
 } -result [appendArgs {33644764876431783266621612005107543310302148460680063} \
 {906564769974680081442166662368155595513633734025582065332680836159373734790} \

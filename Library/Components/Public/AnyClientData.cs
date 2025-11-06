@@ -37,6 +37,22 @@ namespace Eagle._Components.Public
     {
         #region Private Constants
         //
+        // NOTE: The number of milliseconds to sleep before retrying for
+        //       the instance lock (i.e. syncRoot).
+        //
+        private static int SleepMilliseconds = 50;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is the maximum number of milliseconds that we keep
+        //       retrying for the instance lock (i.e. syncRoot).
+        //
+        private static double MaximumSyncRootTimeout = 4000;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // HACK: These are purposely not read-only.
         //
         private static bool DefaultOverwrite = true;
@@ -70,12 +86,22 @@ namespace Eagle._Components.Public
             )
             : base(data, readOnly)
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 this.interpreter = interpreter;
                 this.clientData = clientData;
                 this.cultureInfo = cultureInfo;
                 this.dictionary = dictionary;
+            }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -168,16 +194,290 @@ namespace Eagle._Components.Public
 
             return true;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Static Locking Helper Methods
+        private static void PrivateTryLock(
+            object syncRoot, /* in */
+            ref bool locked  /* out */
+            )
+        {
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(syncRoot);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void PrivateTryLock(
+            object syncRoot, /* in */
+            int timeout,     /* in */
+            ref bool locked  /* out */
+            )
+        {
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(syncRoot, timeout);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void PrivateTryLockWithWait(
+            object syncRoot, /* in */
+            ref bool locked  /* out */
+            )
+        {
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(
+                syncRoot, ThreadOps.GetTimeout(
+                null, null, TimeoutType.WaitLock));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void PrivateExitLock(
+            object syncRoot, /* in */
+            ref bool locked  /* in, out */
+            )
+        {
+            if (syncRoot == null)
+                return;
+
+            if (locked)
+            {
+                Monitor.Exit(syncRoot);
+                locked = false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int GetSleepMilliseconds()
+        {
+            return Interlocked.CompareExchange(
+                ref SleepMilliseconds, 0, 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool SetSleepMilliseconds(
+            int oldSleepMilliseconds, /* in */
+            int newSleepMilliseconds  /* in */
+            )
+        {
+            return Interlocked.CompareExchange(
+                ref SleepMilliseconds, newSleepMilliseconds,
+                oldSleepMilliseconds) == oldSleepMilliseconds;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static double GetMaximumTimeout()
+        {
+            return Interlocked.CompareExchange(
+                ref MaximumSyncRootTimeout, 0.0, 0.0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool SetMaximumTimeout(
+            double oldMaximumTimeout, /* in */
+            double newMaximumTimeout  /* in */
+            )
+        {
+            return Interlocked.CompareExchange(
+                ref MaximumSyncRootTimeout, newMaximumTimeout,
+                oldMaximumTimeout) == oldMaximumTimeout;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool HasTimeoutElapsed(
+            DateTime start /* in */
+            )
+        {
+            double maximumTimeout = GetMaximumTimeout();
+
+            if (maximumTimeout < 0)
+                return false;
+
+            DateTime now = TimeOps.GetUtcNow();
+
+            if (now < start) // NOTE: Time travel, eh?
+                return true;
+
+            double timeout = now.Subtract(start).TotalMilliseconds;
+
+            if (timeout < maximumTimeout)
+                return false;
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeSleepAndOrYield()
+        {
+            int milliseconds = GetSleepMilliseconds();
+
+            if (milliseconds > 0)
+                HostOps.ThreadSleep(milliseconds);
+
+            //
+            // HACK: *FAIL-SAFE* Always "yield" somehow so
+            //       this thread does not simply fast-spin.
+            //
+            HostOps.ThreadYield();
+        }
+        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        private object GetSyncRoot()
+        {
+            return Interlocked.CompareExchange(
+                ref syncRoot, null, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool MaybeSetSyncRoot(
+            object oldSyncRoot, /* in */
+            object newSyncRoot  /* in */
+            )
+        {
+            return Interlocked.CompareExchange(
+                ref syncRoot, newSyncRoot,
+                oldSyncRoot) == oldSyncRoot;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool MaybeEnterSyncRoot(
+            ref object oldSyncRoot, /* out */
+            ref bool locked         /* out */
+            )
+        {
+            DateTime start = TimeOps.GetUtcNow();
+
+            while (true)
+            {
+                oldSyncRoot = GetSyncRoot();
+
+                if (oldSyncRoot == null)
+                {
+                    if (HasTimeoutElapsed(start))
+                        return false;
+
+                    MaybeSleepAndOrYield();
+                    continue;
+                }
+
+                //
+                // NOTE: This may (technically) wait longer than
+                //       the overall timeout budget; and that is
+                //       fine.
+                //
+                PrivateTryLockWithWait(oldSyncRoot, ref locked);
+
+                if (!locked)
+                {
+                    if (HasTimeoutElapsed(start))
+                        return false;
+
+                    MaybeSleepAndOrYield();
+                    continue;
+                }
+
+                object newSyncRoot = GetSyncRoot();
+
+                if (!Object.ReferenceEquals(oldSyncRoot, newSyncRoot))
+                {
+                    PrivateExitLock(oldSyncRoot, ref locked);
+
+                    if (HasTimeoutElapsed(start))
+                        return false;
+
+                    MaybeSleepAndOrYield();
+                    continue;
+                }
+
+                return true;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool MaybeExitSyncRoot(
+            ref object syncRoot, /* in, out */
+            ref bool locked      /* out */
+            )
+        {
+            PrivateExitLock(syncRoot, ref locked);
+
+            if (locked)
+                return false;
+
+            syncRoot = null;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void ThrowLockError()
+        {
+            double maximumTimeout = GetMaximumTimeout();
+
+            throw new ScriptException(String.Format(
+                "locking retry timeout after {0} milliseconds",
+                (maximumTimeout < 0) ? FormatOps.DisplayInfinite :
+                maximumTimeout.ToString()));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private CultureInfo GetCultureInfo()
+        {
+            return Interlocked.CompareExchange(
+                ref cultureInfo, null, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool MaybeSetCultureInfo(
+            CultureInfo oldCultureInfo,
+            CultureInfo newCultureInfo
+            )
+        {
+            return Interlocked.CompareExchange(
+                ref cultureInfo, newCultureInfo,
+                oldCultureInfo) == oldCultureInfo;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private AnyDictionary GetDictionary()
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 return dictionary;
+            }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
             }
         }
 
@@ -185,8 +485,14 @@ namespace Eagle._Components.Public
 
         private int MaybeResetData()
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 int count = 0;
 
                 if (base.Data != null)
@@ -197,14 +503,24 @@ namespace Eagle._Components.Public
 
                 return count;
             }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private int MaybeClearAndResetDictionary()
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 int count = 0;
 
                 if (dictionary != null)
@@ -217,16 +533,30 @@ namespace Eagle._Components.Public
 
                 return count;
             }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private AnyDictionary CopyOrNullDictionary()
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 return (dictionary != null) ?
                     new AnyDictionary(dictionary) : null;
+            }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
             }
         }
 
@@ -234,10 +564,20 @@ namespace Eagle._Components.Public
 
         private AnyDictionary CopyOrNewDictionary()
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 return (dictionary != null) ?
                     new AnyDictionary(dictionary) : NewDictionary();
+            }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
             }
         }
 
@@ -247,8 +587,14 @@ namespace Eagle._Components.Public
             IAnyClientData anyClientData /* in: OPTIONAL */
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 if (dictionary != null)
                     return;
 
@@ -258,6 +604,10 @@ namespace Eagle._Components.Public
                 dictionary = (localAnyClientData != null) ?
                     localAnyClientData.CopyOrNewDictionary() :
                     NewDictionary();
+            }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
             }
         }
         #endregion
@@ -272,9 +622,19 @@ namespace Eagle._Components.Public
             {
                 CheckDisposed();
 
-                lock (syncRoot)
+                bool locked = false;
+                object syncRoot = null;
+
+                try
                 {
+                    if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                        ThrowLockError();
+
                     return clientData;
+                }
+                finally
+                {
+                    MaybeExitSyncRoot(ref syncRoot, ref locked);
                 }
             }
             set
@@ -282,9 +642,19 @@ namespace Eagle._Components.Public
                 CheckDisposed();
                 CheckReadOnly();
 
-                lock (syncRoot)
+                bool locked = false;
+                object syncRoot = null;
+
+                try
                 {
+                    if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                        ThrowLockError();
+
                     clientData = value;
+                }
+                finally
+                {
+                    MaybeExitSyncRoot(ref syncRoot, ref locked);
                 }
             }
         }
@@ -300,19 +670,21 @@ namespace Eagle._Components.Public
             {
                 CheckDisposed();
 
-                lock (syncRoot)
-                {
-                    return cultureInfo;
-                }
+                return GetCultureInfo();
             }
             set
             {
                 CheckDisposed();
                 CheckReadOnly();
 
-                lock (syncRoot)
+                CultureInfo oldCultureInfo = GetCultureInfo();
+                CultureInfo newCultureInfo = value;
+
+                if (!MaybeSetCultureInfo(
+                        oldCultureInfo, newCultureInfo))
                 {
-                    cultureInfo = value;
+                    throw new ScriptException(
+                        "could not change culture");
                 }
             }
         }
@@ -328,9 +700,19 @@ namespace Eagle._Components.Public
             {
                 CheckDisposed();
 
-                lock (syncRoot)
+                bool locked = false;
+                object syncRoot = null;
+
+                try
                 {
+                    if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                        ThrowLockError();
+
                     return interpreter;
+                }
+                finally
+                {
+                    MaybeExitSyncRoot(ref syncRoot, ref locked);
                 }
             }
             set
@@ -338,9 +720,19 @@ namespace Eagle._Components.Public
                 CheckDisposed();
                 CheckReadOnly();
 
-                lock (syncRoot)
+                bool locked = false;
+                object syncRoot = null;
+
+                try
                 {
+                    if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                        ThrowLockError();
+
                     interpreter = value;
+                }
+                finally
+                {
+                    MaybeExitSyncRoot(ref syncRoot, ref locked);
                 }
             }
         }
@@ -351,7 +743,7 @@ namespace Eagle._Components.Public
         #region ISynchronizeBase Members
         public object SyncRoot
         {
-            get { CheckDisposed(); return syncRoot; }
+            get { CheckDisposed(); return GetSyncRoot(); }
         }
         #endregion
 
@@ -364,10 +756,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            if (syncRoot == null)
-                return;
-
-            locked = Monitor.TryEnter(syncRoot);
+            PrivateTryLock(GetSyncRoot(), ref locked);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -378,12 +767,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            if (syncRoot == null)
-                return;
-
-            locked = Monitor.TryEnter(
-                syncRoot, ThreadOps.GetTimeout(
-                null, null, TimeoutType.WaitLock));
+            PrivateTryLockWithWait(GetSyncRoot(), ref locked);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -394,10 +778,7 @@ namespace Eagle._Components.Public
         {
             // CheckDisposed(); /* EXEMPT */
 
-            if (syncRoot == null)
-                return;
-
-            locked = Monitor.TryEnter(syncRoot);
+            PrivateTryLock(GetSyncRoot(), ref locked);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -409,10 +790,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            if (syncRoot == null)
-                return;
-
-            locked = Monitor.TryEnter(syncRoot, timeout);
+            PrivateTryLock(GetSyncRoot(), timeout, ref locked);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -423,14 +801,7 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            if (syncRoot == null)
-                return;
-
-            if (locked)
-            {
-                Monitor.Exit(syncRoot);
-                locked = false;
-            }
+            PrivateExitLock(GetSyncRoot(), ref locked);
         }
         #endregion
 
@@ -444,8 +815,14 @@ namespace Eagle._Components.Public
             CheckDisposed();
             CheckReadOnly();
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 if (attached != null)
                 {
                     return attached.TryResetAny(
@@ -463,6 +840,10 @@ namespace Eagle._Components.Public
                 dictionary.Clear();
                 return true;
             }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -475,8 +856,14 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 if (attached != null)
                 {
                     return attached.TryHasAny(
@@ -500,6 +887,10 @@ namespace Eagle._Components.Public
                 hasAny = dictionary.ContainsKey(name);
                 return true;
             }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -513,8 +904,14 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 if (attached != null)
                 {
                     return attached.TryListAny(
@@ -542,6 +939,10 @@ namespace Eagle._Components.Public
                 list = localList;
                 return true;
             }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -554,8 +955,14 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 if (attached != null)
                 {
                     return attached.TryGetAny(
@@ -586,6 +993,10 @@ namespace Eagle._Components.Public
 
                 return true;
             }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -602,8 +1013,14 @@ namespace Eagle._Components.Public
             CheckDisposed();
             CheckReadOnly();
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 if (attached != null)
                 {
                     return attached.TrySetAny(
@@ -645,6 +1062,10 @@ namespace Eagle._Components.Public
                 dictionary[name] = value;
                 return true;
             }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -657,8 +1078,15 @@ namespace Eagle._Components.Public
             CheckDisposed();
             CheckReadOnly();
 
-            lock (syncRoot) /* TRANSACTIONAL */
+
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 if (attached != null)
                 {
                     return attached.TryUnsetAny(
@@ -686,6 +1114,10 @@ namespace Eagle._Components.Public
                 }
 
                 return true;
+            }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
             }
         }
         #endregion
@@ -803,18 +1235,12 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             bool localValue = default(bool);
 
-            if (Value.GetBoolean2(stringValue,
-                    ValueFlags.AnyBoolean, localCultureInfo,
+            if (Value.GetBoolean2(
+                    stringValue, ValueFlags.AnyBoolean, cultureInfo,
                     ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(bool);
@@ -861,18 +1287,12 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             bool? localValue = null;
 
-            if (Value.GetNullableBoolean2(stringValue,
-                    ValueFlags.AnyBoolean, localCultureInfo,
+            if (Value.GetNullableBoolean2(
+                    stringValue, ValueFlags.AnyBoolean, cultureInfo,
                     ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = null;
@@ -919,20 +1339,13 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             sbyte localValue = default(sbyte);
 
-            if (Value.GetSignedByte2(stringValue,
-                    ValueFlags.AnyByte | ValueFlags.Signed,
-                    localCultureInfo, ref localValue,
-                    ref error) != ReturnCode.Ok)
+            if (Value.GetSignedByte2(
+                    stringValue, ValueFlags.AnyByte | ValueFlags.Signed,
+                    cultureInfo, ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(sbyte);
                 return false;
@@ -978,18 +1391,12 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             byte localValue = default(byte);
 
             if (Value.GetByte2(
-                    stringValue, ValueFlags.AnyByte, localCultureInfo,
+                    stringValue, ValueFlags.AnyByte, cultureInfo,
                     ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(byte);
@@ -1036,20 +1443,13 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             short localValue = default(short);
 
-            if (Value.GetNarrowInteger2(stringValue,
-                    ValueFlags.AnyNarrowInteger,
-                    localCultureInfo, ref localValue,
-                    ref error) != ReturnCode.Ok)
+            if (Value.GetNarrowInteger2(
+                    stringValue, ValueFlags.AnyNarrowInteger, cultureInfo,
+                    ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(short);
                 return false;
@@ -1095,20 +1495,14 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             ushort localValue = default(ushort);
 
-            if (Value.GetUnsignedNarrowInteger2(stringValue,
-                    ValueFlags.AnyNarrowInteger | ValueFlags.Unsigned,
-                    localCultureInfo, ref localValue,
-                    ref error) != ReturnCode.Ok)
+            if (Value.GetUnsignedNarrowInteger2(
+                    stringValue, ValueFlags.AnyNarrowInteger |
+                    ValueFlags.Unsigned, cultureInfo,
+                    ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(ushort);
                 return false;
@@ -1154,20 +1548,13 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             char localValue = default(char);
 
-            if (Value.GetCharacter2(stringValue,
-                    ValueFlags.AnyCharacter,
-                    localCultureInfo, ref localValue,
-                    ref error) != ReturnCode.Ok)
+            if (Value.GetCharacter2(
+                    stringValue, ValueFlags.AnyCharacter, cultureInfo,
+                    ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(char);
                 return false;
@@ -1213,20 +1600,13 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             int localValue = default(int);
 
-            if (Value.GetInteger2(stringValue,
-                    ValueFlags.AnyInteger,
-                    localCultureInfo, ref localValue,
-                    ref error) != ReturnCode.Ok)
+            if (Value.GetInteger2(
+                    stringValue, ValueFlags.AnyInteger, cultureInfo,
+                    ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(int);
                 return false;
@@ -1272,20 +1652,13 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             uint localValue = default(uint);
 
-            if (Value.GetUnsignedInteger2(stringValue,
-                    ValueFlags.AnyInteger | ValueFlags.Unsigned,
-                    localCultureInfo, ref localValue,
-                    ref error) != ReturnCode.Ok)
+            if (Value.GetUnsignedInteger2(
+                    stringValue, ValueFlags.AnyInteger | ValueFlags.Unsigned,
+                    cultureInfo, ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(uint);
                 return false;
@@ -1331,20 +1704,13 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             long localValue = default(long);
 
-            if (Value.GetWideInteger2(stringValue,
-                    ValueFlags.AnyWideInteger,
-                    localCultureInfo, ref localValue,
-                    ref error) != ReturnCode.Ok)
+            if (Value.GetWideInteger2(
+                    stringValue, ValueFlags.AnyWideInteger, cultureInfo,
+                    ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(long);
                 return false;
@@ -1390,20 +1756,14 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             ulong localValue = default(ulong);
 
-            if (Value.GetUnsignedWideInteger2(stringValue,
-                    ValueFlags.AnyWideInteger | ValueFlags.Unsigned,
-                    localCultureInfo, ref localValue,
-                    ref error) != ReturnCode.Ok)
+            if (Value.GetUnsignedWideInteger2(
+                    stringValue, ValueFlags.AnyWideInteger |
+                    ValueFlags.Unsigned, cultureInfo,
+                    ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(ulong);
                 return false;
@@ -1449,20 +1809,13 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             decimal localValue = default(decimal);
 
-            if (Value.GetDecimal(stringValue,
-                    ValueFlags.AnyDecimal,
-                    localCultureInfo, ref localValue,
-                    ref error) != ReturnCode.Ok)
+            if (Value.GetDecimal(
+                    stringValue, ValueFlags.AnyDecimal, cultureInfo,
+                    ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(decimal);
                 return false;
@@ -1508,18 +1861,12 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             float localValue = default(float);
 
-            if (Value.GetSingle(stringValue,
-                    localCultureInfo, ref localValue,
+            if (Value.GetSingle(
+                    stringValue, cultureInfo, ref localValue,
                     ref error) != ReturnCode.Ok)
             {
                 value = default(float);
@@ -1566,18 +1913,12 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             double localValue = default(double);
 
-            if (Value.GetDouble(stringValue,
-                    localCultureInfo, ref localValue,
+            if (Value.GetDouble(
+                    stringValue, cultureInfo, ref localValue,
                     ref error) != ReturnCode.Ok)
             {
                 value = default(float);
@@ -1627,19 +1968,13 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             DateTime localValue = default(DateTime);
 
-            if (Value.GetDateTime2(stringValue,
-                    format, ValueFlags.AnyDateTime, kind,
-                    styles, localCultureInfo, ref localValue,
+            if (Value.GetDateTime2(
+                    stringValue, format, ValueFlags.AnyDateTime,
+                    kind, styles, cultureInfo, ref localValue,
                     ref error) != ReturnCode.Ok)
             {
                 value = default(DateTime);
@@ -1686,20 +2021,13 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             TimeSpan localValue = default(TimeSpan);
 
-            if (Value.GetTimeSpan2(stringValue,
-                    ValueFlags.AnyTimeSpan,
-                    localCultureInfo, ref localValue,
-                    ref error) != ReturnCode.Ok)
+            if (Value.GetTimeSpan2(
+                    stringValue, ValueFlags.AnyTimeSpan, cultureInfo,
+                    ref localValue, ref error) != ReturnCode.Ok)
             {
                 value = default(TimeSpan);
                 return false;
@@ -1758,13 +2086,7 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             object enumValue;
 
@@ -1772,7 +2094,7 @@ namespace Eagle._Components.Public
             {
                 enumValue = EnumOps.TryParseFlags(
                     interpreter, enumType, null,
-                    stringValue, localCultureInfo,
+                    stringValue, cultureInfo,
                     true, true, true, ref error);
             }
             else
@@ -1964,18 +2286,12 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             Guid localValue = default(Guid);
 
-            if (Value.GetGuid(stringValue,
-                    localCultureInfo, ref localValue,
+            if (Value.GetGuid(
+                    stringValue, cultureInfo, ref localValue,
                     ref error) != ReturnCode.Ok)
             {
                 value = default(Guid);
@@ -2023,18 +2339,12 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             Uri localValue = null;
 
-            if (Value.GetUri(stringValue,
-                    uriKind, localCultureInfo, ref localValue,
+            if (Value.GetUri(
+                    stringValue, uriKind, cultureInfo, ref localValue,
                     ref error) != ReturnCode.Ok)
             {
                 value = null;
@@ -2081,18 +2391,12 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             Version localValue = null;
 
-            if (Value.GetVersion(stringValue,
-                    localCultureInfo, ref localValue,
+            if (Value.GetVersion(
+                    stringValue, cultureInfo, ref localValue,
                     ref error) != ReturnCode.Ok)
             {
                 value = null;
@@ -2270,17 +2574,11 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
 
             IRuleSet localValue = RuleSet.Create(
-                stringValue, localCultureInfo, ref error);
+                stringValue, cultureInfo, ref error);
 
             value = localValue;
             return (localValue != null);
@@ -2448,18 +2746,12 @@ namespace Eagle._Components.Public
                 return false;
             }
 
-            CultureInfo localCultureInfo;
-
-            lock (syncRoot)
-            {
-                localCultureInfo = cultureInfo;
-            }
-
+            CultureInfo cultureInfo = GetCultureInfo();
             string stringValue = GetStringFromObject(@object);
             byte[] localValue = null;
 
             if (StringOps.GetBytesFromString(
-                    stringValue, localCultureInfo, ref localValue,
+                    stringValue, cultureInfo, ref localValue,
                     ref error) != ReturnCode.Ok)
             {
                 value = null;
@@ -2480,9 +2772,19 @@ namespace Eagle._Components.Public
             {
                 CheckDisposed();
 
-                lock (syncRoot)
+                bool locked = false;
+                object syncRoot = null;
+
+                try
                 {
+                    if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                        ThrowLockError();
+
                     return attached;
+                }
+                finally
+                {
+                    MaybeExitSyncRoot(ref syncRoot, ref locked);
                 }
             }
         }
@@ -2495,8 +2797,14 @@ namespace Eagle._Components.Public
             {
                 CheckDisposed();
 
-                lock (syncRoot) /* TRANSACTIONAL */
+                bool locked = false;
+                object syncRoot = null;
+
+                try
                 {
+                    if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                        ThrowLockError();
+
                     IAnyClientData thisClientData = this;
                     IAnyClientData linkClientData = attached;
 
@@ -2507,6 +2815,10 @@ namespace Eagle._Components.Public
                     }
 
                     return thisClientData;
+                }
+                finally
+                {
+                    MaybeExitSyncRoot(ref syncRoot, ref locked);
                 }
             }
         }
@@ -2519,8 +2831,20 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            object oldSyncRoot = GetSyncRoot();
+
+            if (oldSyncRoot == null)
+                return false;
+
+            bool locked1 = false;
+
+            try
             {
+                PrivateTryLock(oldSyncRoot, ref locked1);
+
+                if (!locked1)
+                    return false;
+
                 if (attached != null)
                     return false;
 
@@ -2533,11 +2857,36 @@ namespace Eagle._Components.Public
                 if (Object.ReferenceEquals(anyClientData, this))
                     return false;
 
-                savedSyncRoot = syncRoot;
-                syncRoot = anyClientData.SyncRoot;
-                attached = anyClientData;
+                object newSyncRoot = anyClientData.SyncRoot;
 
-                return true;
+                if (newSyncRoot == null)
+                    return false;
+
+                bool locked2 = false;
+
+                try
+                {
+                    PrivateTryLock(newSyncRoot, ref locked2);
+
+                    if (!locked2)
+                        return false;
+
+                    if (!MaybeSetSyncRoot(oldSyncRoot, newSyncRoot))
+                        return false;
+
+                    savedSyncRoot = oldSyncRoot;
+                    attached = anyClientData;
+
+                    return true;
+                }
+                finally
+                {
+                    PrivateExitLock(newSyncRoot, ref locked2);
+                }
+            }
+            finally
+            {
+                PrivateExitLock(oldSyncRoot, ref locked1);
             }
         }
 
@@ -2549,8 +2898,20 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            object oldSyncRoot = GetSyncRoot();
+
+            if (oldSyncRoot == null)
+                return false;
+
+            bool locked1 = false;
+
+            try
             {
+                PrivateTryLock(oldSyncRoot, ref locked1);
+
+                if (!locked1)
+                    return false;
+
                 if (attached == null)
                     return false;
 
@@ -2563,11 +2924,36 @@ namespace Eagle._Components.Public
                 if (!Object.ReferenceEquals(anyClientData, attached))
                     return false;
 
-                syncRoot = savedSyncRoot;
-                savedSyncRoot = null;
-                attached = null;
+                object newSyncRoot = savedSyncRoot;
 
-                return true;
+                if (newSyncRoot == null)
+                    return false;
+
+                bool locked2 = false;
+
+                try
+                {
+                    PrivateTryLock(newSyncRoot, ref locked2);
+
+                    if (!locked2)
+                        return false;
+
+                    if (!MaybeSetSyncRoot(oldSyncRoot, newSyncRoot))
+                        return false;
+
+                    savedSyncRoot = null;
+                    attached = null;
+
+                    return true;
+                }
+                finally
+                {
+                    PrivateExitLock(newSyncRoot, ref locked2);
+                }
+            }
+            finally
+            {
+                PrivateExitLock(oldSyncRoot, ref locked1);
             }
         }
 
@@ -2580,10 +2966,16 @@ namespace Eagle._Components.Public
             CheckDisposed();
             CheckReadOnly();
 
-            int count = 0;
+            bool locked = false;
+            object syncRoot = null;
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
+                int count = 0;
+
                 if (anyClientData != null)
                 {
                     //
@@ -2621,9 +3013,13 @@ namespace Eagle._Components.Public
                     count += MaybeResetData();
                     count += MaybeClearAndResetDictionary();
                 }
-            }
 
-            return count;
+                return count;
+            }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2657,8 +3053,14 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 IStringList result = new StringList();
 
                 result.Add("BaseToString", base.ToString());
@@ -2687,6 +3089,10 @@ namespace Eagle._Components.Public
 
                 return result;
             }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
+            }
         }
         #endregion
 
@@ -2708,13 +3114,23 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+            object syncRoot = null;
+
+            try
             {
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
                 return new AnyClientData(
                     interpreter, clientData, cultureInfo,
                     (dictionary != null) ?
                         new AnyDictionary(dictionary) : null,
                     base.Data, base.ReadOnly);
+            }
+            finally
+            {
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
             }
         }
         #endregion
@@ -2752,8 +3168,12 @@ namespace Eagle._Components.Public
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
-            if (disposed && Engine.IsThrowOnDisposed(interpreter, null))
-                throw new ObjectDisposedException(typeof(AnyClientData).Name);
+            if (disposed && /* NO-LOCK */
+                Engine.IsThrowOnDisposed(interpreter, null))
+            {
+                throw new ObjectDisposedException(
+                    typeof(AnyClientData).Name);
+            }
 #endif
         }
 
@@ -2763,52 +3183,61 @@ namespace Eagle._Components.Public
             bool disposing /* in */
             )
         {
+            bool locked = false;
+            object syncRoot = null;
+
             try
             {
-                if (!disposed)
+                if (!MaybeEnterSyncRoot(ref syncRoot, ref locked))
+                    ThrowLockError();
+
+                try
                 {
-                    if (disposing)
+                    if (!disposed)
                     {
-                        ////////////////////////////////////
-                        // dispose managed resources here...
-                        ////////////////////////////////////
-
-                        IAnyClientData localAttached;
-
-                        lock (syncRoot)
+                        if (disposing)
                         {
+                            ////////////////////////////////////
+                            // dispose managed resources here...
+                            ////////////////////////////////////
+
+                            IAnyClientData localAttached;
+
                             localAttached = attached;
-                        }
 
-                        DetachFrom(localAttached);
+                            DetachFrom(localAttached);
 
-                        lock (syncRoot) /* TRANSACTIONAL */
-                        {
                             if (dictionary != null)
                             {
                                 dictionary.Clear();
                                 dictionary = null;
                             }
                         }
-                    }
 
-                    //////////////////////////////////////
-                    // release unmanaged resources here...
-                    //////////////////////////////////////
+                        //////////////////////////////////////
+                        // release unmanaged resources here...
+                        //////////////////////////////////////
 
-                    lock (syncRoot) /* TRANSACTIONAL */
-                    {
                         clientData = null; /* NOT OWNED */
                         cultureInfo = null; /* NOT OWNED */
                         interpreter = null; /* NOT OWNED */
                     }
                 }
+                finally
+                {
+                    //
+                    // NOTE: The base class (ClientData) does not
+                    //       implement IDisposable.  If this ever
+                    //       changes, uncomment this.
+                    //
+                    // base.Dispose(disposing);
+
+                    disposed = true;
+                }
             }
             finally
             {
-                // base.Dispose(disposing);
-
-                disposed = true;
+                MaybeExitSyncRoot(ref syncRoot, ref locked);
             }
         }
         #endregion

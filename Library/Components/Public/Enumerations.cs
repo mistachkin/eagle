@@ -1468,6 +1468,7 @@ namespace Eagle._Components.Public
 
         #region Inform Mask Values
         StartupInform = MediumHigh | Inform | SimpleFormatting,
+        StartupInform2 = Highest | Inform,
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -4122,6 +4123,7 @@ namespace Eagle._Components.Public
                                      * "tcl::mathfunc" namespace. */
         NoAttributes = 0x8000,      /* Skip querying and combining the flags,
                                      * etc, from the underlying managed type. */
+        NoRename = 0x10000,         /* Prevent the function from being renamed. */
 
         //
         // NOTE: This flag mask is only used for testing the core library.

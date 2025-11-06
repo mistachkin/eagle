@@ -89,6 +89,8 @@ namespace Eagle._Containers.Public
 
                 ObjectOps.DisposeOrTrace<IRuleSet>(
                     null, ref ruleSet);
+
+                ruleSet = null;
             }
         }
 
@@ -226,10 +228,15 @@ namespace Eagle._Containers.Public
                     }
                     finally
                     {
-                        if (!success[1] && (ruleSet != null))
+                        if (ruleSet != null)
                         {
-                            ObjectOps.DisposeOrTrace<IRuleSet>(
-                                null, ref ruleSet);
+                            if (!success[1])
+                            {
+                                ObjectOps.DisposeOrTrace<IRuleSet>(
+                                    null, ref ruleSet);
+                            }
+
+                            ruleSet = null;
                         }
                     }
                 }
@@ -247,10 +254,15 @@ namespace Eagle._Containers.Public
             }
             finally
             {
-                if (!success[0] && (result != null))
+                if (result != null)
                 {
-                    ObjectOps.DisposeOrTrace<RuleSetDictionary>(
-                        null, ref result);
+                    if (!success[0])
+                    {
+                        ObjectOps.DisposeOrTrace<RuleSetDictionary>(
+                            null, ref result);
+                    }
+
+                    result = null;
                 }
             }
         }
