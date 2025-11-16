@@ -293,6 +293,11 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-windowstyle", ref value))
                                     windowStyle = (ProcessWindowStyle)value.Value;
 
+                                StringList tags = null; /* EXTERNAL USE ONLY */
+
+                                if (options.IsPresent("-tags", ref value))
+                                    tags = (StringList)value.Value;
+
                                 int? timeout = null;
 
                                 if (options.IsPresent("-timeout", ref value))
@@ -449,7 +454,8 @@ namespace Eagle._Commands
                                         "stdInObjectVarName = {37}, stdOutVarName = {38}, stdErrVarName = {39}, " +
                                         "startCallback = {40}, stdOutCallback = {41}, stdErrCallback = {42}, " +
                                         "startHandler = {43}, outputLogPath = {44}, errorLogPath = {45}, " +
-                                        "outputHandler = {46}, errorHandler = {47}, logTag = {48}, done = {49}",
+                                        "outputHandler = {46}, errorHandler = {47}, logTag = {48}, tags = {49}, " +
+                                        "done = {50}",
                                         FormatOps.InterpreterNoThrow(interpreter), FormatOps.WrapOrNull(domainName),
                                         FormatOps.WrapOrNull(userName), FormatOps.WrapOrNull(password),
                                         FormatOps.WrapOrNull(execFileName), FormatOps.WrapOrNull(execArguments),
@@ -467,8 +473,8 @@ namespace Eagle._Commands
                                         FormatOps.WrapOrNull(stdOutCallback), FormatOps.WrapOrNull(stdErrCallback),
                                         FormatOps.WrapOrNull(startHandler), FormatOps.WrapOrNull(outputLogPath),
                                         FormatOps.WrapOrNull(errorLogPath), FormatOps.WrapOrNull(outputHandler),
-                                        FormatOps.WrapOrNull(errorHandler), FormatOps.WrapOrNull(logTag), done),
-                                        typeof(Exec).Name, priority);
+                                        FormatOps.WrapOrNull(errorHandler), FormatOps.WrapOrNull(logTag),
+                                        FormatOps.WrapOrNull(tags), done), typeof(Exec).Name, priority);
                                 }
 
                                 if (code == ReturnCode.Ok)
@@ -541,8 +547,8 @@ namespace Eagle._Commands
                                         "stdInObjectVarName = {37}, stdOutVarName = {38}, stdErrVarName = {39}, " +
                                         "startCallback = {40}, stdOutCallback = {41}, stdErrCallback = {42}, " +
                                         "startHandler = {43}, outputLogPath = {44}, errorLogPath = {45}, " +
-                                        "outputHandler = {46}, errorHandler = {47}, logTag = {48}, done = {49}, " +
-                                        "processId = {50}, exitCode = {51}, result = {52}, error = {53}",
+                                        "outputHandler = {46}, errorHandler = {47}, logTag = {48}, tags = {49}, " +
+                                        "done = {50}, processId = {51}, exitCode = {52}, result = {53}, error = {54}",
                                         FormatOps.InterpreterNoThrow(interpreter), FormatOps.WrapOrNull(domainName),
                                         FormatOps.WrapOrNull(userName), FormatOps.WrapOrNull(password),
                                         FormatOps.WrapOrNull(execFileName), FormatOps.WrapOrNull(execArguments),
@@ -560,8 +566,9 @@ namespace Eagle._Commands
                                         FormatOps.WrapOrNull(stdOutCallback), FormatOps.WrapOrNull(stdErrCallback),
                                         FormatOps.WrapOrNull(startHandler), FormatOps.WrapOrNull(outputLogPath),
                                         FormatOps.WrapOrNull(errorLogPath), FormatOps.WrapOrNull(outputHandler),
-                                        FormatOps.WrapOrNull(errorHandler), FormatOps.WrapOrNull(logTag), done,
-                                        processId, exitCode, FormatOps.WrapOrNull(normalize, ellipsis, result),
+                                        FormatOps.WrapOrNull(errorHandler), FormatOps.WrapOrNull(logTag),
+                                        FormatOps.WrapOrNull(tags), done, processId, exitCode,
+                                        FormatOps.WrapOrNull(normalize, ellipsis, result),
                                         FormatOps.WrapOrNull(normalize, ellipsis, error)),
                                         typeof(Exec).Name, priority);
                                 }

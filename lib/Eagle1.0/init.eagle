@@ -653,6 +653,77 @@ namespace eval ::Eagle {
     ###########################################################################
 
     #
+    # NOTE: Do we need to create an [apply] shim procedure, e.g. for native
+    #       before 8.5?
+    #
+    if {![info exists ::no(NoApplyShims)] && \
+        ![info exists ::env(NoApplyShims)] && \
+        [llength [info commands ::apply]] == 0} then {
+      #
+      # HACK: These procedures were shamelessly stolen from the "pkgr.eagle"
+      #       script that belongs to the Package Client Toolset.  When that
+      #       code changes, these should be too.
+      #
+      namespace eval ::PackageRepository {
+        #
+        # NOTE: This procedure is used to provide a TIP #194 compatible [apply]
+        #       command to the native Tcl 8.4 interpreter.  Eagle and native
+        #       Tcl 8.5 (or higher) have this command built-in.  The lambdaExpr
+        #       argument must be a list with two or three elements.  The first
+        #       element is the list of arguments to the procedure.  The second
+        #       element is the body of the procedure.  The third element is the
+        #       target namespace for the procedure.  If the third element is
+        #       not specified, the global namespace is used.  Any remaining
+        #       arguments are passed to the procedure verbatim.
+        #
+        proc ::apply { lambdaExpr args } {
+          set length [llength $lambdaExpr]
+
+          if {$length < 2 || $length > 3} {
+            error [appendArgs \
+                "can't interpret \"" $lambdaExpr "\" as a lambda expression"]
+          }
+
+          foreach {procArgs procBody procNamespace} $lambdaExpr {break}
+
+          set procNameSuffix [::PackageRepository::getUniqueSuffix 2]
+          set procName [appendArgs :: $procNamespace ::lambda_ $procNameSuffix]
+          set procPreBody {rename [lindex [info level 0] 0] "";}
+
+          proc $procName $procArgs [appendArgs $procPreBody $procBody]
+
+          return [uplevel 1 [list $procName] $args]
+        }
+
+        #
+        # NOTE: This procedure returns a name suffix (directory, variable, etc)
+        #       that is unique to the running process at the current point in
+        #       time.  It is used (internally) to avoid name collisions with
+        #       any preexisting variables or commands that may be present in
+        #       the global namespace.  The paranoia argument represents the
+        #       relative level of paranoia required by the caller; the higher
+        #       this level, the more uniqueness is required.
+        #
+        if {[llength [info commands getUniqueSuffix]] == 0} then {
+          proc getUniqueSuffix { {paranoia 1} } {
+            set result [string trim [pid] -]
+
+            if {$paranoia > 0} then {
+              append result _ [string trim [clock seconds] -]
+            }
+
+            if {$paranoia > 1} then {
+              append result _ [string trim \
+                  [clock clicks -milliseconds] -]; # TODO: Bad?
+            }
+
+            return $result
+          }
+        }
+      }
+    }
+
+    #
     # NOTE: Exports the necessary commands from this package and import them
     #       into the global namespace.
     #

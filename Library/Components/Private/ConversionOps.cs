@@ -832,6 +832,11 @@ namespace Eagle._Components.Private
             if (X is ulong)
                 return (ulong)X != 0 ? true : false;
 
+#if NET_40
+            if (X is BigInteger)
+                return (BigInteger)X != 0 ? true : false;
+#endif
+
             if (X is Enum)
                 return EnumOps.ToLong((Enum)X) != 0 ? true : false;
 

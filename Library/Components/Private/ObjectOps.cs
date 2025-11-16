@@ -2310,6 +2310,8 @@ namespace Eagle._Components.Private
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
                     Index.Invalid, "-windowstyle",
                     new Variant(ProcessWindowStyle.Normal)),
+                new Option(null, OptionFlags.MustHaveListValue,
+                    Index.Invalid, Index.Invalid, "-tags", null),
                 Option.CreateEndOfOptions()
             });
         }

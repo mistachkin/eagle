@@ -2606,62 +2606,6 @@ if {1} then {
 ###############################################################################
 
 if {1} then {
-  #############################################################################
-  #
-  # NOTE: Do we need to create an [apply] shim procedure, e.g. for native
-  #       before 8.5?
-  #
-  if {[llength [info commands ::apply]] == 0} then {
-    #
-    # HACK: These procedures were shamelessly stolen from the "pkgr.eagle"
-    #       script that belongs to the Package Client Toolset.  When that
-    #       code changes, these should be too.
-    #
-    proc ::apply { lambdaExpr args } {
-      set length [llength $lambdaExpr]
-
-      if {$length < 2 || $length > 3} {
-        error [appendArgs \
-            "can't interpret \"" $lambdaExpr "\" as a lambda expression"]
-      }
-
-      foreach {procArgs procBody procNamespace} $lambdaExpr {break}
-
-      set procNameSuffix [::getUniqueSuffix 2]
-      set procName [appendArgs :: $procNamespace ::lambda_ $procNameSuffix]
-      set procPreBody {rename [lindex [info level 0] 0] "";}
-
-      proc $procName $procArgs [appendArgs $procPreBody $procBody]
-
-      return [uplevel 1 [list $procName] $args]
-    }
-
-    #
-    # HACK: These procedures were shamelessly stolen from the "pkgr.eagle"
-    #       script that belongs to the Package Client Toolset.  When that
-    #       code changes, these should be too.
-    #
-    proc ::getUniqueSuffix { {paranoia 1} } {
-      set result [string trim [pid] -]
-
-      if {$paranoia > 0} then {
-        append result _ [string trim [clock seconds] -]
-      }
-
-      if {$paranoia > 1} then {
-        append result _ [string trim \
-            [clock clicks -milliseconds] -]; # TODO: Bad?
-      }
-
-      return $result
-    }
-
-    set ::shim_apply true
-  } else {
-    set ::shim_apply false
-  }
-
-  #############################################################################
   #
   # NOTE: Do we need to create a shim for the [try] command (i.e.
   #       as a procedure), e.g. for native Tcl before version 8.6?
@@ -3243,12 +3187,7 @@ if {[info exists ::shim_try] && $::shim_try} then {
   rename ::try ""
 }
 
-if {[info exists ::shim_apply] && $::shim_apply} then {
-  rename ::getUniqueSuffix ""
-  rename ::apply ""
-}
-
-unset -nocomplain shim_try shim_apply
+unset -nocomplain shim_try
 
 ###############################################################################
 
