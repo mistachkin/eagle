@@ -42,6 +42,20 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
+  <ItemGroup Condition="'$(TargetFrameworkVersion)' == 'v4.0' Or
+                        '$(TargetFrameworkVersion)' == 'v4.5' Or
+                        '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                        '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                        '$(TargetFrameworkVersion)' == 'v4.6' Or
+                        '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                        '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                        '$(TargetFrameworkVersion)' == 'v4.7' Or
+                        '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                        '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                        '$(TargetFrameworkVersion)' == 'v4.8' Or
+                        '$(TargetFrameworkVersion)' == 'v4.8.1'">
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="Commands\Class6.cs" />
     <Compile Include="Components\Private\Class5.cs" />

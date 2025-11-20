@@ -371,7 +371,8 @@
   <ItemGroup Condition="'$(EagleNetStandard20)' == 'false'">
     <Reference Include="System" />
   </ItemGroup>
-  <ItemGroup Condition="('$(TargetFrameworkVersion)' == 'v4.0' Or
+  <ItemGroup Condition="'$(EagleNetStandard20)' == 'false' And
+                        ('$(TargetFrameworkVersion)' == 'v4.0' Or
                          '$(TargetFrameworkVersion)' == 'v4.5' Or
                          '$(TargetFrameworkVersion)' == 'v4.5.1' Or
                          '$(TargetFrameworkVersion)' == 'v4.5.2' Or
@@ -382,8 +383,7 @@
                          '$(TargetFrameworkVersion)' == 'v4.7.1' Or
                          '$(TargetFrameworkVersion)' == 'v4.7.2' Or
                          '$(TargetFrameworkVersion)' == 'v4.8' Or
-                         '$(TargetFrameworkVersion)' == 'v4.8.1') And
-                         '$(EagleNetStandard20)' == 'false'">
+                         '$(TargetFrameworkVersion)' == 'v4.8.1')">
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFrameworkVersion)' == 'v3.5' And
