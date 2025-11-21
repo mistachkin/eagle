@@ -914,6 +914,69 @@ namespace Eagle._Tests
                 }
             }
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool TestParseDataCallback(
+            IEnumerable<IPair<string>> metadata, /* in */
+            IEnumerable<string> row,             /* in */
+            ref IClientData clientData,          /* in, out */
+            ref Result error                     /* out */
+            )
+        {
+            Interpreter interpreter = Interpreter.GetActive();
+
+            if (interpreter == null)
+            {
+                error = "invalid active interpreter";
+                return false;
+            }
+
+            IHost host = interpreter.Host;
+
+            if (host == null)
+            {
+                error = "interpreter host not available";
+                return false;
+            }
+
+            string formatted = String.Format(
+                "metadata = {0}, row = {1}", FormatOps.WrapOrNull(
+                (metadata != null) ? new StringPairList(metadata) :
+                null), FormatOps.WrapOrNull(row));
+
+            return host.WriteLine(formatted);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestParseData(
+            string text,                /* in */
+            SyntaxDataFlags flags,      /* in */
+            ref IClientData clientData, /* in */
+            ref Result error            /* out */
+            )
+        {
+            char[] commentChars = null;
+            char[] lineChars = null;
+            char[] fieldChars = null;
+
+            if (!SyntaxOps.GetLoadChars( /* TODO: Should be "GetParseChars"? */
+                    ref commentChars, ref lineChars, ref fieldChars, ref error))
+            {
+                return ReturnCode.Error;
+            }
+
+            if (SyntaxOps.ParseData(
+                    text, new StringDataRowCallback(TestParseDataCallback),
+                    commentChars, lineChars, fieldChars, flags, ref clientData,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

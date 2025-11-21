@@ -178,14 +178,15 @@ namespace Eagle._Commands
                     }
 
                     //
-                    // NOTE: Make sure we succeeded at coverting the
+                    // NOTE: Make sure we succeeded at converting the
                     //       exit code to an integer.
                     //
                     if (code == ReturnCode.Ok)
                     {
                         code = RuntimeOps.Exit(
-                            interpreter, message, exitCode, force,
-                            fail, noDispose, noComplain, ref result);
+                            interpreter, clientData, arguments, message,
+                            exitCode, force, fail, noDispose, noComplain,
+                            ref result);
 
                         if (code == ReturnCode.Ok)
                             result = String.Empty;

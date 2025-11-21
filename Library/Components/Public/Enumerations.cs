@@ -20,6 +20,23 @@ using UNM = Eagle._Components.Private.NativeOps.UnsafeNativeMethods;
 namespace Eagle._Components.Public
 {
     [Flags()]
+    [ObjectId("c327be88-2e49-4252-a46a-497c131ec451")]
+    public enum SyntaxDataFlags
+    {
+        None = 0x0,
+        Invalid = 0x1,
+        ErrorOnEmpty = 0x2,
+        Unique = 0x4,
+        ListValues = 0x8,
+        RemoveEmpty = 0x10,
+        NoMetadata = 0x20,
+
+        LoadData = RemoveEmpty | NoMetadata
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
     [ObjectId("ab970a48-f5eb-49d6-973b-d5e35e210a99")]
     public enum DebugPriority /* syslog(priority) */ : int /* COMPAT: POSIX */
     {
@@ -8686,58 +8703,59 @@ namespace Eagle._Components.Public
         MultipleStep = 0x40,
 
         Demand = 0x80,
-        Token = 0x100,
-        Identifier = 0x200,
+        Intercept = 0x100,
+        Token = 0x200,
+        Identifier = 0x400,
 
-        Cancel = 0x400, /* NOTE: Special due to Interpreter.Ready(). */
-        Unwind = 0x800, /* NOTE: Special due to Interpreter.Ready(). */
+        Cancel = 0x800, /* NOTE: Special due to Interpreter.Ready(). */
+        Unwind = 0x1000, /* NOTE: Special due to Interpreter.Ready(). */
 
-        Error = 0x1000,
-        Return = 0x2000,
-        Test = 0x4000,
-        Exit = 0x8000,
+        Error = 0x2000,
+        Return = 0x4000,
+        Test = 0x8000,
+        Exit = 0x10000,
 
-        Evaluate = 0x10000,   /* NOTE: Only used together with "Exit". */
-        Substitute = 0x20000, /* NOTE: Only used together with "Exit". */
+        Evaluate = 0x20000,   /* NOTE: Only used together with "Exit". */
+        Substitute = 0x40000, /* NOTE: Only used together with "Exit". */
 
-        BeforeText = 0x40000,
-        AfterText = 0x80000,
-        BeforeBackslash = 0x100000,
-        AfterBackslash = 0x200000,
-        BeforeUnknown = 0x400000,
-        AfterUnknown = 0x800000,
+        BeforeText = 0x80000,
+        AfterText = 0x100000,
+        BeforeBackslash = 0x200000,
+        AfterBackslash = 0x400000,
+        BeforeUnknown = 0x800000,
+        AfterUnknown = 0x1000000,
 
-        BeforeExpression = 0x1000000,
-        AfterExpression = 0x2000000,
-        BeforeIExecute = 0x4000000,
-        AfterIExecute = 0x8000000,
-        BeforeCommand = 0x10000000,
-        AfterCommand = 0x20000000,
-        BeforeSubCommand = 0x40000000,
-        AfterSubCommand = 0x80000000,
-        BeforeOperator = 0x100000000,
-        AfterOperator = 0x200000000,
-        BeforeFunction = 0x400000000,
-        AfterFunction = 0x800000000,
-        BeforeProcedure = 0x1000000000,
-        AfterProcedure = 0x2000000000,
-        BeforeProcedureBody = 0x4000000000,
-        AfterProcedureBody = 0x8000000000,
-        BeforeLambdaBody = 0x10000000000,
-        AfterLambdaBody = 0x20000000000,
-        BeforeVariableExist = 0x40000000000,         /* NOTE: Not yet implemented. */
-        BeforeVariableCount = 0x80000000000,         /* NOTE: Not yet implemented. */
-        BeforeVariableGet = 0x100000000000,
-        BeforeVariableSet = 0x200000000000,
-        BeforeVariableReset = 0x400000000000,
-        BeforeVariableUnset = 0x800000000000,
-        BeforeVariableAdd = 0x1000000000000,
-        BeforeVariableArrayNames = 0x2000000000000,  /* NOTE: Not yet implemented. */
-        BeforeVariableArrayValues = 0x4000000000000, /* NOTE: Not yet implemented. */
-        BeforeVariableArrayGet = 0x8000000000000, /* NOTE: Not yet implemented. */
+        BeforeExpression = 0x2000000,
+        AfterExpression = 0x4000000,
+        BeforeIExecute = 0x8000000,
+        AfterIExecute = 0x10000000,
+        BeforeCommand = 0x20000000,
+        AfterCommand = 0x40000000,
+        BeforeSubCommand = 0x80000000,
+        AfterSubCommand = 0x100000000,
+        BeforeOperator = 0x200000000,
+        AfterOperator = 0x400000000,
+        BeforeFunction = 0x800000000,
+        AfterFunction = 0x1000000000,
+        BeforeProcedure = 0x2000000000,
+        AfterProcedure = 0x4000000000,
+        BeforeProcedureBody = 0x8000000000,
+        AfterProcedureBody = 0x10000000000,
+        BeforeLambdaBody = 0x20000000000,
+        AfterLambdaBody = 0x40000000000,
+        BeforeVariableExist = 0x80000000000,         /* NOTE: Not yet implemented. */
+        BeforeVariableCount = 0x100000000000,        /* NOTE: Not yet implemented. */
+        BeforeVariableGet = 0x200000000000,
+        BeforeVariableSet = 0x400000000000,
+        BeforeVariableReset = 0x800000000000,
+        BeforeVariableUnset = 0x1000000000000,
+        BeforeVariableAdd = 0x2000000000000,
+        BeforeVariableArrayNames = 0x4000000000000,  /* NOTE: Not yet implemented. */
+        BeforeVariableArrayValues = 0x8000000000000, /* NOTE: Not yet implemented. */
+        BeforeVariableArrayGet = 0x10000000000000, /* NOTE: Not yet implemented. */
 
-        BeforeInteractiveLoop = 0x10000000000000,
-        AfterInteractiveLoop = 0x20000000000000,
+        BeforeInteractiveLoop = 0x20000000000000,
+        AfterInteractiveLoop = 0x40000000000000,
 
         BeforeVariableCommon = BeforeVariableGet | BeforeVariableSet | BeforeVariableUnset,
 
@@ -8793,6 +8811,8 @@ namespace Eagle._Components.Public
         Standard = Common | Token,
 
         Ready = Cancel | Unwind,
+
+        InterceptExit = Intercept | Exit,
 
         //
         // NOTE: No tokens, no expressions (too noisy).

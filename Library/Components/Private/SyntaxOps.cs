@@ -16,6 +16,7 @@ using System.IO;
 using System.Text;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Components.Public.Delegates;
 using Eagle._Constants;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
@@ -26,6 +27,11 @@ using PluginPair = System.Collections.Generic.KeyValuePair<
 
 using SyntaxData = System.Collections.Generic.Dictionary<
     string, Eagle._Containers.Public.StringList>;
+
+using LoadDataPair = Eagle._Components.Public.MutableAnyPair<
+    Eagle._Components.Public.SyntaxDataFlags,
+    System.Collections.Generic.Dictionary<
+        string, Eagle._Containers.Public.StringList>>;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -49,6 +55,7 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        private static char[] CommentChars = { Characters.SemiColon };
         private static char[] LineChars = Characters.LineTerminatorChars;
         private static char[] FieldChars = { Characters.HorizontalTab };
 
@@ -73,6 +80,17 @@ namespace Eagle._Components.Private
         //
         private static string ValueSeparator = String.Format(
             "{0}-OR-{0}", Characters.Space);
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static string CommentMetadataName = "comment";
+        private static string LineMetadataName = "line";
+        private static string FieldMetadataName = "field";
+        private static string RemoveEmptyMetadataName = "removeEmpty";
+        private static string IndexMetadataName = "index";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -366,14 +384,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static bool GetLoadChars(
-            ref char[] lineChars,  /* out */
-            ref char[] fieldChars, /* out */
-            ref Result error       /* out */
+        public static bool GetLoadChars(
+            ref char[] commentChars, /* out */
+            ref char[] lineChars,    /* out */
+            ref char[] fieldChars,   /* out */
+            ref Result error         /* out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
+                if (CommentChars == null)
+                {
+                    error = "invalid comment characters";
+                    return false;
+                }
+
+                if (CommentChars.Length == 0)
+                {
+                    error = "missing comment characters";
+                    return false;
+                }
+
                 if (LineChars == null)
                 {
                     error = "invalid line characters";
@@ -398,6 +429,7 @@ namespace Eagle._Components.Private
                     return false;
                 }
 
+                commentChars = CommentChars.Clone() as char[];
                 lineChars = LineChars.Clone() as char[];
                 fieldChars = FieldChars.Clone() as char[];
 
@@ -408,21 +440,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool GetSaveChars(
-            ref char? lineChar,  /* out */
-            ref char? fieldChar, /* out */
-            ref Result error     /* out */
+            ref char? commentChar, /* out */
+            ref char? lineChar,    /* out */
+            ref char? fieldChar,   /* out */
+            ref Result error       /* out */
             )
         {
+            char[] commentChars = null;
             char[] lineChars = null;
             char[] fieldChars = null;
 
             if (!GetLoadChars(
-                    ref lineChars, ref fieldChars,
-                    ref error))
+                    ref commentChars, ref lineChars,
+                    ref fieldChars, ref error))
             {
                 return false;
             }
 
+            commentChar = commentChars[0];
             lineChar = lineChars[0];
             fieldChar = fieldChars[0];
 
@@ -443,11 +478,12 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
+            char? commentChar = null; /* NOT USED */
             char? lineChar = null;
             char? fieldChar = null;
 
             if (!GetSaveChars(
-                    ref lineChar, ref fieldChar,
+                    ref commentChar, ref lineChar, ref fieldChar,
                     ref error))
             {
                 return ReturnCode.Error;
@@ -599,6 +635,12 @@ namespace Eagle._Components.Private
                             FormatOps.DisplayNull);
                 }
 
+                if (empty || (CommentChars != null))
+                {
+                    localList.Add("CommentChars",
+                        FormatOps.DisplayChars(CommentChars));
+                }
+
                 if (empty || (LineChars != null))
                 {
                     localList.Add("LineChars",
@@ -616,6 +658,46 @@ namespace Eagle._Components.Private
                     localList.Add("ValueSeparator",
                         (ValueSeparator != null) ?
                             FormatOps.DisplayString(ValueSeparator) :
+                            FormatOps.DisplayNull);
+                }
+
+                if (empty || (CommentMetadataName != null))
+                {
+                    localList.Add("CommentMetadataName",
+                        (CommentMetadataName != null) ?
+                            FormatOps.DisplayString(CommentMetadataName) :
+                            FormatOps.DisplayNull);
+                }
+
+                if (empty || (LineMetadataName != null))
+                {
+                    localList.Add("LineMetadataName",
+                        (LineMetadataName != null) ?
+                            FormatOps.DisplayString(LineMetadataName) :
+                            FormatOps.DisplayNull);
+                }
+
+                if (empty || (FieldMetadataName != null))
+                {
+                    localList.Add("FieldMetadataName",
+                        (FieldMetadataName != null) ?
+                            FormatOps.DisplayString(FieldMetadataName) :
+                            FormatOps.DisplayNull);
+                }
+
+                if (empty || (RemoveEmptyMetadataName != null))
+                {
+                    localList.Add("RemoveEmptyMetadataName",
+                        (RemoveEmptyMetadataName != null) ?
+                            FormatOps.DisplayString(RemoveEmptyMetadataName) :
+                            FormatOps.DisplayNull);
+                }
+
+                if (empty || (IndexMetadataName != null))
+                {
+                    localList.Add("IndexMetadataName",
+                        (IndexMetadataName != null) ?
+                            FormatOps.DisplayString(IndexMetadataName) :
                             FormatOps.DisplayNull);
                 }
 
@@ -923,18 +1005,288 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode LoadAndCacheData(
-            string text,     /* in */
-            bool unique,     /* in */
-            bool listValues, /* in */
-            ref Result error /* out */
+        private static bool HaveCharacter(
+            char haveCharacter,   /* in */
+            char[] wantCharacters /* in */
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            if (wantCharacters != null)
+                foreach (char wantCharacter in wantCharacters)
+                    if (haveCharacter == wantCharacter)
+                        return true;
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ParseData(
+            string text,                    /* in */
+            StringDataRowCallback callback, /* in */
+            char[] commentChars,            /* in */
+            char[] lineChars,               /* in */
+            char[] fieldChars,              /* in */
+            SyntaxDataFlags flags,          /* in */
+            ref IClientData clientData,     /* in */
+            ref Result error                /* out */
+            )
+        {
+            if (String.IsNullOrEmpty(text))
             {
-                return LoadData(
-                    text, unique, listValues, ref cache, ref error);
+                error = "invalid text";
+                return ReturnCode.Error;
             }
+
+            if (callback == null)
+            {
+                error = "invalid callback";
+                return ReturnCode.Error;
+            }
+
+            if (lineChars == null)
+            {
+                error = "invalid line characters";
+                return ReturnCode.Error;
+            }
+
+            if (fieldChars == null)
+            {
+                error = "invalid field characters";
+                return ReturnCode.Error;
+            }
+
+            string[] lines = text.Split(
+                lineChars, StringSplitOptions.RemoveEmptyEntries);
+
+            if (lines == null) /* IMPOSSIBLE (?) */
+            {
+                error = "could not split text";
+                return ReturnCode.Error;
+            }
+
+            int length = lines.Length;
+
+            if (length == 0)
+            {
+                if (FlagOps.HasFlags(
+                        flags, SyntaxDataFlags.ErrorOnEmpty, true))
+                {
+                    error = "there are no lines";
+                    return ReturnCode.Error;
+                }
+                else
+                {
+                    return ReturnCode.Ok;
+                }
+            }
+
+            bool removeEmpty = FlagOps.HasFlags(
+                flags, SyntaxDataFlags.RemoveEmpty, true);
+
+            StringSplitOptions splitOptions = removeEmpty ?
+                StringSplitOptions.RemoveEmptyEntries :
+                StringSplitOptions.None;
+
+            StringPairDictionary metadata;
+
+            if (FlagOps.HasFlags(
+                    flags, SyntaxDataFlags.NoMetadata, true))
+            {
+                metadata = null;
+            }
+            else
+            {
+                metadata = new StringPairDictionary();
+
+                metadata.Add(CommentMetadataName, new StringPair(
+                    CommentMetadataName, StringList.MakeList(commentChars)));
+
+                metadata.Add(LineMetadataName, new StringPair(
+                    LineMetadataName, StringList.MakeList(lineChars)));
+
+                metadata.Add(FieldMetadataName, new StringPair(
+                    FieldMetadataName, StringList.MakeList(fieldChars)));
+
+                metadata.Add(RemoveEmptyMetadataName, new StringPair(
+                    RemoveEmptyMetadataName, removeEmpty.ToString()));
+            }
+
+            for (int index = 0; index < length; index++)
+            {
+                string line = lines[index];
+
+                if (String.IsNullOrEmpty(line))
+                    continue; /* NOTE: Blank line. */
+
+                if (HaveCharacter(line[0], commentChars))
+                    continue; /* NOTE: Comment line. */
+
+                string[] fields = line.Split(
+                    fieldChars, splitOptions);
+
+                if (fields == null)
+                {
+                    error = "could not split line";
+                    return ReturnCode.Error;
+                }
+
+                if (metadata != null)
+                {
+                    metadata[IndexMetadataName] = new StringPair(
+                        IndexMetadataName, index.ToString());
+                }
+
+                try
+                {
+                    if (!callback(
+                            (metadata != null) ? metadata.Values : null,
+                            fields, ref clientData, ref error))
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                    return ReturnCode.Exception;
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool LoadDataCallback(
+            IEnumerable<IPair<string>> metadata, /* in: NOT USED */
+            IEnumerable<string> row,             /* in */
+            ref IClientData clientData,          /* in, out */
+            ref Result error                     /* out */
+            )
+        {
+            if (row == null) /* IMPOSSIBLE (?) */
+            {
+                error = "invalid row";
+                return false;
+            }
+
+            if (clientData == null)
+            {
+                error = "invalid clientData";
+                return false;
+            }
+
+            string[] fields = row as string[];
+
+            if (fields == null) /* IMPOSSIBLE (?) */
+            {
+                error = "invalid fields from row";
+                return false;
+            }
+
+            if (fields.Length != 2) /* name <tab> value */
+            {
+                error = "wrong number of fields";
+                return false;
+            }
+
+            string name = fields[0];
+
+            if (String.IsNullOrEmpty(name))
+            {
+                error = "invalid name field";
+                return false;
+            }
+
+            string value = fields[1];
+
+            if (String.IsNullOrEmpty(value))
+            {
+                error = "invalid value field";
+                return false;
+            }
+
+            LoadDataPair pair = clientData.Data as LoadDataPair;
+
+            if (pair == null) /* IMPOSSIBLE (?) */
+            {
+                error = "invalid triplet";
+                return false;
+            }
+
+            SyntaxData localData = pair.Y;
+
+            if (localData == null)
+                localData = pair.Y = new SyntaxData();
+
+            StringList newValues;
+
+            if (FlagOps.HasFlags(
+                    pair.X, SyntaxDataFlags.ListValues, true))
+            {
+                newValues = null;
+
+                if (ParserOps<string>.SplitList(
+                        null, value, 0, Length.Invalid, false,
+                        ref newValues, ref error) != ReturnCode.Ok)
+                {
+                    return false;
+                }
+
+                StringList oldValues;
+
+                if (localData.TryGetValue(name, out oldValues))
+                {
+                    if (oldValues != null)
+                    {
+                        oldValues.AddRange(newValues);
+                        newValues = oldValues;
+                    }
+                    else
+                    {
+                        localData[name] = newValues;
+                    }
+                }
+                else
+                {
+                    localData.Add(name, newValues);
+                }
+            }
+            else
+            {
+                //
+                // HACK: Allow escape codes for the various space
+                //       characters that we wish to allow in the
+                //       help text.
+                //
+                StringOps.UnescapeWhiteSpace(ref value);
+
+                if (localData.TryGetValue(name, out newValues))
+                {
+                    if (newValues != null)
+                    {
+                        newValues.Add(value);
+                    }
+                    else
+                    {
+                        newValues = new StringList(value);
+                        localData[name] = newValues;
+                    }
+                }
+                else
+                {
+                    newValues = new StringList(value);
+                    localData.Add(name, newValues);
+                }
+            }
+
+            if ((newValues != null) && FlagOps.HasFlags(
+                    pair.X, SyntaxDataFlags.Unique, true))
+            {
+                newValues.MakeUnique();
+            }
+
+            return true;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -952,148 +1304,37 @@ namespace Eagle._Components.Private
             ref Result error     /* out */
             )
         {
-            if (String.IsNullOrEmpty(text))
-            {
-                error = "invalid text";
-                return ReturnCode.Error;
-            }
-
+            char[] commentChars = null;
             char[] lineChars = null;
             char[] fieldChars = null;
 
             if (!GetLoadChars(
-                    ref lineChars, ref fieldChars,
+                    ref commentChars, ref lineChars, ref fieldChars,
                     ref error))
             {
                 return ReturnCode.Error;
             }
 
-            string[] lines = text.Split(lineChars,
-                StringSplitOptions.RemoveEmptyEntries);
+            SyntaxDataFlags flags = SyntaxDataFlags.LoadData;
 
-            if (lines == null)
+            if (unique)
+                flags |= SyntaxDataFlags.Unique;
+
+            if (listValues)
+                flags |= SyntaxDataFlags.ListValues;
+
+            LoadDataPair pair = new LoadDataPair(true, flags, null);
+            IClientData clientData = new ClientData(pair);
+
+            if (ParseData(
+                    text, new StringDataRowCallback(LoadDataCallback),
+                    commentChars, lineChars, fieldChars, flags,
+                    ref clientData, ref error) != ReturnCode.Ok)
             {
-                error = "could not split text";
                 return ReturnCode.Error;
             }
 
-            int length = lines.Length;
-
-            if (length == 0)
-            {
-                error = "there are no lines";
-                return ReturnCode.Error;
-            }
-
-            SyntaxData localData = null;
-
-            for (int index = 0; index < length; index++)
-            {
-                string line = lines[index];
-
-                if (String.IsNullOrEmpty(line))
-                    continue; /* NOTE: Blank line. */
-
-                if (line[0] == Characters.SemiColon)
-                    continue; /* NOTE: Comment line. */
-
-                string[] fields = line.Split(fieldChars,
-                    StringSplitOptions.RemoveEmptyEntries);
-
-                if (fields == null)
-                {
-                    error = "could not split line";
-                    return ReturnCode.Error;
-                }
-
-                if (fields.Length != 2) /* name <tab> value */
-                {
-                    error = "wrong number of fields";
-                    return ReturnCode.Error;
-                }
-
-                string name = fields[0];
-
-                if (String.IsNullOrEmpty(name))
-                {
-                    error = "invalid name field";
-                    return ReturnCode.Error;
-                }
-
-                string value = fields[1];
-
-                if (String.IsNullOrEmpty(value))
-                {
-                    error = "invalid value field";
-                    return ReturnCode.Error;
-                }
-
-                if (localData == null)
-                    localData = new SyntaxData();
-
-                StringList newValues;
-
-                if (listValues)
-                {
-                    newValues = null;
-
-                    if (ParserOps<string>.SplitList(
-                            null, value, 0, Length.Invalid, false,
-                            ref newValues, ref error) != ReturnCode.Ok)
-                    {
-                        return ReturnCode.Error;
-                    }
-
-                    StringList oldValues;
-
-                    if (localData.TryGetValue(name, out oldValues))
-                    {
-                        if (oldValues != null)
-                        {
-                            oldValues.AddRange(newValues);
-                            newValues = oldValues;
-                        }
-                        else
-                        {
-                            localData[name] = newValues;
-                        }
-                    }
-                    else
-                    {
-                        localData.Add(name, newValues);
-                    }
-                }
-                else
-                {
-                    //
-                    // HACK: Allow escape codes for the various space
-                    //       characters that we wish to allow in the
-                    //       help text.
-                    //
-                    StringOps.UnescapeWhiteSpace(ref value);
-
-                    if (localData.TryGetValue(name, out newValues))
-                    {
-                        if (newValues != null)
-                        {
-                            newValues.Add(value);
-                        }
-                        else
-                        {
-                            newValues = new StringList(value);
-                            localData[name] = newValues;
-                        }
-                    }
-                    else
-                    {
-                        newValues = new StringList(value);
-                        localData.Add(name, newValues);
-                    }
-                }
-
-                if (unique && (newValues != null))
-                    newValues.MakeUnique();
-            }
+            SyntaxData localData = pair.Y;
 
             if (MergeData(
                     data, localData, unique, ref localData,
@@ -1104,6 +1345,22 @@ namespace Eagle._Components.Private
 
             data = localData;
             return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadAndCacheData(
+            string text,     /* in */
+            bool unique,     /* in */
+            bool listValues, /* in */
+            ref Result error /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return LoadData(
+                    text, unique, listValues, ref cache, ref error);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////

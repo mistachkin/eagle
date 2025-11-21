@@ -1931,6 +1931,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool HasFlags(
+            SyntaxDataFlags flags,
+            SyntaxDataFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != SyntaxDataFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if NATIVE && TCL
         public static bool HasFlags(
             Tcl_VarFlags flags,

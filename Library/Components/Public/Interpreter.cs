@@ -87999,6 +87999,11 @@ namespace Eagle._Components.Public
                 {
                     noExit = true;
 
+#if DEBUGGER
+                    activeInterpreter.EnableNoExit(true);
+                    activeInterpreter.EnableIgnoreEnabled(true);
+#endif
+
                     if (!whatIf && !quiet)
                     {
                         ShellOps.WritePrompt(interactiveHost,
@@ -96967,7 +96972,7 @@ namespace Eagle._Components.Public
 
         internal bool HasSecurity()
         {
-            return FlagOps.HasFlags(interpreterStateFlags,
+            return FlagOps.HasFlags(interpreterStateFlags, /* NO-LOCK */
                 InterpreterStateFlags.SecurityWasEnabled, true); /* EXEMPT */
         }
 
@@ -103683,6 +103688,68 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region NoExit Support
+#if DEBUGGER
+        internal bool HasNoExit()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return FlagOps.HasFlags( /* NO-LOCK */
+                    interpreterStateFlags, InterpreterStateFlags.NoExit,
+                    true); /* EXEMPT */
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void EnableNoExit(
+            bool enable
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (enable)
+                    interpreterStateFlags |= InterpreterStateFlags.NoExit;
+                else
+                    interpreterStateFlags &= ~InterpreterStateFlags.NoExit;
+            }
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IgnoreEnabled Support
+#if DEBUGGER
+        internal bool HasIgnoreEnabled()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return FlagOps.HasFlags( /* NO-LOCK */
+                    interpreterStateFlags, InterpreterStateFlags.IgnoreEnabled,
+                    true); /* EXEMPT */
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void EnableIgnoreEnabled(
+            bool enable
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (enable)
+                    interpreterStateFlags |= InterpreterStateFlags.IgnoreEnabled;
+                else
+                    interpreterStateFlags &= ~InterpreterStateFlags.IgnoreEnabled;
+            }
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Engine Flags Support
         private void ResetContextErrorFlags()
         {
@@ -107901,11 +107968,16 @@ namespace Eagle._Components.Public
                 IEngineContext context = GetEngineContext();
 
                 if (context != null)
-                    return interpreterStateFlags | context.InterpreterStateFlags;
+                {
+                    return interpreterStateFlags | /* NO-LOCK */
+                        context.InterpreterStateFlags;
+                }
                 else
-                    return interpreterStateFlags;
+                {
+                    return interpreterStateFlags; /* NO-LOCK */
+                }
 #else
-                return interpreterStateFlags;
+                return interpreterStateFlags; /* NO-LOCK */
 #endif
             }
         }
@@ -123348,7 +123420,8 @@ namespace Eagle._Components.Public
         public void Dispose()
         {
             if (FlagOps.HasFlags(
-                    interpreterStateFlags, InterpreterStateFlags.NoDispose, true))
+                    interpreterStateFlags, /* NO-LOCK */
+                    InterpreterStateFlags.NoDispose, true))
             {
                 DisposeTrace(true, false);
             }

@@ -330,6 +330,8 @@ namespace Eagle._Components.Private
         #region Process Support Methods
         public static ReturnCode Exit(
             Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            ArgumentList arguments,  /* in: OPTIONAL */
             string message,          /* in: OPTIONAL */
             ExitCode exitCode,       /* in */
             bool force,              /* in */
@@ -345,8 +347,8 @@ namespace Eagle._Components.Private
             //       necessary if the application is doing something that
             //       cannot be gracefully interrupted.
             //
-            if ((interpreter != null) && interpreter.CanExit(exitCode,
-                    force, fail, message, ref error) != ReturnCode.Ok)
+            if ((interpreter != null) && (interpreter.CanExit(exitCode,
+                    force, fail, message, ref error) != ReturnCode.Ok))
             {
                 return ReturnCode.Error;
             }
@@ -362,6 +364,53 @@ namespace Eagle._Components.Private
                 "exiting", FormatOps.InterpreterNoThrow(interpreter),
                 FormatOps.WrapOrNull(message)), typeof(RuntimeOps).Name,
                 TracePriority.Command);
+
+            ///////////////////////////////////////////////////////////////////
+
+#if DEBUGGER
+            //
+            // HACK: If there is an active interpreter and its NoExit state
+            //       flag has been set, i.e. via command line, etc, attempt
+            //       to break into the (already available?) script debugger
+            //       now.  If there is an error, block the [exit] request.
+            //       This implies that one of the following statements must
+            //       always be true in order to successfully exit:
+            //
+            //       1. The NoExit state flag cannot be set and/or must be
+            //          unset before this method is called.
+            //
+            //       2. Script debugger must be available, functional, and
+            //          the interactive loop must return success.
+            //
+            //       This is considered to be a "fail-safe" mechanism from
+            //       the perspective of scripts and should not be changed.
+            //
+            if ((interpreter != null) && interpreter.HasNoExit())
+            {
+                IDebugger debugger = null;
+                HeaderFlags headerFlags = HeaderFlags.None;
+
+                if (!Engine.CheckDebugger(
+                        interpreter, interpreter.HasIgnoreEnabled(),
+                        ref debugger, ref headerFlags, ref error))
+                {
+                    return ReturnCode.Error;
+                }
+
+                string breakpointName = typeof(_Commands.Exit).FullName;
+
+                if (interpreter.DebuggerBreak(
+                        debugger, new InteractiveLoopData(ReturnCode.Ok,
+                        BreakpointType.InterceptExit, breakpointName,
+                        headerFlags | HeaderFlags.Breakpoint, clientData,
+                        arguments), ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+            }
+#endif
+
+            ///////////////////////////////////////////////////////////////////
 
             if (!force)
             {

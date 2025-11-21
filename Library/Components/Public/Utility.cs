@@ -6799,6 +6799,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool GetSyntaxLoadChars(
+            ref char[] commentChars,
+            ref char[] lineChars,
+            ref char[] fieldChars,
+            ref Result error
+            )
+        {
+            return SyntaxOps.GetLoadChars(
+                ref commentChars, ref lineChars, ref fieldChars,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ParseSyntaxData(
+            string text,
+            StringDataRowCallback callback,
+            char[] commentChars,
+            char[] lineChars,
+            char[] fieldChars,
+            SyntaxDataFlags flags,
+            ref IClientData clientData,
+            ref Result error
+            )
+        {
+            return SyntaxOps.ParseData(
+                text, callback, commentChars, lineChars, fieldChars,
+                flags, ref clientData, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // WARNING: *EXPERIMENTAL* This API may change until the core
         //          procedure management subsystem is completed.

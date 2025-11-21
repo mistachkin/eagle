@@ -1797,6 +1797,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        internal static bool CheckDebugger(
+            Interpreter interpreter,
+            bool ignoreEnabled,
+            ref IDebugger debugger,
+            ref HeaderFlags headerFlags,
+            ref Result error
+            )
+        {
+            bool enabled = false;
+
+            return CheckDebugger(interpreter, ignoreEnabled, ref debugger,
+                ref enabled, ref headerFlags, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         private static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled,

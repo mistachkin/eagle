@@ -1,7 +1,7 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
-BUGFIX: fix and/or address Coverity issues from #434153 to #551150.
+BUGFIX: fix and/or address Coverity issues from #434153 to #551474.
 
 BUGFIX: do not allow an ICallback that is in use by the current interpreter to
         be disposed via an opaque object handle.

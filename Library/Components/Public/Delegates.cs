@@ -421,6 +421,20 @@ namespace Eagle._Components.Public.Delegates
     public delegate string StringTransformCallback(
         string value
     );
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    //
+    // NOTE: This is used by the SyntaxOps class to invoke a callback on
+    //       each row of data found in a (new-line?) delimited data file.
+    //
+    [ObjectId("cf4b5f5e-8a02-4e97-9f86-07c1af996f0a")]
+    public delegate bool StringDataRowCallback(
+        IEnumerable<IPair<string>> metadata,
+        IEnumerable<string> row,
+        ref IClientData clientData,
+        ref Result error
+    );
     #endregion
 
     ///////////////////////////////////////////////////////////////////////////
