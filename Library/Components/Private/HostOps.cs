@@ -39,12 +39,20 @@ namespace Eagle._Components.Private
     {
         #region Private Constants
         #region Interactive Prompt Defaults
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static int MinimumPrefixLoops = 1;
+
+        ///////////////////////////////////////////////////////////////////////
+
         private const string PrimaryPrompt = "% ";
         private const string ContinuePrompt = ">\t";
 
         ///////////////////////////////////////////////////////////////////////
 
-        private const string CountPrefixFormat = "[{0}] ";
+        private const string LoopsPrefixFormat = "(a:{0}) ==> ";
+        private const string CountPrefixFormat = "[c:{0}] ";
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -399,10 +407,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetDefaultPrompt(
-            PromptType type,   /* in */
-            PromptFlags flags, /* in */
-            long id,           /* in */
-            int count          /* in */
+            Interpreter interpreter, /* in */
+            PromptType type,         /* in */
+            PromptFlags flags,       /* in */
+            long id,                 /* in */
+            int count                /* in */
             )
         {
             StringBuilder builder = StringBuilderFactory.Create();
@@ -411,7 +420,7 @@ namespace Eagle._Components.Private
             {
                 builder.Append(DefaultPrompts[(int)type]);
 
-                if (FlagOps.HasFlags(flags, PromptFlags.Count, true))
+                if (FlagOps.HasFlags(flags, PromptFlags.CommandCount, true))
                     builder.Insert(0, String.Format(CountPrefixFormat, count));
 
                 if (FlagOps.HasFlags(flags, PromptFlags.Queue, true))
@@ -422,6 +431,18 @@ namespace Eagle._Components.Private
 
                 if (FlagOps.HasFlags(flags, PromptFlags.Interpreter, true))
                     builder.Insert(0, String.Format(IdPrefixFormat, id));
+
+                if ((interpreter != null) &&
+                    FlagOps.HasFlags(flags, PromptFlags.ActiveLoops, true))
+                {
+                    int loops = TryGetInteractiveLoops(interpreter);
+
+                    if (loops > MinimumPrefixLoops)
+                    {
+                        builder.Insert(0,
+                            String.Format(LoopsPrefixFormat, loops));
+                    }
+                }
             }
 
             return StringBuilderCache.GetStringAndRelease(ref builder);

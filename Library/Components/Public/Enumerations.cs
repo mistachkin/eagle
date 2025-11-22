@@ -6790,15 +6790,20 @@ namespace Eagle._Components.Public
                                * debugger. */
         Queue = 0x10,         /* when set, this prompt is for queued (async)
                                * input mode. */
-        Count = 0x20,         /* when set, make sure the total interactive
+
+        CommandCount = 0x20,  /* when set, make sure the total interactive
                                * command count is shown. */
-        Interpreter = 0x40,   /* when set, make sure the interpreter Id is
+        ActiveLoops = 0x40,   /* when set, make sure the number of active
+                               * interactive loops is shown. */
+
+        Interpreter = 0x80,   /* when set, make sure the interpreter Id is
                                * shown. */
-        Done = 0x80,          /* when set, it means that the host successfully
+        Done = 0x100,         /* when set, it means that the host successfully
                                * displayed a prompt. */
-        Partial = 0x100,      /* when set, it means that the host successfully
+
+        Partial = 0x200,      /* when set, it means that the host successfully
                                * displayed part of a prompt. */
-        Trace = 0x200,        /* when set, emit some trace output. */
+        Trace = 0x400,        /* when set, emit some trace output. */
 
         ForDefault = 0x10000, /* for use with the default flag set. */
 

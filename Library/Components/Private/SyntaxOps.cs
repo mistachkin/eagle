@@ -89,6 +89,7 @@ namespace Eagle._Components.Private
         private static string CommentMetadataName = "comment";
         private static string LineMetadataName = "line";
         private static string FieldMetadataName = "field";
+        private static string FlagsMetadataName = "flags";
         private static string RemoveEmptyMetadataName = "removeEmpty";
         private static string IndexMetadataName = "index";
         #endregion
@@ -685,6 +686,14 @@ namespace Eagle._Components.Private
                             FormatOps.DisplayNull);
                 }
 
+                if (empty || (FlagsMetadataName != null))
+                {
+                    localList.Add("FlagsMetadataName",
+                        (FlagsMetadataName != null) ?
+                            FormatOps.DisplayString(FlagsMetadataName) :
+                            FormatOps.DisplayNull);
+                }
+
                 if (empty || (RemoveEmptyMetadataName != null))
                 {
                     localList.Add("RemoveEmptyMetadataName",
@@ -1043,6 +1052,12 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
+            if (commentChars == null)
+            {
+                error = "invalid comment characters";
+                return ReturnCode.Error;
+            }
+
             if (lineChars == null)
             {
                 error = "invalid line characters";
@@ -1055,6 +1070,11 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
+            //
+            // HACK: Since we always want to skip blank lines, use
+            //       the option to simply remove entry entries here.
+            //       Blank lines are not data.
+            //
             string[] lines = text.Split(
                 lineChars, StringSplitOptions.RemoveEmptyEntries);
 
@@ -1107,6 +1127,9 @@ namespace Eagle._Components.Private
                 metadata.Add(FieldMetadataName, new StringPair(
                     FieldMetadataName, StringList.MakeList(fieldChars)));
 
+                metadata.Add(FlagsMetadataName, new StringPair(
+                    FlagsMetadataName, flags.ToString()));
+
                 metadata.Add(RemoveEmptyMetadataName, new StringPair(
                     RemoveEmptyMetadataName, removeEmpty.ToString()));
             }
@@ -1115,9 +1138,15 @@ namespace Eagle._Components.Private
             {
                 string line = lines[index];
 
+                //
+                // NOTE: Rule #1: Blank lines are not data.
+                //
                 if (String.IsNullOrEmpty(line))
                     continue; /* NOTE: Blank line. */
 
+                //
+                // NOTE: Rule #2: Comment lines are not data.
+                //
                 if (HaveCharacter(line[0], commentChars))
                     continue; /* NOTE: Comment line. */
 
@@ -1132,10 +1161,20 @@ namespace Eagle._Components.Private
 
                 if (metadata != null)
                 {
+                    //
+                    // HACK: Provide the current line index to the
+                    //       callback method.
+                    //
                     metadata[IndexMetadataName] = new StringPair(
                         IndexMetadataName, index.ToString());
                 }
 
+                //
+                // NOTE: Rule #3: If the callback method returns
+                //       failure (false) for any (or no) reason,
+                //       including exceptions, abort the entire
+                //       operation.
+                //
                 try
                 {
                     if (!callback(

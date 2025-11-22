@@ -349,7 +349,8 @@ namespace Eagle._Hosts
                 // NOTE: Now, we need to fallback to the default
                 //       prompt.
                 //
-                string prompt = HostOps.GetDefaultPrompt(type, flags, id, count);
+                string prompt = HostOps.GetDefaultPrompt(
+                    localInterpreter, type, flags, id, count);
 
                 //
                 // NOTE: If we got a valid default prompt for this

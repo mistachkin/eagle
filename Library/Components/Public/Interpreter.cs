@@ -91256,7 +91256,7 @@ namespace Eagle._Components.Public
                     //       situation.
                     //
                     string prompt = HostOps.GetDefaultPrompt(
-                        type, promptFlags, id, count);
+                        interpreter, type, promptFlags, id, count);
 
                     //
                     // NOTE: If there is a prompt configured and we cannot
@@ -91821,8 +91821,8 @@ namespace Eagle._Components.Public
                         if (trace)
                         {
                             TraceOps.DebugTrace(
-                                "GetInteractiveInput: leaving, done flag " +
-                                "was set by continue prompt",
+                                "GetInteractiveInput: leaving, done " +
+                                "flag was set by continue prompt",
                                 typeof(Interpreter).Name,
                                 TracePriority.HostDebug);
                         }
@@ -91957,9 +91957,8 @@ namespace Eagle._Components.Public
                         if (trace)
                         {
                             TraceOps.DebugTrace(
-                                "GetInteractiveInput: read null " +
-                                "line of redirected input, setting exit " +
-                                "flag...",
+                                "GetInteractiveInput: read null line of " +
+                                "redirected input, setting exit flag...",
                                 typeof(Interpreter).Name,
                                 TracePriority.HostDebug);
                         }
@@ -91981,8 +91980,7 @@ namespace Eagle._Components.Public
                             {
                                 TraceOps.DebugTrace(
                                     "GetInteractiveInput: read null " +
-                                    "line of input, setting exit " +
-                                    "flag...",
+                                    "line of input, setting exit flag...",
                                     typeof(Interpreter).Name,
                                     TracePriority.HostDebug);
                             }
@@ -91995,8 +91993,7 @@ namespace Eagle._Components.Public
                             {
                                 TraceOps.DebugTrace(
                                     "GetInteractiveInput: read null " +
-                                    "line of input, setting cancel " +
-                                    "flag...",
+                                    "line of input, setting cancel flag...",
                                     typeof(Interpreter).Name,
                                     TracePriority.HostDebug);
                             }
@@ -92152,8 +92149,8 @@ namespace Eagle._Components.Public
                     if (trace)
                     {
                         TraceOps.DebugTrace(
-                            "GetInteractiveInput: leaving, null or empty " +
-                            "input...", typeof(Interpreter).Name,
+                            "GetInteractiveInput: leaving, null or " +
+                            "empty input...", typeof(Interpreter).Name,
                             TracePriority.HostDebug);
                     }
 
@@ -96160,7 +96157,9 @@ namespace Eagle._Components.Public
                     //         command or script.
                     //
                     if (!noRefresh)
+                    {
                         interactiveHost = interpreter.GetInteractiveHost();
+                    }
                     #endregion
 
                     ///////////////////////////////////////////////////////////
