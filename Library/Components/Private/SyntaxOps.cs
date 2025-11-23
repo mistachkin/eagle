@@ -96,6 +96,7 @@ namespace Eagle._Components.Private
         private static string FlagsMetadataName = "flags";
         private static string RemoveEmptyMetadataName = "removeEmpty";
         private static string IndexMetadataName = "index";
+        private static string CountMetadataName = "count";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -556,7 +557,7 @@ namespace Eagle._Components.Private
 
                     if (FlagOps.HasFlags(
                             flags, SyntaxDataFlags.WrapValues, true) &&
-                        MaybeWrap(
+                        !MaybeWrap(
                             ref localValue, wrapChars, escapeChars,
                             flags, ref error))
                     {
@@ -792,6 +793,14 @@ namespace Eagle._Components.Private
                     localList.Add("IndexMetadataName",
                         (IndexMetadataName != null) ?
                             FormatOps.DisplayString(IndexMetadataName) :
+                            FormatOps.DisplayNull);
+                }
+
+                if (empty || (CountMetadataName != null))
+                {
+                    localList.Add("CountMetadataName",
+                        (CountMetadataName != null) ?
+                            FormatOps.DisplayString(CountMetadataName) :
                             FormatOps.DisplayNull);
                 }
 
@@ -1494,11 +1503,11 @@ namespace Eagle._Components.Private
                 //       when they are confirmed to be wrapped in
                 //       the current value wrapping character set.
                 //
+                int fieldLength = fields.Length;
+
                 if (FlagOps.HasFlags(
                         flags, SyntaxDataFlags.WrapValues, true))
                 {
-                    int fieldLength = fields.Length;
-
                     for (int fieldIndex = 0;
                             fieldIndex < fieldLength; fieldIndex++)
                     {
@@ -1525,6 +1534,9 @@ namespace Eagle._Components.Private
                     //
                     metadata[IndexMetadataName] = new StringPair(
                         IndexMetadataName, lineIndex.ToString());
+
+                    metadata[CountMetadataName] = new StringPair(
+                        CountMetadataName, fieldLength.ToString());
                 }
 
                 //

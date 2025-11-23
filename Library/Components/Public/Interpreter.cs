@@ -60277,7 +60277,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal StringList InternalTrustedHashes
+        private StringList PrivateTrustedHashes
         {
             get { return trustedHashes; }
         }
@@ -61199,7 +61199,7 @@ namespace Eagle._Components.Public
 
         public StringList TrustedHashes
         {
-            get { CheckDisposed(); lock (syncRoot) { return InternalTrustedHashes; } }
+            get { CheckDisposed(); lock (syncRoot) { return PrivateTrustedHashes; } }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
