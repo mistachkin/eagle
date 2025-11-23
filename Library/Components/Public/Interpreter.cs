@@ -109088,10 +109088,12 @@ namespace Eagle._Components.Public
                 if (FlagOps.HasFlags(detailFlags, DetailFlags.ThreadInfo, true))
                     GetHostThreadInfo(ref list, detailFlags);
 
+#if SHELL
                 long localReadCount = Interlocked.CompareExchange(ref readCount, 0, 0);
 
                 if (empty || (localReadCount > 0))
                     list.Add("ReadCount", localReadCount.ToString());
+#endif
 
                 int disableCreationCount = Interlocked.CompareExchange(
                     ref globalDisableCreationCount, 0, 0);
