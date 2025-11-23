@@ -25,12 +25,19 @@ namespace Eagle._Components.Public
     {
         None = 0x0,
         Invalid = 0x1,
-        ErrorOnEmpty = 0x2,
-        Unique = 0x4,
-        ListValues = 0x8,
-        RemoveEmpty = 0x10,
-        NoMetadata = 0x20,
 
+        Recursive = 0x10,
+        ErrorOnEmpty = 0x20,
+        StopOnError = 0x40,
+        Unique = 0x80,
+        ListValues = 0x100,
+        RemoveEmpty = 0x200,
+        NoMetadata = 0x400,
+        WrapValues = 0x800,
+        EscapeValues = 0x1000,
+
+        WrapMask = WrapValues | EscapeValues,
+        LoadAndCacheDataFrom = Recursive | StopOnError,
         LoadData = RemoveEmpty | NoMetadata
     }
 

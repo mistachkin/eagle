@@ -960,22 +960,49 @@ namespace Eagle._Tests
             char[] commentChars = null;
             char[] lineChars = null;
             char[] fieldChars = null;
+            char[] wrapChars = null;
+            char[] escapeChars = null;
 
-            if (!SyntaxOps.GetLoadChars( /* TODO: Should be "GetParseChars"? */
-                    ref commentChars, ref lineChars, ref fieldChars, ref error))
+            if (!SyntaxOps.GetLoadChars( /* TODO: Rename "GetParseChars"? */
+                    ref commentChars, ref lineChars, ref fieldChars,
+                    ref wrapChars, ref escapeChars, ref error))
             {
                 return ReturnCode.Error;
             }
 
             if (SyntaxOps.ParseData(
                     text, new StringDataRowCallback(TestParseDataCallback),
-                    commentChars, lineChars, fieldChars, flags, ref clientData,
-                    ref error) != ReturnCode.Ok)
+                    commentChars, lineChars, fieldChars, wrapChars, escapeChars,
+                    flags, ref clientData, ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
             }
 
             return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestLoadData(
+            string text,           /* in */
+            SyntaxDataFlags flags, /* in */
+            ref SyntaxData data,   /* in, out */
+            ref Result error       /* out */
+            )
+        {
+            return SyntaxOps.LoadData(text, flags, ref data, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestSaveData(
+            SyntaxData data,       /* in */
+            SyntaxDataFlags flags, /* in */
+            ref string text,       /* out */
+            ref Result error       /* out */
+            )
+        {
+            return SyntaxOps.SaveData(data, flags, ref text, ref error);
         }
         #endregion
 

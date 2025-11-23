@@ -6689,12 +6689,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static StringList CombineOrCopyTrustedHashes(
-            Interpreter interpreter, /* in: OPTIONAL */
-            bool noGlobal            /* in */
+        //
+        // HACK: Yes, this method uses the TryLock pattern and then calls
+        //       the CopyTrustedHashes interpreter method, which has its
+        //       own internal locking; this is done to prevent a possible
+        //       deadlock.
+        //
+        private static StringList CopyTrustedHashes(
+            Interpreter interpreter, /* in */
+            bool clear               /* in */
             )
         {
-            StringList trustedHashes1 = null;
+            StringList result = null;
 
             if (interpreter != null)
             {
@@ -6707,15 +6713,15 @@ namespace Eagle._Components.Private
 
                     if (locked)
                     {
-                        trustedHashes1 =
-                            interpreter.InternalTrustedHashes;
+                        result = interpreter.CopyTrustedHashes(
+                            clear);
                     }
                     else
                     {
                         TraceOps.LockTrace(
-                            "CombineOrCopyTrustedHashes",
+                            "CopyTrustedHashes",
                             typeof(RuntimeOps).Name, false,
-                            TracePriority.LockWarning2,
+                            TracePriority.LockError,
                             interpreter.MaybeWhoHasLock());
                     }
                 }
@@ -6726,8 +6732,23 @@ namespace Eagle._Components.Private
                 }
             }
 
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static StringList CombineOrCopyTrustedHashes(
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool noInterpreter,      /* in */
+            bool noGlobal,           /* in */
+            bool clear               /* in */
+            )
+        {
+            StringList trustedHashes1 = noInterpreter ?
+                null : CopyTrustedHashes(interpreter, clear);
+
             StringList trustedHashes2 = noGlobal ?
-                null : GlobalState.CopyTrustedHashes();
+                null : GlobalState.CopyTrustedHashes(clear);
 
             if ((trustedHashes1 != null) || (trustedHashes2 != null))
             {
@@ -6827,9 +6848,10 @@ namespace Eagle._Components.Private
 #endif
 
                 object helper = Interpreter.GetReflectionHelper(
-                    CombineOrCopyTrustedHashes(interpreter, false),
-                    fileName, null, pluginLoaderFlags, verbose,
-                    ref @delegate, ref error);
+                    CombineOrCopyTrustedHashes(
+                        interpreter, false, false, false),
+                    fileName, null, pluginLoaderFlags,
+                    verbose, ref @delegate, ref error);
 
                 if (helper == null)
                     return null;
@@ -6900,9 +6922,10 @@ namespace Eagle._Components.Private
 #endif
 
                 object helper = Interpreter.GetReflectionHelper(
-                    CombineOrCopyTrustedHashes(interpreter, false),
-                    assemblyBytes, null, pluginLoaderFlags, verbose,
-                    ref @delegate, ref error);
+                    CombineOrCopyTrustedHashes(
+                        interpreter, false, false, false),
+                    assemblyBytes, null, pluginLoaderFlags,
+                    verbose, ref @delegate, ref error);
 
                 if (helper == null)
                     return null;
@@ -7031,9 +7054,10 @@ namespace Eagle._Components.Private
 #endif
 
                 object helper = Interpreter.GetReflectionHelper(
-                    CombineOrCopyTrustedHashes(interpreter, false),
-                    fileName, patterns, pluginLoaderFlags, verbose,
-                    ref @delegate, ref error);
+                    CombineOrCopyTrustedHashes(
+                        interpreter, false, false, false),
+                    fileName, patterns, pluginLoaderFlags,
+                    verbose, ref @delegate, ref error);
 
                 if (helper == null)
                     return ReturnCode.Error;
@@ -7106,9 +7130,10 @@ namespace Eagle._Components.Private
 #endif
 
                 object helper = Interpreter.GetReflectionHelper(
-                    CombineOrCopyTrustedHashes(interpreter, false),
-                    assemblyBytes, patterns, pluginLoaderFlags, verbose,
-                    ref @delegate, ref error);
+                    CombineOrCopyTrustedHashes(
+                        interpreter, false, false, false),
+                    assemblyBytes, patterns, pluginLoaderFlags,
+                    verbose, ref @delegate, ref error);
 
                 if (helper == null)
                     return ReturnCode.Error;

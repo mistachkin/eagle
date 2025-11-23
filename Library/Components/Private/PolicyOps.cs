@@ -1136,9 +1136,8 @@ namespace Eagle._Components.Private
             StringList hashes        /* in, out */
             )
         {
-            AddTrustedHashes(
-                RuntimeOps.CombineOrCopyTrustedHashes(interpreter, false),
-                hashes);
+            AddTrustedHashes(RuntimeOps.CombineOrCopyTrustedHashes(
+                interpreter, false, false, false), hashes);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1165,7 +1164,7 @@ namespace Eagle._Components.Private
                 return;
 
             targetInterpreter.InternalMergeTrustedHashes(
-                sourceInterpreter.CopyTrustedHashes());
+                sourceInterpreter.CopyTrustedHashes(false));
         }
 
         ///////////////////////////////////////////////////////////////////////

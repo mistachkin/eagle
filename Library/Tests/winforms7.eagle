@@ -37,11 +37,15 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 runTest {test winForms-7.1 {event handler removal} -setup {
   proc handleClickEvent { sender e } {
     #
-    # NOTE: We know this is a MouseEventArgs because this is a
-    #       click event handler.
+    # NOTE: We know this should be a MouseEventArgs because
+    #       this is a click event handler and we created the
+    #       EventArgs ourselves.
     #
-    lappend ::x [getStringFromObjectHandle $sender] \
-        [$e X] [$e Y] [$e Button]
+    if {[isNonNullObjectHandle $e] && \
+        [$e GetType] eq "System.Windows.Forms.MouseEventArgs"} then {
+      lappend ::x [getStringFromObjectHandle $sender] \
+          [$e X] [$e Y] [$e Button]
+    }
 
     #
     # NOTE: Terminate our wait.

@@ -514,6 +514,7 @@ runTest {test fileIO-2.1.1 {file dirname} -body {
 ![haveConstraint targetFramework.NETFramework.Version.v4.7.1] && \
 ![haveConstraint targetFramework.NETFramework.Version.v4.7.2] && \
 ![haveConstraint targetFramework.NETFramework.Version.v4.8] && \
+![haveConstraint targetFramework.NETFramework.Version.v4.8.1] && \
 ![haveConstraint dotNetCore]} -result \
 {. . . C:/ C:/ C:/ C:/foo . foo foo}}
 
@@ -555,6 +556,7 @@ runTest {test fileIO-2.1.3 {file dirname} -body {
 [haveConstraint targetFramework.NETFramework.Version.v4.7.1] || \
 [haveConstraint targetFramework.NETFramework.Version.v4.7.2] || \
 [haveConstraint targetFramework.NETFramework.Version.v4.8] || \
+[haveConstraint targetFramework.NETFramework.Version.v4.8.1] || \
 [haveConstraint dotNetCore]} -result {. . :C C:/ C:/ C:/ C:/foo . foo foo}}
 
 ###############################################################################

@@ -4246,7 +4246,7 @@ namespace Eagle._Components.Private
                 interpreter, AssemblyPluginFlagsCallback,
                 new PluginDataTriplet(
                     RuntimeOps.CombineOrCopyTrustedHashes(
-                        interpreter, false),
+                        interpreter, false, false, false),
                     pluginData, refresh),
                 ThreadOps.GetQueueFlags(false));
             #endregion
@@ -9032,8 +9032,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Global Trusted Hashes Support Methods
-        public static StringList CopyTrustedHashes()
+        public static StringList CopyTrustedHashes(
+            bool clear /* in */
+            )
         {
+            StringList result = null;
             bool locked = false;
 
             try
@@ -9043,7 +9046,12 @@ namespace Eagle._Components.Private
                 if (locked)
                 {
                     if (trustedHashes != null)
-                        return new StringList(trustedHashes);
+                    {
+                        result = new StringList(trustedHashes);
+
+                        if (clear)
+                            trustedHashes.Clear();
+                    }
                 }
                 else
                 {
@@ -9059,7 +9067,7 @@ namespace Eagle._Components.Private
                 ExitLock(ref locked); /* TRANSACTIONAL */
             }
 
-            return null;
+            return result;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -9071,7 +9079,7 @@ namespace Eagle._Components.Private
             )
         {
             return AddTrustedHashes(RuntimeOps.CombineOrCopyTrustedHashes(
-                interpreter, true), clear, ref error);
+                interpreter, false, true, clear), clear, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

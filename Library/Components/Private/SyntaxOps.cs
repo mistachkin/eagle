@@ -58,6 +58,8 @@ namespace Eagle._Components.Private
         private static char[] CommentChars = { Characters.SemiColon };
         private static char[] LineChars = Characters.LineTerminatorChars;
         private static char[] FieldChars = { Characters.HorizontalTab };
+        private static char[] WrapChars = { Characters.QuotationMark };
+        private static char[] EscapeChars = { Characters.Backslash };
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -89,6 +91,8 @@ namespace Eagle._Components.Private
         private static string CommentMetadataName = "comment";
         private static string LineMetadataName = "line";
         private static string FieldMetadataName = "field";
+        private static string WrapMetadataName = "wrap";
+        private static string EscapeMetadataName = "escape";
         private static string FlagsMetadataName = "flags";
         private static string RemoveEmptyMetadataName = "removeEmpty";
         private static string IndexMetadataName = "index";
@@ -389,6 +393,8 @@ namespace Eagle._Components.Private
             ref char[] commentChars, /* out */
             ref char[] lineChars,    /* out */
             ref char[] fieldChars,   /* out */
+            ref char[] wrapChars,    /* out */
+            ref char[] escapeChars,  /* out */
             ref Result error         /* out */
             )
         {
@@ -430,9 +436,35 @@ namespace Eagle._Components.Private
                     return false;
                 }
 
+                if (WrapChars == null)
+                {
+                    error = "invalid wrap characters";
+                    return false;
+                }
+
+                if (WrapChars.Length == 0)
+                {
+                    error = "missing wrap characters";
+                    return false;
+                }
+
+                if (EscapeChars == null)
+                {
+                    error = "invalid escape characters";
+                    return false;
+                }
+
+                if (EscapeChars.Length == 0)
+                {
+                    error = "missing escape characters";
+                    return false;
+                }
+
                 commentChars = CommentChars.Clone() as char[];
                 lineChars = LineChars.Clone() as char[];
                 fieldChars = FieldChars.Clone() as char[];
+                wrapChars = WrapChars.Clone() as char[];
+                escapeChars = EscapeChars.Clone() as char[];
 
                 return true;
             }
@@ -441,10 +473,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool GetSaveChars(
-            ref char? commentChar, /* out */
-            ref char? lineChar,    /* out */
-            ref char? fieldChar,   /* out */
-            ref Result error       /* out */
+            ref char? commentChar,  /* out */
+            ref char? lineChar,     /* out */
+            ref char? fieldChar,    /* out */
+            ref char[] wrapChars,   /* out */
+            ref char[] escapeChars, /* out */
+            ref Result error        /* out */
             )
         {
             char[] commentChars = null;
@@ -452,8 +486,8 @@ namespace Eagle._Components.Private
             char[] fieldChars = null;
 
             if (!GetLoadChars(
-                    ref commentChars, ref lineChars,
-                    ref fieldChars, ref error))
+                    ref commentChars, ref lineChars, ref fieldChars,
+                    ref wrapChars, ref escapeChars, ref error))
             {
                 return false;
             }
@@ -467,10 +501,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static ReturnCode SaveData( /* NOT USED */
-            SyntaxData data, /* in */
-            ref string text, /* out */
-            ref Result error /* out */
+        internal static ReturnCode SaveData(
+            SyntaxData data,       /* in */
+            SyntaxDataFlags flags, /* in */
+            ref string text,       /* out */
+            ref Result error       /* out */
             )
         {
             if (data == null)
@@ -482,10 +517,12 @@ namespace Eagle._Components.Private
             char? commentChar = null; /* NOT USED */
             char? lineChar = null;
             char? fieldChar = null;
+            char[] wrapChars = null;
+            char[] escapeChars = null;
 
             if (!GetSaveChars(
                     ref commentChar, ref lineChar, ref fieldChar,
-                    ref error))
+                    ref wrapChars, ref escapeChars, ref error))
             {
                 return ReturnCode.Error;
             }
@@ -504,10 +541,30 @@ namespace Eagle._Components.Private
                 if (values == null)
                     continue;
 
+                if (FlagOps.HasFlags(
+                        flags, SyntaxDataFlags.WrapValues, true) &&
+                    !MaybeWrap(
+                        ref name, wrapChars, escapeChars, flags,
+                        ref error))
+                {
+                    return ReturnCode.Error;
+                }
+
                 foreach (string value in values)
                 {
+                    string localValue = value;
+
+                    if (FlagOps.HasFlags(
+                            flags, SyntaxDataFlags.WrapValues, true) &&
+                        MaybeWrap(
+                            ref localValue, wrapChars, escapeChars,
+                            flags, ref error))
+                    {
+                        return ReturnCode.Error;
+                    }
+
                     lines.Add(String.Format(
-                        "{0}{1}{2}", name, fieldChar, value));
+                        "{0}{1}{2}", name, fieldChar, localValue));
                 }
             }
 
@@ -654,6 +711,18 @@ namespace Eagle._Components.Private
                         FormatOps.DisplayChars(FieldChars));
                 }
 
+                if (empty || (WrapChars != null))
+                {
+                    localList.Add("WrapChars",
+                        FormatOps.DisplayChars(WrapChars));
+                }
+
+                if (empty || (EscapeChars != null))
+                {
+                    localList.Add("EscapeChars",
+                        FormatOps.DisplayChars(EscapeChars));
+                }
+
                 if (empty || (ValueSeparator != null))
                 {
                     localList.Add("ValueSeparator",
@@ -683,6 +752,22 @@ namespace Eagle._Components.Private
                     localList.Add("FieldMetadataName",
                         (FieldMetadataName != null) ?
                             FormatOps.DisplayString(FieldMetadataName) :
+                            FormatOps.DisplayNull);
+                }
+
+                if (empty || (WrapMetadataName != null))
+                {
+                    localList.Add("WrapMetadataName",
+                        (WrapMetadataName != null) ?
+                            FormatOps.DisplayString(WrapMetadataName) :
+                            FormatOps.DisplayNull);
+                }
+
+                if (empty || (EscapeMetadataName != null))
+                {
+                    localList.Add("EscapeMetadataName",
+                        (EscapeMetadataName != null) ?
+                            FormatOps.DisplayString(EscapeMetadataName) :
                             FormatOps.DisplayNull);
                 }
 
@@ -1029,12 +1114,223 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool GetWrapChars(
+            char[] wrapChars,     /* in */
+            char[] escapeChars,   /* in */
+            ref char? prefixChar, /* out */
+            ref char? suffixChar, /* out */
+            ref char? escapeChar, /* out */
+            ref Result error      /* out */
+            )
+        {
+            if (wrapChars == null)
+            {
+                error = "invalid wrap characters";
+                return false;
+            }
+
+            int wrapLength = wrapChars.Length;
+
+            if (wrapLength == 0)
+            {
+                error = "missing wrap characters";
+                return false;
+            }
+
+            if (escapeChars == null)
+            {
+                error = "invalid escape characters";
+                return false;
+            }
+
+            int escapeLength = escapeChars.Length;
+
+            if (escapeLength == 0)
+            {
+                error = "missing escape characters";
+                return false;
+            }
+
+            prefixChar = wrapChars[0];
+
+            if (wrapLength >= 2)
+                suffixChar = wrapChars[1];
+            else
+                suffixChar = wrapChars[0];
+
+            escapeChar = escapeChars[0];
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeWrap(
+            ref string value,      /* in, out */
+            char[] wrapChars,      /* in */
+            char[] escapeChars,    /* in */
+            SyntaxDataFlags flags, /* in */
+            ref Result error       /* out */
+            )
+        {
+            if (value == null)
+            {
+                error = "cannot wrap, invalid value";
+                return false;
+            }
+
+            char? prefixChar = null;
+            char? suffixChar = null;
+            char? escapeChar = null;
+
+            if (!GetWrapChars(
+                    wrapChars, escapeChars, ref prefixChar,
+                    ref suffixChar, ref escapeChar, ref error))
+            {
+                return false;
+            }
+
+            if ((escapeChar != null) && FlagOps.HasFlags(
+                    flags, SyntaxDataFlags.EscapeValues, true))
+            {
+                value = value.Replace(
+                    ((char)escapeChar).ToString(), String.Format(
+                    "{0}{0}", (char)escapeChar));
+
+                value = value.Replace(
+                    ((char)prefixChar).ToString(), String.Format(
+                    "{0}{1}", (char)escapeChar, (char)prefixChar));
+
+                if (suffixChar != prefixChar)
+                {
+                    value = value.Replace(
+                        ((char)suffixChar).ToString(), String.Format(
+                        "{0}{1}", (char)escapeChar, (char)suffixChar));
+                }
+            }
+
+            value = String.Format("{0}{1}{2}",
+                (char)prefixChar, value, (char)suffixChar); /* WRAP */
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeUnwrap(
+            ref string value,      /* in, out */
+            char[] wrapChars,      /* in */
+            char[] escapeChars,    /* in */
+            SyntaxDataFlags flags, /* in */
+            ref Result error       /* out */
+            )
+        {
+            if (value == null)
+            {
+                error = "cannot unwrap, invalid value";
+                return false;
+            }
+
+            char? prefixChar = null;
+            char? suffixChar = null;
+            char? escapeChar = null;
+
+            if (!GetWrapChars(
+                    wrapChars, escapeChars, ref prefixChar,
+                    ref suffixChar, ref escapeChar, ref error))
+            {
+                return false;
+            }
+
+            int valueLength = value.Length;
+
+            if (valueLength < 2)
+            {
+                if (valueLength > 0)
+                {
+                    char valueChar = value[0];
+
+                    if ((valueChar == (char)prefixChar) ||
+                        (valueChar == (char)suffixChar) ||
+                        (valueChar == (char)escapeChar))
+                    {
+                        error = "cannot unwrap, reserved character";
+                        return false;
+                    }
+                }
+
+                //
+                // HACK: This is fine because the value is empty
+                //       -OR- it has a single character that is
+                //       not used for wrapping or escaping.
+                //
+                return true;
+            }
+
+            if ((value[0] != (char)prefixChar) ||
+                (value[valueLength - 1] != (char)suffixChar))
+            {
+                if ((value[0] == (char)prefixChar) ||
+                    (value[valueLength - 1] == (char)suffixChar))
+                {
+                    error = "cannot unwrap, invalid wrapping";
+                    return false;
+                }
+                else
+                {
+                    //
+                    // HACK: This is fine because the value is
+                    //       simply not wrapped.
+                    //
+                    return true;
+                }
+            }
+
+            if ((escapeChar != null) && FlagOps.HasFlags(
+                    flags, SyntaxDataFlags.EscapeValues, true))
+            {
+                //
+                // NOTE: When value escape handling is enabled,
+                //       the wrap suffix character at the end
+                //       of the value string must cannot occur
+                //       immediately after the escape character.
+                //       It should be noted that this check is
+                //       not needed for wrap prefix characters
+                //       because they are at the very start of
+                //       the string and the escape character
+                //       must always occur before the character
+                //       it actually escapes.
+                //
+                if ((valueLength >= 2) &&
+                    (value[valueLength - 2] == (char)escapeChar) &&
+                    ((char)suffixChar != (char)escapeChar))
+                {
+                    error = "cannot unwrap, suffix is escaped";
+                    return false;
+                }
+
+                value = value.Replace(String.Format(
+                    "{0}{1}", (char)escapeChar, (char)suffixChar),
+                    ((char)suffixChar).ToString());
+
+                value = value.Replace(
+                    String.Format("{0}{0}", (char)escapeChar),
+                    ((char)escapeChar).ToString());
+            }
+
+            value = value.Substring(1, valueLength - 2); /* UNWRAP */
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode ParseData(
             string text,                    /* in */
             StringDataRowCallback callback, /* in */
             char[] commentChars,            /* in */
             char[] lineChars,               /* in */
             char[] fieldChars,              /* in */
+            char[] wrapChars,               /* in */
+            char[] escapeChars,             /* in */
             SyntaxDataFlags flags,          /* in */
             ref IClientData clientData,     /* in */
             ref Result error                /* out */
@@ -1070,6 +1366,18 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
+            if (wrapChars == null)
+            {
+                error = "invalid wrap characters";
+                return ReturnCode.Error;
+            }
+
+            if (escapeChars == null)
+            {
+                error = "invalid escape characters";
+                return ReturnCode.Error;
+            }
+
             //
             // HACK: Since we always want to skip blank lines, use
             //       the option to simply remove entry entries here.
@@ -1084,9 +1392,9 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            int length = lines.Length;
+            int lineLength = lines.Length;
 
-            if (length == 0)
+            if (lineLength == 0)
             {
                 if (FlagOps.HasFlags(
                         flags, SyntaxDataFlags.ErrorOnEmpty, true))
@@ -1118,25 +1426,44 @@ namespace Eagle._Components.Private
             {
                 metadata = new StringPairDictionary();
 
-                metadata.Add(CommentMetadataName, new StringPair(
-                    CommentMetadataName, StringList.MakeList(commentChars)));
+                metadata.Add(
+                    CommentMetadataName, new StringPair(
+                    CommentMetadataName, StringList.MakeList(
+                    commentChars)));
 
-                metadata.Add(LineMetadataName, new StringPair(
-                    LineMetadataName, StringList.MakeList(lineChars)));
+                metadata.Add(
+                    LineMetadataName, new StringPair(
+                    LineMetadataName, StringList.MakeList(
+                    lineChars)));
 
-                metadata.Add(FieldMetadataName, new StringPair(
-                    FieldMetadataName, StringList.MakeList(fieldChars)));
+                metadata.Add(
+                    FieldMetadataName, new StringPair(
+                    FieldMetadataName, StringList.MakeList(
+                    fieldChars)));
 
-                metadata.Add(FlagsMetadataName, new StringPair(
+                metadata.Add(
+                    WrapMetadataName, new StringPair(
+                    WrapMetadataName, StringList.MakeList(
+                    wrapChars)));
+
+                metadata.Add(
+                    EscapeMetadataName, new StringPair(
+                    EscapeMetadataName, StringList.MakeList(
+                    escapeChars)));
+
+                metadata.Add(
+                    FlagsMetadataName, new StringPair(
                     FlagsMetadataName, flags.ToString()));
 
-                metadata.Add(RemoveEmptyMetadataName, new StringPair(
+                metadata.Add(
+                    RemoveEmptyMetadataName, new StringPair(
                     RemoveEmptyMetadataName, removeEmpty.ToString()));
             }
 
-            for (int index = 0; index < length; index++)
+            for (int lineIndex = 0;
+                    lineIndex < lineLength; lineIndex++)
             {
-                string line = lines[index];
+                string line = lines[lineIndex];
 
                 //
                 // NOTE: Rule #1: Blank lines are not data.
@@ -1150,6 +1477,9 @@ namespace Eagle._Components.Private
                 if (HaveCharacter(line[0], commentChars))
                     continue; /* NOTE: Comment line. */
 
+                //
+                // NOTE: Rule #3: Lines are delimited fields.
+                //
                 string[] fields = line.Split(
                     fieldChars, splitOptions);
 
@@ -1159,6 +1489,34 @@ namespace Eagle._Components.Private
                     return ReturnCode.Error;
                 }
 
+                //
+                // NOTE: Rule #4: Optionally unwrap fields, only
+                //       when they are confirmed to be wrapped in
+                //       the current value wrapping character set.
+                //
+                if (FlagOps.HasFlags(
+                        flags, SyntaxDataFlags.WrapValues, true))
+                {
+                    int fieldLength = fields.Length;
+
+                    for (int fieldIndex = 0;
+                            fieldIndex < fieldLength; fieldIndex++)
+                    {
+                        string field = fields[fieldIndex];
+
+                        if (MaybeUnwrap(
+                                ref field, wrapChars, escapeChars,
+                                flags, ref error))
+                        {
+                            fields[fieldIndex] = field;
+                        }
+                        else
+                        {
+                            return ReturnCode.Error;
+                        }
+                    }
+                }
+
                 if (metadata != null)
                 {
                     //
@@ -1166,11 +1524,11 @@ namespace Eagle._Components.Private
                     //       callback method.
                     //
                     metadata[IndexMetadataName] = new StringPair(
-                        IndexMetadataName, index.ToString());
+                        IndexMetadataName, lineIndex.ToString());
                 }
 
                 //
-                // NOTE: Rule #3: If the callback method returns
+                // NOTE: Rule #5: If the callback method returns
                 //       failure (false) for any (or no) reason,
                 //       including exceptions, abort the entire
                 //       operation.
@@ -1343,17 +1701,6 @@ namespace Eagle._Components.Private
             ref Result error     /* out */
             )
         {
-            char[] commentChars = null;
-            char[] lineChars = null;
-            char[] fieldChars = null;
-
-            if (!GetLoadChars(
-                    ref commentChars, ref lineChars, ref fieldChars,
-                    ref error))
-            {
-                return ReturnCode.Error;
-            }
-
             SyntaxDataFlags flags = SyntaxDataFlags.LoadData;
 
             if (unique)
@@ -1362,13 +1709,39 @@ namespace Eagle._Components.Private
             if (listValues)
                 flags |= SyntaxDataFlags.ListValues;
 
+            return LoadData(text, flags, ref data, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadData(
+            string text,           /* in */
+            SyntaxDataFlags flags, /* in */
+            ref SyntaxData data,   /* in, out */
+            ref Result error       /* out */
+            )
+        {
+            char[] commentChars = null;
+            char[] lineChars = null;
+            char[] fieldChars = null;
+            char[] wrapChars = null;
+            char[] escapeChars = null;
+
+            if (!GetLoadChars(
+                    ref commentChars, ref lineChars, ref fieldChars,
+                    ref wrapChars, ref escapeChars, ref error))
+            {
+                return ReturnCode.Error;
+            }
+
             LoadDataPair pair = new LoadDataPair(true, flags, null);
             IClientData clientData = new ClientData(pair);
 
-            if (ParseData(
-                    text, new StringDataRowCallback(LoadDataCallback),
-                    commentChars, lineChars, fieldChars, flags,
-                    ref clientData, ref error) != ReturnCode.Ok)
+            if (ParseData(text,
+                    new StringDataRowCallback(LoadDataCallback),
+                    commentChars, lineChars, fieldChars, wrapChars,
+                    escapeChars, flags, ref clientData,
+                    ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
             }
@@ -1376,7 +1749,8 @@ namespace Eagle._Components.Private
             SyntaxData localData = pair.Y;
 
             if (MergeData(
-                    data, localData, unique, ref localData,
+                    data, localData, FlagOps.HasFlags(flags,
+                    SyntaxDataFlags.Unique, true), ref localData,
                     ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
@@ -1389,28 +1763,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadAndCacheData(
-            string text,     /* in */
-            bool unique,     /* in */
-            bool listValues, /* in */
-            ref Result error /* out */
+            string text,           /* in */
+            SyntaxDataFlags flags, /* in */
+            ref Result error       /* out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 return LoadData(
-                    text, unique, listValues, ref cache, ref error);
+                    text, flags, ref cache, ref error);
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadDataFrom(
-            string fileName,     /* in */
-            Encoding encoding,   /* in */
-            bool unique,         /* in */
-            bool listValues,     /* in */
-            ref SyntaxData data, /* in, out */
-            ref Result error     /* out */
+            string fileName,       /* in */
+            Encoding encoding,     /* in */
+            SyntaxDataFlags flags, /* in */
+            ref SyntaxData data,   /* in, out */
+            ref Result error       /* out */
             )
         {
             string text;
@@ -1428,22 +1800,17 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            return LoadData(
-                text, unique, listValues, ref data, ref error);
+            return LoadData(text, flags, ref data, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadDataFrom(
-            string directory,     /* in */
-            Encoding encoding,    /* in */
-            bool recursive,       /* in */
-            bool errorOnEmpty,    /* in */
-            bool stopOnError,     /* in */
-            bool unique,          /* in */
-            bool listValues,      /* in */
-            ref SyntaxData data,  /* in, out */
-            ref ResultList errors /* out */
+            string directory,      /* in */
+            Encoding encoding,     /* in */
+            SyntaxDataFlags flags, /* in */
+            ref SyntaxData data,   /* in, out */
+            ref ResultList errors  /* out */
             )
         {
             if (String.IsNullOrEmpty(directory))
@@ -1464,13 +1831,16 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
+            SearchOption searchOption = FileOps.GetSearchOption(
+                FlagOps.HasFlags(flags, SyntaxDataFlags.Recursive,
+                true));
+
             string[] fileNames;
 
             try
             {
                 fileNames = Directory.GetFiles(
-                    directory, ResourcePattern,
-                    FileOps.GetSearchOption(recursive));
+                    directory, ResourcePattern, searchOption);
             }
             catch (Exception e)
             {
@@ -1483,7 +1853,8 @@ namespace Eagle._Components.Private
 
             if ((fileNames == null) || (fileNames.Length == 0))
             {
-                if (errorOnEmpty)
+                if (FlagOps.HasFlags(flags,
+                        SyntaxDataFlags.ErrorOnEmpty, true))
                 {
                     if (errors == null)
                         errors = new ResultList();
@@ -1507,8 +1878,7 @@ namespace Eagle._Components.Private
                 Result error = null;
 
                 if (LoadDataFrom(
-                        fileName, encoding, unique,
-                        listValues, ref data,
+                        fileName, encoding, flags, ref data,
                         ref error) != ReturnCode.Ok)
                 {
                     errorCount++;
@@ -1518,8 +1888,11 @@ namespace Eagle._Components.Private
 
                     errors.Add(error);
 
-                    if (stopOnError)
+                    if (FlagOps.HasFlags(flags,
+                            SyntaxDataFlags.StopOnError, true))
+                    {
                         return ReturnCode.Error;
+                    }
                 }
             }
 
@@ -1530,22 +1903,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadAndCacheDataFrom(
-            string directory,     /* in */
-            Encoding encoding,    /* in */
-            bool recursive,       /* in */
-            bool errorOnEmpty,    /* in */
-            bool stopOnError,     /* in */
-            bool unique,          /* in */
-            bool listValues,      /* in */
-            ref ResultList errors /* out */
+            string directory,      /* in */
+            Encoding encoding,     /* in */
+            SyntaxDataFlags flags, /* in */
+            ref ResultList errors  /* out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 return LoadDataFrom(
-                    directory, encoding, recursive, errorOnEmpty,
-                    stopOnError, unique, listValues, ref cache,
-                    ref errors);
+                    directory, encoding, flags, ref cache, ref errors);
             }
         }
         #endregion

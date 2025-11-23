@@ -1866,7 +1866,8 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
-            return GlobalState.CopyTrustedHashes(interpreter, clear, ref error);
+            return GlobalState.CopyTrustedHashes(
+                interpreter, clear, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6726,13 +6727,12 @@ namespace Eagle._Components.Public
         //
         public static ReturnCode LoadAndCacheSyntaxData(
             string text,
-            bool unique,
-            bool listValues,
+            SyntaxDataFlags flags,
             ref Result error
             )
         {
             return SyntaxOps.LoadAndCacheData(
-                text, unique, listValues, ref error);
+                text, flags, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6743,14 +6743,13 @@ namespace Eagle._Components.Public
         //
         public static ReturnCode LoadSyntaxData(
             string text,
-            bool unique,
-            bool listValues,
+            SyntaxDataFlags flags,
             ref SyntaxData data,
             ref Result error
             )
         {
             return SyntaxOps.LoadData(
-                text, unique, listValues, ref data, ref error);
+                text, flags, ref data, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6762,15 +6761,13 @@ namespace Eagle._Components.Public
         public static ReturnCode LoadSyntaxDataFrom(
             string fileName,
             Encoding encoding,
-            bool unique,
-            bool listValues,
+            SyntaxDataFlags flags,
             ref SyntaxData data,
             ref Result error
             )
         {
             return SyntaxOps.LoadDataFrom(
-                fileName, encoding, unique, listValues, ref data,
-                ref error);
+                fileName, encoding, flags, ref data, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6782,19 +6779,13 @@ namespace Eagle._Components.Public
         public static ReturnCode LoadSyntaxDataFrom(
             string directory,
             Encoding encoding,
-            bool recursive,
-            bool errorOnEmpty,
-            bool stopOnError,
-            bool unique,
-            bool listValues,
+            SyntaxDataFlags flags,
             ref SyntaxData data,
             ref ResultList errors
             )
         {
             return SyntaxOps.LoadDataFrom(
-                directory, encoding, recursive, errorOnEmpty,
-                stopOnError, unique, listValues, ref data,
-                ref errors);
+                directory, encoding, flags, ref data, ref errors);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6803,12 +6794,14 @@ namespace Eagle._Components.Public
             ref char[] commentChars,
             ref char[] lineChars,
             ref char[] fieldChars,
+            ref char[] wrapChars,
+            ref char[] escapeChars,
             ref Result error
             )
         {
             return SyntaxOps.GetLoadChars(
                 ref commentChars, ref lineChars, ref fieldChars,
-                ref error);
+                ref wrapChars, ref escapeChars, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6819,14 +6812,17 @@ namespace Eagle._Components.Public
             char[] commentChars,
             char[] lineChars,
             char[] fieldChars,
+            char[] wrapChars,
+            char[] escapeChars,
             SyntaxDataFlags flags,
             ref IClientData clientData,
             ref Result error
             )
         {
             return SyntaxOps.ParseData(
-                text, callback, commentChars, lineChars, fieldChars,
-                flags, ref clientData, ref error);
+                text, callback, commentChars, lineChars,
+                fieldChars, wrapChars, escapeChars, flags,
+                ref clientData, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

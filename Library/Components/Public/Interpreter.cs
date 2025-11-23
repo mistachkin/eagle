@@ -52502,7 +52502,8 @@ namespace Eagle._Components.Public
                         try
                         {
                             PluginLoadHelper loadHelper = PluginLoadHelper.Create(
-                                RuntimeOps.CombineOrCopyTrustedHashes(this, false),
+                                RuntimeOps.CombineOrCopyTrustedHashes(
+                                    this, false, false, false),
                                 assemblyBytes, symbolBytes, typeName, null,
 #if CAS_POLICY
 #if ISOLATED_PLUGINS
@@ -53080,7 +53081,8 @@ namespace Eagle._Components.Public
                         try
                         {
                             PluginLoadHelper loadHelper = PluginLoadHelper.Create(
-                                RuntimeOps.CombineOrCopyTrustedHashes(this, false),
+                                RuntimeOps.CombineOrCopyTrustedHashes(
+                                    this, false, false, false),
                                 fileName, typeName, null,
 #if CAS_POLICY
 #if ISOLATED_PLUGINS
@@ -60282,14 +60284,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal StringList CopyTrustedHashes()
+        internal StringList CopyTrustedHashes(
+            bool clear /* in */
+            )
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                if (trustedHashes == null)
-                    return null;
+                StringList result;
 
-                return new StringList(trustedHashes);
+                if (trustedHashes != null)
+                {
+                    result = new StringList(trustedHashes);
+
+                    //
+                    // HACK: Start a fresh list of hashes?
+                    //
+                    if (clear)
+                        trustedHashes.Clear();
+                }
+                else
+                {
+                    result = null;
+                }
+
+                return result;
             }
         }
 
@@ -84583,7 +84601,8 @@ namespace Eagle._Components.Public
                     code = SyntaxOps.LoadAndCacheDataFrom(
                         GlobalState.InitializeOrGetBinaryPath(false),
                         StringOps.GetEncoding(EncodingType.Syntax),
-                        true, false, true, false, false, ref localErrors);
+                        SyntaxDataFlags.LoadAndCacheDataFrom,
+                        ref localErrors);
 
                     if (code != ReturnCode.Ok)
                     {
