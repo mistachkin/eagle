@@ -1380,7 +1380,15 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-robustify"))
                                                         {
                                                             findFlags &= ~FindFlags.OtherNamePatternList;
-                                                            loadFlags |= LoadFlags.SetDllDirectory;
+
+                                                            //
+                                                            // BUGBUG: The special "SetDllDirectory" handling really
+                                                            //         only works (or is even necessary) on Windows.
+                                                            //         For now, on (all) other platforms, just skip
+                                                            //         it.
+                                                            //
+                                                            if (PlatformOps.IsWindowsOperatingSystem())
+                                                                loadFlags |= LoadFlags.SetDllDirectory;
                                                         }
 
                                                         if (options.IsPresent("-trustedonly"))

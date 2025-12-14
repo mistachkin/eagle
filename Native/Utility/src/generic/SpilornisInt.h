@@ -91,7 +91,9 @@
 #define FreeMemoryWrapper(pMemory)		free((pMemory))
 
 #if defined(HAVE_MALLOC_H)
-#  if defined(HAVE_MALLOC_USABLE_SIZE)
+#  if defined(__APPLE__)
+#    define MemorySizeWrapper(pMemory)          malloc_size((pMemory))
+#  elif defined(HAVE_MALLOC_USABLE_SIZE)
 #    define MemorySizeWrapper(pMemory)		malloc_usable_size((pMemory))
 #  elif defined(_MSC_VER)
 #    define MemorySizeWrapper(pMemory)		_msize((pMemory))

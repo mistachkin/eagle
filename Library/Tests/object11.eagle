@@ -33,7 +33,11 @@ proc getResolveVerbForTypeLoadException {} {
 ###############################################################################
 
 proc getLoadVerbForTypeLoadException {} {
-  return load
+  if {[isEagle] && [haveConstraint dotNetCore100]} then {
+    return resolve
+  } else {
+    return load
+  }
 }
 
 ###############################################################################
@@ -51,7 +55,11 @@ proc getInPrepositionForTypeLoadException {} {
 ###############################################################################
 
 proc getFromPrepositionForTypeLoadException {} {
-  return from
+  if {[isEagle] && [haveConstraint dotNetCore100]} then {
+    return in
+  } else {
+    return from
+  }
 }
 
 ###############################################################################

@@ -25,7 +25,11 @@
 #include <assert.h>		/* NOTE: For assert, etc. */
 
 #if defined(HAVE_MALLOC_H)
-#include <malloc.h>		/* NOTE: For _msize, malloc_usable_size, etc. */
+#  if defined(__APPLE__)
+#    include <malloc/malloc.h>  /* NOTE: For malloc_size, etc. */
+#  else
+#    include <malloc.h>		/* NOTE: For _msize, malloc_usable_size, etc. */
+#  endif
 #endif
 
 #include <stdarg.h>		/* NOTE: For va_list, etc. */

@@ -2400,7 +2400,7 @@ namespace Eagle._Commands
                                                                                     {
                                                                                         result = String.Format(
                                                                                             "wrong # args for field: " +
-                                                                                            "should be \"object invoke ?options? \"{0}\" \"{1}\" ?newValue?\"",
+                                                                                            "should be \"object invoke ?options? {0} {1} ?newValue?\"",
                                                                                             arguments[argumentIndex], arguments[argumentIndex + 1]);
 
                                                                                         code = ReturnCode.Error;

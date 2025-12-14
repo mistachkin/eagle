@@ -33,6 +33,11 @@ namespace Eagle._Interfaces.Public
         IEnumerable<string> MergeTrustedPaths(StringList trustedPaths);
         IEnumerable<string> MergeTrustedUris(UriDictionary<object> trustedUris);
         IEnumerable<string> MergeTrustedTypes(ObjectDictionary trustedTypes);
+
+        ///////////////////////////////////////////////////////////////////////
+
+        int ClearTrustedHashes();
+        bool AddTrustedHash(string trustedHash);
         IEnumerable<string> MergeTrustedHashes(StringList trustedHashes);
     }
 }

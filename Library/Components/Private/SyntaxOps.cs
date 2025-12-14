@@ -502,7 +502,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        internal static ReturnCode SaveData(
+        public static ReturnCode SaveData(
             SyntaxData data,       /* in */
             SyntaxDataFlags flags, /* in */
             ref string text,       /* out */

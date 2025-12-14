@@ -60138,7 +60138,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private StringList PrivateMergeTrustedPaths(
-            StringList trustedPaths /* in: OPTIONAL */
+            StringList trustedPaths /* in */
             )
         {
             if (trustedPaths == null)
@@ -60190,7 +60190,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private IEnumerable<string> PrivateMergeTrustedUris(
-            UriDictionary<object> trustedUris /* in: OPTIONAL */
+            UriDictionary<object> trustedUris /* in */
             )
         {
             if (trustedUris == null)
@@ -60326,8 +60326,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private int PrivateClearTrustedHashes()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                int count = 0;
+
+                if (trustedHashes != null)
+                {
+                    count += trustedHashes.Count;
+                    trustedHashes.Clear();
+                }
+
+                return count;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool PrivateAddTrustedHash(
+            string trustedHash /* in */
+            )
+        {
+            if (trustedHash == null)
+                return false;
+
+            return InternalMergeTrustedHashes(new StringList(trustedHash)) != null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal IEnumerable<string> InternalMergeTrustedHashes(
-            StringList trustedHashes /* in: OPTIONAL */
+            StringList trustedHashes /* in */
             )
         {
             if (trustedHashes == null)
@@ -61233,6 +61263,26 @@ namespace Eagle._Components.Public
             CheckDisposed();
 
             return PrivateMergeTrustedTypes(trustedTypes);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public int ClearTrustedHashes()
+        {
+            CheckDisposed();
+
+            return PrivateClearTrustedHashes();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public bool AddTrustedHash(
+            string trustedHash
+            )
+        {
+            CheckDisposed();
+
+            return PrivateAddTrustedHash(trustedHash);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
