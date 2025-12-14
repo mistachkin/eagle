@@ -3849,7 +3849,7 @@ namespace Eagle._Commands
                                                         //       as invalid, which is quite close
                                                         //       to null.  This is technically not
                                                         //       at all related to the underlying
-                                                        //       "value object" contained within 
+                                                        //       "value object" contained within
                                                         //       it possibly having been disposed
                                                         //       at some point.
                                                         //
