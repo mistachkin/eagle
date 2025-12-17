@@ -145,7 +145,8 @@ runTest {test garuda-1.1 {Eagle Package for Tcl (Garuda) via Tcl} -setup {
 } -constraintExpression {([haveConstraint compile.WINDOWS] || \
 [haveConstraint compile.UNIX]) && (([haveConstraint windows] && \
 [haveConstraint file_Garuda.dll]) || ([haveConstraint unix] && \
-[haveConstraint file_libGarudaCore.so]))} -constraints [fixConstraints \
+([haveConstraint file_libGarudaCore.so] || \
+[haveConstraint file_libGarudaCore.dylib])))} -constraints [fixConstraints \
 {eagle dotNetOrDotNetCore native logFile tclShell compile.NATIVE compile.TCL\
 compile.NATIVE_PACKAGE testExec file_pkgAll.tcl}] -result {Success}}
 
@@ -424,7 +425,8 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
 {(![haveConstraint dotNetCore] || [haveConstraint dotNetCore70OrHigher]) && \
 (([haveConstraint compile.WINDOWS] && [haveConstraint windows] && \
 [haveConstraint file_Garuda.dll]) || ([haveConstraint compile.UNIX] && \
-[haveConstraint unix] && [haveConstraint file_libGarudaCore.so]))} \
+[haveConstraint unix] && ([haveConstraint file_libGarudaCore.so] || \
+[haveConstraint file_libGarudaCore.dylib])))} \
 -constraints [fixConstraints {eagle dotNetOrDotNetCore native logFile\
 garudaLibrary tclLibrary command.tcl compile.NATIVE compile.TCL\
 compile.NATIVE_PACKAGE Eagle._Tests.Default.TestSetQuiet testExec}] -result \

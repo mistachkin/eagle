@@ -330,8 +330,8 @@ runTest {test debug-1.6.1 {debug shell sub-command w/reconfigure XML} -setup {
 } -body {
   interp eval $i [list set fileName [file join $test_data_path settings.xml]]
   interp eval $i {
-    debug shell -loop true -- -reconfigure $fileName --postInitialize \
-        "debug icommand exit"
+    debug shell -loop true -- -reconfigure $fileName \
+        -evaluate "set argv"
   }
 } -cleanup {
   catch {restoreHostRead $i}
@@ -350,8 +350,8 @@ runTest {test debug-1.6.2 {debug shell sub-command w/reconfigure INI} -setup {
 } -body {
   interp eval $i [list set fileName [file join $test_data_path settings.ini]]
   interp eval $i {
-    debug shell -loop true -- -reconfigure $fileName --postInitialize \
-        "debug icommand exit"
+    debug shell -loop true -- -reconfigure $fileName \
+        -evaluate "set argv"
   }
 } -cleanup {
   catch {restoreHostRead $i}
@@ -369,8 +369,8 @@ runTest {test debug-1.7.1 {debug shell sub-command w/reconfigure XML} -setup {
 } -body {
   interp eval $i [list set fileName [file join $test_data_path settings.xml]]
   interp eval $i {
-    debug shell -loop true -- -reconfigure $fileName --postInitialize \
-        "debug icommand exit"; list true
+    debug shell -loop true -- -reconfigure $fileName \
+        -evaluate "set argv"; list true
   }
 } -cleanup {
   catch {restoreHostRead $i}
@@ -389,8 +389,8 @@ runTest {test debug-1.7.2 {debug shell sub-command w/reconfigure INI} -setup {
 } -body {
   interp eval $i [list set fileName [file join $test_data_path settings.ini]]
   interp eval $i {
-    debug shell -loop true -- -reconfigure $fileName --postInitialize \
-        "debug icommand exit"; list true
+    debug shell -loop true -- -reconfigure $fileName \
+        -evaluate "set argv"; list true
   }
 } -cleanup {
   catch {restoreHostRead $i}
