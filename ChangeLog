@@ -37,6 +37,9 @@ BUGFIX: always break out of script loops in progress if the [exit] command has
 BUGFIX: make sure to honor any IRuleSet that may be present within an instance
         of the InterpreterSettings passed into the Interpreter.Create method.
 
+BUGFIX: *BREAKING CHANGE* stop unsetting the "dir" variable if it exited prior
+        to the package index scan operation.
+
 REFACTOR: add preliminary support for the .NET 10.0 runtime.
 
 REFACTOR: cleanup and optimize how notifications are processed.

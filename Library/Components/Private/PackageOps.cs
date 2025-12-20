@@ -3452,11 +3452,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void UnsetIndexCallbackVariables(
-            Interpreter interpreter, /* in */
-            string dirVarName,       /* in */
-            string tagVarName,       /* in */
-            ref bool setDirectory,   /* in, out */
-            ref bool setTag          /* in, out */
+            Interpreter interpreter,     /* in */
+            string dirVarName,           /* in */
+            string tagVarName,           /* in */
+            ref string savedDirVarValue, /* in, out */
+            ref string savedTagVarValue, /* in, out */
+            ref bool setDirectory,       /* in, out */
+            ref bool setTag              /* in, out */
             )
         {
             ResultList errors = null;
@@ -3476,39 +3478,85 @@ namespace Eagle._Components.Private
 
                 if (setDirectory)
                 {
-                    error = null;
-
-                    if (interpreter.UnsetVariable( /* EXEMPT */
-                            VariableFlags.None, dirVarName,
-                            ref error) == ReturnCode.Ok)
+                    if (savedDirVarValue != null)
                     {
-                        setDirectory = false;
+                        error = null;
+
+                        if (interpreter.SetVariableValue( /* EXEMPT */
+                                VariableFlags.None, dirVarName,
+                                savedDirVarValue,
+                                ref error) == ReturnCode.Ok)
+                        {
+                            savedDirVarValue = null;
+                            setDirectory = false;
+                        }
+                        else if (error != null)
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(error);
+                        }
                     }
-                    else if (error != null)
+                    else
                     {
-                        if (errors == null)
-                            errors = new ResultList();
+                        error = null;
 
-                        errors.Add(error);
+                        if (interpreter.UnsetVariable( /* EXEMPT */
+                                VariableFlags.None, dirVarName,
+                                ref error) == ReturnCode.Ok)
+                        {
+                            setDirectory = false;
+                        }
+                        else if (error != null)
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(error);
+                        }
                     }
                 }
 
                 if (setTag)
                 {
-                    error = null;
-
-                    if (interpreter.UnsetVariable( /* EXEMPT */
-                            VariableFlags.None, tagVarName,
-                            ref error) == ReturnCode.Ok)
+                    if (savedTagVarValue != null)
                     {
-                        setTag = false;
+                        error = null;
+
+                        if (interpreter.SetVariableValue( /* EXEMPT */
+                                VariableFlags.None, tagVarName,
+                                savedTagVarValue,
+                                ref error) == ReturnCode.Ok)
+                        {
+                            savedTagVarValue = null;
+                            setTag = false;
+                        }
+                        else if (error != null)
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(error);
+                        }
                     }
-                    else if (error != null)
+                    else
                     {
-                        if (errors == null)
-                            errors = new ResultList();
+                        error = null;
 
-                        errors.Add(error);
+                        if (interpreter.UnsetVariable( /* EXEMPT */
+                                VariableFlags.None, tagVarName,
+                                ref error) == ReturnCode.Ok)
+                        {
+                            setTag = false;
+                        }
+                        else if (error != null)
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(error);
+                        }
                     }
                 }
             }
@@ -3525,14 +3573,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode SetIndexCallbackVariables(
-            Interpreter interpreter, /* in */
-            string dirVarName,       /* in */
-            string tagVarName,       /* in */
-            string fileName,         /* in */
-            string tag,              /* in */
-            ref bool setDirectory,   /* out */
-            ref bool setTag,         /* out */
-            ref Result result        /* out */
+            Interpreter interpreter,     /* in */
+            string dirVarName,           /* in */
+            string tagVarName,           /* in */
+            string fileName,             /* in */
+            string tag,                  /* in */
+            ref string savedDirVarValue, /* in, out */
+            ref string savedTagVarValue, /* in, out */
+            ref bool setDirectory,       /* out */
+            ref bool setTag,             /* out */
+            ref Result result            /* out */
             )
         {
             ResultList errors = null;
@@ -3549,6 +3599,25 @@ namespace Eagle._Components.Private
 
             if (fileName != null)
             {
+                bool? hadDirectory = null;
+
+                if (savedDirVarValue == null)
+                {
+                    Result dirVarValue = null;
+
+                    if (interpreter.GetVariableValue(
+                            VariableFlags.None, dirVarName,
+                            ref dirVarValue) == ReturnCode.Ok)
+                    {
+                        savedDirVarValue = dirVarValue;
+                        hadDirectory = true;
+                    }
+                    else
+                    {
+                        hadDirectory = false;
+                    }
+                }
+
                 string directory = PathOps.GetUnixPath(
                     PathOps.GetDirectoryName(fileName));
 
@@ -3558,7 +3627,13 @@ namespace Eagle._Components.Private
                         VariableFlags.None, dirVarName,
                         directory, ref error) == ReturnCode.Ok)
                 {
-                    setDirectory = true;
+                    //
+                    // BUGFIX: Do not allow the "dir" variable
+                    //         to be unset if it existed prior
+                    //         to us changing its value.
+                    //
+                    if (hadDirectory != null)
+                        setDirectory = true;
                 }
                 else if (error != null)
                 {
@@ -3571,13 +3646,38 @@ namespace Eagle._Components.Private
 
             if (tag != null)
             {
+                bool? hadTag = null;
+
+                if (savedTagVarValue == null)
+                {
+                    Result tagVarValue = null;
+
+                    if (interpreter.GetVariableValue(
+                            VariableFlags.None, tagVarName,
+                            ref tagVarValue) == ReturnCode.Ok)
+                    {
+                        savedTagVarValue = tagVarValue;
+                        hadTag = true;
+                    }
+                    else
+                    {
+                        hadTag = false;
+                    }
+                }
+
                 error = null;
 
                 if (interpreter.SetVariableValue( /* EXEMPT */
                         VariableFlags.None, tagVarName,
                         tag, ref error) == ReturnCode.Ok)
                 {
-                    setTag = true;
+                    //
+                    // BUGFIX: Do not allow the "tag" variable
+                    //         to be unset if it existed prior
+                    //         to us changing its value.
+                    //
+                    if (hadTag != null)
+                        setTag = true;
                 }
                 else if (error != null)
                 {
@@ -3895,6 +3995,8 @@ namespace Eagle._Components.Private
             }
 
             ReturnCode code;
+            string savedDirVarValue = null;
+            string savedTagVarValue = null;
             bool setDirectory = false;
             bool setTag = false;
 
@@ -3996,8 +4098,8 @@ namespace Eagle._Components.Private
                                 code = SetIndexCallbackVariables(
                                     interpreter, TclVars.Core.Directory,
                                     TclVars.Core.Tag, newText, tag,
-                                    ref setDirectory, ref setTag,
-                                    ref result);
+                                    ref savedDirVarValue, ref savedTagVarValue,
+                                    ref setDirectory, ref setTag, ref result);
 
                                 if (code == ReturnCode.Ok)
                                 {
@@ -4071,8 +4173,8 @@ namespace Eagle._Components.Private
                             code = SetIndexCallbackVariables(
                                 interpreter, TclVars.Core.Directory,
                                 TclVars.Core.Tag, fileName, tag,
-                                ref setDirectory, ref setTag,
-                                ref result);
+                                ref savedDirVarValue, ref savedTagVarValue,
+                                ref setDirectory, ref setTag, ref result);
 
                             if (code == ReturnCode.Ok)
                             {
@@ -4186,8 +4288,8 @@ namespace Eagle._Components.Private
                             code = SetIndexCallbackVariables(
                                 interpreter, TclVars.Core.Directory,
                                 TclVars.Core.Tag, newFileName, tag,
-                                ref setDirectory, ref setTag,
-                                ref result);
+                                ref savedDirVarValue, ref savedTagVarValue,
+                                ref setDirectory, ref setTag, ref result);
 
                             if (code == ReturnCode.Ok)
                             {
@@ -4411,8 +4513,8 @@ namespace Eagle._Components.Private
                             code = SetIndexCallbackVariables(
                                 interpreter, TclVars.Core.Directory,
                                 TclVars.Core.Tag, newFileName, tag,
-                                ref setDirectory, ref setTag,
-                                ref result);
+                                ref savedDirVarValue, ref savedTagVarValue,
+                                ref setDirectory, ref setTag, ref result);
 
                             if (code == ReturnCode.Ok)
                             {
@@ -4504,7 +4606,8 @@ namespace Eagle._Components.Private
             {
                 UnsetIndexCallbackVariables(
                     interpreter, TclVars.Core.Directory,
-                    TclVars.Core.Tag, ref setDirectory,
+                    TclVars.Core.Tag, ref savedDirVarValue,
+                    ref savedTagVarValue, ref setDirectory,
                     ref setTag);
             }
 

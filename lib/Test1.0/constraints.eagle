@@ -2649,6 +2649,114 @@ namespace eval ::Eagle {
     }
   }
 
+  proc checkForNativeLibraryFile {
+          channel names {machine ""} {constraint ""} } {
+    set directories [list]
+
+    if {[info exists ::core_bin_path]} then {
+      #
+      # HACK: This relies on a global test suite variable that is
+      #       setup by the prologue.
+      #
+      lappend directories $::core_bin_path; # HACK: Global.
+    } else {
+      #
+      # HACK: This assumes the native library file should reside
+      #       in the same directory as the managed assembly that
+      #       contains the managed application entry-point, which
+      #       -MAY- be different from the executable that started
+      #       the process, e.g. Mono, .NET Core, etc.
+      #
+      lappend directories \
+          [file normalize [file dirname [getShellExecutableName]]]
+    }
+
+    #
+    # HACK: When running in Eagle, check several possible system
+    #       native library directories, e.g. Linux, macOS, etc.
+    #
+    if {[isEagle]} then {
+      if {[catch {
+        info path "=NativeLibrary +Local"
+      } directory] == 0} then {
+        lappend directories $directory
+      }
+
+      if {[catch {
+        info path "=NativeLibrary -Local"
+      } directory] == 0} then {
+        lappend directories $directory
+      }
+
+      if {[catch {
+        info path "=NativeLibrary +Local +NoProcessor"
+      } directory] == 0} then {
+        lappend directories $directory
+      }
+
+      if {[catch {
+        info path "=NativeLibrary -Local +NoProcessor"
+      } directory] == 0} then {
+        lappend directories $directory
+      }
+    }
+
+    set extension [info sharedlibextension]
+
+    foreach name $names {
+      if {[file extension $name] eq $extension} then {
+        continue
+      }
+
+      if {[string length $constraint] > 0} then {
+        set constraintName [appendArgs file_ $constraint]
+      } else {
+        set constraintName [appendArgs file_ [file tail $name]]
+      }
+
+      if {[haveConstraint $constraintName]} then {
+        continue
+      }
+
+      set found false
+
+      foreach directory $directories {
+        foreach prefix [list "" lib] {
+          checkForFile $channel [file join $directory \
+              [appendArgs $prefix $name $extension]] \
+              $constraint
+
+          if {[haveConstraint $constraintName]} then {
+            set found true; break
+          }
+
+          foreach architecture [list true false] {
+            checkForFile $channel [file join $directory \
+                [machineToPlatform $machine $architecture] \
+                [appendArgs $prefix $name $extension]] \
+                $constraint
+
+            if {[haveConstraint $constraintName]} then {
+              set found true; break
+            }
+          }
+
+          if {$found} then {
+            break
+          }
+        }
+
+        if {$found} then {
+          break
+        }
+      }
+
+      if {$found} then {
+        break
+      }
+    }
+  }
+
   proc checkForPathFile { channel name {constraint ""} } {
     tputs $channel [appendArgs "---- checking for file \"" $name \
         "\" along PATH... "]
@@ -2681,7 +2789,11 @@ namespace eval ::Eagle {
         # HACK: For shared libraries, use the LD_LIBRARY_PATH.
         #
         if {[file extension $name] eq [info sharedlibextension]} then {
-          set pathName LD_LIBRARY_PATH
+          if {[isMacOS]} then {
+            set pathName DYLD_LIBRARY_PATH
+          } else {
+            set pathName LD_LIBRARY_PATH
+          }
         } else {
           set pathName PATH
         }
@@ -7487,16 +7599,17 @@ namespace eval ::Eagle {
         checkForEFormat checkForNamespaces checkForTestExec \
         checkForTestMachine checkForTestPlatform checkForTestConfiguration \
         checkForTestNamePrefix checkForTestSuffix checkForGnuScreen \
-        checkForFile checkForPathFile checkForNativeCode \
-        checkForAllowBigIntegers checkForTip127 checkForTip182 \
-        checkForTip194 checkForTip207 checkForTip237 checkForTip241 \
-        checkForTip285 checkForTip405 checkForTip421 checkForTip426 \
-        checkForTip429 checkForTip440 checkForTip461 checkForTip463 \
-        checkForTip471 checkForTip508 checkForTip521 checkForTiming \
-        checkForPerformance checkForBigLists checkForProcessorIntensive \
-        checkForFileSystemIntensive checkForTimeIntensive checkForFullTest \
-        checkForMemoryIntensive checkForStackIntensive ulimitStackSizeToBytes \
-        getUlimitC99 compileViaC99 checkForStackSize checkForInteractive \
+        checkForFile checkForNativeLibraryFile checkForPathFile \
+        checkForNativeCode checkForAllowBigIntegers checkForTip127 \
+        checkForTip182 checkForTip194 checkForTip207 checkForTip237 \
+        checkForTip241 checkForTip285 checkForTip405 checkForTip421 \
+        checkForTip426 checkForTip429 checkForTip440 checkForTip461 \
+        checkForTip463 checkForTip471 checkForTip508 checkForTip521 \
+        checkForTiming checkForPerformance checkForBigLists \
+        checkForProcessorIntensive checkForFileSystemIntensive \
+        checkForTimeIntensive checkForFullTest checkForMemoryIntensive \
+        checkForStackIntensive ulimitStackSizeToBytes getUlimitC99 \
+        compileViaC99 checkForStackSize checkForInteractive \
         checkForInteractiveFocus checkForInteractiveCommand \
         checkForUserInteraction checkForOfflineMode checkForNetwork \
         maybeDownloadFromUri checkForInternet checkForTlsOk \

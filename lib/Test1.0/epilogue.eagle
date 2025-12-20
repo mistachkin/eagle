@@ -44,12 +44,16 @@ if {![info exists no([file tail [info script]])]} then {
 
   #
   # NOTE: Make sure all global variables that may be set / used by
-  #       this epilogue are initially unset.
+  #       this epilogue (and the associated prologue) are initially
+  #       unset.
   #
-  unset -nocomplain haveStartSentry operationCount memory stack \
-      name count percent exitCode milliseconds code dictionary \
-      error usageKind usageType pair usageData key value cmdType \
-      usage
+  unset -nocomplain expr pkg_dir bin_dir hostsFile frameName \
+      scriptLocations directory dummy exec pattern loaded \
+      old_test_run_id ppid encoding host cpu memory stack \
+      levels drive tags checkout password user timeout database \
+      server multiplier percent timeStamp haveStartSentry \
+      operationCount milliseconds usageKind usageData usageType \
+      dictionary error code pair key value cmdType usage exitCode
 
   #
   # HACK: Maybe process events for a little while on this thread to
