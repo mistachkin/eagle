@@ -365,7 +365,7 @@ namespace eval ::Eagle {
 
             tputs [getTestChannelOrDefault] [appendArgs \
                 "---- success scanning package indexes: " \
-                [formatList $indexes] \n]
+                [formatList $indexes <none>] \n]
           }
 
           return true
@@ -399,7 +399,7 @@ namespace eval ::Eagle {
 
             tputs [getTestChannelOrDefault] [appendArgs \
                 "---- success scanning package indexes: " \
-                [formatList $names] \n]
+                [formatList $names <none>] \n]
           }
 
           return true
@@ -7169,14 +7169,14 @@ namespace eval ::Eagle {
         if {[info exists array($statistic,before,list)]} then {
           if {!$quiet} then {
             tputs $channel [appendArgs "---- " $statistic " BEFORE: " \
-                [formatList $array($statistic,before,list)] \n]
+                [formatList $array($statistic,before,list) <none>] \n]
           }
         }
 
         if {[info exists array($statistic,after,list)]} then {
           if {!$quiet} then {
             tputs $channel [appendArgs "---- " $statistic " AFTER: " \
-                [formatList $array($statistic,after,list)] \n]
+                [formatList $array($statistic,after,list) <none>] \n]
           }
         }
 
@@ -7635,7 +7635,7 @@ namespace eval ::Eagle {
 
       if {[llength statistics] > 0} then {
         tputs $channel [appendArgs "---- types of leaks detected: " \
-            [formatListAsDict $statistics] \n]
+            [formatListAsDict $statistics <none>] \n]
       }
     }
   }
@@ -7659,10 +7659,10 @@ namespace eval ::Eagle {
       tputs $channel [appendArgs "---- test run path: \"" $path \"\n]
 
       tputs $channel [appendArgs "---- test run file names: " \
-          [formatList [removePathFromFileNames $path $fileNames]] \n]
+          [formatList [removePathFromFileNames $path $fileNames] <none>] \n]
 
       tputs $channel [appendArgs "---- test run skip file names: " \
-          [formatList $skipFileNames] \n]
+          [formatList $skipFileNames <none>] \n]
     }
 
     #
@@ -8128,12 +8128,12 @@ namespace eval ::Eagle {
       #
       if {[llength $failed] > 0} then {
         tputs $channel [appendArgs "---- files with failing tests: " \
-            [formatList $failed] \n]
+            [formatList $failed <none>] \n]
       }
 
       if {[llength $leaked] > 0} then {
         tputs $channel [appendArgs "---- files with leaking tests: " \
-            [formatList $leaked] \n]
+            [formatList $leaked <none>] \n]
       }
     }
 
@@ -10390,6 +10390,7 @@ namespace eval ::Eagle {
       #       [eagle_isShellScriptLevel] procedure for further details.
       #
       if {![info exists ::no(shellUnknown)] && \
+          [string range $name 0 1] ne "::" && \
           [eagle_isShellScriptLevel 3] && [eagle_haveShell shell]} then {
         set skipped false
 

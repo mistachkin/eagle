@@ -83,6 +83,11 @@ namespace eval ::Eagle {
           set suffix [getStringFromObjectHandle $error]
         }
 
+        if {[string length $suffix] > 0 && \
+            [string is not space -strict [string index $suffix 0]]} then {
+          set suffix [appendArgs " " $suffix]
+        }
+
         set newString [appendArgs $string $suffix]
       } else {
         set newString $string
@@ -137,6 +142,10 @@ namespace eval ::Eagle {
   #       error.  This procedure should not raise script errors.
   #
   proc getDotNetCoreSdkPath {} {
+    if {[info exists ::compileCSharp(getDotNetCoreSdkPath)]} then {
+      return [eval $::compileCSharp(getDotNetCoreSdkPath)]; # HOOK
+    }
+
     if {[catch {exec -- dotnet --info} info] == 0} then {
       csharpLog [appendArgs \
           "getDotNetCoreSdkPath ok:\n\t" \
@@ -166,8 +175,9 @@ namespace eval ::Eagle {
   #       released.
   #
   proc populateDotNetStandardReferenceDirectories {
-          path standardVersion targetVersion {libraryDirectoryVarName ""}
-          {buildReferenceSubDirectoryVarName ""} } {
+          path standardVersion runtimeVersion targetVersion
+          {libraryDirectoryVarName ""} {buildReferenceSubDirectoryVarName ""}
+          {useSdkVersion false} } {
     if {[string length $libraryDirectoryVarName] > 0} then {
       upvar 1 $libraryDirectoryVarName libraryDirectory
     }
@@ -192,6 +202,39 @@ namespace eval ::Eagle {
           "missing overridden .NET Standard 2.x library directory: " \
           $libraryDirectory]
     } else {
+      set skipRefDirectories false
+
+      if {![info exists ::compileCSharp(noSkipRefDirectories)]} then {
+        set sdkVersion [file tail $path]
+
+        if {$useSdkVersion} then {
+          set candidateVersion $targetVersion
+        } else {
+          set candidateVersion $sdkVersion
+        }
+
+        if {[string length $runtimeVersion] > 0 && \
+            [string length $candidateVersion] > 0} then {
+          set preferRuntimeVersion [shouldPreferTheNetStandardVersion \
+              $standardVersion $runtimeVersion]
+
+          set preferCandidateVersion [shouldPreferTheNetStandardVersion \
+              $standardVersion $candidateVersion]
+
+          if {$preferRuntimeVersion != $preferCandidateVersion} then {
+            set skipRefDirectories true
+
+            csharpLog [appendArgs \
+                "skipping \"ref\" directories due to .NET Standard " \
+                "preference mismatch between the runtime version " \
+                $runtimeVersion " (" $preferRuntimeVersion ") " \
+                "and the candidate version " $candidateVersion " (" \
+                $preferCandidateVersion ") with .NET SDK version " \
+                $sdkVersion]
+          }
+        }
+      }
+
       switch -exact -- $standardVersion {
         netstandard2.0 {
           set libraryDirectory [file normalize \
@@ -217,7 +260,8 @@ namespace eval ::Eagle {
           #       the (reference) library (base) directory and "ref"
           #       as the build reference (assembly) sub-directory.
           #
-          if {![info exists ::compileCSharp(noStdReference)]} then {
+          if {!$skipRefDirectories && \
+              ![info exists ::compileCSharp(noStdReference)]} then {
             set libraryDirectory [file normalize \
                 [file join [file dirname [file dirname \
                 $path]] packs NETStandard.Library.Ref]]; # LEGACY
@@ -230,7 +274,8 @@ namespace eval ::Eagle {
             }
           }
 
-          if {![info exists ::compileCSharp(noTfmReference)] && \
+          if {!$skipRefDirectories && \
+              ![info exists ::compileCSharp(noTfmReference)] && \
               [regexp -skip 1 -- {^(\d+)\.(\d+)(?:\.|$)} \
               $targetVersion majorVersion minorVersion]} then {
             if {$majorVersion >= 5} then {
@@ -254,15 +299,13 @@ namespace eval ::Eagle {
           }
 
           if {![info exists ::compileCSharp(noRuntimeReference)] && \
-              [info exists ::eagle_platform(runtimeVersion)]} then {
+              [string is version -strict $runtimeVersion]} then {
             set libraryDirectory [file normalize \
                 [file join [file dirname [file dirname \
                 $path]] shared Microsoft.NETCore.App]]; # MODERN
 
             if {[file exists $libraryDirectory]} then {
-              set buildReferenceSubDirectory \
-                  $::eagle_platform(runtimeVersion)
-
+              set buildReferenceSubDirectory $runtimeVersion
               return true
             }
           }
@@ -272,7 +315,6 @@ namespace eval ::Eagle {
 
             if {[file exists $libraryDirectory]} then {
               set buildReferenceSubDirectory ref
-
               return true
             }
           }
@@ -288,6 +330,144 @@ namespace eval ::Eagle {
   }
 
   #
+  # NOTE: This procedure attempts to parse the specified string into two
+  #       parts.  The first part is the dotted System.Version value.  The
+  #       second (optional) part is the suffix, e.g. "-preview.X.Y", etc.
+  #       Upon success, non-zero will be returned.  This procedure should
+  #       not raise script errors.
+  #
+  proc tryParseDotNetCoreVersion {
+          value {versionVarName ""} {suffixNameVarName ""}
+          {suffixVersionVarName ""} {suffixMetadataVarName ""} } {
+    if {[info exists ::compileCSharp(tryParseDotNetCoreVersion)]} then {
+      #
+      # HACK: If this "hook" does not return a valid boolean, the default
+      #       handling (below) will still be used.
+      #
+      set result [eval $::compileCSharp(tryParseDotNetCoreVersion)]; # HOOK
+
+      if {[string is boolean -strict $result]} then {
+        return $result
+      }
+    }
+
+    if {[string length $versionVarName] > 0} then {
+      upvar 1 $versionVarName version
+    }
+
+    if {[string length $suffixNameVarName] > 0} then {
+      upvar 1 $suffixNameVarName suffixName
+    }
+
+    if {[string length $suffixVersionVarName] > 0} then {
+      upvar 1 $suffixVersionVarName suffixVersion
+    }
+
+    if {[string length $suffixMetadataVarName] > 0} then {
+      upvar 1 $suffixMetadataVarName suffixMetadata
+    }
+
+    if {[string is version -strict $value]} then {
+      set suffixName ""; set suffixVersion ""; set suffixMetadata ""
+      set version $value; # NOTE: Only the version portion is present.
+
+      return true
+    }
+
+    set versionPattern {^(\d+\.\d+(?:\.\d+){0,2})(?:[\+\-].*)$}
+
+    if {[regsub -- $versionPattern $value {\1} maybeVersion] == 0 || \
+        [string is not version -strict $maybeVersion]} then {
+      return false
+    }
+
+    set index [string first - $value]
+
+    if {$index == -1} then {
+      set index [string first + $value]
+    }
+
+    if {$index != -1} then {
+      set beforeSuffix [string range $value 0 [incr index -1]]
+
+      if {[string is not version -strict $beforeSuffix]} then {
+        return false
+      }
+
+      set suffixPattern [appendArgs \
+          {^(\w+)(?:[\.\-](\d+(?:[\.\-]\d+){0,3}))?} \
+          {(?:[\+\-](\d+\.\d+|[0-9A-F]+|[A-Z]+))?$}]
+
+      if {![regexp -nocase -skip 1 -- $suffixPattern \
+          [string range $value [incr index 2] end] \
+          suffixName suffixVersion suffixMetadata]} then {
+        return false
+      }
+    } else {
+      #
+      # TODO: It should not be possible for this case to be hit; however,
+      #       just in case that changes in the future, this code is being
+      #       left in-place.
+      #
+      set suffixName ""; set suffixVersion ""; set suffixMetadata ""
+    }
+
+    set version $maybeVersion
+    return true
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified value appears to
+  #       refer to a "well-known" version of the .NET (Core?) runtime -AND-
+  #       it should not raise script errors.  Only the versions checked for
+  #       within this procedure are known to work with this script package.
+  #
+  # TODO: Update this procedure when a new version of the .NET Standard or
+  #       the .NET runtime is released.
+  #
+  proc isKnownDotNetCoreVersion { value {standardVersion ""} } {
+    if {[info exists ::compileCSharp(isKnownDotNetCoreVersion)]} then {
+      #
+      # HACK: If this "hook" does not return a valid boolean, the default
+      #       handling (below) will still be used.
+      #
+      set result [eval $::compileCSharp(isKnownDotNetCoreVersion)]; # HOOK
+
+      if {[string is boolean -strict $result]} then {
+        return $result
+      }
+    }
+
+    if {$standardVersion in [list "" netstandard2.0]} then {
+      #
+      # NOTE: This check will probably not need to be changed;
+      #       however, do double-check it when appropriate.
+      #
+      if {[string match 2.* $value]} then {
+        return true
+      }
+    }
+
+    if {$standardVersion in [list "" netstandard2.1]} then {
+      #
+      # TODO: Update this check when new versions of the .NET
+      #       runtime are released.
+      #
+      if {[string match 10.* $value] || \
+          [string match 9.* $value] || \
+          [string match 8.* $value] || \
+          [string match 7.* $value] || \
+          [string match 6.* $value] || \
+          [string match 5.* $value] || \
+          [string match 3.* $value]} then {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  #
   # NOTE: This procedure returns non-zero if the specified version of the
   #       .NET Standard specification should be preferred for its primary
   #       reference assembly.
@@ -296,51 +476,119 @@ namespace eval ::Eagle {
   #       the .NET runtime is released.
   #
   proc shouldPreferTheNetStandardVersion { standardVersion targetVersion } {
-    if {[info exists ::compileCSharp(preferNetStandardVersion)]} then {
+    if {[info exists \
+        ::compileCSharp(shouldPreferTheNetStandardVersion)]} then {
       #
-      # HACK: Allow users to fully customize the preferred version of the
-      #       .NET Standard.
+      # HACK: If this "hook" does not return a valid boolean, the default
+      #       handling (below) will still be used.
       #
-      return [eval $::compileCSharp(preferNetStandardVersion)]; # HOOK
+      set result [eval \
+          $::compileCSharp(shouldPreferTheNetStandardVersion)]; # HOOK
+
+      if {[string is boolean -strict $result]} then {
+        return $result
+      }
+    }
+
+    #
+    # HACK: If necessary, attempt to fixup the target version in order
+    #       to remove any extraneous "preview" (or other) indicators.
+    #
+    set savedTargetVersion $targetVersion
+
+    if {![tryParseDotNetCoreVersion $targetVersion targetVersion]} then {
+      if {[info exists ::compileCSharp(invalidTargetVersion)]} then {
+        eval $::compileCSharp(invalidTargetVersion)
+      }
+    }
+
+    #
+    # HACK: This could simply use [package vcompare]; however, this way
+    #       makes it easier to (manually) verify compatibility of newer
+    #       versions of the .NET runtime and allows for easier addition
+    #       of newer versions of the .NET Standard itself.  The list of
+    #       target versions represent the ones that are known to "work"
+    #       with Eagle.  Also, using [package vcompare] does not permit
+    #       empty strings nor does it permit things like "preview" (or
+    #       any other non-final) releases.
+    #
+    # TODO: Update this check when new versions of the .NET runtime are
+    #       released.
+    #
+    if {![isKnownDotNetCoreVersion $targetVersion]} then {
+      csharpLog [appendArgs "WARNING: " [expr {
+        [string length $targetVersion] == 0 ? \
+            "empty" : "unsupported"
+      }] " .NET (Core?) runtime target version " [expr {
+        [string length $targetVersion] == 0 ? \
+            "<none>" : $targetVersion
+      }] " with original runtime target version " [expr {
+        [string length $savedTargetVersion] == 0 ? \
+            "<none>" : $savedTargetVersion
+      }]]
+
+      if {[string length $targetVersion] == 0} then {
+        if {[info exists ::compileCSharp(emptyTargetVersion)]} then {
+          eval $::compileCSharp(emptyTargetVersion)
+        }
+      } else {
+        if {[info exists ::compileCSharp(unsupportedTargetVersion)]} then {
+          eval $::compileCSharp(unsupportedTargetVersion)
+        }
+      }
+    } else {
+      if {[info exists ::compileCSharp(supportedTargetVersion)]} then {
+        eval $::compileCSharp(supportedTargetVersion)
+      }
+    }
+
+    #
+    # NOTE: Make sure the target version being checked is not empty -AND-
+    #       that it is not a "preview" (or any other non-final) release.
+    #
+    if {[string is version -strict $targetVersion]} then {
+      #
+      # NOTE: This is the actual version checking / mapping, where we just
+      #       use [package vcompare].  Please note that the [info exists]
+      #       checks are being used to allow the optional the user-defined
+      #       script (above) to override the handling here.
+      #
+      if {[package vcompare $targetVersion 3.0] >= 0} then {
+        if {![info exists isNetStandard20]} then {set isNetStandard20 false}
+        if {![info exists isNetStandard21]} then {set isNetStandard21 true}
+      } elseif {[package vcompare $targetVersion 2.0] >= 0} then {
+        if {![info exists isNetStandard20]} then {set isNetStandard20 true}
+        if {![info exists isNetStandard21]} then {set isNetStandard21 false}
+      } else {
+        if {![info exists isNetStandard20]} then {set isNetStandard20 false}
+        if {![info exists isNetStandard21]} then {set isNetStandard21 false}
+      }
     } else {
       #
-      # HACK: This could simply use [package vcompare]; however, this way
-      #       makes it easier to (manually) verify compatibility of newer
-      #       versions of the .NET runtime and allows for easier addition
-      #       of newer versions of the .NET Standard itself.
+      # HACK: *FALLBACK* This will properly handle both empty versions
+      #       -AND- various "preview" (or any other non-final) releases.
       #
-      # TODO: Maybe use ([package vcompare $targetVersion 3.0] >= 0) for
-      #       this check?
+      # TODO: Update this check when new versions of the .NET runtime are
+      #       released.
       #
-      if {[string match 11.* $targetVersion] || \
-          [string match 10.* $targetVersion] || \
-          [string match 9.* $targetVersion] || \
-          [string match 8.* $targetVersion] || \
-          [string match 7.* $targetVersion] || \
-          [string match 6.* $targetVersion] || \
-          [string match 5.* $targetVersion] || \
-          [string match 3.* $targetVersion]} then {
-        set isNetStandard20 false
-        set isNetStandard21 true
-      } elseif {[string match 2.* $targetVersion]} then {
-        set isNetStandard20 true
-        set isNetStandard21 false
+      if {[isKnownDotNetCoreVersion $targetVersion netstandard2.1]} then {
+        if {![info exists isNetStandard20]} then {set isNetStandard20 false}
+        if {![info exists isNetStandard21]} then {set isNetStandard21 true}
+      } elseif {[isKnownDotNetCoreVersion $targetVersion netstandard2.0]} then {
+        if {![info exists isNetStandard20]} then {set isNetStandard20 true}
+        if {![info exists isNetStandard21]} then {set isNetStandard21 false}
       } else {
-        set isNetStandard20 false
-        set isNetStandard21 false
+        if {![info exists isNetStandard20]} then {set isNetStandard20 false}
+        if {![info exists isNetStandard21]} then {set isNetStandard21 false}
       }
-
-      switch -exact -- $standardVersion {
-        netstandard2.0 {
-          return $isNetStandard20
-        }
-        netstandard2.1 {
-          return $isNetStandard21
-        }
-      }
-
-      return false
     }
+
+    switch -exact -- $standardVersion {
+      netstandard2.0 {return $isNetStandard20}
+      netstandard2.1 {return $isNetStandard21}
+    }
+
+    return false
   }
 
   #
@@ -355,13 +603,42 @@ namespace eval ::Eagle {
   #       released.
   #
   proc determineDotNetStandardVersion {
-          path targetVersionVarName {useSdkVersion false}
-          {defaultTargetVersion ""} } {
+          path runtimeVersionVarName targetVersionVarName
+          {useSdkVersion false} {defaultTargetVersion ""} } {
+    upvar 1 $runtimeVersionVarName runtimeVersion
+
+    if {[info exists ::eagle_platform(runtimeVersion)]} then {
+      set runtimeVersion $::eagle_platform(runtimeVersion)
+    } else {
+      set runtimeVersion ""
+    }
+
     upvar 1 $targetVersionVarName targetVersion
 
+    if {![info exists ::compileCSharp(noFindLoadedVersion)]} then {
+      if {[llength [info commands object]] > 0} then {
+        if {!$useSdkVersion && [isDotNetCore]} then {
+          foreach assembly [object assemblies "netstandard, *"] {
+            if {[regexp -skip 1 -- \
+                {^netstandard, Version=(\d+\.\d+\.\d+\.\d+)(?:, |$)} \
+                $assembly assemblyVersion]} then {
+              # set targetVersion $assemblyVersion; # NOTE: Wrong.
+
+              csharpLog [appendArgs \
+                  "found loaded .NET Standard assembly: " $assembly]
+
+              break
+            }
+          }
+        } else {
+          csharpLog "skipped finding loaded .NET Standard assemblies"
+        }
+      }
+    }
+
     if {!$useSdkVersion && [isDotNetCore] && \
-        [info exists ::eagle_platform(runtimeVersion)]} then {
-      set targetVersion $::eagle_platform(runtimeVersion)
+        [string is version -strict $runtimeVersion]} then {
+      set targetVersion $runtimeVersion
     } elseif {[string length $path] > 0} then {
       set targetVersion [file tail $path]
     } else {
@@ -372,11 +649,11 @@ namespace eval ::Eagle {
       if {[info exists ::compileCSharp(dotNetStandardVersions)]} then {
         set standardVersions $::compileCSharp(dotNetStandardVersions)
       } else {
-        if {[shouldPreferTheNetStandardVersion netstandard2.1 \
-            $targetVersion]} then {
+        if {[shouldPreferTheNetStandardVersion \
+            netstandard2.1 $targetVersion]} then {
           set standardVersions [list netstandard2.1 netstandard2.0]
-        } elseif {[shouldPreferTheNetStandardVersion netstandard2.0 \
-            $targetVersion]} then {
+        } elseif {[shouldPreferTheNetStandardVersion \
+            netstandard2.0 $targetVersion]} then {
           set standardVersions [list netstandard2.0 netstandard2.1]
         } else {
           set standardVersions [list]
@@ -387,13 +664,17 @@ namespace eval ::Eagle {
         }
       }
 
+      csharpLog [appendArgs \
+          "final list of .NET Standard versions: " $standardVersions]
+
       foreach standardVersion $standardVersions {
         unset -nocomplain libraryDirectory
         unset -nocomplain buildReferenceSubDirectory
 
         populateDotNetStandardReferenceDirectories \
-            $path $standardVersion $targetVersion \
-            libraryDirectory buildReferenceSubDirectory
+            $path $standardVersion $runtimeVersion \
+            $targetVersion libraryDirectory \
+            buildReferenceSubDirectory $useSdkVersion
 
         if {[info exists libraryDirectory] && \
             [string length $libraryDirectory] > 0 && \
@@ -424,8 +705,9 @@ namespace eval ::Eagle {
     if {[string length $path] > 0} then {
       if {[string length $standardVersion] == 0} then {
         set standardVersion [determineDotNetStandardVersion \
-            $path targetVersion $useSdkVersion]
+            $path runtimeVersion targetVersion $useSdkVersion]
       } else {
+        set runtimeVersion ""
         set targetVersion ""
       }
 
@@ -433,8 +715,9 @@ namespace eval ::Eagle {
       unset -nocomplain buildReferenceSubDirectory
 
       populateDotNetStandardReferenceDirectories \
-          $path $standardVersion $targetVersion \
-          libraryDirectory buildReferenceSubDirectory
+          $path $standardVersion $runtimeVersion \
+          $targetVersion libraryDirectory \
+          buildReferenceSubDirectory $useSdkVersion
 
       if {[info exists libraryDirectory] && \
           [string length $libraryDirectory] > 0 && \
@@ -459,17 +742,11 @@ namespace eval ::Eagle {
           #       that case, just use it verbatim, i.e. joined with the
           #       build reference (assembly) sub-directory.
           #
-          set versionPattern {^(\d+\.\d+(?:\.\d+){1,2})(?:-.*)$}
-          set suffixPattern {^(\w+)(?:\.(\d+(?:\.\d+){0,3}))?(?:\+(\d+\.\d+))?$}
-
           set maybeVersions(1) $buildReferenceSubDirectory
           set maybeVersions(2) [file tail $libraryDirectory]
 
-          regsub -- $versionPattern $maybeVersions(1) {\1} maybeVersions(1)
-          regsub -- $versionPattern $maybeVersions(2) {\1} maybeVersions(2)
-
-          if {[string is version -strict $maybeVersions(1)] || \
-              [string is version -strict $maybeVersions(2)]} then {
+          if {[tryParseDotNetCoreVersion $maybeVersions(1)] || \
+              [tryParseDotNetCoreVersion $maybeVersions(2)]} then {
             set assemblyDirectory [file normalize [file join \
                 $libraryDirectory $buildReferenceSubDirectory]]
 
@@ -480,119 +757,231 @@ namespace eval ::Eagle {
 
               return $assemblyDirectory
             }
+          }
+
+          unset -nocomplain maybeVersions
+
+          if {[info exists ::compileCSharp(compareCommand)]} then {
+            set compareCommand $::compileCSharp(compareCommand)
           } else {
-            unset -nocomplain maybeVersions
-
-            if {[info exists ::compileCSharp(versionCompareCommand)]} then {
-              set compareCommand $::compileCSharp(versionCompareCommand)
+            #
+            # NOTE: These version suffix names must be listed in increasing
+            #       order of release "stability" for the algorithm to work.
+            #
+            if {[info exists ::compileCSharp(versionSuffixNames)]} then {
+              set versionSuffixNames $::compileCSharp(versionSuffixNames)
             } else {
-              set compareCommand [list apply [list [list \
-                  versionPattern suffixPattern value1 value2] {
-                set version1 $value1
-                set version2 $value2
+              set versionSuffixNames [list \
+                  unknown alpha beta preview rc final rtm ga servicing lts]
+            }
 
-                regsub -- $versionPattern $version1 {\1} version1
-                regsub -- $versionPattern $version2 {\1} version2
+            #
+            # NOTE: This pattern indicates that a suffix "version string" is
+            #       correctly formed.
+            #
+            if {[info exists ::compileCSharp(versionSuffixPattern)]} then {
+              set versionSuffixPattern $::compileCSharp(versionSuffixPattern)
+            } else {
+              set versionSuffixPattern {^\d+(?:[\.\-]\d+)*$}
+            }
 
-                set versionOk1 [string is version -strict $version1]
-                set versionOk2 [string is version -strict $version2]
+            #
+            # NOTE: This is the command (prefix) used to compare two values
+            #       that are correctly formatted System.Version strings.
+            #
+            if {[info exists ::compileCSharp(versionCompareCommand)]} then {
+              set versionCommand $::compileCSharp(versionCompareCommand)
+            } else {
+              set versionCommand [list package vcompare]
+            }
 
-                if {$versionOk1 && $versionOk2} then {
-                  set compare [package vcompare $version1 $version2]
+            #
+            # NOTE: This is the command (prefix) used to compare two values
+            #       that are arbitrary strings.
+            #
+            if {[info exists ::compileCSharp(stringCompareCommand)]} then {
+              set stringCommand $::compileCSharp(stringCompareCommand)
+            } else {
+              set stringCommand [list string compare]
+            }
+
+            #
+            # NOTE: This is the command (prefix) used to compare two values
+            #       that are correctly formatted integer strings.
+            #
+            if {[info exists ::compileCSharp(integerCompareCommand)]} then {
+              set integerCommand $::compileCSharp(integerCompareCommand)
+            } else {
+              set integerCommand [list apply \
+                  [list [list value1 value2] {
+                if {$value1 < $value2} then {
+                  return -1
+                } elseif {$value1 == $value2} then {
+                  return 0
+                } else {
+                  return 1
+                }
+              }]]
+            }
+
+            #
+            # NOTE: This is the command (prefix) used to compare two values
+            #       that are correctly formatted full .NET (Core?) runtime
+            #       version strings.
+            #
+            set compareCommand [list apply [list \
+                [list versionCommand stringCommand integerCommand \
+                versionSuffixNames versionSuffixPattern value1 value2] {
+              set versionOk1 [tryParseDotNetCoreVersion $value1 \
+                  version1 suffixName1 suffixVersion1 suffixMetadata1]
+
+              if {$versionOk1 && [info exists suffixVersion1] && \
+                  [string length $suffixVersion1] > 0 && \
+                  [regexp -- $versionSuffixPattern $suffixVersion1]} then {
+                set suffixVersion1 [string map [list - .] $suffixVersion1]
+              }
+
+              set versionOk2 [tryParseDotNetCoreVersion $value2 \
+                  version2 suffixName2 suffixVersion2 suffixMetadata2]
+
+              if {$versionOk2 && [info exists suffixVersion2] && \
+                  [string length $suffixVersion2] > 0 && \
+                  [regexp -- $versionSuffixPattern $suffixVersion2]} then {
+                set suffixVersion2 [string map [list - .] $suffixVersion2]
+              }
+
+              if {$versionOk1 && $versionOk2} then {
+                set compare [eval \
+                    $versionCommand [list $version1] [list $version2]]
+
+                if {$compare != 0} then {
+                  return $compare
+                }
+              } else {
+                if {$versionOk1} then {
+                  return 1; # NOTE: Valid is *greater* than invalid.
+                } elseif {$versionOk2} then {
+                  return -1; # NOTE: Invalid is *less* than valid.
+                }
+
+                return [eval \
+                    $stringCommand [list $value1] [list $value2]]
+              }
+
+              set anySuffix1 [expr {
+                 [info exists suffixName1] && \
+                 [info exists suffixVersion1] && \
+                 [info exists suffixMetadata1] && \
+                ([string length $suffixName1] > 0 || \
+                 [string length $suffixVersion1] > 0 || \
+                 [string length $suffixMetadata1] > 0)
+              }]
+
+              set anySuffix2 [expr {
+                 [info exists suffixName2] && \
+                 [info exists suffixVersion2] && \
+                 [info exists suffixMetadata2] && \
+                ([string length $suffixName2] > 0 || \
+                 [string length $suffixVersion2] > 0 || \
+                 [string length $suffixMetadata2] > 0)
+              }]
+
+              if {$anySuffix1 && $anySuffix2} then {
+                #
+                # NOTE: The suffix index values will be either the
+                #       actual index within the suffix names list,
+                #       negative one for "not found", or negative
+                #       two for "missing".  When the suffix is not
+                #       present (i.e. "missing"), the version will
+                #       be assumed to be the "most stable".
+                #
+                set suffixNameIndex1 -2
+                set suffixNameIndex2 -2
+
+                if {[string length $suffixName1] > 0} then {
+                  set suffixNameIndex1 [lsearch \
+                      -exact -nocase -- $versionSuffixNames $suffixName1]
+                }
+
+                if {[string length $suffixName2] > 0} then {
+                  set suffixNameIndex2 [lsearch \
+                      -exact -nocase -- $versionSuffixNames $suffixName2]
+                }
+
+                #
+                # HACK: If either of the suffix names were present
+                #       in the list, reset both of them to be their
+                #       associated integer rank values now.
+                #
+                if {$suffixNameIndex1 >= 0 || \
+                    $suffixNameIndex2 >= 0} then {
+                  set suffixNameCount [llength $versionSuffixNames]
+
+                  if {$suffixNameIndex1 == -2} then {
+                    set suffixNameIndex1 $suffixNameCount
+                  }
+
+                  set suffixName1 $suffixNameIndex1
+
+                  if {$suffixNameIndex2 == -2} then {
+                    set suffixNameIndex2 $suffixNameCount
+                  }
+
+                  set suffixName2 $suffixNameIndex2
+                }
+
+                foreach suffixPart1 [list \
+                    $suffixName1 $suffixVersion1 $suffixMetadata1] \
+                    suffixPart2 [list \
+                    $suffixName2 $suffixVersion2 $suffixMetadata2] {
+                  set versionOk1 [string is version -strict $suffixPart1]
+                  set versionOk2 [string is version -strict $suffixPart2]
+
+                  if {$versionOk1 && $versionOk2} then {
+                    set compareCommand $versionCommand
+                  } else {
+                    set integerOk1 [string is integer -strict $suffixPart1]
+                    set integerOk2 [string is integer -strict $suffixPart2]
+
+                    if {$integerOk1 && $integerOk2} then {
+                      set compareCommand $integerCommand
+                    } else {
+                      set compareCommand $stringCommand
+                    }
+                  }
+
+                  lappend compareCommand $suffixPart1 $suffixPart2
+                  set compare [eval $compareCommand]
 
                   if {$compare != 0} then {
                     return $compare
                   }
-                } else {
-                  if {$versionOk1} then {
-                    return 1; # NOTE: Valid is *greater* than invalid.
-                  } elseif {$versionOk2} then {
-                    return -1; # NOTE: Invalid is *less* than valid.
-                  }
-
-                  return [string compare $version1 $version2]
                 }
 
-                set suffix1 $value1
-                set suffix2 $value2
+                return 0
+              }
 
-                set index1 [string first - $suffix1]
+              if {!$anySuffix1 && !$anySuffix2} then {
+                return 0
+              }
 
-                if {$index1 != -1} then {
-                  set suffix1 [string range $suffix1 [incr index1] end]
-                }
+              return [expr {!$anySuffix1 ? 1 : -1}]
+            }] $versionCommand $stringCommand $integerCommand \
+                $versionSuffixNames $versionSuffixPattern]
+          }
 
-                set index2 [string first - $suffix2]
+          set globPathPattern [file join $libraryDirectory *]
 
-                if {$index2 != -1} then {
-                  set suffix2 [string range $suffix2 [incr index2] end]
-                }
+          set maybeVersions [lsort -decreasing -command \
+              $compareCommand [lmap directory [glob \
+              -nocomplain -types {d} $globPathPattern] {
+                file tail $directory
+              }]]
 
-                if {$index1 != -1 && $index2 != -1} then {
-                  set suffixName1 ""
-                  set suffixVersion1 ""
-                  set suffixMetadata1 ""
+          catch {object removecallback $compareCommand}
 
-                  set suffixOk1 [regexp -skip 1 -- $suffixPattern \
-                      $suffix1 suffixName1 suffixVersion1 suffixMetadata1]
-
-                  set suffixName2 ""
-                  set suffixVersion2 ""
-                  set suffixMetadata2 ""
-
-                  set suffixOk2 [regexp -skip 1 -- $suffixPattern \
-                      $suffix2 suffixName2 suffixVersion2 suffixMetadata2]
-
-                  if {!$suffixOk1 || !$suffixOk2} then {
-                    return [string compare $suffix1 $suffix2]
-                  }
-
-                  set stringCommand [list string compare]
-                  set packageCommand [list package vcompare]
-
-                  foreach suffixPart1 [list \
-                      $suffixName1 $suffixVersion1 $suffixMetadata1] \
-                      suffixPart2 [list \
-                      $suffixName2 $suffixVersion2 $suffixMetadata2] {
-                    set versionOk1 [string is version -strict $suffixPart1]
-                    set versionOk2 [string is version -strict $suffixPart2]
-
-                    if {$versionOk1 && $versionOk2} then {
-                      set compareCommand $packageCommand
-                    } else {
-                      set compareCommand $stringCommand
-                    }
-
-                    lappend compareCommand $suffixPart1 $suffixPart2
-                    set compare [eval $compareCommand]
-
-                    if {$compare != 0} then {
-                      return $compare
-                    }
-                  }
-
-                  return 0
-                }
-
-                if {$index1 == -1 && $index2 == -1} then {
-                  return 0
-                }
-
-                return [expr {$index1 == -1 ? 1 : -1}]
-              }] $versionPattern $suffixPattern]
-            }
-
-            set globPathPattern [file join $libraryDirectory *]
-
-            set maybeVersions [lsort -decreasing -command \
-                $compareCommand [lmap directory [glob \
-                -nocomplain -types {d} $globPathPattern] {
-                  file tail $directory
-                }]]
-
-            catch {object removecallback $compareCommand}
-
-            foreach maybeVersion $maybeVersions {
+          foreach maybeVersion $maybeVersions {
+            if {[tryParseDotNetCoreVersion $maybeVersion]} then {
               set assemblyDirectory [file normalize \
                   [file join $libraryDirectory $maybeVersion \
                   $buildReferenceSubDirectory]]
@@ -604,6 +993,10 @@ namespace eval ::Eagle {
 
                 return $assemblyDirectory
               }
+            } else {
+              csharpLog [appendArgs \
+                  "skipped non-version sub-directory candidate: " \
+                  $maybeVersion]
             }
           }
         }
@@ -660,6 +1053,22 @@ namespace eval ::Eagle {
   #
   proc doesCompileCSharpWork {
           {name ""} {errorsVarName ""} {memory true} args } {
+    #
+    # HACK: The [formatList] procedure will almost always be available
+    #       at this point; however, we do not want to require it.
+    #
+    set formatErrors [list apply [list [list errors] {
+      if {[llength [info commands formatList]] > 0} then {
+        return [formatList $errors <none>]
+      } else {
+        if {[llength $errors] > 0} then {
+          return [join $errors \n]
+        } else {
+          return <none>
+        }
+      }
+    }]]
+
     if {[string length $errorsVarName] > 0} then {
       upvar 1 $errorsVarName errors
     }
@@ -669,6 +1078,10 @@ namespace eval ::Eagle {
           "caught error while getting \"" $name "\" test program: " \
           $program]]
 
+      csharpLog [appendArgs \
+          "doesCompileCSharpWork error: " \
+          [eval $formatErrors [list $errors]]]
+
       return false
     }
 
@@ -676,6 +1089,10 @@ namespace eval ::Eagle {
       set errors [list [appendArgs \
           "command \[getCSharpTestProgram\] returned malformed \"" \
           $name "\" test program: " $program]]
+
+      csharpLog [appendArgs \
+          "doesCompileCSharpWork error: " \
+          [eval $formatErrors [list $errors]]]
 
       return false
     }
@@ -698,6 +1115,10 @@ namespace eval ::Eagle {
             "caught error while compiling \"" $name \
             "\" test program: " $result]]
 
+        csharpLog [appendArgs \
+            "doesCompileCSharpWork error: " \
+            [eval $formatErrors [list $errors]]]
+
         return false
       }
 
@@ -713,6 +1134,10 @@ namespace eval ::Eagle {
             "errors from compilation of \"" $name "\" test program: " \
             [expr {[info exists local_errors] ? $local_errors : $code}]]]
 
+        csharpLog [appendArgs \
+            "doesCompileCSharpWork error: " \
+            [eval $formatErrors [list $errors]]]
+
         return false
       }
 
@@ -720,6 +1145,10 @@ namespace eval ::Eagle {
         if {[llength [info commands object]] == 0} then {
           set errors [list [appendArgs "cannot invoke \"" $name \
               "\" test program, missing \"object\" command"]]
+
+          csharpLog [appendArgs \
+              "doesCompileCSharpWork error: " \
+              [eval $formatErrors [list $errors]]]
 
           return false
         }
@@ -729,6 +1158,10 @@ namespace eval ::Eagle {
         } haveExitCode]} then {
           set errors [list [appendArgs "caught error while invoking \"" \
               $name "\" test program: " $haveExitCode]]
+
+          csharpLog [appendArgs \
+              "doesCompileCSharpWork error: " \
+              [eval $formatErrors [list $errors]]]
 
           return false
         }
@@ -772,20 +1205,26 @@ namespace eval ::Eagle {
               "caught error while executing \"" $name "\" test program: " \
               $error]]
 
+          csharpLog [appendArgs \
+              "doesCompileCSharpWork error: " \
+              [eval $formatErrors [list $errors]]]
+
           return false
         }
 
         set wantExitCode Success
       }
     } finally {
-      if {[info exists targetRuntimeConfigFileName] && \
-          [file exists $targetRuntimeConfigFileName]} then {
-        catch {file delete $targetRuntimeConfigFileName}
-      }
+      if {![info exists ::no(deleteCompileCSharpFiles)]} then {
+        if {[info exists targetRuntimeConfigFileName] && \
+            [file exists $targetRuntimeConfigFileName]} then {
+          catch {file delete $targetRuntimeConfigFileName}
+        }
 
-      if {[info exists outputFileName] && \
-          [file exists $outputFileName]} then {
-        catch {file delete $outputFileName}
+        if {[info exists outputFileName] && \
+            [file exists $outputFileName]} then {
+          catch {file delete $outputFileName}
+        }
       }
     }
 
@@ -794,9 +1233,14 @@ namespace eval ::Eagle {
           "bad exit code from \"" $name \
           "\" test program: " $haveExitCode]]
 
+      csharpLog [appendArgs \
+          "doesCompileCSharpWork error: " \
+          [eval $formatErrors [list $errors]]]
+
       return false
     }
 
+    csharpLog "doesCompileCSharpWork ok"
     return true
   }
 
@@ -1342,7 +1786,9 @@ namespace eval ::Eagle {
                 #       The actual compiled assembly has a ".dll" suffix and
                 #       its symbols, if any, have a ".pdb" suffix.
                 #
-                catch {file delete $tempFileName}
+                if {[file exists $tempFileName]} then {
+                  catch {file delete $tempFileName}
+                }
               }
             }
           }
@@ -1475,15 +1921,40 @@ namespace eval ::Eagle {
       #       .NET Core SDK (2.x / 3.x) use the "netstandard.dll" assembly
       #       to enable use of the .NET Standard 2.x reference library.
       #
+      if {[info exists ::compileCSharp(standardReferenceAssembly)]} then {
+        set standardReferenceAssembly \
+            $::compileCSharp(standardReferenceAssembly)
+      } else {
+        set standardReferenceAssembly netstandard.dll
+      }
+
       set referencePath [getDotNetStandardReferencePath]
 
-      set referenceFileName \
-          [file normalize [file join $referencePath netstandard.dll]]
+      set referenceFileName [file normalize \
+          [file join $referencePath $standardReferenceAssembly]]
 
       if {[file exists $referenceFileName]} then {
         lappend command [formatCompilerArgument \
             -reference [file nativename $referenceFileName]]
       }
+
+      #
+      # HACK: The [formatList] procedure will almost always be available
+      #       at this point; however, we do not want to require it.
+      #
+      set formatReferences [list apply [list [list fileName] {
+        if {[llength [info commands formatList]] > 0} then {
+          return [formatList [split [readFile $fileName] \n] <none>]
+        } else {
+          set data [readFile $fileName]
+
+          if {[string length [string trim $data]] > 0} then {
+            return $data
+          } else {
+            return <none>
+          }
+        }
+      }]]
 
       #
       # HACK: Apparently, these reference assemblies are also (possibly)
@@ -1496,21 +1967,36 @@ namespace eval ::Eagle {
       #
       if {![info exists ::compileCSharp(noAutomaticReferences)] && \
           [regexp -- {(?:^|[\\/])ref(?:[\\/]|$)} $referencePath]} then {
+        if {[info exists ::compileCSharp(referencePattern)]} then {
+          set referencePattern $::compileCSharp(referencePattern)
+        } else {
+          set referencePattern *.dll
+        }
+
         set lines [list]
 
-        foreach referenceFileName [lsort \
-            [glob -nocomplain [file join $referencePath *.dll]]] {
+        foreach referenceFileName [lsort [glob -nocomplain \
+            [file join $referencePath $referencePattern]]] {
           if {[info exists ::compileCSharp(no$referenceFileName)]} then {
+            csharpLog [appendArgs \
+                "explicitly skipped reference file name (1): " \
+                $referenceFileName]
+
             continue
           }
 
           set referenceAssembly [file tail $referenceFileName]
 
           if {[info exists ::compileCSharp(no$referenceAssembly)]} then {
+            csharpLog [appendArgs \
+                "explicitly skipped reference assembly (1): " \
+                $referenceAssembly]
+
             continue
           }
 
-          if {[file tail $referenceFileName] ne "netstandard.dll"} then {
+          if {[file tail \
+              $referenceFileName] ne $standardReferenceAssembly} then {
             lappend lines [formatCompilerArgument -reference \
                 [file nativename $referenceFileName]]
           }
@@ -1524,7 +2010,9 @@ namespace eval ::Eagle {
           writeFile [set tempName(3) [file tempname]] [join $lines \n]
 
           csharpLog [appendArgs \
-              "list of references: " [formatList [readFile $tempName(3)]]]
+              "list of assembly references matching glob pattern \"" \
+              $referencePattern "\": " [eval $formatReferences [list \
+              $tempName(3)]]]
 
           #
           # HACK: This is not a bug.  The element is named correctly.
@@ -1556,6 +2044,7 @@ namespace eval ::Eagle {
           #       juse use them.
           #
           set referenceAssemblies $::compileCSharp(referenceAssemblies)
+          set referenceType overridden
         } else {
           if {![info exists ::compileCSharp(noMinimalReferences)]} then {
             #
@@ -1569,11 +2058,14 @@ namespace eval ::Eagle {
             set referenceAssemblies [list \
                 mscorlib.dll System.dll System.Private.CoreLib.dll \
                 System.Runtime.dll]
+
+            set referenceType minimal
           } else {
             #
             # NOTE: The user has spoken.  Do nothing and be happy.
             #
             set referenceAssemblies [list]
+            set referenceType no
           }
         }
 
@@ -1590,6 +2082,10 @@ namespace eval ::Eagle {
           }
 
           if {[info exists ::compileCSharp(no$referenceAssembly)]} then {
+            csharpLog [appendArgs \
+                "explicitly skipped reference assembly (2): " \
+                $referenceAssembly]
+
             continue
           }
 
@@ -1597,11 +2093,16 @@ namespace eval ::Eagle {
               [file join $referencePath $referenceAssembly]]
 
           if {[info exists ::compileCSharp(no$referenceFileName)]} then {
+            csharpLog [appendArgs \
+                "explicitly skipped reference file name (2): " \
+                $referenceFileName]
+
             continue
           }
 
           if {[file exists $referenceFileName]} then {
-            if {[file tail $referenceFileName] ne "netstandard.dll"} then {
+            if {[file tail \
+                $referenceFileName] ne $standardReferenceAssembly} then {
               lappend lines [formatCompilerArgument -reference \
                   [file nativename $referenceFileName]]
             }
@@ -1616,7 +2117,8 @@ namespace eval ::Eagle {
           writeFile [set tempName(3) [file tempname]] [join $lines \n]
 
           csharpLog [appendArgs \
-              "list of references: " [formatList [readFile $tempName(3)]]]
+              "list of " $referenceType " assembly references: " \
+              [eval $formatReferences [list $tempName(3)]]]
 
           #
           # HACK: This is not a bug.  The element is named correctly.
@@ -1763,7 +2265,11 @@ namespace eval ::Eagle {
                 set stream [object create \
                     System.IO.FileStream $outputFileName Open Read None]
 
-                set assembly [object load -loadtype Stream $stream]
+                set assembly [object load -alias -loadtype Stream $stream]
+
+                if {![info exists ::compileCSharp(noGetTypes)]} then {
+                  $assembly GetTypes; # BUGFIX: Make sure it is fully loaded?
+                }
               } finally {
                 if {[info exists assembly]} then {
                   unset -nocomplain assembly
@@ -1872,7 +2378,9 @@ namespace eval ::Eagle {
                 #       The actual compiled assembly has a ".dll" suffix and
                 #       its symbols, if any, have a ".pdb" suffix.
                 #
-                catch {file delete $tempFileName}
+                if {[file exists $tempFileName]} then {
+                  catch {file delete $tempFileName}
+                }
               }
             }
           }
