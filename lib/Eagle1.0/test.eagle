@@ -478,7 +478,7 @@ namespace eval ::Eagle {
           #
           set version [lindex $fields 1]
 
-          if {[regexp -- {^\d(?:\.\d+){1,2}$} $version] && \
+          if {[regexp -- {^\d+(?:\.\d+){1,2}$} $version] && \
               [lsearch -exact $result $version] == -1} then {
             if {$versionOnly} then {
               lappend result $version
@@ -4446,48 +4446,93 @@ namespace eval ::Eagle {
       #
       if {[catch {tcl select -architecture} tcl] == 0} then {
         #
+        # NOTE: Figure out list of (Tcl install?) directories to
+        #       search for all the candidate shell file names.
+        #
+        if {![info exists ::no(getTclShellDirectories)]} then {
+          #
+          # NOTE: Ok, attempt to grab the (dynamic library) file
+          #       name from the dictionary value.
+          #
+          set fileName [getDictionaryValue $tcl fileName]
+
+          if {[string length $fileName] > 0} then {
+            set directories(1) [file dirname $fileName]; # "lib"
+          }
+
+          if {[info exists directories(1)]} then {
+            set directories(2) \
+                [file join [file dirname $directories(1)] bin]
+          }
+
+          if {[info exists directories(1)]} then {
+            set directories(3) [file dirname $directories(1)]
+          }
+        }
+
+        set directories(4) ""; # NOTE: Shell file name only.
+
+        #
         # NOTE: Should we also consider TclKit shells?  If so, a bit
         #       more handling is required.
         #
         if {$kits} then {
           #
-          # NOTE: Did we find one?  Attempt to grab the patch
-          #       level field from the returned dictionary value.
+          # NOTE: Attempt to grab the patch level field from the
+          #       dictionary value.
           #
           set dotPatchLevel [getDictionaryValue $tcl patchLevel]
 
           #
-          # NOTE: Verify that the patch level we found is valid
-          #       and that it conforms to the pattern we expect.
+          # NOTE: Verify that the patch level we found is valid and that
+          #       it conforms to the pattern we expect.
           #
           if {[string length $dotPatchLevel] > 0 && \
-            [regexp -- {^\d+\.\d+\.\d+$} $dotPatchLevel]} then {
+              [regexp -- {^\d+\.\d+\.\d+$} $dotPatchLevel]} then {
             #
-            # NOTE: Build the candidate TclKit shell executable file
-            #       name with the dot-separated patch level.  This is
-            #       the common naming scheme on Unix.
+            # NOTE: Check each of the candidate directories and finally
+            #       without any directory component.
             #
-            set dotShell [appendArgs tclkit- $dotPatchLevel]
+            foreach name [lsort -integer [array names directories]] {
+              #
+              # NOTE: What is the directory, if any, to be checked?
+              #
+              set directory $directories($name)
 
-            #
-            # NOTE: Build the candidate TclKit shell executable file
-            #       name with the patch level, removing the dot.  This
-            #       is the common naming scheme on Windows.
-            #
-            set shell [appendArgs \
-                tclkit- [string map [list . ""] $dotPatchLevel]]
+              #
+              # NOTE: Build candidate TclKit shell executable file name
+              #       with the dot-separated patch level.  This is the
+              #       common naming scheme on Unix.
+              #
+              set dotShell [appendArgs tclkit- $dotPatchLevel]
 
-            #
-            # NOTE: Always favor the TclKit shell executable file
-            #       naming scheme for the current operating system
-            #       first.
-            #
-            if {[isWindows]} then {
-              lappend shells $shell
-              lappend shells $dotShell
-            } else {
-              lappend shells $dotShell
-              lappend shells $shell
+              if {[string length $directory] > 0} then {
+                set dotShell [file join $directory $dotShell]
+              }
+
+              #
+              # NOTE: Build the candidate TclKit shell executable file
+              #       name with the patch level, removing the dot.  This
+              #       is the common naming scheme on Windows.
+              #
+              set shell [appendArgs \
+                  tclkit- [string map [list . ""] $dotPatchLevel]]
+
+              if {[string length $directory] > 0} then {
+                set shell [file join $directory $shell]
+              }
+
+              #
+              # NOTE: Always favor TclKit shell executable file naming
+              #       scheme for the current operating system first.
+              #
+              if {[isWindows]} then {
+                lappend shells $shell
+                lappend shells $dotShell
+              } else {
+                lappend shells $dotShell
+                lappend shells $shell
+              }
             }
           }
         }
@@ -4516,29 +4561,48 @@ namespace eval ::Eagle {
           foreach version [lsort -real -decreasing [tcl \
               versionrange -maximumversion $dotVersion]] {
             #
-            # NOTE: Build the candidate Tcl shell executable file name
-            #       with the dot-separated version.  This is the common
-            #       naming scheme on Unix.
+            # NOTE: Check each of the candidate directories.
             #
-            set dotShell [appendArgs tclsh $version]
+            foreach name [lsort -integer [array names directories]] {
+              #
+              # NOTE: What is the directory, if any, to be checked?
+              #
+              set directory $directories($name)
 
-            #
-            # NOTE: Build the candidate Tcl shell executable file name
-            #       with the version, removing the dot.  This is the
-            #       common naming scheme on Windows.
-            #
-            set shell [appendArgs tclsh [string map [list . ""] $version]]
+              #
+              # NOTE: Build the candidate Tcl shell executable file
+              #       name with the dot-separated version.  This is
+              #       the common naming scheme on Unix.
+              #
+              set dotShell [appendArgs tclsh $version]
 
-            #
-            # NOTE: Always favor the Tcl shell executable file naming
-            #       scheme for the current operating system first.
-            #
-            if {[isWindows]} then {
-              lappend shells $shell
-              lappend shells $dotShell
-            } else {
-              lappend shells $dotShell
-              lappend shells $shell
+              if {[string length $directory] > 0} then {
+                set dotShell [file join $directory $dotShell]
+              }
+
+              #
+              # NOTE: Build the candidate Tcl shell executable file
+              #       name with the version, removing the dot.  This
+              #       is the common naming scheme on Windows.
+              #
+              set shell [appendArgs \
+                  tclsh [string map [list . ""] $version]]
+
+              if {[string length $directory] > 0} then {
+                set shell [file join $directory $shell]
+              }
+
+              #
+              # NOTE: Always favor Tcl shell executable file naming
+              #       scheme for the current operating system first.
+              #
+              if {[isWindows]} then {
+                lappend shells $shell
+                lappend shells $dotShell
+              } else {
+                lappend shells $dotShell
+                lappend shells $shell
+              }
             }
           }
         }
@@ -12735,6 +12799,10 @@ namespace eval ::Eagle {
     }
 
     proc tclLoadForTest { {varName ""} {findFlags ""} {loadFlags ""} } {
+      if {[info exists ::env(tclPreLoad)]} then {
+        eval $::env(tclPreLoad); # HOOK
+      }
+
       if {[string length $varName] > 0} then {
         upvar 1 $varName loaded
       }
@@ -12760,10 +12828,18 @@ namespace eval ::Eagle {
         tputs [getTestChannelOrDefault] [appendArgs \
             "---- native Tcl loaded, module \"" $module \
             "\", interpreter \"" $interp \"\n]
+
+        if {[info exists ::env(tclPostLoad)]} then {
+          eval $::env(tclPostLoad); # HOOK
+        }
       }
     }
 
     proc tclUnloadForTest { {force false} {varName ""} } {
+      if {[info exists ::env(tclPreUnload)]} then {
+        eval $::env(tclPreUnload); # HOOK
+      }
+
       set unload false
 
       if {$force} then {
@@ -12794,6 +12870,10 @@ namespace eval ::Eagle {
             "---- native Tcl " [expr {$force ? "forcibly " : ""}] \
             "unloaded, module \"" $module "\", interpreter \"" \
             $interp \"\n]
+
+        if {[info exists ::env(tclPostUnload)]} then {
+          eval $::env(tclPostUnload); # HOOK
+        }
       }
     }
 

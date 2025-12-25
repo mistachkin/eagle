@@ -745,17 +745,33 @@ namespace eval ::Eagle {
           set maybeVersions(1) $buildReferenceSubDirectory
           set maybeVersions(2) [file tail $libraryDirectory]
 
-          if {[tryParseDotNetCoreVersion $maybeVersions(1)] || \
-              [tryParseDotNetCoreVersion $maybeVersions(2)]} then {
-            set assemblyDirectory [file normalize [file join \
-                $libraryDirectory $buildReferenceSubDirectory]]
+          if {[info exists ::compileCSharp(noSuffixedVersions)]} then {
+            if {[string is version -strict $maybeVersions(1)] || \
+                [string is version -strict $maybeVersions(2)]} then {
+              set assemblyDirectory [file normalize [file join \
+                  $libraryDirectory $buildReferenceSubDirectory]]
 
-            if {[file exists $assemblyDirectory]} then {
-              csharpLog [appendArgs \
-                  "selected .NET Standard reference assembly (2): " \
-                  $assemblyDirectory]
+              if {[file exists $assemblyDirectory]} then {
+                csharpLog [appendArgs \
+                    "selected .NET Standard reference assembly (2): " \
+                    $assemblyDirectory]
 
-              return $assemblyDirectory
+                return $assemblyDirectory
+              }
+            }
+          } else {
+            if {[tryParseDotNetCoreVersion $maybeVersions(1)] || \
+                [tryParseDotNetCoreVersion $maybeVersions(2)]} then {
+              set assemblyDirectory [file normalize [file join \
+                  $libraryDirectory $buildReferenceSubDirectory]]
+
+              if {[file exists $assemblyDirectory]} then {
+                csharpLog [appendArgs \
+                    "selected .NET Standard reference assembly (3): " \
+                    $assemblyDirectory]
+
+                return $assemblyDirectory
+              }
             }
           }
 
@@ -812,8 +828,7 @@ namespace eval ::Eagle {
             if {[info exists ::compileCSharp(integerCompareCommand)]} then {
               set integerCommand $::compileCSharp(integerCompareCommand)
             } else {
-              set integerCommand [list apply \
-                  [list [list value1 value2] {
+              set integerCommand [list apply [list [list value1 value2] {
                 if {$value1 < $value2} then {
                   return -1
                 } elseif {$value1 == $value2} then {
@@ -830,8 +845,8 @@ namespace eval ::Eagle {
             #       version strings.
             #
             set compareCommand [list apply [list \
-                [list versionCommand stringCommand integerCommand \
-                versionSuffixNames versionSuffixPattern value1 value2] {
+                    [list versionCommand stringCommand integerCommand \
+                    versionSuffixNames versionSuffixPattern value1 value2] {
               set versionOk1 [tryParseDotNetCoreVersion $value1 \
                   version1 suffixName1 suffixVersion1 suffixMetadata1]
 
@@ -970,17 +985,77 @@ namespace eval ::Eagle {
                 $versionSuffixNames $versionSuffixPattern]
           }
 
+          if {[info exists ::compileCSharp(filterSubPathsCommand)]} then {
+            set filterCommand $::compileCSharp(filterSubPathsCommand)
+          } else {
+            #
+            # NOTE: This filter command is designed to omit any candidate
+            #       sub-path that cannot be parsed as a suffixed full .NET
+            #       runtime version -OR- properly formatted System.Version
+            #       value if the (optional) version suffix support has been
+            #       explicitly disabled by the user.
+            #
+            set filterCommand [list apply [list \
+                    [list noSuffixes maybeVersions] {
+              set result [list]
+
+              foreach maybeVersion $maybeVersions {
+                if {$noSuffixes} then {
+                  #
+                  # NOTE: Only properly formatted System.Version values are
+                  #       allowed.
+                  #
+                  if {[string is not version -strict $maybeVersion]} then {
+                    csharpLog [appendArgs \
+                        "filtered non-version sub-directory candidate (1): " \
+                        $maybeVersion]
+
+                    continue
+                  }
+                } else {
+                  #
+                  # NOTE: Only properly formatted full .NET runtime versions
+                  #       are allowed.  It should be noted that a particular
+                  #       candidate may or may not actually have a suffix.
+                  #
+                  if {![tryParseDotNetCoreVersion $maybeVersion]} then {
+                    csharpLog [appendArgs \
+                        "filtered non-version sub-directory candidate (2): " \
+                        $maybeVersion]
+
+                    continue
+                  }
+                }
+
+                lappend result $maybeVersion
+              }
+
+              return $result
+            }] [info exists ::compileCSharp(noSuffixedVersions)]]
+          }
+
           set globPathPattern [file join $libraryDirectory *]
 
-          set maybeVersions [lsort -decreasing -command \
-              $compareCommand [lmap directory [glob \
+          set maybeVersions [lsort \
+              -decreasing -command $compareCommand [eval \
+              $filterCommand [list [lmap directory [glob \
               -nocomplain -types {d} $globPathPattern] {
                 file tail $directory
-              }]]
+              }]]]]
+
+          csharpLog [appendArgs \
+              "final list of filtered version sub-directory candidates: " \
+              $maybeVersions]
 
           catch {object removecallback $compareCommand}
 
           foreach maybeVersion $maybeVersions {
+            #
+            # NOTE: *FAIL-SAFE* Do not allow any version sub-directory
+            #       candidate if it cannot be parsed successfully as a
+            #       properly formatted full .NET runtime version, even
+            #       if the filter command (wrongly?) included them.
+            #
             if {[tryParseDotNetCoreVersion $maybeVersion]} then {
               set assemblyDirectory [file normalize \
                   [file join $libraryDirectory $maybeVersion \
@@ -988,7 +1063,7 @@ namespace eval ::Eagle {
 
               if {[file exists $assemblyDirectory]} then {
                 csharpLog [appendArgs \
-                    "selected .NET Standard reference assembly (3): " \
+                    "selected .NET Standard reference assembly (4): " \
                     $assemblyDirectory]
 
                 return $assemblyDirectory
