@@ -581,7 +581,7 @@ LPCWSTR GetClrErrorMessage(
 
     if (source != NULL) {
 	gwprintf(message, PACKAGE_RESULT_SIZE, PACKAGE_UNICODE_STR_FMT
-	    L": " PACKAGE_UNICODE_STR_FMT " (code 0x%lX).\n", source,
+	    L": " PACKAGE_UNICODE_STR_FMT L" (code 0x%lX).\n", source,
 	    severity, (unsigned long)hResult);
     } else {
 	gwprintf(message, PACKAGE_RESULT_SIZE, PACKAGE_UNICODE_STR_FMT

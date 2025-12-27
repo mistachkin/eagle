@@ -825,6 +825,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Execution Limit Defaults
+        //
+        // HACK: These are not read-only.
+        //
+        private static int DefaultUnsafeOperationLimit = Limits.Unlimited;
+        private static int DefaultSafeOperationLimit = 200000;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are not read-only.
+        //
+        private static int DefaultUnsafeCommandLimit = Limits.Unlimited;
+        private static int DefaultSafeCommandLimit = 100000;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are not read-only.
+        //
+        private static int DefaultUnsafeUnknownLimit = Limits.Unlimited;
+        private static int DefaultSafeUnknownLimit = 1000;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Notification Defaults
 #if NOTIFY || NOTIFY_OBJECT
         //
@@ -1899,9 +1925,12 @@ namespace Eagle._Components.Public
 
         private IProfilerState profiler;
 
-        private long unknownCount;
         private long operationCount;
+        private long operationLimit;
         private long commandCount; // COMPAT: Tcl.
+        private long commandLimit;
+        private long unknownCount;
+        private long unknownLimit;
         private int readyCount;
         private int readyLimit;
         private int recursionLimit; // COMPAT: Tcl.
@@ -11275,44 +11304,70 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private
-        internal long OperationCount
-        {
-            get { lock (syncRoot) { return OperationCountNoLock; } }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
         internal long OperationCountNoLock
         {
-            get { return operationCount; }
-            set { operationCount = value; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        internal long InternalCommandCount
-        {
-            get { lock (syncRoot) { return CommandCountNoLock; } }
+            get { return Interlocked.CompareExchange(ref operationCount, 0, 0); }
+            set { Interlocked.Exchange(ref operationCount, value); }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         internal long CommandCountNoLock
         {
-            get { return commandCount; }
-            set { commandCount = value; }
+            get { return Interlocked.CompareExchange(ref commandCount, 0, 0); }
+            set { Interlocked.Exchange(ref commandCount, value); }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private long UnknownCountNoLock
+        {
+            get { return Interlocked.CompareExchange(ref unknownCount, 0, 0); }
+            set { Interlocked.Exchange(ref unknownCount, value); }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         internal void IncrementOperationAndCommandCount(
-            bool isCommand
+            bool isCommand,      /* in */
+            ref ReturnCode code, /* in, out */
+            ref Result error     /* in, out */
             )
         {
-            Interlocked.Increment(ref operationCount);
+            long localOperationCount = Interlocked.Increment(
+                ref operationCount);
+
+            if ((operationLimit != Limits.Unlimited) &&
+                (localOperationCount > operationLimit))
+            {
+                /* IGNORED */
+                Interlocked.Decrement(ref operationCount);
+
+                error = String.Format(
+                    "operation limit exceeded: {0}", operationLimit);
+
+                code = ReturnCode.Error;
+                return;
+            }
 
             if (isCommand)
-                Interlocked.Increment(ref commandCount);
+            {
+                long localCommandCount = Interlocked.Increment(
+                    ref commandCount);
+
+                if ((commandLimit != Limits.Unlimited) &&
+                    (localCommandCount > commandLimit))
+                {
+                    /* IGNORED */
+                    Interlocked.Decrement(ref commandCount);
+
+                    error = String.Format(
+                        "command limit exceeded: {0}", commandLimit);
+
+                    code = ReturnCode.Error;
+                    return;
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -42050,9 +42105,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public long OperationCount
+        {
+            get { CheckDisposed(); /* NO-LOCK */ return OperationCountNoLock; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public long CommandCount
         {
-            get { CheckDisposed(); /* NO-LOCK */ return InternalCommandCount; }
+            get { CheckDisposed(); /* NO-LOCK */ return CommandCountNoLock; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public long UnknownCount
+        {
+            get { CheckDisposed(); /* NO-LOCK */ return UnknownCountNoLock; }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -42154,6 +42223,30 @@ namespace Eagle._Components.Public
 
                 return PrivateSetupEvent;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public long OperationLimit
+        {
+            get { CheckDisposed(); lock (syncRoot) { return operationLimit; } }
+            set { CheckDisposed(); lock (syncRoot) { operationLimit = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public long CommandLimit
+        {
+            get { CheckDisposed(); lock (syncRoot) { return commandLimit; } }
+            set { CheckDisposed(); lock (syncRoot) { commandLimit = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public long UnknownLimit
+        {
+            get { CheckDisposed(); lock (syncRoot) { return unknownLimit; } }
+            set { CheckDisposed(); lock (syncRoot) { unknownLimit = value; } }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -44732,51 +44825,66 @@ namespace Eagle._Components.Public
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                Interlocked.Increment(ref unknownCount);
+                long localUnknownCount = Interlocked.Increment(
+                    ref unknownCount);
 
-                if (arguments != null)
+                if ((unknownLimit == Limits.Unlimited) ||
+                    (localUnknownCount <= unknownLimit))
                 {
-                    string unknownText = GetUnknown(engineFlags);
-
-                    if ((unknownText != null) && (UnknownLevels == 0))
+                    if (arguments != null)
                     {
-                        StringList unknownList = null;
+                        string unknownText = GetUnknown(engineFlags);
 
-                        if ((ParserOps<string>.SplitList(
-                                this, unknownText, 0, Length.Invalid, true,
-                                ref unknownList) == ReturnCode.Ok) &&
-                            (unknownList.Count > 0))
+                        if ((unknownText != null) && (UnknownLevels == 0))
                         {
-                            if (InternalGetIExecuteViaResolvers(
-                                    engineFlags | EngineFlags.ToExecute,
-                                    unknownList[0], arguments, lookupFlags,
-                                    ref execute) == ReturnCode.Ok)
+                            StringList unknownList = null;
+
+                            if ((ParserOps<string>.SplitList(
+                                    this, unknownText, 0, Length.Invalid, true,
+                                    ref unknownList) == ReturnCode.Ok) &&
+                                (unknownList.Count > 0))
                             {
-                                //
-                                // NOTE: Prefix the argument list provided by the
-                                //       caller with the unknown handler for this
-                                //       namespace or interpreter.
-                                //
-                                arguments.InsertRange(0, unknownList);
+                                if (InternalGetIExecuteViaResolvers(
+                                        engineFlags | EngineFlags.ToExecute,
+                                        unknownList[0], arguments, lookupFlags,
+                                        ref execute) == ReturnCode.Ok)
+                                {
+                                    //
+                                    // NOTE: Prefix the argument list provided by the
+                                    //       caller with the unknown handler for this
+                                    //       namespace or interpreter.
+                                    //
+                                    arguments.InsertRange(0, unknownList);
 
-                                //
-                                // NOTE: Set the unknown flag so that the we can
-                                //       properly modify the unknown nesting level
-                                //       (below) prior to actually executing
-                                //       [unknown]; otherwise, infinite recursion
-                                //       may result.
-                                //
-                                useUnknown = true;
+                                    //
+                                    // NOTE: Set the unknown flag so that the we can
+                                    //       properly modify the unknown nesting level
+                                    //       (below) prior to actually executing
+                                    //       [unknown]; otherwise, infinite recursion
+                                    //       may result.
+                                    //
+                                    useUnknown = true;
 
-                                //
-                                // NOTE: The unknown handler is available.  Have
-                                //       the caller try to use it by indicating
-                                //       success here.
-                                //
-                                return ReturnCode.Ok;
+                                    //
+                                    // NOTE: The unknown handler is available.  Have
+                                    //       the caller try to use it by indicating
+                                    //       success here.
+                                    //
+                                    return ReturnCode.Ok;
+                                }
                             }
                         }
                     }
+                }
+                else
+                {
+                    /* IGNORED */
+                    Interlocked.Decrement(ref unknownCount);
+
+                    TraceOps.DebugTrace(String.Format(
+                        "AttemptToUseUnknown: limit exceeded: {0}",
+                        unknownLimit), typeof(Interpreter).Name,
+                        TracePriority.Medium);
                 }
 
                 return returnCode;
@@ -47767,6 +47875,30 @@ namespace Eagle._Components.Public
         {
             get { /* NO-LOCK */ return arrayElementLimit; }
             set { /* NO-LOCK */ arrayElementLimit = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal long InternalOperationLimit
+        {
+            get { /* NO-LOCK */ return operationLimit; }
+            set { /* NO-LOCK */ operationLimit = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal long InternalCommandLimit
+        {
+            get { /* NO-LOCK */ return commandLimit; }
+            set { /* NO-LOCK */ commandLimit = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal long InternalUnknownLimit
+        {
+            get { /* NO-LOCK */ return unknownLimit; }
+            set { /* NO-LOCK */ unknownLimit = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -79404,6 +79536,9 @@ namespace Eagle._Components.Public
                     this.InternalProcedureLimit = DefaultSafeProcedureLimit;
                     this.InternalVariableLimit = DefaultSafeVariableLimit;
                     this.InternalArrayElementLimit = DefaultSafeArrayElementLimit;
+                    this.InternalOperationLimit = DefaultSafeOperationLimit;
+                    this.InternalCommandLimit = DefaultSafeCommandLimit;
+                    this.InternalUnknownLimit = DefaultSafeUnknownLimit;
                 }
                 else
                 {
@@ -79420,6 +79555,9 @@ namespace Eagle._Components.Public
                     this.InternalProcedureLimit = DefaultUnsafeProcedureLimit;
                     this.InternalVariableLimit = DefaultUnsafeVariableLimit;
                     this.InternalArrayElementLimit = DefaultUnsafeArrayElementLimit;
+                    this.InternalOperationLimit = DefaultUnsafeOperationLimit;
+                    this.InternalCommandLimit = DefaultUnsafeCommandLimit;
+                    this.InternalUnknownLimit = DefaultUnsafeUnknownLimit;
                 }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
@@ -79716,24 +79854,24 @@ namespace Eagle._Components.Public
 
                 #region Core Entities
                 //
-                // NOTE: How many times has the [unknown] script been executed?
-                //
-                unknownCount = 0;
-
-                //
                 // NOTE: How many discrete operations have been executed?
                 //
-                operationCount = 0;
+                Interlocked.Exchange(ref operationCount, 0);
 
                 //
                 // NOTE: How many commands have been executed?
                 //
-                commandCount = 0;
+                Interlocked.Exchange(ref commandCount, 0);
+
+                //
+                // NOTE: How many times has the [unknown] script been executed?
+                //
+                Interlocked.Exchange(ref unknownCount, 0);
 
                 //
                 // NOTE: How many readiness checks have been executed?
                 //
-                readyCount = 0;
+                Interlocked.Exchange(ref readyCount, 0);
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -109569,6 +109707,15 @@ namespace Eagle._Components.Public
                     list.Add("NestedResultLimit", nestedResultLimit.ToString());
 #endif
 
+                if (empty || (operationLimit != Limits.Unlimited))
+                    list.Add("OperationLimit", operationLimit.ToString());
+
+                if (empty || (commandLimit != Limits.Unlimited))
+                    list.Add("CommandLimit", commandLimit.ToString());
+
+                if (empty || (unknownLimit != Limits.Unlimited))
+                    list.Add("UnknownLimit", unknownLimit.ToString());
+
 #if SHELL
                 if (empty || (globalInteractiveLoops > 0))
                     list.Add("GlobalInteractiveLoops", globalInteractiveLoops.ToString());
@@ -109637,14 +109784,22 @@ namespace Eagle._Components.Public
                         localList.ToString() : FormatOps.DisplayNull);
                 }
 
-                if (empty || (unknownCount > 0))
-                    list.Add("UnknownCount", unknownCount.ToString());
+                long count; /* REUSED */
 
-                if (empty || (operationCount > 0))
-                    list.Add("OperationCount", operationCount.ToString());
+                count = Interlocked.CompareExchange(ref operationCount, 0, 0);
 
-                if (empty || (commandCount > 0))
-                    list.Add("CommandCount", commandCount.ToString());
+                if (empty || (count > 0))
+                    list.Add("OperationCount", count.ToString());
+
+                count = Interlocked.CompareExchange(ref commandCount, 0, 0);
+
+                if (empty || (count > 0))
+                    list.Add("CommandCount", count.ToString());
+
+                count = Interlocked.CompareExchange(ref unknownCount, 0, 0);
+
+                if (empty || (count > 0))
+                    list.Add("UnknownCount", count.ToString());
 
                 PolicyDecision decision; /* REUSED */
 

@@ -6307,6 +6307,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode GetNullableWideInteger2(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref long? value,
+            ref Result error
+            )
+        {
+            if (String.IsNullOrEmpty(text))
+            {
+                value = null;
+                return ReturnCode.Ok;
+            }
+
+            long longValue = 0;
+
+            if (GetWideInteger2(
+                    text, flags, cultureInfo, ref longValue,
+                    ref error) == ReturnCode.Ok)
+            {
+                value = longValue;
+                return ReturnCode.Ok;
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode GetWideInteger2(
             IGetValue getValue,
             ValueFlags flags,

@@ -3041,7 +3041,20 @@ namespace Eagle._Components.Private
                         //         be allowed.
                         //
                         if (String.IsNullOrEmpty(item))
-                            continue;
+                        {
+                            string operators = @operator.ToString();
+
+                            if (AreFlagsOperators(
+                                    enumType, ref operators, ref localError))
+                            {
+                                continue;
+                            }
+                            else
+                            {
+                                oldEnumValue = null;
+                                break;
+                            }
+                        }
                     }
 
                     object itemEnumValue;

@@ -38,7 +38,9 @@ namespace Eagle._Interfaces.Public
         long Id { get; }
         long GroupId { get; }
         long CreateCount { get; }
+        long OperationCount { get; }
         long CommandCount { get; }
+        long UnknownCount { get; }
         DateTime Created { get; }
         long ThreadId { get; }
         Thread Thread { get; }
@@ -51,6 +53,14 @@ namespace Eagle._Interfaces.Public
 
         EventWaitHandle VariableEvent { get; }
         EventWaitHandle SetupEvent { get; }
+
+        ///////////////////////////////////////////////////////////////////////
+        // SCRIPT & EXECUTION LIMITS
+        ///////////////////////////////////////////////////////////////////////
+
+        long OperationLimit { get; set; }
+        long CommandLimit { get; set; }
+        long UnknownLimit { get; set; }
 
         ///////////////////////////////////////////////////////////////////////
 

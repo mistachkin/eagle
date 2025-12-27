@@ -15,6 +15,26 @@ using Eagle._Attributes;
 namespace Eagle._Components.Private
 {
     [Flags()]
+    [ObjectId("f8def65f-3589-4d35-ac93-e6f31cadf86f")]
+    internal enum CommandCountType
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        OperationCount = 0x2,
+        CommandCount = 0x4,
+        UnknownCount = 0x8,
+
+        ForLegacy = 0x10000000,
+        ForDefault = 0x20000000,
+
+        Legacy = CommandCount | ForLegacy,
+        Default = OperationCount | CommandCount | UnknownCount | ForDefault
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
     [ObjectId("232a2243-4899-4455-b6b6-9cc151a4ca56")]
     internal enum GetInstalledUpdatesType
     {

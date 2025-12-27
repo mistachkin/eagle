@@ -2813,7 +2813,13 @@ runTest {test cidr-merge-1.1 {CIDR merging for IPv4 / IPv6} -body {
         {0.0.0.0/0}
         {}
         {10.0.0.0/24}
-        {invalid IPv4 CIDR: unexpected address family}
+        {
+          unsupported address family InterNetworkV6
+          |
+          invalid IPv4 CIDR: unexpected address family
+          |
+          address family "InterNetworkV6" is not allowed
+        }
         {bad IPv4 prefix length 33}
         {split CIDR pattern into 1}
         {10.0.0.1/32 10.0.0.2/31 10.0.0.4/30}
@@ -2916,27 +2922,50 @@ runTest {test cidr-merge-1.1 {CIDR merging for IPv4 / IPv6} -body {
 
           error [appendArgs \
               $type " FAIL: " $merged " versus " \
-              $output " from " $input]
+              $output " (ok-string) from " $input]
         }
       } else {
         set error [getStringFromObjectHandle $error]
 
-        if {$error ne $output} then {
-          if {[string length $input] == 0} then {
-            set input <none>
-          }
+        if {[string first | $output] != -1} then {
+          regsub -all -- {\s+\|\s+} $output | output
+          set output [split [string trim $output] |]
 
-          if {[string length $output] == 0} then {
-            set output <none>
-          }
+          if {$error ni $output} then {
+            if {[string length $input] == 0} then {
+              set input <none>
+            }
 
-          if {[string length $error] == 0} then {
-            set error <none>
-          }
+            if {[string length $output] == 0} then {
+              set output <none>
+            }
 
-          error [appendArgs \
-              $type " FAIL: \{" $error "\} versus \{" \
-              $output "\} from " $input]
+            if {[string length $error] == 0} then {
+              set error <none>
+            }
+
+            error [appendArgs \
+                $type " FAIL: \{" $error "\} versus \{" \
+                $output "\} (error-list) from " $input]
+          }
+        } else {
+          if {$error ne $output} then {
+            if {[string length $input] == 0} then {
+              set input <none>
+            }
+
+            if {[string length $output] == 0} then {
+              set output <none>
+            }
+
+            if {[string length $error] == 0} then {
+              set error <none>
+            }
+
+            error [appendArgs \
+                $type " FAIL: \{" $error "\} versus \{" \
+                $output "\} (error-string) from " $input]
+          }
         }
       }
     }

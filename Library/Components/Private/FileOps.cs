@@ -220,9 +220,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         //
-        // HACK: This is purposely not read-only.
+        // HACK: These are purposely not read-only.
         //
         private static bool GlobIgnoreSyntheticAttributes = true;
+
+        private static bool GlobWindowsSyntheticAttributes =
+            PlatformOps.IsWindowsOperatingSystem();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1574,6 +1577,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static bool CanReadFileAttributes(
+            string path,     /* in */
+            ref Result error /* out */
+            )
+        {
+            FileSystemRights grantedRights = NoFileSystemRights;
+            bool accessStatus = false;
+
+            if (AccessCheck(
+                    path, FileSystemRights.ReadAttributes,
+                    ref grantedRights, ref accessStatus,
+                    ref error) != ReturnCode.Ok)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "CanReadFileAttributes: access check error = {0}",
+                    FormatOps.WrapOrNull(error)), typeof(FileOps).Name,
+                    TracePriority.Low);
+
+                return false;
+            }
+
+            if (!accessStatus)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "CanReadFileAttributes: missing some rights = {0}",
+                    FormatOps.WrapOrNull(grantedRights)),
+                    typeof(FileOps).Name, TracePriority.Low);
+
+                error = "missing rights to read file attributes";
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static ReturnCode CheckReadOnlyAndDirectory(
             string path,
             ref bool exists,
@@ -2156,8 +2196,8 @@ namespace Eagle._Components.Private
             //       src/native/libs/System.Native/pal_io.c (UF_HIDDEN)
             //
             if (GlobIgnoreSyntheticAttributes &&
-                !types.ContainsKey("synthetic") &&
-                !PlatformOps.IsWindowsOperatingSystem())
+                !GlobWindowsSyntheticAttributes &&
+                !types.ContainsKey("synthetic"))
             {
                 if (isReadOnly)
                     isReadOnly = false; /* NOTE: HasReadOnlyFlag. */

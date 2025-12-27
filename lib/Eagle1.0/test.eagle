@@ -1963,7 +1963,25 @@ namespace eval ::Eagle {
 
   proc hasAllowBigIntegers {} {
     if {[isEagle]} then {
-      return [hasInterpreterFlags AllowBigIntegers true]
+      if {[info exists ::eagle_platform(compileOptions)]} then {
+        set options $::eagle_platform(compileOptions)
+      } else {
+        set options [list]; # options missing?
+      }
+
+      if {[lsearch -exact $options NET_40] != -1} then {
+        #
+        # NOTE: Is the current interpreter configured to allow
+        #       use of arbitrary precision integers?
+        #
+        return [hasInterpreterFlags AllowBigIntegers true]
+      } else {
+        #
+        # NOTE: The System.Numerics assembly generally requires
+        #       the .NET Framework 4.0 (or later).
+        #
+        return false
+      }
     } else {
       #
       # NOTE: Native Tcl has no way to disable big integers.

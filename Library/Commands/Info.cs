@@ -542,57 +542,146 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                if (arguments.Count >= 4)
+                                                if (arguments.Count == 4)
                                                 {
-                                                    string executeName = arguments[3];
-                                                    IExecute execute = null;
+                                                    object enumValue;
+                                                    string typeName = arguments[3];
+                                                    Result error; /* REUSED */
+                                                    ResultList errors = null;
 
-                                                    code = childInterpreter.InternalGetIExecuteViaResolvers(
-                                                        childInterpreter.GetResolveEngineFlagsNoLock(true),
-                                                        executeName, null, LookupFlags.Default,
-                                                        ref execute, ref result);
+                                                    CommandCountType commandCountType =
+                                                        CommandCountType.Default;
 
-                                                    if (code == ReturnCode.Ok)
+                                                    error = null;
+
+                                                    enumValue = EnumOps.TryParseFlags(
+                                                        childInterpreter, typeof(CommandCountType),
+                                                        commandCountType.ToString(), typeName,
+                                                        childInterpreter.InternalCultureInfo,
+                                                        true, true, true, ref error);
+
+                                                    if (enumValue is CommandCountType)
                                                     {
-                                                        IUsageData usageData = execute as IUsageData;
+                                                        commandCountType = (CommandCountType)enumValue;
 
-                                                        if (usageData != null)
+                                                        StringList list = new StringList();
+
+                                                        if (FlagOps.HasFlags(commandCountType,
+                                                                CommandCountType.OperationCount, true))
                                                         {
-                                                            long value = 0;
+                                                            list.Add("operationCount");
+                                                            list.Add(childInterpreter.OperationCount.ToString());
+                                                        }
 
-                                                            if (usageData.GetUsage(
-                                                                    UsageType.Count, ref value))
+                                                        if (FlagOps.HasFlags(commandCountType,
+                                                                CommandCountType.CommandCount, true))
+                                                        {
+                                                            list.Add("commandCount");
+                                                            list.Add(childInterpreter.CommandCount.ToString());
+                                                        }
+
+                                                        if (FlagOps.HasFlags(commandCountType,
+                                                                CommandCountType.UnknownCount, true))
+                                                        {
+                                                            list.Add("unknownCount");
+                                                            list.Add(childInterpreter.UnknownCount.ToString());
+                                                        }
+
+                                                        if (list.Count > 0)
+                                                        {
+                                                            result = list;
+                                                        }
+                                                        else
+                                                        {
+                                                            if (errors == null)
+                                                                errors = new ResultList();
+
+                                                            errors.Add("no supported counts matched");
+                                                            code = ReturnCode.Error;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        if (error != null)
+                                                        {
+                                                            if (errors == null)
+                                                                errors = new ResultList();
+
+                                                            errors.Add(error);
+                                                        }
+
+                                                        IExecute execute = null;
+
+                                                        error = null;
+
+                                                        code = childInterpreter.InternalGetIExecuteViaResolvers(
+                                                            childInterpreter.GetResolveEngineFlagsNoLock(true),
+                                                            typeName, null, LookupFlags.Default, ref execute,
+                                                            ref error);
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            IUsageData usageData = execute as IUsageData;
+
+                                                            if (usageData != null)
                                                             {
-                                                                result = value;
+                                                                long value = 0;
+
+                                                                if (usageData.GetUsage(
+                                                                        UsageType.Count, ref value))
+                                                                {
+                                                                    result = value;
+                                                                }
+                                                                else
+                                                                {
+                                                                    error = String.Format(
+                                                                        "usage count for {0} unknown",
+                                                                        FormatOps.WrapOrNull(typeName));
+
+                                                                    if (errors == null)
+                                                                        errors = new ResultList();
+
+                                                                    errors.Add(error);
+                                                                    code = ReturnCode.Error;
+                                                                }
                                                             }
                                                             else
                                                             {
-                                                                result = String.Format(
-                                                                    "usage count for \"{0}\" unknown",
-                                                                    arguments[2]);
+                                                                error = String.Format(
+                                                                    "usage data for {0} not available",
+                                                                    FormatOps.WrapOrNull(typeName));
 
+                                                                if (errors == null)
+                                                                    errors = new ResultList();
+
+                                                                errors.Add(error);
                                                                 code = ReturnCode.Error;
                                                             }
                                                         }
                                                         else
                                                         {
-                                                            result = String.Format(
-                                                                "usage data for \"{0}\" not available",
-                                                                arguments[2]);
+                                                            if (error != null)
+                                                            {
+                                                                if (errors == null)
+                                                                    errors = new ResultList();
 
-                                                            code = ReturnCode.Error;
+                                                                errors.Add(error);
+                                                            }
                                                         }
                                                     }
+
+                                                    if (code != ReturnCode.Ok)
+                                                        result = errors;
                                                 }
                                                 else
                                                 {
-                                                    result = childInterpreter.InternalCommandCount;
+                                                    result = childInterpreter.CommandCountNoLock;
                                                 }
                                             }
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"info cmdcount ?path? ?command?\"";
+                                            result = "wrong # args: should be \"info cmdcount ?path? ?type?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

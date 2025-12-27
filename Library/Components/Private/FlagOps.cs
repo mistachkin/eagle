@@ -302,6 +302,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasFlags(
+            CommandCountType flags,
+            CommandCountType hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != CommandCountType.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
             ConfigurationFlags flags,
             ConfigurationFlags hasFlags,
             bool all

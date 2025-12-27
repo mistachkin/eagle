@@ -8654,11 +8654,35 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Execution Statistics Methods
+        private static void CheckUsageAgainstLimits(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IUsageData usageData,    /* in: OPTIONAL */
+            ref ReturnCode code,     /* in, out */
+            ref Result error         /* in, out */
+            )
+        {
+            //
+            // NOTE: Keep track of how many operations and commands
+            //       are executed in this interpreter.  For "safe"
+            //       interpreters, these will typically be (quite)
+            //       limited by a (default or configured) quota.
+            //
+            if (interpreter != null)
+            {
+                interpreter.IncrementOperationAndCommandCount(
+                    usageData is ICommand, ref code, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         private static void UpdateStatistics(
-            Interpreter interpreter,
-            IUsageData usageData,
-            EngineFlags engineFlags,
-            long microseconds
+            Interpreter interpreter, /* in: OPTIONAL */
+            IUsageData usageData,    /* in: OPTIONAL */
+            EngineFlags engineFlags, /* in */
+            long microseconds,       /* in */
+            ref ReturnCode code,     /* in, out: NOT YET USED */
+            ref Result error         /* in, out: NOT YET USED */
             )
         {
             //
@@ -8680,16 +8704,6 @@ namespace Eagle._Components.Public
                     /* IGNORED */
                     usageData.CountUsage(ref count);
                 }
-            }
-
-            //
-            // NOTE: Keep track of how many commands are executed
-            //       in this interpreter.
-            //
-            if (interpreter != null)
-            {
-                interpreter.IncrementOperationAndCommandCount(
-                    usageData is ICommand);
             }
         }
         #endregion
@@ -8870,7 +8884,14 @@ namespace Eagle._Components.Public
 #if PROFILER
                     IProfilerState profiler = GetProfilerAndStart(interpreter);
 #endif
-                    ReturnCode code;
+                    ReturnCode code = ReturnCode.Ok;
+
+                    /* NO RESULT */
+                    CheckUsageAgainstLimits(
+                        interpreter, null, ref code, ref result);
+
+                    if (code != ReturnCode.Ok)
+                        return code;
 
                     try
                     {
@@ -8908,7 +8929,7 @@ namespace Eagle._Components.Public
                         /* NO RESULT */
                         UpdateStatistics(
                             interpreter, null, engineFlags,
-                            microseconds);
+                            microseconds, ref code, ref result);
 
 #if NOTIFY && NOTIFY_EXECUTE
                         if ((interpreter != null) &&
@@ -9082,7 +9103,14 @@ namespace Eagle._Components.Public
 #if PROFILER
                     IProfilerState profiler = GetProfilerAndStart(interpreter);
 #endif
-                    ReturnCode code;
+                    ReturnCode code = ReturnCode.Ok;
+
+                    /* NO RESULT */
+                    CheckUsageAgainstLimits(
+                        interpreter, subCommand, ref code, ref result);
+
+                    if (code != ReturnCode.Ok)
+                        return code;
 
                     try
                     {
@@ -9125,7 +9153,7 @@ namespace Eagle._Components.Public
                         /* NO RESULT */
                         UpdateStatistics(
                             interpreter, subCommand, engineFlags,
-                            microseconds);
+                            microseconds, ref code, ref result);
 
 #if NOTIFY && NOTIFY_EXECUTE
                         if ((interpreter != null) &&
@@ -9339,7 +9367,14 @@ namespace Eagle._Components.Public
 #if PROFILER
                     IProfilerState profiler = GetProfilerAndStart(interpreter);
 #endif
-                    ReturnCode code;
+                    ReturnCode code = ReturnCode.Ok;
+
+                    /* NO RESULT */
+                    CheckUsageAgainstLimits(
+                        interpreter, command, ref code, ref result);
+
+                    if (code != ReturnCode.Ok)
+                        return code;
 
                     try
                     {
@@ -9382,7 +9417,7 @@ namespace Eagle._Components.Public
                         /* NO RESULT */
                         UpdateStatistics(
                             interpreter, command, engineFlags,
-                            microseconds);
+                            microseconds, ref code, ref result);
 
 #if NOTIFY && NOTIFY_EXECUTE
                         if ((interpreter != null) &&
@@ -9595,7 +9630,14 @@ namespace Eagle._Components.Public
 #if PROFILER
                     IProfilerState profiler = GetProfilerAndStart(interpreter);
 #endif
-                    ReturnCode code;
+                    ReturnCode code = ReturnCode.Ok;
+
+                    /* NO RESULT */
+                    CheckUsageAgainstLimits(
+                        interpreter, procedure, ref code, ref result);
+
+                    if (code != ReturnCode.Ok)
+                        return code;
 
                     try
                     {
@@ -9638,7 +9680,7 @@ namespace Eagle._Components.Public
                         /* NO RESULT */
                         UpdateStatistics(
                             interpreter, procedure, engineFlags,
-                            microseconds);
+                            microseconds, ref code, ref result);
 
 #if NOTIFY && NOTIFY_EXECUTE
                         if ((interpreter != null) &&
@@ -9813,7 +9855,14 @@ namespace Eagle._Components.Public
 #if PROFILER
                     IProfilerState profiler = GetProfilerAndStart(interpreter);
 #endif
-                    ReturnCode code;
+                    ReturnCode code = ReturnCode.Ok;
+
+                    /* NO RESULT */
+                    CheckUsageAgainstLimits(
+                        interpreter, function, ref code, ref error);
+
+                    if (code != ReturnCode.Ok)
+                        return code;
 
                     try
                     {
@@ -9845,7 +9894,7 @@ namespace Eagle._Components.Public
                         /* NO RESULT */
                         UpdateStatistics(
                             interpreter, function, engineFlags,
-                            microseconds);
+                            microseconds, ref code, ref error);
 
 #if NOTIFY && NOTIFY_EXPRESSION
                         if ((interpreter != null) &&
@@ -10050,7 +10099,14 @@ namespace Eagle._Components.Public
 #if PROFILER
                     IProfilerState profiler = GetProfilerAndStart(interpreter);
 #endif
-                    ReturnCode code;
+                    ReturnCode code = ReturnCode.Ok;
+
+                    /* NO RESULT */
+                    CheckUsageAgainstLimits(
+                        interpreter, @operator, ref code, ref error);
+
+                    if (code != ReturnCode.Ok)
+                        return code;
 
                     try
                     {
@@ -10085,7 +10141,7 @@ namespace Eagle._Components.Public
                         /* NO RESULT */
                         UpdateStatistics(
                             interpreter, @operator, engineFlags,
-                            microseconds);
+                            microseconds, ref code, ref error);
 
 #if NOTIFY && NOTIFY_EXPRESSION
                         if ((interpreter != null) &&

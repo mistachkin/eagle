@@ -37,6 +37,9 @@ BUGFIX: always break out of script loops in progress if the [exit] command has
 BUGFIX: make sure to honor any IRuleSet that may be present within an instance
         of the InterpreterSettings passed into the Interpreter.Create method.
 
+BUGFIX: make sure that invalid flags enumeration operators are rejected even if
+        no enumeration values are specified.
+
 BUGFIX: *BREAKING CHANGE* stop unsetting the "dir" variable if it exited prior
         to the package index scan operation.
 
@@ -72,6 +75,10 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
+
+FEATURE: add the [interp execlimit] sub-command that can be used to limit the
+         number of script operations, script commands executed, and [unknown]
+         command resolution attempts.
 
 FEATURE: add support for renaming [expr] functions via [rename].
 

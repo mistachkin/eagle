@@ -770,10 +770,10 @@ runTest {test tclLoad-11.1.1 {Garuda state (Tcl)} -body {
   garuda dumpstate
 } -constraints {tcl garuda} -match regexp -result \
 {^packageMutex 0x[0-9A-Fa-f]+ hPackageModule 0x[0-9A-Fa-f]+ packageFileName\
-\{.*\} lTclStubs \d+ hTclModule 0x[0-9A-Fa-f]+ pTclStubs 0x[0-9A-Fa-f]+\
-(?:pClrMetaHost 0x[0-9A-Fa-f]+ pClrRuntimeInfo 0x[0-9A-Fa-f]+ pClrRuntimeHost\
-0x[0-9A-Fa-f]+ bClrStarted (?:0|1)|pCoreClrModule 0x[0-9A-Fa-f]+\
-uCoreClrFunctions 0x[0-9A-Fa-f]+ pCoreClrContext 0x[0-9A-Fa-f]+)\
+\{.*\} lTclStubs \d+ hTclModule 0x[0-9A-Fa-f]+ pTclStubs 0x[0-9A-Fa-f]+(?:\
+pClrMetaHost 0x[0-9A-Fa-f]+| pClrRuntimeInfo 0x[0-9A-Fa-f]+)?(?:\
+pClrRuntimeHost 0x[0-9A-Fa-f]+| pCoreClrModule 0x[0-9A-Fa-f]+ uCoreClrFunctions\
+0x[0-9A-Fa-f]+ pCoreClrContext 0x[0-9A-Fa-f]+)(?: bClrStarted (?:0|1))?\
 bClrBridgeStarted (?:0|1)$}}
 
 ###############################################################################
@@ -782,10 +782,10 @@ runTest {test tclLoad-11.1.2 {Garuda state (Eagle)} -body {
   tcl eval [tcl primary] garuda dumpstate
 } -constraints {eagle garuda} -match regexp -result \
 {^packageMutex 0x[0-9A-Fa-f]+ hPackageModule 0x[0-9A-Fa-f]+ packageFileName\
-\{.*\} lTclStubs \d+ hTclModule 0x[0-9A-Fa-f]+ pTclStubs 0x[0-9A-Fa-f]+\
-(?:pClrMetaHost 0x[0-9A-Fa-f]+ pClrRuntimeInfo 0x[0-9A-Fa-f]+ pClrRuntimeHost\
-0x[0-9A-Fa-f]+ bClrStarted (?:0|1)|pCoreClrModule 0x[0-9A-Fa-f]+\
-uCoreClrFunctions 0x[0-9A-Fa-f]+ pCoreClrContext 0x[0-9A-Fa-f]+)\
+\{.*\} lTclStubs \d+ hTclModule 0x[0-9A-Fa-f]+ pTclStubs 0x[0-9A-Fa-f]+(?:\
+pClrMetaHost 0x[0-9A-Fa-f]+| pClrRuntimeInfo 0x[0-9A-Fa-f]+)?(?:\
+pClrRuntimeHost 0x[0-9A-Fa-f]+| pCoreClrModule 0x[0-9A-Fa-f]+ uCoreClrFunctions\
+0x[0-9A-Fa-f]+ pCoreClrContext 0x[0-9A-Fa-f]+)(?: bClrStarted (?:0|1))?\
 bClrBridgeStarted (?:0|1)$}}
 
 ###############################################################################

@@ -2861,17 +2861,17 @@ policies ppid previouspid processors procs programextension ptid runtime\
 runtimeversion script setup sharedlibextension shelllibrary source subcommands\
 syntax sysvars tclversion tid transactions undefined user varlinks vars\
 whitespace windows windowtext} {addcommands alias aliases bgerror callbacklimit\
-cancel childlimit children create delete enabled eval eventlimit exists expose\
-exposed expr finallytimeout hide hidden immutable invokehidden isolated issafe\
-issdk isstandard iterationlimit makesafe makestandard marktrusted\
-maybereadorgetscriptfile namespacelimit nopolicy parent policy proclimit queue\
-readonly readorgetscriptfile readylimit recursionlimit rename resetcancel\
-resultlimit scopelimit service set shareinterp shareobject sleeptime source\
-stub subcommand subst target timeout unset varlimit watchdog} {addreference\
-alias aliasnamespaces assemblies callbackflags certificate cleanup create\
-declare dispose exists flags foreach fromvar get hash import interfaces invoke\
-invokeall invokeraw isdisposed isnull isoftype list lmap load members\
-namespaces referencecount removecallback removereference resolve search\
+cancel childlimit children create delete enabled eval eventlimit execlimit\
+exists expose exposed expr finallytimeout hide hidden immutable invokehidden\
+isolated issafe issdk isstandard iterationlimit makesafe makestandard\
+marktrusted maybereadorgetscriptfile namespacelimit nopolicy parent policy\
+proclimit queue readonly readorgetscriptfile readylimit recursionlimit rename\
+resetcancel resultlimit scopelimit service set shareinterp shareobject\
+sleeptime source stub subcommand subst target timeout unset varlimit watchdog}\
+{addreference alias aliasnamespaces assemblies callbackflags certificate\
+cleanup create declare dispose exists flags foreach fromvar get hash import\
+interfaces invoke invokeall invokeraw isdisposed isnull isoftype list lmap load\
+members namespaces referencecount removecallback removereference resolve search\
 strongname type types unalias unaliasnamespace undeclare unimport untype\
 verifyall} {absent alias aliases forget ifneeded indexes info loaded names\
 pending present provide relativefilename require reset scan unknown vcompare\
@@ -4098,9 +4098,9 @@ runTest {test interp-1.901 {command limit without auto-reset} -setup {
 
   unset -nocomplain result code count limiter interp
 } -constraints {eagle command.object\
-member_Eagle._Tests.Default.ScriptLimiter.ToString} -result {1001 True 1001\
+member_Eagle._Tests.Default.ScriptLimiter.ToString} -result {1000 True 1000\
 True 1 {command limit exceeded: 1000 versus 1000} 1 {command limit exceeded:\
-1001 versus 900}}}
+1000 versus 900}}}
 
 ###############################################################################
 
@@ -4160,7 +4160,7 @@ runTest {test interp-1.902 {command limit with auto-reset} -setup {
 
   unset -nocomplain result code count limiter interp
 } -constraints {eagle command.object compile.TEST\
-member_Eagle._Tests.Default.ScriptLimiter.ToString} -result {1 True 1 True 1\
+member_Eagle._Tests.Default.ScriptLimiter.ToString} -result {0 True 0 True 1\
 {command limit exceeded: 1000 versus 1000} 1 {command limit exceeded: 900\
 versus 900}}}
 
@@ -4225,7 +4225,7 @@ runTest {test interp-1.903 {operation limit without auto-reset} -setup {
 } -constraints {eagle command.object compile.TEST\
 member_Eagle._Tests.Default.ScriptLimiter.ToString} -result {True True True\
 True 1 {operation limit exceeded: 1000 versus 1000} 1 {operation limit\
-exceeded: 1001 versus 900}}}
+exceeded: 1000 versus 900}}}
 
 ###############################################################################
 

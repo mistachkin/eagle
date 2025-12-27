@@ -1114,7 +1114,7 @@ namespace Eagle._Components.Private
 
                         handle = UNM.CreateFile(
                             fileName, FileAccessMask.FILE_NONE,
-                            FileShareMode.FILE_SHARE_NONE, IntPtr.Zero,
+                            FileShareMode.FILE_SHARE_ALL, IntPtr.Zero,
                             FileCreationDisposition.OPEN_EXISTING,
                             fileFlagsAndAttributes, IntPtr.Zero);
 
@@ -1927,9 +1927,10 @@ namespace Eagle._Components.Private
             bool? checkLinks  /* in: OPTIONAL */
             )
         {
+            bool isWindows = PlatformOps.IsWindowsOperatingSystem();
+
             if (!CheckForValid(
-                    null, path, false, false, true,
-                    PlatformOps.IsWindowsOperatingSystem()))
+                    null, path, false, false, true, isWindows))
             {
                 return false;
             }
@@ -1954,8 +1955,24 @@ namespace Eagle._Components.Private
 #if NATIVE && (WINDOWS || UNIX)
             if (checkLinks != null)
             {
+                Result error; /* REUSED */
+
+#if !NET_STANDARD_20 && !MONO
+                if (isWindows)
+                {
+                    error = null;
+
+                    if (!FileOps.CanReadFileAttributes(
+                            path, ref error))
+                    {
+                        goto skipGetMode;
+                    }
+                }
+#endif
+
                 FSM mode = FSM.S_INONE;
-                Result error = null;
+
+                error = null;
 
                 if (GetMode(
                         path, (bool)checkLinks, ref mode,
@@ -1990,6 +2007,11 @@ namespace Eagle._Components.Private
                         return false;
                 }
             }
+
+#if !NET_STANDARD_20 && !MONO
+        skipGetMode:
+            ;
+#endif
 #endif
 
             return true;

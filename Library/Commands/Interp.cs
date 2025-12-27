@@ -51,7 +51,7 @@ namespace Eagle._Commands
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "addcommands",
             "alias", "aliases", "bgerror", "callbacklimit", "cancel", "childlimit", "children",
-            "create", "delete", "enabled", "eval", "eventlimit", "exists", "expose", "exposed",
+            "create", "delete", "enabled", "eval", "eventlimit", "execlimit", "exists", "expose", "exposed",
             "expr", "finallytimeout", "hide", "hidden", "immutable", "invokehidden",
             "isolated", "issafe", "issdk", "isstandard", "iterationlimit", "makesafe", "makestandard",
             "marktrusted", "maybereadorgetscriptfile", "namespacelimit", "nopolicy", "parent", "policy", "proclimit",
@@ -1400,6 +1400,90 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"interp eventlimit path ?limit?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "execlimit":
+                                    {
+                                        if ((arguments.Count == 3) || (arguments.Count == 4))
+                                        {
+                                            string path = arguments[2];
+                                            Interpreter childInterpreter = null;
+
+                                            code = interpreter.GetNestedChildInterpreter(
+                                                path, LookupFlags.Interpreter, false,
+                                                ref childInterpreter, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                lock (childInterpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                                {
+                                                    if (arguments.Count == 4)
+                                                    {
+                                                        StringList list = null;
+
+                                                        code = ListOps.GetOrCopyOrSplitList(
+                                                            childInterpreter, arguments[3], true, ref list,
+                                                            ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            long? operationLimit = null;
+                                                            long? commandLimit = null;
+                                                            long? unknownLimit = null;
+
+                                                            if ((code == ReturnCode.Ok) && (list.Count >= 1))
+                                                            {
+                                                                code = Value.GetNullableWideInteger2(
+                                                                    list[0], ValueFlags.AnyWideInteger,
+                                                                    childInterpreter.InternalCultureInfo,
+                                                                    ref operationLimit, ref result);
+                                                            }
+
+                                                            if ((code == ReturnCode.Ok) && (list.Count >= 2))
+                                                            {
+                                                                code = Value.GetNullableWideInteger2(
+                                                                    list[1], ValueFlags.AnyWideInteger,
+                                                                    childInterpreter.InternalCultureInfo,
+                                                                    ref commandLimit, ref result);
+                                                            }
+
+                                                            if ((code == ReturnCode.Ok) && (list.Count >= 3))
+                                                            {
+                                                                code = Value.GetNullableWideInteger2(
+                                                                    list[2], ValueFlags.AnyWideInteger,
+                                                                    childInterpreter.InternalCultureInfo,
+                                                                    ref unknownLimit, ref result);
+                                                            }
+
+                                                            if (code == ReturnCode.Ok)
+                                                            {
+                                                                if (operationLimit != null)
+                                                                    childInterpreter.InternalOperationLimit = (long)operationLimit;
+
+                                                                if (commandLimit != null)
+                                                                    childInterpreter.InternalCommandLimit = (long)commandLimit;
+
+                                                                if (unknownLimit != null)
+                                                                    childInterpreter.InternalUnknownLimit = (long)unknownLimit;
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (code == ReturnCode.Ok)
+                                                    {
+                                                        result = StringList.MakeList(
+                                                            "operationLimit", childInterpreter.InternalOperationLimit,
+                                                            "commandLimit", childInterpreter.InternalCommandLimit,
+                                                            "unknownLimit", childInterpreter.InternalUnknownLimit);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"interp execlimit path ?limit?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

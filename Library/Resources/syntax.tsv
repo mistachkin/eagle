@@ -289,7 +289,7 @@ info body	info body procName ?showLines? ?useLocation?
 info callbacks	info callbacks ?pattern?
 info channels	info channels ?pattern?
 info clr	info clr ?refresh?
-info cmdcount	info cmdcount ?path? ?command?
+info cmdcount	info cmdcount ?path? ?type?
 info cmdline	info cmdline
 info cmdtype	info cmdtype commandName
 info commands	info commands ?options? ?pattern?
@@ -375,6 +375,7 @@ interp delete	interp delete ?path ...?
 interp enabled	interp enabled ?path? ?enabled?
 interp eval	interp eval path arg ?arg ...?
 interp eventlimit	interp eventlimit path ?limit?
+interp execlimit	interp execlimit path ?limit?
 interp exists	interp exists ?path?
 interp expose	interp expose path hiddenCmdName ?cmdName?
 interp exposed	interp exposed path
