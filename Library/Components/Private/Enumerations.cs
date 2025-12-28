@@ -28,8 +28,9 @@ namespace Eagle._Components.Private
         ForLegacy = 0x10000000,
         ForDefault = 0x20000000,
 
+        All = OperationCount | CommandCount | UnknownCount,
         Legacy = CommandCount | ForLegacy,
-        Default = OperationCount | CommandCount | UnknownCount | ForDefault
+        Default = All | ForDefault
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

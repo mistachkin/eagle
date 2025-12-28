@@ -3928,13 +3928,16 @@ namespace Eagle._Components.Public
     [ObjectId("15024598-4868-466e-a7cd-f6aa1069b4dc")]
     public enum Arity
     {
-        Any = -4,            /* This function or operator can accept any number of arguments or
-                              * operands. */
-        Automatic = -3,      /* Use the value of the ArgumentsAttribute or the OperandsAttribute
-                              * to determine the arity of the function or operator, respectively. */
-        UnaryAndBinary = -2, /* This operator can accept one or two operands. */
-        None = -1,           /* This function or operator can accept any number of arguments or
-                              * operands. */
+        Any = -5,             /* This function or operator can accept any number
+                               * of arguments or operands. */
+        Automatic = -4,       /* Use the value of the ArgumentsAttribute or the
+                               * OperandsAttribute to determine the arity of the
+                               * function or operator, respectively. */
+        UnaryAndBinary = -3,  /* This operator can accept one or two operands. */
+        NullaryAndUnary = -2, /* This operator can accept zero or one operands. */
+        None = -1,            /* This function or operator can accept any number
+                               * of arguments or operands. */
+
         Nullary = 0,
         Unary = 1,
         Binary = 2,
@@ -3943,11 +3946,11 @@ namespace Eagle._Components.Public
         Quinary = 5,
         Senary = 6,
         Septenary = 7,
-        Octary = 8,
-        Nonary = 9,
+        Octonary = 8,
+        Novenary = 9,
 
         Minimum = Nullary,
-        Maximum = Nonary,
+        Maximum = Novenary,
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

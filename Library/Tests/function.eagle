@@ -16,24 +16,6 @@
 source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 
 ###############################################################################
-
-proc saveAndResetPrecision { {precision 0} } {
-  if {[info exists ::tcl_precision]} then {
-    set ::saved_tcl_precision $::tcl_precision
-    set ::tcl_precision $precision
-  }
-}
-
-###############################################################################
-
-proc restorePrecision {} {
-  if {[info exists ::saved_tcl_precision]} then {
-    set ::tcl_precision $::saved_tcl_precision
-    unset ::saved_tcl_precision
-  }
-}
-
-###############################################################################
 # MONO: Due to a Mono bug, some tests are disabled on Mono.
 #       See: https://bugzilla.novell.com/show_bug.cgi?id=710512
 #       See: https://bugzilla.novell.com/show_bug.cgi?id=710522
@@ -2141,11 +2123,6 @@ runTest {test clock-20.24 {the human duration} -setup {
   unset -nocomplain flags
 } -constraints {eagle} -result {{approximately 1 decade, 7 years, 65 days}\
 {approximately 1 decade, 7 years, 65 days ago}}}
-
-###############################################################################
-
-rename restorePrecision ""
-rename saveAndResetPrecision ""
 
 ###############################################################################
 

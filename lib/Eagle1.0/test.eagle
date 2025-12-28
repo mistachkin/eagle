@@ -1990,6 +1990,20 @@ namespace eval ::Eagle {
     }
   }
 
+  proc saveAndResetPrecision { {precision 0} } {
+    if {[info exists ::tcl_precision]} then {
+      set ::saved_tcl_precision $::tcl_precision
+      set ::tcl_precision $precision
+    }
+  }
+
+  proc restorePrecision {} {
+    if {[info exists ::saved_tcl_precision]} then {
+      set ::tcl_precision $::saved_tcl_precision
+      unset ::saved_tcl_precision
+    }
+  }
+
   proc enableFlags {
           memberName {newFlags ""} {enable ""} {memberType Field}
           {typeName Interpreter} {objectName Interpreter.GetActive} } {
@@ -13610,7 +13624,8 @@ namespace eval ::Eagle {
         maybeGetArgv addToArgv removeFromArgv addConstraintToArgv \
         removeConstraintFromArgv enableSystemAliasFlags setupSystemAliases \
         reopenHost breakpoint debugBreakWithNewConsole setupTestPackageVars \
-        getTestRunTag setupTestRunTag makeProcedureCommand enableFlags \
+        getTestRunTag setupTestRunTag makeProcedureCommand \
+        saveAndResetPrecision restorePrecision enableFlags \
         hasInterpreterFlags hasAllowBigIntegers \
         enableDataFlags enableHostFlags enableInterpreterFlags \
         enableInterpreterStateFlags enablePluginFlags \
