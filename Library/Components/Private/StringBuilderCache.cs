@@ -76,12 +76,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // HACK: If this field is set to non-zero, attempts to release a
-        //       (previously cached?) StringBuilder instance back to the
-        //       pool will start searching at the first index; otherwise,
-        //       they will start with the index based on their capacity.
+        // HACK: If this field is set to non-zero, all attempts to acquire
+        //       or release a (previously cached?) StringBuilder instances
+        //       will start searching at the first index; otherwise, these
+        //       operations will start with an index based on their stated
+        //       capacity.
         //
-        private static int ReleaseToFirst = 1;
+        private static int PreferFirstIndex = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -223,15 +224,11 @@ namespace Eagle._Components.Private
                     if (capacity > 0)
                     {
                         instance = AllocateNew(
-                            null, Index.Invalid, Length.Invalid,
-                            capacity);
+                            null, Index.Invalid, Length.Invalid, capacity);
 
                         if ((instance != null) && Object.ReferenceEquals(
                                 null, Interlocked.CompareExchange(
-                                ref instances[index], instance, null)) &&
-                            Object.ReferenceEquals(
-                                instance, Interlocked.CompareExchange(
-                                ref instances[index], null, null)))
+                                ref instances[index], instance, null)))
                         {
                             success = true;
                             return true;
@@ -348,11 +345,11 @@ namespace Eagle._Components.Private
             {
                 return 0;
             }
-            else if (release && (Interlocked.CompareExchange(
-                    ref ReleaseToFirst, 0, 0) > 0))
+            else if (Interlocked.CompareExchange(
+                    ref PreferFirstIndex, 0, 0) > 0)
             {
                 //
-                // HACK: Release to first available slot?
+                // HACK: Start at first available slot.
                 //
                 return 0;
             }
@@ -364,8 +361,13 @@ namespace Eagle._Components.Private
                     return 0;
                 }
 
-                return MathOps.Log2(
+                int startIndex = MathOps.Log2(
                     capacity) - GetIndexOffset();
+
+                if (startIndex < 0)
+                    startIndex = 0;
+
+                return startIndex;
             }
         }
 
@@ -387,14 +389,18 @@ namespace Eagle._Components.Private
                 if (capacity == null)
                     return 0;
 
-                if (((ulong)capacity < 0) ||
-                    ((ulong)capacity > int.MaxValue))
-                {
+                if ((ulong)capacity > int.MaxValue)
                     return 0;
-                }
 
                 return (int)capacity;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int GetLength()
+        {
+            return instances.Length; /* SAFE: READ-ONLY */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -405,7 +411,7 @@ namespace Eagle._Components.Private
             )
         {
             int startIndex = CapacityToIndex(capacity, false);
-            int length = instances.Length; /* SAFE: READ-ONLY */
+            int length = GetLength();
 
             for (int index = startIndex; index < length; index++)
                 if (TryAcquireFrom(index, ref builder))
@@ -422,7 +428,7 @@ namespace Eagle._Components.Private
             )
         {
             int startIndex = CapacityToIndex(capacity, true);
-            int length = instances.Length; /* SAFE: READ-ONLY */
+            int length = GetLength();
 
             for (int index = startIndex; index < length; index++)
                 if (TryReleaseTo(index, ref builder))
@@ -436,7 +442,7 @@ namespace Eagle._Components.Private
         private static long TryPopulate()
         {
             long count = 0;
-            int length = instances.Length; /* SAFE: READ-ONLY */
+            int length = GetLength();
 
             for (int index = 0; index < length; index++)
                 if (TryPopulateAt(index))
@@ -450,7 +456,7 @@ namespace Eagle._Components.Private
         private static int TryClear()
         {
             int count = 0;
-            int length = instances.Length; /* SAFE: READ-ONLY */
+            int length = GetLength();
 
             for (int index = 0; index < length; index++)
                 if (TryClearAt(index))
@@ -499,7 +505,7 @@ namespace Eagle._Components.Private
         private static long TryOptimize()
         {
             long count = 0;
-            int length = instances.Length; /* SAFE: READ-ONLY */
+            int length = GetLength();
 
             for (int index = 0; index < length; index++)
             {
@@ -762,7 +768,7 @@ namespace Eagle._Components.Private
                 int newCapacity = (int)capacity;
 
                 if ((newCapacity > oldCapacity) &&
-                    (builder.EnsureCapacity(newCapacity) == newCapacity))
+                    (builder.EnsureCapacity(newCapacity) >= newCapacity))
                 {
                     return true;
                 }
@@ -1046,6 +1052,10 @@ namespace Eagle._Components.Private
                             if (!success)
                                 Interlocked.Decrement(ref ThreadPending);
                         }
+                    }
+                    else
+                    {
+                        Interlocked.Decrement(ref ThreadPending);
                     }
                 }
                 else
@@ -1412,12 +1422,12 @@ namespace Eagle._Components.Private
             if (empty || (count != 0))
                 localList.Add("ThreadMilliseconds", count.ToString());
 
-            count = Interlocked.CompareExchange(ref ReleaseToFirst, 0, 0);
+            count = Interlocked.CompareExchange(ref PreferFirstIndex, 0, 0);
 
             if (empty || (count != 0))
                 localList.Add("ReleaseToFirst", count.ToString());
 
-            length = instances.Length; /* SAFE: READ-ONLY */
+            length = GetLength();
 
             for (int index = 0; index < length; index++)
             {
@@ -1445,7 +1455,8 @@ namespace Eagle._Components.Private
                 }
                 finally
                 {
-                    if (!TryReleaseTo(index, ref builder))
+                    if ((builder != null) &&
+                        !TryReleaseTo(index, ref builder))
                     {
                         DebugTraceAlwaysNoCache(String.Format(
                             "AddInfo: cannot release {0}",
