@@ -2730,6 +2730,15 @@ namespace eval ::Eagle {
             set found true; break
           }
 
+          if {[string length [file extension $name]] > 0} then {
+            checkForFile $channel [file join $directory \
+                [appendArgs $prefix $name]] $constraint
+
+            if {[haveConstraint $constraintName]} then {
+              set found true; break
+            }
+          }
+
           foreach architecture [list true false] {
             checkForFile $channel [file join $directory \
                 [machineToPlatform $machine $architecture] \
@@ -2738,6 +2747,16 @@ namespace eval ::Eagle {
 
             if {[haveConstraint $constraintName]} then {
               set found true; break
+            }
+
+            if {[string length [file extension $name]] > 0} then {
+              checkForFile $channel [file join $directory \
+                  [machineToPlatform $machine $architecture] \
+                  [appendArgs $prefix $name]] $constraint
+
+              if {[haveConstraint $constraintName]} then {
+                set found true; break
+              }
             }
           }
 
@@ -5525,25 +5544,29 @@ namespace eval ::Eagle {
     }
 
     proc testForDynamicLoading { {fileName ""} } {
-      if {[catch {
-        if {[string length $fileName] == 0} then {
-          if {[isWindows]} then {
-            set fileName kernel32; # HACK: Always pre-loaded?
-          } elseif {[info exists ::tcl_platform(os)] && \
-              $::tcl_platform(os) eq "Darwin"} then {
-            set fileName libdl.dylib; # TODO: Good default?
-          } else {
-            set fileName libdl.so; # TODO: Good default?
-          }
+      if {[string length $fileName] > 0} then {
+        set fileNames [list $fileName]
+      } else {
+        if {[isWindows]} then {
+          set fileNames [list kernel32]; # HACK: Always pre-loaded?
+        } elseif {[info exists ::tcl_platform(os)] && \
+            $::tcl_platform(os) eq "Darwin"} then {
+          set fileNames [list libdl.dylib]; # TODO: Good default?
+        } else {
+          set fileNames [list libdl.so libdl.so.2]; # TODO: Good default?
         }
+      }
 
-        set error null
+      foreach fileName $fileNames {
+        if {[catch {
+          set error null
 
-        object invoke -flags +NonPublic \
-            Eagle._Components.Private.NativeOps TestLoadLibrary \
-            $fileName error
-      } code] == 0 && $code eq "Ok"} then {
-        return true
+          object invoke -flags +NonPublic \
+              Eagle._Components.Private.NativeOps TestLoadLibrary \
+              $fileName error
+        } code] == 0 && $code eq "Ok"} then {
+          return true
+        }
       }
 
       return false

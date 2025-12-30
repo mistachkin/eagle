@@ -76,13 +76,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // HACK: If this field is set to non-zero, all attempts to acquire
+        // HACK: If this field is set to positive, all attempts to acquire
         //       or release a (previously cached?) StringBuilder instances
-        //       will start searching at the first index; otherwise, these
+        //       will start searching at its index value; otherwise, these
         //       operations will start with an index based on their stated
         //       capacity.
         //
-        private static int PreferFirstIndex = 0;
+        private static int PreferStartIndex = -1;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -341,34 +341,30 @@ namespace Eagle._Components.Private
             bool release  /* in: NOT USED */
             )
         {
-            if (FixedCapacity > 0)
-            {
-                return 0;
-            }
-            else if (Interlocked.CompareExchange(
-                    ref PreferFirstIndex, 0, 0) > 0)
-            {
-                //
-                // HACK: Start at first available slot.
-                //
-                return 0;
-            }
-            else
-            {
-                if ((capacity <= 0) ||
-                    (capacity == MinimumCapacity))
-                {
-                    return 0;
-                }
+            int startIndex = 0; /* REUSED */
+            int length = GetLength();
 
-                int startIndex = MathOps.Log2(
-                    capacity) - GetIndexOffset();
-
-                if (startIndex < 0)
-                    startIndex = 0;
-
+            if (length == 0)
                 return startIndex;
-            }
+
+            if (FixedCapacity > 0)
+                return startIndex;
+
+            startIndex = Interlocked.CompareExchange(
+                ref PreferStartIndex, 0, 0);
+
+            if ((startIndex >= 0) && (startIndex < length))
+                return startIndex;
+
+            if ((capacity <= 0) || (capacity == MinimumCapacity))
+                return 0;
+
+            startIndex = MathOps.Log2(capacity) - GetIndexOffset();
+
+            if ((startIndex < 0) || (startIndex >= length))
+                startIndex = 0;
+
+            return startIndex;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1422,10 +1418,10 @@ namespace Eagle._Components.Private
             if (empty || (count != 0))
                 localList.Add("ThreadMilliseconds", count.ToString());
 
-            count = Interlocked.CompareExchange(ref PreferFirstIndex, 0, 0);
+            count = Interlocked.CompareExchange(ref PreferStartIndex, 0, 0);
 
             if (empty || (count != 0))
-                localList.Add("ReleaseToFirst", count.ToString());
+                localList.Add("PreferStartIndex", count.ToString());
 
             length = GetLength();
 
