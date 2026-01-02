@@ -38,6 +38,7 @@ namespace Eagle._Interfaces.Public
         long Id { get; }
         long GroupId { get; }
         long CreateCount { get; }
+        long DisposeCount { get; }
         long OperationCount { get; }
         long CommandCount { get; }
         long UnknownCount { get; }
@@ -89,6 +90,12 @@ namespace Eagle._Interfaces.Public
 
         [Throw(false)]
         DateTime CreatedNoThrow { get; }   /* INTERNAL USE ONLY. */
+
+        [Throw(false)]
+        long DisposeCountNoThrow { get; }  /* INTERNAL USE ONLY. */
+
+        [Throw(false)]
+        DateTime DisposedNoThrow { get; }  /* INTERNAL USE ONLY. */
 
         [Throw(false)]
         int GetHashCodeNoThrow();          /* INTERNAL USE ONLY. */

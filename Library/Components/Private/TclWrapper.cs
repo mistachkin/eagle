@@ -368,7 +368,7 @@ namespace Eagle._Components.Private.Tcl
         //       will be tested for validity by using LoadLibrary on them;
         //       otherwise, they will be checked only for existence.
         //
-        private static bool forceTestLoadTclLibraryFile = false;
+        private static bool? forceTestLoadTclLibraryFile = null;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1410,6 +1410,16 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static bool ShouldTestLoadTclLibraryFile()
+        {
+            if (forceTestLoadTclLibraryFile != null)
+                return (bool)forceTestLoadTclLibraryFile;
+
+            return PlatformOps.IsMacintoshOperatingSystem();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static bool CheckTclLibraryFile(
             Interpreter interpreter, /* in */
             string fileName          /* in */
@@ -1418,8 +1428,7 @@ namespace Eagle._Components.Private.Tcl
             if (!CheckTclLibraryPath(fileName))
                 return false;
 
-            if (forceTestLoadTclLibraryFile ||
-                PlatformOps.IsMacintoshOperatingSystem())
+            if (ShouldTestLoadTclLibraryFile())
             {
                 if (!RuntimeOps.IsFileTrusted(
                         interpreter, null, fileName,

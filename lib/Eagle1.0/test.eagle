@@ -9681,6 +9681,60 @@ namespace eval ::Eagle {
     return $result
   }
 
+  proc compileCanaryDyLib { {errorVarName ""} } {
+    if {[string length $errorVarName] > 0} then {
+      upvar 1 $errorVarName error
+    }
+
+    set targetPath [file join [getTemporaryPath] [appendArgs p [pid]]]
+    file mkdir $targetPath
+
+    set targetFileNameOnly libCanary.dylib
+    set targetFileName [file join $targetPath $targetFileNameOnly]
+
+    if {[file exists $targetFileName]} then {
+      #
+      # NOTE: The caller (probably) does not own the target (temporary)
+      #       file name because it already exists; therefore, we cannot
+      #       do anything "safely".
+      #
+      set error [appendArgs \
+          "cannot compile, target file already exists: " $targetFileName]
+    } else {
+      set sourceFileName [appendArgs [getTemporaryFileName] .c]
+      writeFile $sourceFileName {int canary_sing(void) {return 42;}}
+
+      if {[catch {
+        exec -- clang -dynamiclib -O2 -o $targetFileName $sourceFileName \
+            [appendArgs -Wl,-install_name,@rpath/ $targetFileNameOnly]
+      } error] == 0} then {
+        if {[file exists $sourceFileName]} then {
+          catch {file delete $sourceFileName}
+        }
+
+        return $targetFileName; # SUCCESS
+      } else {
+        if {[file exists $targetFileName]} then {
+          catch {file delete $targetFileName}
+        }
+
+        if {[file exists $sourceFileName]} then {
+          catch {file delete $sourceFileName}
+        }
+
+        if {[file exists $targetPath]} then {
+          if {[isEagle]} then {
+            catch {file rmdir $targetPath}
+          } else {
+            catch {file delete $targetPath}
+          }
+        }
+      }
+    }
+
+    return ""
+  }
+
   if {[isEagle]} then {
     ###########################################################################
     ############################ BEGIN Eagle ONLY #############################
@@ -12842,24 +12896,37 @@ namespace eval ::Eagle {
       set loaded 0
 
       if {![tcl ready]} then {
-        set command [list tcl load]
+        set disabled [expr {[info exists ::no(tclLoadForTest)]}]
+        set channel [getTestChannelOrDefault]
 
-        if {[string length $findFlags] > 0} then {
-          lappend command -findflags $findFlags
+        if {!$disabled} then {
+          set command [list tcl load]
+
+          if {[string length $findFlags] > 0} then {
+            lappend command -findflags $findFlags
+          }
+
+          if {[string length $loadFlags] > 0} then {
+            lappend command -loadflags $loadFlags
+          }
+
+          uplevel 1 $command
         }
 
-        if {[string length $loadFlags] > 0} then {
-          lappend command -loadflags $loadFlags
+        set loaded 1; # NOTE: May be faked.
+
+        if {!$disabled} then {
+          set moduleName [appendArgs \" [tcl module] \"]
+          set interpName [appendArgs \" [tcl primary] \"]
+        } else {
+          set moduleName <none>
+          set interpName <none>
         }
 
-        uplevel 1 $command; set loaded 1
-
-        set module [tcl module]
-        set interp [tcl primary]
-
-        tputs [getTestChannelOrDefault] [appendArgs \
-            "---- native Tcl loaded, module \"" $module \
-            "\", interpreter \"" $interp \"\n]
+        tputs $channel [appendArgs \
+            "---- native Tcl " [expr {$disabled ? "not " : ""}] \
+            "loaded, module \"" $moduleName "\", interpreter \"" \
+            $interpName \"\n]
 
         if {[info exists ::env(tclPostLoad)]} then {
           eval $::env(tclPostLoad); # HOOK
@@ -12889,19 +12956,27 @@ namespace eval ::Eagle {
           set unload true
         }
 
-        unset -nocomplain loaded
+        unset -nocomplain loaded; # NOTE: May be faked.
       }
 
       if {$unload} then {
-        set module [tcl module]
-        set interp [tcl primary]
+        set disabled [expr {[info exists ::no(tclUnloadForTest)]}]
+        set channel [getTestChannelOrDefault]
 
-        uplevel 1 [list tcl unload]
+        if {!$disabled} then {
+          set moduleName [appendArgs \" [tcl module] \"]
+          set interpName [appendArgs \" [tcl primary] \"]
 
-        tputs [getTestChannelOrDefault] [appendArgs \
-            "---- native Tcl " [expr {$force ? "forcibly " : ""}] \
-            "unloaded, module \"" $module "\", interpreter \"" \
-            $interp \"\n]
+          uplevel 1 [list tcl unload]
+        } else {
+          set moduleName <none>
+          set interpName <none>
+        }
+
+        tputs $channel [appendArgs \
+            "---- native Tcl " [expr {$disabled ? "not " : ""}] \
+            [expr {$force ? "forcibly " : ""}] "unloaded, module \"" \
+            $moduleName "\", interpreter \"" $interpName \"\n]
 
         if {[info exists ::env(tclPostUnload)]} then {
           eval $::env(tclPostUnload); # HOOK
@@ -13692,9 +13767,9 @@ namespace eval ::Eagle {
         isLogRemoteMessageOk logRemoteMessage logRemoteMessageFile \
         logRemoteMessageQueue logRemoteMessageWrapper getRemoteMessageHeader \
         getRemoteTestResults logRemoteTestResults logRemoteTestRunMessage \
-        getPassedPercentage getSkippedPercentage testCheckOverallResult \
-        reportTestResultCounts getTestSnippets lmissing getTestAppDomains] \
-        false false
+        compileCanaryDyLib getPassedPercentage getSkippedPercentage \
+        testCheckOverallResult reportTestResultCounts getTestSnippets \
+        lmissing getTestAppDomains] false false
 
     ###########################################################################
     ############################## END Tcl ONLY ###############################

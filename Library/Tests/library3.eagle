@@ -135,11 +135,16 @@ runTest {test library-3.1 {declare and call Tcl functions} -setup [subst \
           "\" does not match pre-loaded file name \"" $savedTclModule \"]
     }
 
-    set added [addToPath [file nativename [file dirname $dll]]]
+    if {[isMacOS]} then {
+      set m4 [library load $dll]; # test direct load
+    } else {
+      set added [addToPath [file nativename [file dirname $dll]]]
+      set m4 [library load [file tail $dll]]; # test load via PATH
 
-    set m4 [library load [file tail $dll]]; # test load via PATH
-
-    if {$added} then {removeFromPath [file nativename [file dirname $dll]]}
+      if {$added} then {
+        removeFromPath [file nativename [file dirname $dll]]
+      }
+    }
 
     set d1 [library declare -module $m4 -functionname \
         Tcl_CreateInterp -callingconvention cdecl -returntype IntPtr]
@@ -350,12 +355,15 @@ runTest {test library-3.2 {Tcl exit handler interaction} -setup [subst \
   if {[llength $tcls] > 0} then {
     set dll [tcl module]; # must use the same one we actually just loaded.
 
-    set added [addToPath [file nativename [file dirname $dll]]]
+    if {[isMacOS]} then {
+      set m4 [library load $dll]; # test direct load
+    } else {
+      set added [addToPath [file nativename [file dirname $dll]]]
+      set m4 [library load [file tail $dll]]; # test load via PATH
 
-    set m4 [library load [file tail $dll]]; # test load via PATH
-
-    if {$added} then {
-      removeFromPath [file nativename [file dirname $dll]]
+      if {$added} then {
+        removeFromPath [file nativename [file dirname $dll]]
+      }
     }
 
     set d1 [library declare -module $m4 -functionname \

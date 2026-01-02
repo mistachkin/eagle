@@ -1596,6 +1596,7 @@ namespace Eagle._Components.Public
         EventDebug2 = Highest | Debug,            // event manager and processing
         ConsoleDebug2 = Highest | Debug,          // built-in console host, etc.
         ProcessDebug2 = Highest | Debug,          // process handling, [exec], etc.
+        NativeDebug5 = Highest | Debug,           // native code and interop (summary)
 
         InputDebug = Always | Debug,              // malformed input, parse error, etc.
         StateDebug = Always | Debug,              // internal state changes, etc.

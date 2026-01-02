@@ -1593,7 +1593,7 @@ namespace Eagle._Components.Private
                 TraceOps.DebugTrace(String.Format(
                     "CanReadFileAttributes: access check error = {0}",
                     FormatOps.WrapOrNull(error)), typeof(FileOps).Name,
-                    TracePriority.Low);
+                    TracePriority.FileSystemWarning);
 
                 return false;
             }
@@ -1603,7 +1603,7 @@ namespace Eagle._Components.Private
                 TraceOps.DebugTrace(String.Format(
                     "CanReadFileAttributes: missing some rights = {0}",
                     FormatOps.WrapOrNull(grantedRights)),
-                    typeof(FileOps).Name, TracePriority.Low);
+                    typeof(FileOps).Name, TracePriority.FileSystemWarning);
 
                 error = "missing rights to read file attributes";
                 return false;

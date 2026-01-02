@@ -102,8 +102,8 @@ runTest {test exec-1.2 {-debug option} -setup {
 
   unset -nocomplain output pid
 } -constraints {eagle testExec fossil_version} -match regexp -result \
-{^0 \d+ \{This is fossil version \d+\.\d+ \[[0-9a-f]{10}\] \d{4}-\d{2}-\d{2}\
-\d{2}:\d{2}:\d{2} UTC\}$}}
+{^0 \d+ \{This is fossil version \d+\.\d+(?:-[0-9a-z]+)? \[[0-9a-f]{10}\]\
+\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC\}$}}
 
 ###############################################################################
 

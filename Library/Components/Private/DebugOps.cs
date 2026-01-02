@@ -26,10 +26,14 @@ using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Components.Public.Delegates;
 using Eagle._Constants;
+using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using SDD = System.Diagnostics.Debugger;
+
+using ComplaintTriplet = Eagle._Components.Public.AnyTriplet<
+    long, long, Eagle._Components.Public.Result>;
 
 #if TEST
 using IBufferedTraceListener = Eagle._Tests.Default.IBufferedTraceListener;
@@ -328,6 +332,14 @@ namespace Eagle._Components.Private
         // HACK: Which thread currently holds the static lock?
         //
         private static long lockThreadId = 0;
+
+        ///////////////////////////////////////////////////////////////////////
+ 
+        //
+        // HACK: Keep track of all complaints that have been seen by this
+        //       class.
+        //
+        private static readonly ComplaintList complaints = new ComplaintList();
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -1884,6 +1896,120 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool DumpComplaints(
+            Interpreter interpreter, /* in: OPTIONAL */
+            Encoding encoding,       /* in: OPTIONAL */
+            string fileName,         /* in: OPTIONAL */
+            bool clear               /* in */
+            )
+        {
+            bool locked = false;
+
+            try
+            {
+                TryLock(ref locked);
+
+                if (locked)
+                {
+                    if (complaints == null)
+                        return false;
+
+                    long interpreterId = 0;
+
+                    if (interpreter != null)
+                        interpreterId = interpreter.IdNoThrow;
+
+                    int count = complaints.Count;
+
+                    if (fileName != null)
+                    {
+                        if (encoding == null)
+                        {
+                            encoding = StringOps.GetEncoding(
+                                EncodingType.Default);
+
+                            if (encoding == null)
+                                return false;
+                        }
+
+                        using (FileStream stream = new FileStream(
+                                fileName, FileMode.CreateNew, FileAccess.Write,
+                                FileShare.Read))
+                        {
+                            for (int index = count - 1; index >= 0; index--)
+                            {
+                                ComplaintTriplet triplet = complaints[index];
+
+                                if (triplet == null)
+                                    continue;
+
+                                if ((interpreterId != 0) &&
+                                    (triplet.X != interpreterId))
+                                {
+                                    continue;
+                                }
+
+                                byte[] bytes = encoding.GetBytes(triplet.Z);
+
+                                if (bytes == null)
+                                    continue;
+
+                                stream.Write(bytes, 0, bytes.Length);
+
+                                stream.Write(Characters.DoesNewLineBytes,
+                                    0, Characters.DoesNewLineBytes.Length);
+
+                                stream.Write(Characters.FormFeedBytes,
+                                    0, Characters.FormFeedBytes.Length);
+
+                                stream.Flush();
+
+                                if (clear)
+                                    complaints.RemoveAt(index);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (int index = count - 1; index >= 0; index--)
+                        {
+                            ComplaintTriplet triplet = complaints[index];
+
+                            if (triplet == null)
+                                continue;
+
+                            if ((interpreterId != 0) &&
+                                (triplet.X != interpreterId))
+                            {
+                                continue;
+                            }
+
+                            WriteWithoutFail(triplet.Z);
+
+                            if (clear)
+                                complaints.RemoveAt(index);
+                        }
+                    }
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "DumpComplaints",
+                        typeof(DebugOps).Name, true,
+                        TracePriority.LockError3,
+                        MaybeWhoHasLock());
+                }
+
+                return false;
+            }
+            finally
+            {
+                ExitLock(ref locked);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // WARNING: This method must *NOT* throw any exceptions.
         //
@@ -2028,6 +2154,56 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
+        private static bool RecordComplaint(
+            Interpreter interpreter, /* in: OPTIONAL */
+            long complaintId,        /* in */
+            string complaint         /* in */
+            )
+        {
+            if (complaint == null)
+                return false;
+
+            long interpreterId = 0;
+
+            if (interpreter != null)
+                interpreterId = interpreter.IdNoThrow;
+
+            bool locked = false;
+
+            try
+            {
+                TryLock(ref locked);
+
+                if (locked)
+                {
+                    if (complaints == null) /* IMPOSSIBLE (?) */
+                        return false;
+
+                    complaints.Add(new ComplaintTriplet(
+                        interpreterId, complaintId, complaint));
+
+                    return true;
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "RecordComplaint",
+                        typeof(DebugOps).Name, true,
+                        TracePriority.LockError3,
+                        MaybeWhoHasLock());
+
+                    return false;
+                }
+            }
+            finally
+            {
+                ExitLock(ref locked);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private static void Complain(
             ComplainCallback callback,
             Interpreter interpreter,
@@ -2078,6 +2254,9 @@ namespace Eagle._Components.Private
                 {
                     string formatted = FormatOps.Complaint(
                         id, code, result, stackTrace);
+
+                    /* IGNORED */
+                    RecordComplaint(interpreter, id, formatted);
 
                     /* IGNORED */
                     SafeSetComplaint(interpreter, formatted);

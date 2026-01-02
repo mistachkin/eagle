@@ -966,6 +966,28 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            #region Unix Workaround Methods (macOS)
+            [DllImport(DllName.LibSystem)]
+            [return: MarshalAs(UnmanagedType.I1)]
+            internal static extern bool notify_is_valid_token(
+                int val /* in */
+            );
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.LibSystem)]
+            internal static extern /* xpc_object_t */ IntPtr xpc_date_create_from_current();
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.LibXpc)]
+            internal static extern void xpc_release(
+                /* xpc_object_t */ IntPtr @object /* in */
+            );
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             #region Unix Process Methods
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
@@ -2421,6 +2443,13 @@ namespace Eagle._Components.Private
 
         #region Private Windows Specific Methods (DO NOT CALL)
 #if WINDOWS
+        private static void WindowsPlatformWorkarounds()
+        {
+            // do nothing.
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static void WindowsInitializeMemoryStatus(
             out UnsafeNativeMethods.MEMORYSTATUSEX memoryStatus /* out */
             )
@@ -2929,6 +2958,75 @@ namespace Eagle._Components.Private
 
         #region Private Unix Specific Methods (DO NOT CALL)
 #if UNIX
+        private static void MacintoshPlatformWorkarounds()
+        {
+            #region Force "libnotify" One-Time Initialization
+            bool libNotifyOk = false;
+
+            try
+            {
+                libNotifyOk = !UnsafeNativeMethods.notify_is_valid_token(0);
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(NativeOps).Name,
+                    TracePriority.NativeError);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////
+
+            #region Force "libxpc" One-Time Initialization
+            bool libXpcCreateOk = false;
+            bool libXpcReleaseOk = false;
+            IntPtr @object = IntPtr.Zero;
+
+            try
+            {
+                @object = UnsafeNativeMethods.xpc_date_create_from_current();
+                libXpcCreateOk = (@object != IntPtr.Zero);
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(NativeOps).Name,
+                    TracePriority.NativeError);
+            }
+            finally
+            {
+                if (@object != IntPtr.Zero)
+                {
+                    try
+                    {
+                        UnsafeNativeMethods.xpc_release(@object);
+                        libXpcReleaseOk = true;
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(NativeOps).Name,
+                            TracePriority.NativeError);
+                    }
+                    finally
+                    {
+                        @object = IntPtr.Zero;
+                    }
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////
+
+            TraceOps.DebugTrace(String.Format(
+                "MacintoshPlatformWorkarounds: libNotifyOk = {0}, " +
+                "libXpcCreateOk = {1}, libXpcReleaseOk = {2}",
+                libNotifyOk, libXpcCreateOk, libXpcReleaseOk),
+                typeof(NativeOps).Name, TracePriority.NativeDebug5);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static IntPtr MacintoshGetCurrentThreadId()
         {
             try
@@ -2947,6 +3045,13 @@ namespace Eagle._Components.Private
             }
 
             return IntPtr.Zero;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void LinuxPlatformWorkarounds()
+        {
+            // do nothing.
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2987,6 +3092,17 @@ namespace Eagle._Components.Private
             }
 
             return IntPtr.Zero;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void UnixPlatformWorkarounds()
+        {
+            if (PlatformOps.IsLinuxOperatingSystem())
+                LinuxPlatformWorkarounds();
+
+            if (PlatformOps.IsMacintoshOperatingSystem())
+                MacintoshPlatformWorkarounds();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4052,6 +4168,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Platform Abstraction Methods
+        public static void PlatformWorkarounds()
+        {
+#if WINDOWS
+            if (PlatformOps.IsWindowsOperatingSystem())
+                WindowsPlatformWorkarounds();
+#endif
+
+#if UNIX
+            if (PlatformOps.IsUnixOperatingSystem())
+                UnixPlatformWorkarounds();
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static GCHandle GetInvalidGCHandle()
         {
             return invalidGCHandle;

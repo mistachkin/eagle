@@ -634,6 +634,7 @@ set eagle_manifests(source) {
   Eagle/Library/Containers/Private/CharLongDictionary.cs
   Eagle/Library/Containers/Private/ClientDataList.cs
   Eagle/Library/Containers/Private/CommandWrapperDictionary.cs
+  Eagle/Library/Containers/Private/ComplaintList.cs
   Eagle/Library/Containers/Private/ConstructorInfoList.cs
   Eagle/Library/Containers/Private/CultureInfoDictionary.cs
   Eagle/Library/Containers/Private/DateTimeListDictionary.cs
@@ -3525,6 +3526,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Containers/Private/CharLongDictionary.cs
   src/Library/Containers/Private/ClientDataList.cs
   src/Library/Containers/Private/CommandWrapperDictionary.cs
+  src/Library/Containers/Private/ComplaintList.cs
   src/Library/Containers/Private/ConstructorInfoList.cs
   src/Library/Containers/Private/CultureInfoDictionary.cs
   src/Library/Containers/Private/DateTimeListDictionary.cs

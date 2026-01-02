@@ -5301,6 +5301,20 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
+        public static bool DumpComplaints(
+            Interpreter interpreter,
+            Encoding encoding,
+            string fileName,
+            bool clear
+            )
+        {
+            return DebugOps.DumpComplaints(
+                interpreter, encoding, fileName, clear);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Complain(
             Interpreter interpreter,
             ReturnCode code,

@@ -453,6 +453,7 @@
     <Compile Include="Containers\Private\CharList.cs" />
     <Compile Include="Containers\Private\CharLongDictionary.cs" />
     <Compile Include="Containers\Private\CommandWrapperDictionary.cs" />
+    <Compile Include="Containers\Private\ComplaintList.cs" />
     <Compile Include="Containers\Private\ConstructorInfoList.cs" />
     <Compile Include="Containers\Private\CultureInfoDictionary.cs" />
     <Compile Include="Containers\Private\DateTimeListDictionary.cs" />

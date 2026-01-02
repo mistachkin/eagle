@@ -5543,29 +5543,63 @@ namespace eval ::Eagle {
       }
     }
 
-    proc testForDynamicLoading { {fileName ""} } {
-      if {[string length $fileName] > 0} then {
-        set fileNames [list $fileName]
-      } else {
-        if {[isWindows]} then {
-          set fileNames [list kernel32]; # HACK: Always pre-loaded?
-        } elseif {[info exists ::tcl_platform(os)] && \
-            $::tcl_platform(os) eq "Darwin"} then {
-          set fileNames [list libdl.dylib]; # TODO: Good default?
-        } else {
-          set fileNames [list libdl.so libdl.so.2]; # TODO: Good default?
+    proc testForDynamicLoading { {fileName ""} {errorVarName ""} } {
+      if {![info exists ::no(testForDynamicLoading)]} then {
+        if {[string length $errorVarName] > 0} then {
+          upvar 1 $errorVarName error
         }
-      }
 
-      foreach fileName $fileNames {
-        if {[catch {
-          set error null
+        try {
+          if {[string length $fileName] > 0} then {
+            set fileNames [list $fileName]
+          } else {
+            if {[info exists \
+                ::eagle_debugger(dynamicLoadingTestFiles)]} then {
+              set fileNames $::eagle_debugger(dynamicLoadingTestFiles)
+            } else {
+              set fileNames [list]
 
-          object invoke -flags +NonPublic \
-              Eagle._Components.Private.NativeOps TestLoadLibrary \
-              $fileName error
-        } code] == 0 && $code eq "Ok"} then {
-          return true
+              if {[isWindows]} then {
+                lappend fileNames kernel32; # HACK: Always pre-loaded?
+              } elseif {[info exists ::tcl_platform(os)] && \
+                  $::tcl_platform(os) eq "Darwin"} then {
+                set fileName [compileCanaryDyLib error]
+
+                if {[string length $fileName] > 0} then {
+                  set delete($fileName) 1; # finally delete
+                  lappend fileNames $fileName
+                }
+              } else {
+                lappend fileNames libdl.so
+                lappend fileNames libdl.so.2
+              }
+            }
+          }
+
+          foreach fileName $fileNames {
+            if {[catch {
+              set error null
+
+              object invoke -flags +NonPublic \
+                  Eagle._Components.Private.NativeOps \
+                  TestLoadLibrary $fileName error
+            } code] == 0 && $code eq "Ok"} then {
+              return true
+            }
+          }
+        } finally {
+          foreach fileName [array names delete] {
+            if {[file exists $fileName]} then {
+              catch {file delete $fileName}
+            }
+
+            set directory [file dirname $fileName]
+
+            if {[file exists $directory] || \
+                [file isdirectory $directory]} then {
+              catch {file rmdir $directory}
+            }
+          }
         }
       }
 
@@ -5577,10 +5611,17 @@ namespace eval ::Eagle {
 
       #
       # NOTE: As far as we know, dynamic loading always works on Windows.
-      #       On some Unix systems, dlopen does not work (e.g. because
+      #       On some (Unix) systems, dlopen does not work (e.g. because
       #       Mono is statically linked, etc).
       #
-      if {[isWindows] || [testForDynamicLoading]} then {
+      if {[info exists ::no(checkForDynamicLoading)]} then {
+        #
+        # NOTE: On (some releases of) macOS, it seems that loading and/or
+        #       unloading a dynamic native library can cause kernel hangs
+        #       (deadlocks?) later in the testing process.
+        #
+        tputs $channel disabled\n
+      } elseif {[isWindows] || [testForDynamicLoading "" error]} then {
         #
         # NOTE: Yes, it appears that it is available.
         #
@@ -5589,6 +5630,11 @@ namespace eval ::Eagle {
         tputs $channel yes\n
       } else {
         tputs $channel no\n
+
+        if {[info exists error] && [string length $error] > 0} then {
+          tputs $channel [appendArgs \
+              "---- error while testing dynamic loading: " $error \n]
+        }
       }
     }
 

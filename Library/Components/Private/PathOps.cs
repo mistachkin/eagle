@@ -1978,7 +1978,12 @@ namespace Eagle._Components.Private
                         path, (bool)checkLinks, ref mode,
                         ref error) != ReturnCode.Ok)
                 {
-                    DebugOps.Complain(ReturnCode.Error, error);
+                    TraceOps.DebugTrace(String.Format(
+                        "IsNormal: error = {0}",
+                        FormatOps.WrapOrNull(error)),
+                        typeof(PathOps).Name,
+                        TracePriority.FileSystemWarning);
+
                     return false;
                 }
 

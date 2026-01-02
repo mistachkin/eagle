@@ -341,6 +341,9 @@ namespace Eagle._Constants
 #else
         public const string Internal = LibC;
 #endif
+
+        public const string LibSystem = "libSystem.B.dylib";
+        public const string LibXpc = "/usr/lib/system/libxpc.dylib";
 #endif
     }
 #endif

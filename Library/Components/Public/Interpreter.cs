@@ -778,10 +778,10 @@ namespace Eagle._Components.Public
         //       them from a resource file.
         //
         internal const string ArgumentNotScalarError =
-            "formal parameter \"{0}\" is an array element";
+            "formal parameter {0} is an array element";
 
         internal const string ArgumentNotSimpleError =
-            "formal parameter \"{0}\" is not a simple name";
+            "formal parameter {0} is not a simple name";
         #endregion
         #endregion
 
@@ -894,6 +894,13 @@ namespace Eagle._Components.Public
         //       the Create static method.
         //
         private long createCount = 0;
+
+        //
+        // NOTE: The disposed ticks for this interpreter (read-only).  This
+        //       will only be set the very first time an interpreter sees a
+        //       Dispose(bool) call.
+        //
+        private long disposedTicks = 0;
 
         //
         // FIXME: Review and revise usage of locking in the interpreter object,
@@ -42105,6 +42112,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public long DisposeCount
+        {
+            get { CheckDisposed(); /* NO-LOCK */ return PrivateDisposeCount; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public long OperationCount
         {
             get { CheckDisposed(); /* NO-LOCK */ return OperationCountNoLock; }
@@ -42392,6 +42406,47 @@ namespace Eagle._Components.Public
                 /* CheckDisposed(); */
 
                 long ticks = Interlocked.CompareExchange(ref createdTicks, 0, 0);
+
+                if (ticks != 0)
+                {
+                    DateTime? then = FormatOps.UtcOrNull(ticks);
+
+                    if (then != null)
+                        return (DateTime)then;
+                }
+
+                return DateTime.MinValue;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public long DisposeCountNoThrow
+        {
+            get
+            {
+                //
+                // NOTE: This method may NOT throw exceptions.
+                //
+                /* CheckDisposed(); */
+
+                /* NO-LOCK */
+                return PrivateDisposeCount;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public DateTime DisposedNoThrow
+        {
+            get
+            {
+                //
+                // NOTE: This method may NOT throw exceptions.
+                //
+                /* CheckDisposed(); */
+
+                long ticks = Interlocked.CompareExchange(ref disposedTicks, 0, 0);
 
                 if (ticks != 0)
                 {
@@ -42855,6 +42910,16 @@ namespace Eagle._Components.Public
             // NOTE: For use by the CreateCount property only.
             //
             get { return Interlocked.CompareExchange(ref createCount, 0, 0); }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private long PrivateDisposeCount
+        {
+            //
+            // NOTE: For use by the DisposeCount property only.
+            //
+            get { return Interlocked.CompareExchange(ref disposeCount, 0, 0); }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -44884,7 +44949,7 @@ namespace Eagle._Components.Public
                     TraceOps.DebugTrace(String.Format(
                         "AttemptToUseUnknown: limit exceeded: {0}",
                         unknownLimit), typeof(Interpreter).Name,
-                        TracePriority.Medium);
+                        TracePriority.ScriptError);
                 }
 
                 return returnCode;
@@ -92609,8 +92674,7 @@ namespace Eagle._Components.Public
                     {
                         result = String.Format(
                             "failed to start garbage collection test thread, " +
-                            "caught exception \"{0}\"",
-                            e);
+                            "caught exception {0}", FormatOps.WrapOrNull(e));
                     }
                     finally
                     {
@@ -92719,8 +92783,7 @@ namespace Eagle._Components.Public
                     {
                         result = String.Format(
                             "failed to interrupt garbage collection test thread, " +
-                            "caught exception \"{0}\"",
-                            e);
+                            "caught exception {0}", FormatOps.WrapOrNull(e));
                     }
                 }
                 else
@@ -93483,6 +93546,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private double? SecondsSinceDisposed(
+            DateTime now
+            )
+        {
+            try
+            {
+                long ticks = Interlocked.CompareExchange(
+                    ref disposedTicks, 0, 0);
+
+                if (ticks != 0)
+                {
+                    DateTime? then = FormatOps.UtcOrNull(ticks);
+
+                    if (then != null)
+                        return now.Subtract(
+                            (DateTime)then).TotalSeconds; /* throw */
+                }
+            }
+            catch
+            {
+                // do nothing.
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private double? SecondsSinceHealthChecked(
             DateTime now
             )
@@ -93588,11 +93679,13 @@ namespace Eagle._Components.Public
             {
                 TraceOps.DebugTrace(String.Format(
                     "ReportHealth ({0}): interpreter: {1}, created: {2}, " +
-                    "evaluated: {3}, checked: {4}, ok: {5}, sleep: {6} " +
-                    "milliseconds, run: {7} milliseconds, average: {8}, " +
-                    "good: {9}, bad: {10}", status & _CheckStatus.TimeMask,
+                    "disposed: {3}, evaluated: {4}, checked: {5}, ok: {6}, " +
+                    "sleep: {7} milliseconds, run: {8} milliseconds, " +
+                    "average: {9}, good: {10}, bad: {11}",
+                    (status & _CheckStatus.TimeMask),
                     FormatOps.InterpreterNoThrow(this),
                     FormatOps.SecondsOrNull(SecondsSinceCreated(now)),
+                    FormatOps.SecondsOrNull(SecondsSinceDisposed(now)),
                     FormatOps.MaybeNull(performance),
                     FormatOps.SecondsOrNull(SecondsSinceHealthChecked(now)),
                     FormatOps.SecondsOrNull(SecondsSinceHealthOk(now)),
@@ -110819,6 +110912,11 @@ namespace Eagle._Components.Public
 
                 list.Add("Created", FormatOps.Iso8601FullDateTime(then));
 
+                ticks = Interlocked.CompareExchange(ref disposedTicks, 0, 0);
+                then = (ticks != 0) ? FormatOps.UtcOrNull(ticks) : null;
+
+                list.Add("Disposed", FormatOps.Iso8601FullDateTime(then));
+
 #if DEBUG
                 ulong? token = Token; /* PROPERTY */
 
@@ -123205,6 +123303,9 @@ namespace Eagle._Components.Public
         {
             Interlocked.Increment(ref globalDisposeCount);
 
+            Interlocked.CompareExchange(
+                ref disposedTicks, TimeOps.GetUtcNowTicks(), 0);
+
             DisposeTrace(false, disposing);
 
             if (!disposed)
@@ -123766,6 +123867,15 @@ namespace Eagle._Components.Public
             /* NO RESULT */
             TclWrapper.Initialize(false, false);
 #endif
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            //
+            // HACK: Perform any platform-specific workarounds that require a
+            //       native API call, syscall, etc.
+            //
+            /* NO RESULT */
+            NativeOps.PlatformWorkarounds();
 #endif
 
             ///////////////////////////////////////////////////////////////////////////////////////////

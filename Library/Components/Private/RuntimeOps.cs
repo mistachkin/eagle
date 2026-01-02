@@ -119,7 +119,7 @@ namespace Eagle._Components.Private
         //       objects are available to resolve runtime string resources.
         //
         private const string CultureInfoError =
-            "could not interpret \"{0}\" as a culture name or identifier";
+            "could not interpret {0} as a culture name or identifier";
 
         private const string InvalidCultureInfoError =
             "invalid culture";
@@ -131,7 +131,7 @@ namespace Eagle._Components.Private
             "invalid resource assembly";
 
         private const string ResourceManagerError =
-            "could not create resource manager \"{0}\"";
+            "could not create resource manager {0}";
 
         private const string InvalidInterpreterResourceManager =
             "invalid interpreter resource manager";
@@ -5472,8 +5472,8 @@ namespace Eagle._Components.Private
                 if (count3 > 2)
                 {
                     error = String.Format(
-                        "too many fields in argument specifier \"{0}\"",
-                        list1[index1]);
+                        "too many fields in argument specifier {0}",
+                        FormatOps.WrapOrNull(list1[index1]));
 
                     return ReturnCode.Error;
                 }
@@ -5495,10 +5495,10 @@ namespace Eagle._Components.Private
                 if (!Parser.IsSimpleScalarVariableName(
                         argumentName, String.Format(
                             Interpreter.ArgumentNotSimpleError,
-                            argumentName),
+                            FormatOps.WrapOrNull(argumentName)),
                         String.Format(
                             Interpreter.ArgumentNotScalarError,
-                            argumentName),
+                            FormatOps.WrapOrNull(argumentName)),
                         ref error))
                 {
                     return ReturnCode.Error;
@@ -5747,7 +5747,7 @@ namespace Eagle._Components.Private
                         {
                             error = FormatOps.ErrorWithException(
                                 String.Format(CultureInfoError,
-                                culture), e);
+                                FormatOps.WrapOrNull(culture)), e);
                         }
                         else
                         {
@@ -5804,8 +5804,9 @@ namespace Eagle._Components.Private
             }
             catch (Exception e)
             {
-                error = FormatOps.ErrorWithException(String.Format(
-                    ResourceManagerError, resourceBaseName), e);
+                error = FormatOps.ErrorWithException(
+                    String.Format(ResourceManagerError,
+                    FormatOps.WrapOrNull(resourceBaseName)), e);
 
                 return null;
             }
