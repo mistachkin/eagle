@@ -32434,6 +32434,236 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region StatusFormTraceListener Test Class
+#if WINFORMS
+        [ObjectId("0863138b-fc02-4ce7-9003-6e1589576857")]
+        public class StatusFormTraceListener : TraceListener, IGetInterpreter
+        {
+            #region Private Data
+            private Interpreter interpreter;
+            private IClientData clientData;
+            private int? timeout;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Constructors
+            public StatusFormTraceListener(
+                Interpreter interpreter, /* in */
+                IClientData clientData,  /* in: OPTIONAL */
+                int? timeout             /* in: OPTIONAL */
+                )
+                : this(interpreter, clientData, timeout, null)
+            {
+                // do nothing.
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public StatusFormTraceListener(
+                Interpreter interpreter, /* in */
+                IClientData clientData,  /* in: OPTIONAL */
+                int? timeout,            /* in: OPTIONAL */
+                string name              /* in */
+                )
+                : base(name)
+            {
+                this.interpreter = interpreter;
+                this.clientData = clientData;
+                this.timeout = timeout;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IGetInterpreter Members
+            public Interpreter Interpreter
+            {
+                get { CheckDisposed(); return interpreter; }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Methods
+            private void WriteCore(
+                string message, /* in */
+                bool newLine    /* in */
+                )
+            {
+                if (interpreter != null)
+                {
+                    if (newLine && (message != null)) /* REDUNDANT */
+                    {
+                        message = String.Format(
+                            "{0}{1}", message, Environment.NewLine);
+                    }
+
+                    ReturnCode code;
+                    Result error = null;
+
+                    code = interpreter.ReportStatus(
+                        clientData, message, timeout, ref error);
+
+                    if (code != ReturnCode.Ok)
+                        DebugOps.Complain(interpreter, code, error);
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region System.Diagnostics.TraceListener Overrides
+            public override void Close()
+            {
+                CheckDisposed();
+
+                if (interpreter != null)
+                {
+                    ReturnCode code;
+                    Result error = null;
+
+                    code = interpreter.StopStatus(
+                        clientData, timeout, ref error);
+
+                    if (code != ReturnCode.Ok)
+                        DebugOps.Complain(interpreter, code, error);
+                }
+
+                base.Close();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override void Flush() /* HACK: This means to clear the text box. */
+            {
+                CheckDisposed();
+
+                if (interpreter != null)
+                {
+                    ReturnCode code;
+                    Result error = null;
+
+                    code = interpreter.ClearStatus(
+                        clientData, timeout, ref error);
+
+                    if (code != ReturnCode.Ok)
+                        DebugOps.Complain(interpreter, code, error);
+                }
+
+                base.Flush();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public /* abstract */ override void Write(
+                string message /* in */
+                )
+            {
+                CheckDisposed();
+
+                WriteCore(message, false);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public /* abstract */ override void WriteLine(
+                string message /* in */
+                )
+            {
+                CheckDisposed();
+
+                WriteCore(message, true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override bool IsThreadSafe
+            {
+                get { CheckDisposed(); return true; }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IDisposable "Pattern" Members
+            private bool disposed;
+            private void CheckDisposed() /* throw */
+            {
+#if THROW_ON_DISPOSED
+                if (disposed && Engine.IsThrowOnDisposed(null, false))
+                {
+                    throw new ObjectDisposedException(
+                        typeof(StatusFormTraceListener).Name);
+                }
+#endif
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private int disposeLevels;
+            protected override void Dispose(
+                bool disposing /* in */
+                )
+            {
+                int levels = Interlocked.Increment(ref disposeLevels);
+
+                try
+                {
+                    if (levels == 1)
+                    {
+                        try
+                        {
+                            if (!disposed)
+                            {
+                                if (disposing)
+                                {
+                                    ////////////////////////////////////
+                                    // dispose managed resources here...
+                                    ////////////////////////////////////
+
+                                    /* NO RESULT */
+                                    DebugOps.RemoveTraceListener(this);
+
+                                    ////////////////////////////////////
+
+                                    Close();
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            base.Dispose(disposing);
+
+                            disposed = true;
+                        }
+                    }
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref disposeLevels);
+                }
+
+                //////////////////////////////////////
+                // release unmanaged resources here...
+                //////////////////////////////////////
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Destructor
+            ~StatusFormTraceListener()
+            {
+                Dispose(false);
+            }
+            #endregion
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region NativeTraceListener Test Class
 #if NATIVE
         [ObjectId("ead726b6-0a9a-467c-ab1f-b6ddd939ab8a")]

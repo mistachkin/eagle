@@ -841,7 +841,8 @@ namespace Eagle._Components.Public
         RawLogFile = 0x8000,
         TestLogFile = 0x10000,
         Buffered = 0x20000,
-        Automatic = 0x40000,
+        StatusForm = 0x40000,
+        Automatic = 0x80000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 

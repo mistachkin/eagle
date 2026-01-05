@@ -267,6 +267,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private bool useStatusForm;
+        public bool UseStatusForm
+        {
+            get { CheckDisposed(); lock (syncRoot) { return useStatusForm; } }
+            set { CheckDisposed(); lock (syncRoot) { useStatusForm = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private bool? useIndicators;
         public bool? UseIndicators
         {

@@ -5200,6 +5200,8 @@ namespace Eagle._Commands
                                                 new Option(null, OptionFlags.MustHaveBooleanValue,
                                                     Index.Invalid, Index.Invalid, "-native", null),
                                                 new Option(null, OptionFlags.MustHaveBooleanValue,
+                                                    Index.Invalid, Index.Invalid, "-statusform", null),
+                                                new Option(null, OptionFlags.MustHaveBooleanValue,
                                                     Index.Invalid, Index.Invalid, "-debug", null),
                                                 new Option(null, OptionFlags.MustHaveBooleanValue,
                                                     Index.Invalid, Index.Invalid, "-raw", null),
@@ -5317,6 +5319,11 @@ namespace Eagle._Commands
 
                                                     if (options.IsPresent("-native", ref value))
                                                         native = (bool)value.Value;
+
+                                                    bool? statusForm = null;
+
+                                                    if (options.IsPresent("-statusform", ref value))
+                                                        statusForm = (bool)value.Value;
 
                                                     bool debug = false;
 
@@ -5479,6 +5486,7 @@ namespace Eagle._Commands
                                                         bool useDefault = (@default != null) && (bool)@default;
                                                         bool useConsole = (console != null) && (bool)console;
                                                         bool useNative = (native != null) && (bool)native;
+                                                        bool useStatusForm = (statusForm != null) && (bool)statusForm;
 
                                                         if (debug)
                                                         {
@@ -5524,6 +5532,15 @@ namespace Eagle._Commands
                                                                 listeners, TraceListenerType.Native,
                                                                 clientData, resetListeners, ref result);
                                                         }
+
+#if TEST && WINFORMS
+                                                        if ((code == ReturnCode.Ok) && useStatusForm)
+                                                        {
+                                                            code = DebugOps.AddTraceListener(
+                                                                listeners, TraceListenerType.StatusForm,
+                                                                clientData, resetListeners, ref result);
+                                                        }
+#endif
 
 #if TEST && SHELL
                                                         if (code == ReturnCode.Ok)

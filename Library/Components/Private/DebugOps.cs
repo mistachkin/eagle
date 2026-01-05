@@ -2916,6 +2916,18 @@ namespace Eagle._Components.Private
                         return null;
 #endif
                     }
+                case TraceListenerType.StatusForm:
+                    {
+#if TEST && WINFORMS
+                        return typeof(_Tests.Default.StatusFormTraceListener);
+#else
+                        error = String.Format(
+                            "unimplemented trace listener type {0}",
+                            listenerType);
+
+                        return null;
+#endif
+                    }
                 case TraceListenerType.Automatic:
                     {
                         listenerType = GetTraceListenerType();
@@ -3545,6 +3557,18 @@ namespace Eagle._Components.Private
                         return null;
 #endif
                     }
+                case TraceListenerType.StatusForm:
+                    {
+#if TEST && WINFORMS
+                        return NewStatusFormTraceListener();
+#else
+                        error = String.Format(
+                            "unimplemented trace listener type {0}",
+                            listenerType);
+
+                        return null;
+#endif
+                    }
                 case TraceListenerType.Automatic:
                     {
                         listenerType = GetTraceListenerType();
@@ -3652,6 +3676,16 @@ namespace Eagle._Components.Private
             return _Tests.Default.BufferedTraceListener.Create(
                 null, BufferedTraceFlags.None, 0, 0, ref error);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if WINFORMS
+        public static TraceListener NewStatusFormTraceListener()
+        {
+            return new _Tests.Default.StatusFormTraceListener(
+                Interpreter.GetAny(), null, null);
+        }
+#endif
 #endif
 
         ///////////////////////////////////////////////////////////////////////

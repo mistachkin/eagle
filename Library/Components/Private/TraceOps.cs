@@ -1956,6 +1956,7 @@ namespace Eagle._Components.Private
             out bool useConsole,
             out bool useNative,
             out bool rawLogFile,
+            out bool useStatusForm,
             out bool? useIndicators,
             out bool rawIndicators,
             out bool seeListeners
@@ -1986,6 +1987,7 @@ namespace Eagle._Components.Private
             useConsole = traceClientData.UseConsole;
             useNative = traceClientData.UseNative;
             rawLogFile = traceClientData.RawLogFile;
+            useStatusForm = traceClientData.UseStatusForm;
             useIndicators = traceClientData.UseIndicators;
             rawIndicators = traceClientData.RawIndicators;
             seeListeners = traceClientData.SeeListeners;
@@ -2031,6 +2033,7 @@ namespace Eagle._Components.Private
             bool useConsole;
             bool useNative;
             bool rawLogFile;
+            bool useStatusForm;
             bool? useIndicators;
             bool rawIndicators;
             bool seeListeners;
@@ -2045,7 +2048,8 @@ namespace Eagle._Components.Private
                 out resetSystem, out resetListeners, out trace,
                 out debug, out verbose, out useDefault,
                 out useConsole, out useNative, out rawLogFile,
-                out useIndicators, out rawIndicators, out seeListeners);
+                out useStatusForm, out useIndicators, out rawIndicators,
+                out seeListeners);
 
             ///////////////////////////////////////////////////////////////////
 
@@ -2318,6 +2322,29 @@ namespace Eagle._Components.Private
                 traceClientData.AddResult(String.Format(
                     "AddTraceListener({0})", FormatOps.WrapOrNull(
                     TraceListenerType.RawLogFile)));
+
+                if (localResult != null)
+                    localResult.ReturnCode = code;
+
+                traceClientData.AddResult(localResult);
+
+                if (code != ReturnCode.Ok)
+                    errorCount++;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (useStatusForm)
+            {
+                localResult = null;
+
+                code = DebugOps.AddTraceListener(
+                    listeners, TraceListenerType.StatusForm,
+                    clientData, resetListeners, ref localResult);
+
+                traceClientData.AddResult(String.Format(
+                    "AddTraceListener({0})", FormatOps.WrapOrNull(
+                    TraceListenerType.StatusForm)));
 
                 if (localResult != null)
                     localResult.ReturnCode = code;
