@@ -23,6 +23,9 @@ using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Containers.Public;
 
+using PackageIndexAnyPair = Eagle._Components.Public.MutableAnyPair<
+    string, Eagle._Components.Public.PackageIndexFlags>;
+
 namespace Eagle._Containers.Private
 {
 #if SERIALIZATION
@@ -30,7 +33,7 @@ namespace Eagle._Containers.Private
 #endif
     [ObjectId("362da258-da0d-4a28-837c-ee22ffc29cc8")]
     internal sealed class PackageIndexDictionary :
-            PathDictionary<MutableAnyPair<string, PackageIndexFlags>>
+            PathDictionary<PackageIndexAnyPair>
     {
         #region Public Constructors
         public PackageIndexDictionary()

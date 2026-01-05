@@ -891,6 +891,8 @@ namespace Eagle._Commands
                                                     new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-plugin", null),
                                                     new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noplugin", null),
 #endif
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-dump", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nodump", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-normal", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nonormal", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-recursive", null),
@@ -1003,6 +1005,12 @@ namespace Eagle._Commands
 
                                                         if (options.IsPresent("-nonormal"))
                                                             newFlags |= PackageIndexFlags.NoNormal;
+
+                                                        if (options.IsPresent("-dump"))
+                                                            newFlags |= PackageIndexFlags.Dump;
+
+                                                        if (options.IsPresent("-nodump"))
+                                                            newFlags &= ~PackageIndexFlags.Dump;
 
                                                         if (options.IsPresent("-recursive"))
                                                             newFlags |= PackageIndexFlags.Recursive;

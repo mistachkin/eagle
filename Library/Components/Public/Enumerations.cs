@@ -12251,6 +12251,9 @@ namespace Eagle._Components.Public
                                              * in the file search. */
         Tagged = 0x20000000,                /* Include the tagged package index files
                                              * in the file search. */
+        Dump = 0x40000000,                  /* Be sure to dump all package indexes
+                                             * at the end of each package index scan
+                                             * operation, successful or otherwise. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -12291,10 +12294,10 @@ namespace Eagle._Components.Public
 #if DEBUG
         AutoPath = Host | Bundle | Normal | Primary | Tagged |
                    NoNormal | Recursive | MaybeNoTrusted |
-                   MaybeNoVerified | NoSort, /* TODO: Good default? */
+                   MaybeNoVerified | NoSort | Dump, /* TODO: Good default? */
 #else
         AutoPath = Host | Bundle | Normal | Primary | Tagged |
-                   NoNormal | Recursive | NoSort, /* TODO: Good default? */
+                   NoNormal | Recursive | NoSort | Dump, /* TODO: Good default? */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -12314,11 +12317,11 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         EvaluateFile = Normal | Temporary | Tagged | NoComplain |
-                       NoFileError | ForEngine,
+                       NoFileError | Dump | ForEngine,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Default = NoFileError | ForDefault
+        Default = NoFileError | Dump | ForDefault
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

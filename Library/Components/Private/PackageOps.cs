@@ -2972,6 +2972,97 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static StringList ToList(
+            PackageIndexDictionary packageIndexes /* in */
+            )
+        {
+            if (packageIndexes == null)
+                return null;
+
+            StringList fileNames = packageIndexes.GetKeysInOrder(false);
+
+            if (fileNames == null)
+                return null;
+
+            StringList list = new StringList();
+
+            foreach (string fileName in fileNames)
+            {
+                StringList subList;
+                PackageIndexAnyPair anyPair;
+
+                if (!packageIndexes.TryGetValue(fileName, out anyPair))
+                {
+                    subList = new StringList(
+                        "MISSING", "fileName", fileName);
+
+                    list.Add(subList.ToString());
+                    continue;
+                }
+
+                if (anyPair == null)
+                {
+                    subList = new StringList(
+                        "INVALID", "fileName", fileName);
+
+                    list.Add(subList.ToString());
+                    continue;
+                }
+
+                subList = new StringList(
+                    "fileName", fileName, "prefixFileName", anyPair.X,
+                    "flags", anyPair.Y.ToString());
+
+                list.Add(subList.ToString());
+            }
+
+            return list;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Dead Code
+#if DEAD_CODE
+        private static string ToString( /* NOT USED */
+            PackageIndexDictionary packageIndexes /* in */
+            )
+        {
+            StringList list = ToList(packageIndexes);
+
+            if (list == null)
+                return null;
+
+            return String.Join(Environment.NewLine, list.ToArray());
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void FindAllDump(
+            Interpreter interpreter,                 /* in */
+            StringList paths,                        /* in */
+            PackageIndexFlags packageIndexFlags,     /* in */
+            PathComparisonType pathComparisonType,   /* in */
+            PackageIndexDictionary packageIndexes,   /* in */
+            PackageContextClientData packageContext, /* in */
+            ReturnCode returnCode,                   /* in */
+            Result error                             /* in */
+            )
+        {
+            TraceOps.DebugTrace(
+                "FindAllDump", null, typeof(PackageOps).Name,
+                TracePriority.PackageDebug5, false, "interpreter",
+                interpreter, "paths", paths, "packageIndexFlags",
+                packageIndexFlags, "pathComparisonType",
+                pathComparisonType, "packageIndexes",
+                ToList(packageIndexes), "packageContext",
+                packageContext, "returnCode", returnCode,
+                "error", error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode FindAll(
             Interpreter interpreter,               /* in */
             StringList paths,                      /* in */
@@ -3029,6 +3120,9 @@ namespace Eagle._Components.Private
                 packageIndexFlags, PackageIndexFlags.Plugin, true);
 #endif
 
+            bool dump = FlagOps.HasFlags(
+                packageIndexFlags, PackageIndexFlags.Dump, true);
+
             StringList localPaths = ListOps.GetUniqueElements(paths);
 
             if (ShouldPreferFileSystem(packageIndexFlags))
@@ -3058,7 +3152,29 @@ namespace Eagle._Components.Private
                             interpreter, ref packageIndexes,
                             ref error) != ReturnCode.Ok))
                     {
+                        if (dump)
+                        {
+                            FindAllDump(
+                                interpreter, localPaths,
+                                packageIndexFlags,
+                                pathComparisonType,
+                                packageIndexes,
+                                packageContext,
+                                ReturnCode.Error, error);
+                        }
+
                         return ReturnCode.Error;
+                    }
+
+                    if (dump)
+                    {
+                        FindAllDump(
+                            interpreter, localPaths,
+                            packageIndexFlags,
+                            pathComparisonType,
+                            packageIndexes,
+                            packageContext,
+                            ReturnCode.Ok, error);
                     }
 
                     return ReturnCode.Ok;
@@ -3091,11 +3207,44 @@ namespace Eagle._Components.Private
                             interpreter, ref packageIndexes,
                             ref error) != ReturnCode.Ok))
                     {
+                        if (dump)
+                        {
+                            FindAllDump(
+                                interpreter, localPaths,
+                                packageIndexFlags,
+                                pathComparisonType,
+                                packageIndexes,
+                                packageContext,
+                                ReturnCode.Error, error);
+                        }
+
                         return ReturnCode.Error;
+                    }
+
+                    if (dump)
+                    {
+                        FindAllDump(
+                            interpreter, localPaths,
+                            packageIndexFlags,
+                            pathComparisonType,
+                            packageIndexes,
+                            packageContext,
+                            ReturnCode.Ok, error);
                     }
 
                     return ReturnCode.Ok;
                 }
+            }
+
+            if (dump)
+            {
+                FindAllDump(
+                    interpreter, localPaths,
+                    packageIndexFlags,
+                    pathComparisonType,
+                    packageIndexes,
+                    packageContext,
+                    ReturnCode.Error, error);
             }
 
             return ReturnCode.Error;
