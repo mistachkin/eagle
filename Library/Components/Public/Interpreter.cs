@@ -93,6 +93,7 @@ using _ClientData = Eagle._Components.Public.ClientData;
 using _ShellCallbackData = Eagle._Components.Public.ShellCallbackData;
 #endif
 
+using PathList = System.Collections.Generic.IEnumerable<string>;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using StringLongPair = Eagle._Interfaces.Public.IAnyPair<string, long>;
 using SBC = Eagle._Components.Private.StringBuilderCache;
@@ -50680,6 +50681,38 @@ namespace Eagle._Components.Public
                 result = loaded;
                 return ReturnCode.Ok;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal static ReturnCode PkgAutoScan(
+            Interpreter interpreter, /* in */
+            PathList paths,          /* in: OPTIONAL */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            string text = PackageOps.GetScanCommand(
+                interpreter, null, paths, ref error);
+
+            if (text == null)
+                return ReturnCode.Error;
+
+            ReturnCode code;
+            Result result = null;
+
+            code = interpreter.EvaluateScript(
+                text, ref result);
+
+            if (code != ReturnCode.Ok)
+                error = result;
+
+            return code;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -108682,6 +108715,19 @@ namespace Eagle._Components.Public
         private ReadyFlags PrivateReadyFlags
         {
             get { /* NO-LOCK */ return readyFlags; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal bool ShouldPackageAutoScan(
+            bool? autoScan /* in: OPTIONAL */
+            )
+        {
+            if (autoScan != null)
+                return (bool)autoScan;
+
+            return FlagOps.HasFlags(
+                PackageFlags, PackageFlags.AutoScan, true);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

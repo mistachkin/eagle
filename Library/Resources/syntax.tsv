@@ -527,7 +527,7 @@ object unimport	object unimport ?options?
 object untype	object untype ?options?
 object verifyall	object verifyall ?options?
 open	open fileName ?access? ?permissions? ?type? ?options?
-package absent	package absent ?-exact? package ?version?
+package absent	package absent ?options? package ?version?
 package alias	package alias ?options? name ?package? ?version?
 package aliases	package aliases ?pattern?
 package forget	package forget ?package package ...?
@@ -537,10 +537,10 @@ package info	package info name
 package loaded	package loaded ?pattern?
 package names	package names ?pattern?
 package pending	package pending ?name?
-package present	package present ?-exact? package ?version?
+package present	package present ?options? package ?version?
 package provide	package provide package ?version?
 package relativefilename	package relativefilename fileName ?type?
-package require	package require ?-exact? package ?version?
+package require	package require ?options? package ?version?
 package reset	package reset
 package scan	package scan ?options? ?dir dir ...?
 package unknown	package unknown ?command?

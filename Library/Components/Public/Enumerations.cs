@@ -12369,6 +12369,8 @@ namespace Eagle._Components.Public
                                  * present. */
         NoAttributes = 0x20000, /* Skip querying and combining the flags,
                                  * etc, from the underlying managed type. */
+        AutoScan = 0x1000000,   /* Enable (automatic) use of [package scan]
+                                 * in cases where [package require] fails. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -12376,6 +12378,9 @@ namespace Eagle._Components.Public
                                  * package resolution. */
         Overwrite = 0x200000,   /* An existing package (alias?) entry should
                                  * be overwritten, if necessary. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         Disabled = 0x400000,    /* The package (alias?) has been explicitly
                                  * disabled. */
         Exact = 0x800000,       /* The -exact option was used for [package],
@@ -12394,7 +12399,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         ActionMask = NoUpdate | NoProvide | AlwaysSatisfy |
-                     KeepExisting | FailExisting,
+                     KeepExisting | FailExisting | NoAttributes |
+                     AutoScan | NoAlias | Overwrite,
 
         InstanceMask = System | Loading | Static | Core |
                        Plugin | Library | Interactive |

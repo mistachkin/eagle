@@ -162,7 +162,7 @@ namespace Eagle._Commands
                                                     }
                                                     else
                                                     {
-                                                        result = "wrong # args: should be \"package absent ?-exact? package ?version?\"";
+                                                        result = "wrong # args: should be \"package absent ?options? package ?version?\"";
                                                     }
 
                                                     code = ReturnCode.Error;
@@ -171,7 +171,7 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"package absent ?-exact? package ?version?\"";
+                                            result = "wrong # args: should be \"package absent ?options? package ?version?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -572,7 +572,7 @@ namespace Eagle._Commands
                                                     }
                                                     else
                                                     {
-                                                        result = "wrong # args: should be \"package present ?-exact? package ?version?\"";
+                                                        result = "wrong # args: should be \"package present ?options? package ?version?\"";
                                                     }
 
                                                     code = ReturnCode.Error;
@@ -581,7 +581,7 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"package present ?-exact? package ?version?\"";
+                                            result = "wrong # args: should be \"package present ?options? package ?version?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -671,7 +671,8 @@ namespace Eagle._Commands
                                         {
                                             OptionDictionary options = new OptionDictionary(
                                                 new IOption[] { 
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-exact", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-exact", null), // COMPAT: Tcl (no value).
+                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-autoscan", null),
                                                 Option.CreateEndOfOptions()
                                             });
 
@@ -684,6 +685,12 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) && ((argumentIndex + 2) >= arguments.Count))
                                                 {
                                                     string packageName = arguments[argumentIndex];
+                                                    IVariant value = null;
+                                                    bool? autoScan = null;
+
+                                                    if (options.IsPresent("-autoscan", ref value))
+                                                        autoScan = (bool)value.Value;
+
                                                     bool exact = false;
 
                                                     if (options.IsPresent("-exact"))
@@ -702,8 +709,54 @@ namespace Eagle._Commands
                                                     if (code == ReturnCode.Ok)
                                                     {
                                                         code = interpreter.RequirePackage(
-                                                            packageName, version, exact,
-                                                            ref result);
+                                                            packageName, version, exact, ref result);
+
+                                                        if ((code != ReturnCode.Ok) &&
+                                                            interpreter.ShouldPackageAutoScan(autoScan))
+                                                        {
+                                                            ResultList errors = null;
+                                                            Result error = null;
+
+                                                            code = Interpreter.PkgAutoScan(
+                                                                interpreter, null, ref error);
+
+                                                            if (code == ReturnCode.Ok)
+                                                            {
+                                                                Result localResult = null;
+
+                                                                code = interpreter.RequirePackage(
+                                                                    packageName, version, exact,
+                                                                    ref localResult);
+
+                                                                if (code == ReturnCode.Ok)
+                                                                {
+                                                                    result = localResult;
+                                                                }
+                                                                else if (localResult != null)
+                                                                {
+                                                                    if (errors == null)
+                                                                        errors = new ResultList();
+
+                                                                    errors.Add("auto-scan successfully completed");
+                                                                    errors.Add(localResult);
+                                                                }
+                                                            }
+                                                            else if (error != null)
+                                                            {
+                                                                if (errors == null)
+                                                                    errors = new ResultList();
+
+                                                                errors.Add(error);
+                                                            }
+
+                                                            if (errors != null)
+                                                            {
+                                                                if (result != null)
+                                                                    errors.Insert(0, result);
+
+                                                                result = errors;
+                                                            }
+                                                        }
 
                                                         if (code != ReturnCode.Ok)
                                                         {
@@ -802,7 +855,7 @@ namespace Eagle._Commands
                                                     }
                                                     else
                                                     {
-                                                        result = "wrong # args: should be \"package require ?-exact? package ?version?\"";
+                                                        result = "wrong # args: should be \"package require ?options? package ?version?\"";
                                                     }
 
                                                     code = ReturnCode.Error;
@@ -811,7 +864,7 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"package require ?-exact? package ?version?\"";
+                                            result = "wrong # args: should be \"package require ?options? package ?version?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

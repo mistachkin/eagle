@@ -76,6 +76,12 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
 
+FEATURE: add the -autoscan option to the [package require] sub-command.  this
+         may be useful when new package indexes have been copied into one (or
+         more) of the directories in the auto-path after the most recent scan
+         of package indexes (e.g. via using the [package scan] sub-command or
+         modifying the auto-path script variable).
+
 FEATURE: add the [interp execlimit] sub-command that can be used to limit the
          number of script operations, script commands executed, and [unknown]
          command resolution attempts.
