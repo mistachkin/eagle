@@ -5301,7 +5301,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static bool DumpComplaints(
+        public static int DumpComplaints(
             Interpreter interpreter,
             Encoding encoding,
             string fileName,

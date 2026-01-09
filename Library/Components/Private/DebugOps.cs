@@ -334,7 +334,7 @@ namespace Eagle._Components.Private
         private static long lockThreadId = 0;
 
         ///////////////////////////////////////////////////////////////////////
- 
+
         //
         // HACK: Keep track of all complaints that have been seen by this
         //       class.
@@ -1896,7 +1896,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static bool DumpComplaints(
+        public static int DumpComplaints(
             Interpreter interpreter, /* in: OPTIONAL */
             Encoding encoding,       /* in: OPTIONAL */
             string fileName,         /* in: OPTIONAL */
@@ -1912,13 +1912,14 @@ namespace Eagle._Components.Private
                 if (locked)
                 {
                     if (complaints == null)
-                        return false;
+                        return Count.Invalid;
 
                     long interpreterId = 0;
 
                     if (interpreter != null)
                         interpreterId = interpreter.IdNoThrow;
 
+                    int written = 0;
                     int count = complaints.Count;
 
                     if (fileName != null)
@@ -1929,7 +1930,7 @@ namespace Eagle._Components.Private
                                 EncodingType.Default);
 
                             if (encoding == null)
-                                return false;
+                                return Count.Invalid;
                         }
 
                         using (FileStream stream = new FileStream(
@@ -1959,10 +1960,14 @@ namespace Eagle._Components.Private
                                 stream.Write(Characters.DoesNewLineBytes,
                                     0, Characters.DoesNewLineBytes.Length);
 
+                                stream.Write(Characters.DoesNewLineBytes,
+                                    0, Characters.DoesNewLineBytes.Length);
+
                                 stream.Write(Characters.FormFeedBytes,
                                     0, Characters.FormFeedBytes.Length);
 
                                 stream.Flush();
+                                written++;
 
                                 if (clear)
                                     complaints.RemoveAt(index);
@@ -1985,11 +1990,14 @@ namespace Eagle._Components.Private
                             }
 
                             WriteWithoutFail(triplet.Z);
+                            written++;
 
                             if (clear)
                                 complaints.RemoveAt(index);
                         }
                     }
+
+                    return written;
                 }
                 else
                 {
@@ -2000,7 +2008,7 @@ namespace Eagle._Components.Private
                         MaybeWhoHasLock());
                 }
 
-                return false;
+                return Count.Invalid;
             }
             finally
             {

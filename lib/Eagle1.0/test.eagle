@@ -11306,13 +11306,14 @@ namespace eval ::Eagle {
               "---- sandbox interpreter \"" $interp "\" created\n"]
         }
       } else {
+        set interp $::eagle_debugger(sandbox)
         maybeInvokeForTester ::reuseOpenAI_sandbox; # HOOK
       }
 
       maybeInvokeForTester ::afterOpenAI_evaluateInSandbox; # HOOK
 
       if {[openAI_haveSecurity $channel $quiet]} then {
-        return [interp eval $::eagle_debugger(sandbox) \
+        return [interp eval $interp \
             [interp readorgetscriptfile {} $fileName]]
       } else {
         error [appendArgs \
