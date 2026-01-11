@@ -886,7 +886,7 @@ namespace Eagle._Components.Public
         //
         // NOTE: The creation ticks for this interpreter (read-only).
         //
-        // HACK: Cannot be read-lock due to use of Interlocked.
+        // HACK: Cannot be read-only due to use of Interlocked.CompareExchange.
         //
         private /* readonly */ long createdTicks = TimeOps.GetUtcNowTicks();
 
@@ -897,11 +897,18 @@ namespace Eagle._Components.Public
         private long createCount = 0;
 
         //
-        // NOTE: The disposed ticks for this interpreter (read-only).  This
-        //       will only be set the very first time an interpreter sees a
-        //       Dispose(bool) call.
+        // NOTE: The last accessed ticks for this interpreter.  This will be
+        //       only set via the public LastAccessed property.  The intent
+        //       is for this to be used to with external caching mechanisms.
         //
-        private long disposedTicks = 0;
+        private long accessedTicks = _Ticks.Invalid;
+
+        //
+        // NOTE: The disposed ticks for this interpreter.  This will only be
+        //       set the very first time an interpreter sees a Dispose(bool)
+        //       call.
+        //
+        private long disposedTicks = _Ticks.Invalid;
 
         //
         // FIXME: Review and revise usage of locking in the interpreter object,
@@ -1337,8 +1344,8 @@ namespace Eagle._Components.Public
         private long healthSleepTime;
         private long healthGoodCount;
         private long healthBadCount;
-        private long healthCheckedTicks;
-        private long healthOkTicks;
+        private long healthCheckedTicks = _Ticks.Invalid;
+        private long healthOkTicks = _Ticks.Invalid;
 #endif
         #endregion
 
@@ -42141,13 +42148,6 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public DateTime Created
-        {
-            get { CheckDisposed(); /* NO-LOCK */ return CreatedNoThrow; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
         public long ThreadId
         {
             get
@@ -42406,9 +42406,10 @@ namespace Eagle._Components.Public
                 //
                 /* CheckDisposed(); */
 
-                long ticks = Interlocked.CompareExchange(ref createdTicks, 0, 0);
+                long ticks = Interlocked.CompareExchange(
+                    ref createdTicks, 0, 0);
 
-                if (ticks != 0)
+                if (ticks != _Ticks.Invalid)
                 {
                     DateTime? then = FormatOps.UtcOrNull(ticks);
 
@@ -42447,9 +42448,10 @@ namespace Eagle._Components.Public
                 //
                 /* CheckDisposed(); */
 
-                long ticks = Interlocked.CompareExchange(ref disposedTicks, 0, 0);
+                long ticks = Interlocked.CompareExchange(
+                    ref disposedTicks, 0, 0);
 
-                if (ticks != 0)
+                if (ticks != _Ticks.Invalid)
                 {
                     DateTime? then = FormatOps.UtcOrNull(ticks);
 
@@ -42475,6 +42477,74 @@ namespace Eagle._Components.Public
 
             ConversionOps.ToInts(PrivateId, ref Y, ref Z);
             return CommonOps.HashCodes.Combine(Y, Z);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public DateTime? LastAccessedNoThrow
+        {
+            get
+            {
+                //
+                // NOTE: This method may NOT throw exceptions.
+                //
+                /* CheckDisposed(); */
+
+                long ticks = Interlocked.CompareExchange(
+                    ref accessedTicks, 0, 0);
+
+                if (ticks != _Ticks.Invalid)
+                {
+                    DateTime? then = FormatOps.UtcOrNull(ticks);
+
+                    if (then != null)
+                        return (DateTime)then;
+                }
+
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public bool CheckLastAccessed(
+            long maximumSeconds /* in */
+            )
+        {
+            CheckDisposed();
+
+            long ticks = Interlocked.CompareExchange(
+                ref accessedTicks, 0, 0);
+
+            if (ticks == _Ticks.Invalid) // NOTE: Never?
+                return false;
+
+            DateTime? then = FormatOps.UtcOrNull(ticks);
+
+            if (then == null)
+                return false;
+
+            DateTime now = TimeOps.GetUtcNow();
+
+            if (now < (DateTime)then) // NOTE: Time travel?
+                return false;
+
+            //
+            // NOTE: Truncates towards zero, which is fine for
+            //       the purposes of this method.
+            //
+            return Convert.ToInt64(now.Subtract(
+                (DateTime)then).TotalSeconds) <= maximumSeconds;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public void UpdateLastAccessed()
+        {
+            CheckDisposed();
+
+            Interlocked.Exchange(
+                ref accessedTicks, TimeOps.GetUtcNowTicks());
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -82293,7 +82363,7 @@ namespace Eagle._Components.Public
 
                 if (code == ReturnCode.Ok)
                 {
-                    DateTime timeStamp = Created; /* PROPERTY */
+                    DateTime timeStamp = CreatedNoThrow; /* PROPERTY */
 
                     code = SetLibraryVariableValue2(VariableFlags.None,
                         Vars.Platform.Name, Vars.Platform.InterpreterTimeStamp,
@@ -93560,13 +93630,15 @@ namespace Eagle._Components.Public
                 long ticks = Interlocked.CompareExchange(
                     ref createdTicks, 0, 0);
 
-                if (ticks != 0)
+                if (ticks != _Ticks.Invalid)
                 {
                     DateTime? then = FormatOps.UtcOrNull(ticks);
 
                     if (then != null)
+                    {
                         return now.Subtract(
                             (DateTime)then).TotalSeconds; /* throw */
+                    }
                 }
             }
             catch
@@ -93588,13 +93660,15 @@ namespace Eagle._Components.Public
                 long ticks = Interlocked.CompareExchange(
                     ref disposedTicks, 0, 0);
 
-                if (ticks != 0)
+                if (ticks != _Ticks.Invalid)
                 {
                     DateTime? then = FormatOps.UtcOrNull(ticks);
 
                     if (then != null)
+                    {
                         return now.Subtract(
                             (DateTime)then).TotalSeconds; /* throw */
+                    }
                 }
             }
             catch
@@ -93616,13 +93690,15 @@ namespace Eagle._Components.Public
                 long ticks = Interlocked.CompareExchange(
                     ref healthCheckedTicks, 0, 0);
 
-                if (ticks != 0)
+                if (ticks != _Ticks.Invalid)
                 {
                     DateTime? then = FormatOps.UtcOrNull(ticks);
 
                     if (then != null)
+                    {
                         return now.Subtract(
                             (DateTime)then).TotalSeconds; /* throw */
+                    }
                 }
             }
             catch
@@ -93653,13 +93729,15 @@ namespace Eagle._Components.Public
                 long ticks = Interlocked.CompareExchange(
                     ref healthOkTicks, 0, 0);
 
-                if (ticks != 0)
+                if (ticks != _Ticks.Invalid)
                 {
                     DateTime? then = FormatOps.UtcOrNull(ticks);
 
                     if (then != null)
+                    {
                         return now.Subtract(
                             (DateTime)then).TotalSeconds; /* throw */
+                    }
                 }
             }
             catch
@@ -110954,12 +111032,17 @@ namespace Eagle._Components.Public
                 DateTime? then; /* REUSED */
 
                 ticks = Interlocked.CompareExchange(ref createdTicks, 0, 0);
-                then = (ticks != 0) ? FormatOps.UtcOrNull(ticks) : null;
+                then = (ticks != _Ticks.Invalid) ? FormatOps.UtcOrNull(ticks) : null;
 
                 list.Add("Created", FormatOps.Iso8601FullDateTime(then));
 
+                ticks = Interlocked.CompareExchange(ref accessedTicks, 0, 0);
+                then = (ticks != _Ticks.Invalid) ? FormatOps.UtcOrNull(ticks) : null;
+
+                list.Add("Accessed", FormatOps.Iso8601FullDateTime(then));
+
                 ticks = Interlocked.CompareExchange(ref disposedTicks, 0, 0);
-                then = (ticks != 0) ? FormatOps.UtcOrNull(ticks) : null;
+                then = (ticks != _Ticks.Invalid) ? FormatOps.UtcOrNull(ticks) : null;
 
                 list.Add("Disposed", FormatOps.Iso8601FullDateTime(then));
 
@@ -110998,13 +111081,13 @@ namespace Eagle._Components.Public
                     list.Add("HealthBadCount", localHealthBadCount.ToString());
 
                 ticks = Interlocked.CompareExchange(ref healthCheckedTicks, 0, 0);
-                then = (ticks != 0) ? FormatOps.UtcOrNull(ticks) : null;
+                then = (ticks != _Ticks.Invalid) ? FormatOps.UtcOrNull(ticks) : null;
 
                 if (empty || (then != null))
                     list.Add("HealthChecked", FormatOps.Iso8601FullDateTime(then));
 
                 ticks = Interlocked.CompareExchange(ref healthOkTicks, 0, 0);
-                then = (ticks != 0) ? FormatOps.UtcOrNull(ticks) : null;
+                then = (ticks != _Ticks.Invalid) ? FormatOps.UtcOrNull(ticks) : null;
 
                 if (empty || (then != null))
                     list.Add("HealthOk", FormatOps.Iso8601FullDateTime(then));

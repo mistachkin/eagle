@@ -5305,11 +5305,12 @@ namespace Eagle._Components.Public
             Interpreter interpreter,
             Encoding encoding,
             string fileName,
+            string message,
             bool clear
             )
         {
             return DebugOps.DumpComplaints(
-                interpreter, encoding, fileName, clear);
+                interpreter, encoding, fileName, message, clear);
         }
 
         ///////////////////////////////////////////////////////////////////////

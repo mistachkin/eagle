@@ -42,7 +42,6 @@ namespace Eagle._Interfaces.Public
         long OperationCount { get; }
         long CommandCount { get; }
         long UnknownCount { get; }
-        DateTime Created { get; }
         long ThreadId { get; }
         Thread Thread { get; }
 
@@ -99,6 +98,14 @@ namespace Eagle._Interfaces.Public
 
         [Throw(false)]
         int GetHashCodeNoThrow();          /* INTERNAL USE ONLY. */
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [Throw(false)]
+        DateTime? LastAccessedNoThrow { get; }
+
+        bool CheckLastAccessed(long maximumSeconds);
+        void UpdateLastAccessed();
 
         ///////////////////////////////////////////////////////////////////////
 

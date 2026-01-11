@@ -1896,10 +1896,59 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool WriteBytes(
+            Stream stream, /* in */
+            byte[] bytes,  /* in */
+            bool flush     /* in */
+            )
+        {
+            if ((stream == null) || (bytes == null))
+                return false;
+
+            int length = bytes.Length;
+
+            if (length == 0)
+                return false;
+
+            stream.Write(bytes, 0, length); /* throw */
+
+            if (flush)
+                stream.Flush(); /* throw */
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool WriteComplaint(
+            Stream stream,  /* in */
+            byte[] bytes,   /* in */
+            ref int written /* in, out */
+            )
+        {
+            if (!WriteBytes(stream, bytes, false))
+                return false;
+
+            if (!WriteBytes(stream, Characters.DoesNewLineBytes, false))
+                return false;
+
+            if (!WriteBytes(stream, Characters.DoesNewLineBytes, false))
+                return false;
+
+            if (!WriteBytes(stream, Characters.FormFeedBytes, true))
+                return false;
+
+            written++;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static int DumpComplaints(
             Interpreter interpreter, /* in: OPTIONAL */
             Encoding encoding,       /* in: OPTIONAL */
             string fileName,         /* in: OPTIONAL */
+            string message,          /* in: OPTIONAL */
             bool clear               /* in */
             )
         {
@@ -1937,6 +1986,19 @@ namespace Eagle._Components.Private
                                 fileName, FileMode.CreateNew, FileAccess.Write,
                                 FileShare.Read))
                         {
+                            byte[] bytes; /* REUSED */
+
+                            if (!String.IsNullOrEmpty(message))
+                            {
+                                bytes = encoding.GetBytes(message);
+
+                                if (bytes != null)
+                                {
+                                    /* IGNORED */
+                                    WriteComplaint(stream, bytes, ref written);
+                                }
+                            }
+
                             for (int index = count - 1; index >= 0; index--)
                             {
                                 ComplaintTriplet triplet = complaints[index];
@@ -1950,24 +2012,13 @@ namespace Eagle._Components.Private
                                     continue;
                                 }
 
-                                byte[] bytes = encoding.GetBytes(triplet.Z);
+                                bytes = encoding.GetBytes(triplet.Z);
 
                                 if (bytes == null)
                                     continue;
 
-                                stream.Write(bytes, 0, bytes.Length);
-
-                                stream.Write(Characters.DoesNewLineBytes,
-                                    0, Characters.DoesNewLineBytes.Length);
-
-                                stream.Write(Characters.DoesNewLineBytes,
-                                    0, Characters.DoesNewLineBytes.Length);
-
-                                stream.Write(Characters.FormFeedBytes,
-                                    0, Characters.FormFeedBytes.Length);
-
-                                stream.Flush();
-                                written++;
+                                /* IGNORED */
+                                WriteComplaint(stream, bytes, ref written);
 
                                 if (clear)
                                     complaints.RemoveAt(index);

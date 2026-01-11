@@ -1,7 +1,7 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
-BUGFIX: fix and/or address Coverity issues from #434153 to #551474.
+BUGFIX: fix and/or address Coverity issues from #434153 to #556387.
 
 BUGFIX: do not allow an ICallback that is in use by the current interpreter to
         be disposed via an opaque object handle.
@@ -57,6 +57,9 @@ REFACTOR: make the GetChannelVirtualOutput and SetChannelVirtualOutput methods
           public via the IInterpreter interface.  also, make the CommandCount
           property public via the IInterpreter interface.
 
+REFACTOR: *BREAKING CHANGE* remove the IInterpreter.Created property; instead,
+          please use the IInterpreter.CreatedNoThrow property.
+
 REFACTOR: *BREAKING CHANGE* rename Eagle Package for Tcl (Garuda), sub-command
           [garuda bridgerunning] to [garuda clrbridgerunning].
 
@@ -75,6 +78,8 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
+
+FEATURE: add the LastAccessedNoThrow property to the IInterpreter interface.
 
 FEATURE: add the -autoscan option to the [package require] sub-command.  this
          may be useful when new package indexes have been copied into one (or

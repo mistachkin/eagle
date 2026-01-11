@@ -437,6 +437,14 @@ namespace Eagle._Constants
 
     ///////////////////////////////////////////////////////////////////////////
 
+    [ObjectId("e93c850e-3b88-49e6-b205-7752bbeefbf2")]
+    public static class _Ticks
+    {
+        public static readonly long Invalid = -1;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
     [ObjectId("54455e76-14fc-4fb1-bfec-6273b550fefa")]
     public static class _Position
     {
