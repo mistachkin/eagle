@@ -4964,7 +4964,8 @@ namespace Eagle._Components.Public
             Exception exception
             )
         {
-            return FormatOps.TraceException(exception);
+            return FormatOps.TraceException(exception,
+                TracePriority.ForException | TracePriority.External);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5201,6 +5202,8 @@ namespace Eagle._Components.Public
         }
 #endif
 
+
+
         ///////////////////////////////////////////////////////////////////////
 
         [Obsolete()] /* NOTE: Lack of priority. */
@@ -5226,6 +5229,22 @@ namespace Eagle._Components.Public
         {
             TraceOps.DebugTraceAlways(threadId, message, category,
                 TraceOps.GetTracePriority() | TracePriority.External);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void DebugTrace(
+            string methodName,
+            string message,
+            string category,
+            TracePriority priority,
+            bool ellipsis,
+            params object[] parameters
+            )
+        {
+            TraceOps.DebugTraceAlways(methodName, message, category,
+                priority | TracePriority.External, 1, ellipsis, parameters);
         }
 
         ///////////////////////////////////////////////////////////////////////

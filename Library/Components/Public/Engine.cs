@@ -8964,7 +8964,7 @@ namespace Eagle._Components.Public
 #if DEBUG || FORCE_TRACE
                 TraceOps.DebugTrace(e, typeof(Engine).Name,
                     "interpreter was disposed while executing: ",
-                    TracePriority.EngineError);
+                    arguments, TracePriority.DisposedError);
 #endif
 
                 result = Result.Copy(
@@ -8973,6 +8973,12 @@ namespace Eagle._Components.Public
             catch (Exception e)
             {
                 exception = true;
+
+#if DEBUG || FORCE_TRACE
+                TraceOps.DebugTrace(e, typeof(Engine).Name,
+                    "caught exception while executing: ",
+                    arguments, TracePriority.GeneralError);
+#endif
 
                 result = String.Format(
                     "caught exception while executing: {0}",
@@ -9188,7 +9194,7 @@ namespace Eagle._Components.Public
 #if DEBUG || FORCE_TRACE
                 TraceOps.DebugTrace(e, typeof(Engine).Name,
                     "interpreter was disposed while executing sub-command: ",
-                    TracePriority.EngineError);
+                    arguments, TracePriority.DisposedError);
 #endif
 
                 result = Result.Copy(
@@ -9197,6 +9203,12 @@ namespace Eagle._Components.Public
             catch (Exception e)
             {
                 exception = true;
+
+#if DEBUG || FORCE_TRACE
+                TraceOps.DebugTrace(e, typeof(Engine).Name,
+                    "caught exception while executing sub-command: ",
+                    arguments, TracePriority.GeneralError);
+#endif
 
                 result = String.Format(
                     "caught exception while executing sub-command: {0}",
@@ -9452,7 +9464,7 @@ namespace Eagle._Components.Public
 #if DEBUG || FORCE_TRACE
                 TraceOps.DebugTrace(e, typeof(Engine).Name,
                     "interpreter was disposed while executing command: ",
-                    TracePriority.EngineError);
+                    arguments, TracePriority.DisposedError);
 #endif
 
                 result = Result.Copy(
@@ -9461,6 +9473,12 @@ namespace Eagle._Components.Public
             catch (Exception e)
             {
                 exception = true;
+
+#if DEBUG || FORCE_TRACE
+                TraceOps.DebugTrace(e, typeof(Engine).Name,
+                    "caught exception while executing command: ",
+                    arguments, TracePriority.GeneralError);
+#endif
 
                 result = String.Format(
                     "caught exception while executing command: {0}",
@@ -9715,7 +9733,7 @@ namespace Eagle._Components.Public
 #if DEBUG || FORCE_TRACE
                 TraceOps.DebugTrace(e, typeof(Engine).Name,
                     "interpreter was disposed while executing procedure: ",
-                    TracePriority.EngineError);
+                    arguments, TracePriority.DisposedError);
 #endif
 
                 result = Result.Copy(
@@ -9724,6 +9742,12 @@ namespace Eagle._Components.Public
             catch (Exception e)
             {
                 exception = true;
+
+#if DEBUG || FORCE_TRACE
+                TraceOps.DebugTrace(e, typeof(Engine).Name,
+                    "caught exception while executing procedure: ",
+                    arguments, TracePriority.GeneralError);
+#endif
 
                 result = String.Format(
                     "caught exception while executing procedure: {0}",
@@ -9929,7 +9953,7 @@ namespace Eagle._Components.Public
 #if DEBUG || FORCE_TRACE
                 TraceOps.DebugTrace(e, typeof(Engine).Name,
                     "interpreter was disposed while executing function: ",
-                    TracePriority.EngineError);
+                    arguments, TracePriority.DisposedError);
 #endif
 
                 error = Result.Copy(
@@ -9938,6 +9962,12 @@ namespace Eagle._Components.Public
             catch (Exception e)
             {
                 exception = true;
+
+#if DEBUG || FORCE_TRACE
+                TraceOps.DebugTrace(e, typeof(Engine).Name,
+                    "caught exception while executing function: ",
+                    arguments, TracePriority.GeneralError);
+#endif
 
                 error = String.Format(
                     "caught exception while executing function: {0}",
@@ -10176,7 +10206,7 @@ namespace Eagle._Components.Public
 #if DEBUG || FORCE_TRACE
                 TraceOps.DebugTrace(e, typeof(Engine).Name,
                     "interpreter was disposed while executing operator: ",
-                    TracePriority.EngineError);
+                    arguments, TracePriority.DisposedError);
 #endif
 
                 error = Result.Copy(
@@ -10185,6 +10215,12 @@ namespace Eagle._Components.Public
             catch (Exception e)
             {
                 exception = true;
+
+#if DEBUG || FORCE_TRACE
+                TraceOps.DebugTrace(e, typeof(Engine).Name,
+                    "caught exception while executing operator: ",
+                    arguments, TracePriority.GeneralError);
+#endif
 
                 error = String.Format(
                     "caught exception while executing operator: {0}",

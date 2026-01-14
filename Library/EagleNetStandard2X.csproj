@@ -2722,6 +2722,11 @@
       EagleCopyToNetCoreApp30;
       EagleCopyToNetCoreApp31;
       EagleCopyToNetCoreApp50;
+      EagleCopyToNetCoreApp60;
+      EagleCopyToNetCoreApp70;
+      EagleCopyToNetCoreApp80;
+      EagleCopyToNetCoreApp90;
+      EagleCopyToNetCoreApp100;
       EagleCopyToBuildTasks;
       GetDoneFiles;
       UpdateDoneFiles;

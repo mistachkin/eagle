@@ -6077,10 +6077,34 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static string TraceException(
-            Exception exception
+            Exception exception,
+            _TracePriority priority
             )
         {
-            return String.Format("{0}", exception);
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            builder.AppendFormat("{0}", exception);
+
+            //
+            // NOTE: When the "ForException" trace priority flag is set,
+            //       also include the full stack trace the exception is
+            //       being reported from.  This is different from where
+            //       the specified exception was actually caught.
+            //
+            if (FlagOps.HasFlags(
+                    priority, _TracePriority.ForException, true))
+            {
+                string stackTrace = DebugOps.GetStackTraceString();
+
+                if (!String.IsNullOrEmpty(stackTrace))
+                {
+                    builder.AppendLine();
+                    builder.AppendFormat("[[STACK TRACE: {0}]]", stackTrace);
+                    builder.AppendLine();
+                }
+            }
+
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

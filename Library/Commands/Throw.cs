@@ -22,96 +22,106 @@ namespace Eagle._Commands
     [ObjectGroup("control")]
     internal sealed class Throw : Core
     {
+        private static readonly string WrongNumArgs =
+            "wrong # args: should be \"throw message ?returnCode? ?innerException?\"";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Constructors
         public Throw(
-            ICommandData commandData
+            ICommandData commandData /* in */
             )
             : base(commandData)
         {
             // do nothing.
         }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
-            ReturnCode code;
-
-            if (interpreter != null)
-            {
-                if (arguments != null)
-                {
-                    if ((arguments.Count >= 2) && (arguments.Count <= 4))
-                    {
-                        code = ReturnCode.Ok;
-
-                        //
-                        // NOTE: Default to the "normal" error return code.
-                        //
-                        ReturnCode returnCode = ReturnCode.Error;
-
-                        if ((code == ReturnCode.Ok) && (arguments.Count >= 3))
-                        {
-                            code = Value.GetReturnCode2(arguments[2], ValueFlags.AnyReturnCode, 
-                                interpreter.InternalCultureInfo, ref returnCode, ref result);
-                        }
-
-                        Exception innerException = null;
-
-                        if ((code == ReturnCode.Ok) && (arguments.Count >= 4))
-                        {
-                            IObject @object = null;
-
-                            code = interpreter.GetObject(
-                                arguments[3], LookupFlags.Default, ref @object, ref result);
-
-                            if ((code == ReturnCode.Ok) && (@object != null))
-                            {
-                                innerException = @object.Value as Exception;
-
-                                if (innerException == null)
-                                {
-                                    result = String.Format(
-                                        "object \"{0}\" is not an exception", 
-                                        arguments[3]);
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                        }
-                        
-                        //
-                        // NOTE: If we managed to process all the arguments correctly, 
-                        //       set the requested error message and throw a script 
-                        //       exception.  This exception will not escape the script 
-                        //       engine; however, it will be properly stored in the 
-                        //       result.
-                        //
-                        if (code == ReturnCode.Ok)
-                            throw new ScriptException(returnCode, arguments[1], innerException);
-                    }
-                    else
-                    {
-                        result = "wrong # args: should be \"throw message ?returnCode? ?innerException?\"";
-                        code = ReturnCode.Error;
-                    }
-                }
-                else
-                {
-                    result = "invalid argument list";
-                    code = ReturnCode.Error;
-                }
-            }
-            else
+            if (interpreter == null)
             {
                 result = "invalid interpreter";
-                code = ReturnCode.Error;
+                return ReturnCode.Error;
             }
 
-            return code;
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if ((argumentCount < 2) || (argumentCount > 4))
+            {
+                result = WrongNumArgs;
+                return ReturnCode.Error;
+            }
+
+            ReturnCode returnCode = ReturnCode.Error;
+
+            if (argumentCount >= 3)
+            {
+                if (Value.GetReturnCode2(
+                        arguments[2], ValueFlags.AnyReturnCode,
+                        interpreter.InternalCultureInfo,
+                        ref returnCode, ref result) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+            }
+
+            Exception innerException = null;
+
+            if (argumentCount >= 4)
+            {
+                IObject @object = null;
+
+                if (interpreter.GetObject(
+                        arguments[3], LookupFlags.Default, ref @object,
+                        ref result) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                if (@object != null)
+                {
+                    object objectValue = @object.Value;
+
+                    if (objectValue != null)
+                    {
+                        innerException = objectValue as Exception;
+
+                        if (innerException == null)
+                        {
+                            result = String.Format(
+                                "object \"{0}\" is not an exception",
+                                arguments[3]);
+
+                            return ReturnCode.Error;
+                        }
+                    }
+                }
+            }
+
+            //
+            // NOTE: If we managed to process all arguments correctly, use
+            //       requested error message and throw a script exception.
+            //       This exception is guaranteed not to escape the script
+            //       engine; however, it will be the script result.
+            //
+            Result message = arguments[1]; /* NOTE: Implicit conversion. */
+
+            throw new ScriptException(returnCode, message, innerException);
         }
         #endregion
     }

@@ -763,11 +763,13 @@ namespace Eagle._Commands
                                                             TraceOps.DebugTrace(String.Format(
                                                                 "Execute: REQUIRE FAILURE, interpreter = {0}, " +
                                                                 "packageName = {1}, version = {2}, exact = {3}, " +
-                                                                "code = {4}, result = {5}",
+                                                                "code = {4}, result = {5}, packageIndexes = {6}",
                                                                 FormatOps.InterpreterNoThrow(interpreter),
                                                                 FormatOps.WrapOrNull(packageName),
                                                                 FormatOps.WrapOrNull(version), exact,
-                                                                code, FormatOps.WrapOrNull(result)),
+                                                                code, FormatOps.WrapOrNull(result),
+                                                                FormatOps.WrapOrNull(
+                                                                    interpreter.CopyPackageIndexes())),
                                                                 typeof(Package).Name,
                                                                 TracePriority.PackageError3);
                                                         }

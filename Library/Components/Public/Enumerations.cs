@@ -1330,6 +1330,11 @@ namespace Eagle._Components.Public
         ViaWrapper = 0x400000000000000,            // caller is a wrapper around DebugTrace, et al.
         NoLimits = 0x800000000000000,              // skip calling into the TraceLimits checks.
         ForceFlush = 0x1000000000000000,           // attempt to flush all listeners before returning.
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForException = 0x2000000000000000,         // *SPECIAL* internal-only flag used to indicate
+                                                   // an engine exception was caught.
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1467,6 +1472,13 @@ namespace Eagle._Components.Public
 
         StateError = Always | Error,              // internal state changes, etc. (NOT USED)
         LockError3 = Always | Error,              // unable to acquire required lock
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Special (Engine) Error Mask Values
+        DisposedError = Always | Error | ForException, // interpreter disposed during a script?
+        GeneralError = Always | Error | ForException,  // uncaught exception during a script?
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////

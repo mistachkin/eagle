@@ -1481,7 +1481,7 @@
     <EagleTclKits Condition="'$(EagleTclKits)' == ''">true</EagleTclKits>
 
     <!--
-        NOTE: Publically expose the Tcl wrapper functionality?  By default,
+        NOTE: Publicly expose the Tcl wrapper functionality?  By default,
               this is disabled.
     -->
     <EagleTclWrapper Condition="'$(EagleTclWrapper)' == ''">false</EagleTclWrapper>
@@ -1855,6 +1855,20 @@
               obfuscation on the target assembly, if any.
     -->
     <ObfuscatorBuildType Condition="'$(EagleBuildType)' != '' And '$(ObfuscatorBuildType)' == ''">$(EagleBuildType)</ObfuscatorBuildType>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                    Eagle Externals Related Properties                    **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <!--
+        NOTE: Which version of System.Data.SQLite are we going to deploy in the
+              build process, if any?
+    -->
+    <SystemDataSQLiteVersion Condition="'$(SystemDataSQLiteVersion)' == ''">v111</SystemDataSQLiteVersion>
   </PropertyGroup>
 
   <!--

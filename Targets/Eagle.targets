@@ -2404,6 +2404,181 @@
   ******************************************************************************
   -->
 
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp60"
+          Condition="'$(EagleCopyToNetCoreApp60)' != 'false' And
+                     ('$(TargetFramework)' == 'net5.0' Or
+                      '$(TargetFramework)' == 'net6.0' Or
+                      '$(TargetFramework)' == 'net7.0' Or
+                      '$(TargetFramework)' == 'net8.0' Or
+                      '$(TargetFramework)' == 'net9.0' Or
+                      '$(TargetFramework)' == 'net10.0') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp60.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\net6.0"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\net6.0\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp60.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp70"
+          Condition="'$(EagleCopyToNetCoreApp70)' != 'false' And
+                     ('$(TargetFramework)' == 'net5.0' Or
+                      '$(TargetFramework)' == 'net6.0' Or
+                      '$(TargetFramework)' == 'net7.0' Or
+                      '$(TargetFramework)' == 'net8.0' Or
+                      '$(TargetFramework)' == 'net9.0' Or
+                      '$(TargetFramework)' == 'net10.0') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp70.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\net7.0"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\net7.0\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp70.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp80"
+          Condition="'$(EagleCopyToNetCoreApp80)' != 'false' And
+                     ('$(TargetFramework)' == 'net5.0' Or
+                      '$(TargetFramework)' == 'net6.0' Or
+                      '$(TargetFramework)' == 'net7.0' Or
+                      '$(TargetFramework)' == 'net8.0' Or
+                      '$(TargetFramework)' == 'net9.0' Or
+                      '$(TargetFramework)' == 'net10.0') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp80.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\net8.0"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\net8.0\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp80.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp90"
+          Condition="'$(EagleCopyToNetCoreApp90)' != 'false' And
+                     ('$(TargetFramework)' == 'net5.0' Or
+                      '$(TargetFramework)' == 'net6.0' Or
+                      '$(TargetFramework)' == 'net7.0' Or
+                      '$(TargetFramework)' == 'net8.0' Or
+                      '$(TargetFramework)' == 'net9.0' Or
+                      '$(TargetFramework)' == 'net10.0') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp90.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\net9.0"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\net9.0\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp90.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp100"
+          Condition="'$(EagleCopyToNetCoreApp100)' != 'false' And
+                     ('$(TargetFramework)' == 'net5.0' Or
+                      '$(TargetFramework)' == 'net6.0' Or
+                      '$(TargetFramework)' == 'net7.0' Or
+                      '$(TargetFramework)' == 'net8.0' Or
+                      '$(TargetFramework)' == 'net9.0' Or
+                      '$(TargetFramework)' == 'net10.0') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp100.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\net10.0"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\net10.0\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp100.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
   <Target Name="EagleCopyResourcePngs"
           Condition="'$(EagleCopyResourcePngs)' != 'false' And
                      '$(OutputPath)' != '' And
@@ -2536,8 +2711,203 @@
           SourceFiles="@(EagleCopySQLite3X64Item)"
           DestinationFolder="$(EagleBinaryOutputPath)net5.0\x64" />
 
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net6.0')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net6.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net6.0')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net6.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net7.0')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net7.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net7.0')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net7.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net8.0')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net8.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net8.0')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net8.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net9.0')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net9.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net9.0')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net9.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net10.0')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net10.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net10.0')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net10.0\x64" />
+
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopySQLite3.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCopySQLiteInterop"
+          Condition="'$(EagleCopySQLiteInterop)' != 'false' And
+                     '$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     '$(EagleBinaryOutputPath)' != '' And
+                     HasTrailingSlash('$(EagleBinaryOutputPath)') And
+                     Exists('$(EagleBinaryOutputPath)') And
+                     Exists('$(EagleDir)\Externals\SQLiteInterop\x86') And
+                     Exists('$(EagleDir)\Externals\SQLiteInterop\x64')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopySQLiteInterop.done">
+    <CreateItem Include="$(EagleDir)\Externals\SQLiteInterop\x86\*">
+      <Output ItemName="EagleCopySQLiteInteropX86Item" TaskParameter="Include" />
+    </CreateItem>
+
+    <CreateItem Include="$(EagleDir)\Externals\SQLiteInterop\x64\*">
+      <Output ItemName="EagleCopySQLiteInteropX64Item" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy Condition="'$(BuildTool)' != 'DotNetCore'"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)x86" />
+
+    <Copy Condition="'$(BuildTool)' != 'DotNetCore'"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.1')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.1\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.1')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.1\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.2')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.2\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.2')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.2\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.1')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.1\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.1')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.1\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net5.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net5.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net5.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net5.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net6.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net6.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net6.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net6.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net7.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net7.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net7.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net7.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net8.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net8.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net8.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net8.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net9.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net9.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net9.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net9.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net10.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net10.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net10.0')"
+          SourceFiles="@(EagleCopySQLiteInteropX64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)net10.0\x64" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopySQLiteInterop.done" />
   </Target>
 
   <!--
@@ -2549,22 +2919,24 @@
                      '$(EagleBinaryOutputPath)' != '' And
                      HasTrailingSlash('$(EagleBinaryOutputPath)') And
                      Exists('$(EagleBinaryOutputPath)') And
-                     Exists('$(EagleDir)\Externals\System.Data.SQLite')"
+                     Exists('$(EagleDir)\Externals\System.Data.SQLite') And
+                     '$(SystemDataSQLiteVersion)' != '' And
+                     Exists('$(EagleDir)\Externals\System.Data.SQLite\$(SystemDataSQLiteVersion)')"
           Inputs="$(TargetPath)"
           Outputs="$(TargetPath).CopySystemDataSQLite.done">
-    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\netFramework20\*">
+    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\$(SystemDataSQLiteVersion)\netFramework20\*">
       <Output ItemName="EagleCopySystemDataSQLiteItem1" TaskParameter="Include" />
     </CreateItem>
 
-    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\netFramework40\*">
+    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\$(SystemDataSQLiteVersion)\netFramework40\*">
       <Output ItemName="EagleCopySystemDataSQLiteItem2" TaskParameter="Include" />
     </CreateItem>
 
-    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\netStandard20\*">
+    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\$(SystemDataSQLiteVersion)\netStandard20\*">
       <Output ItemName="EagleCopySystemDataSQLiteItem3" TaskParameter="Include" />
     </CreateItem>
 
-    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\netStandard21\*">
+    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\$(SystemDataSQLiteVersion)\netStandard21\*">
       <Output ItemName="EagleCopySystemDataSQLiteItem4" TaskParameter="Include" />
     </CreateItem>
 
@@ -2629,6 +3001,31 @@
                      Exists('$(EagleBinaryOutputPath)net5.0')"
           SourceFiles="@(EagleCopySystemDataSQLiteItem4)"
           DestinationFolder="$(EagleBinaryOutputPath)net5.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net6.0')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net6.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net7.0')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net7.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net8.0')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net8.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net9.0')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net9.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net10.0')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net10.0" />
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopySystemDataSQLite.done" />
@@ -2723,6 +3120,31 @@
                      Exists('$(EagleBinaryOutputPath)net5.0')"
           SourceFiles="@(EagleCopyNewtonsoftJsonItem4)"
           DestinationFolder="$(EagleBinaryOutputPath)net5.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net6.0')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net6.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net7.0')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net7.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net8.0')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net8.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net9.0')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net9.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)net10.0')"
+          SourceFiles="@(EagleCopyNewtonsoftJsonItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)net10.0" />
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).CopyNewtonsoftJson.done" />

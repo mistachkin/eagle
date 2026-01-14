@@ -96537,7 +96537,7 @@ namespace Eagle._Components.Public
                     {
                         TraceOps.DebugTrace(e, typeof(Interpreter).Name,
                             "PrivateInteractiveLoop: caught exception: ",
-                            TracePriority.ShellError);
+                            null, TracePriority.ShellError);
                     }
                     finally
                     {
@@ -123781,7 +123781,7 @@ namespace Eagle._Components.Public
                     //       data necessary for this object to function correctly and there is
                     //       currently no supported way to "revive" it; therefore, it should never
                     //       be used again after this point.  This constraint is [normally] enforced
-                    //       by the CheckDisposed method, which is called from every publically
+                    //       by the CheckDisposed method, which is called from every publicly
                     //       accessible property and method of this class.
                     //
                     disposed = true;
@@ -123798,7 +123798,7 @@ namespace Eagle._Components.Public
                     //
                     // BUGFIX: Only notify other interpreters if the global notify setting is enabled.
                     //         This prevents subtle locking issues when tearing down interpreters that
-                    //         belong to different threads [OR interpreters that are currently being
+                    //         belong to different threads [-OR- interpreters that are currently being
                     //         used from different threads].
                     //
                     if (notify)

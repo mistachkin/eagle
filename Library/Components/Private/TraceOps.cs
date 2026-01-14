@@ -6087,13 +6087,15 @@ namespace Eagle._Components.Private
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTrace(
-            Exception exception,   /* in */
-            string category,       /* in */
-            string prefix,         /* in */
-            TracePriority priority /* in */
+            Exception exception,    /* in */
+            string category,        /* in */
+            string prefix,          /* in */
+            ArgumentList arguments, /* in */
+            TracePriority priority  /* in */
             )
         {
-            DebugTraceAlways(exception, category, prefix,
+            DebugTraceAlways(
+                exception, category, prefix, arguments,
                 priority | TracePriority.ExtraSkipFrame);
         }
 
@@ -6192,7 +6194,7 @@ namespace Eagle._Components.Private
 
             MaybeAdjustSkipFrames(priority, ref skipFrames);
 
-            string message = FormatOps.TraceException(exception);
+            string message = FormatOps.TraceException(exception, priority);
 
 #if MAYBE_TRACE
             try
@@ -6253,7 +6255,7 @@ namespace Eagle._Components.Private
 
             MaybeAdjustSkipFrames(priority, ref skipFrames);
 
-            string message = FormatOps.TraceException(exception);
+            string message = FormatOps.TraceException(exception, priority);
 
 #if MAYBE_TRACE
             try
@@ -6285,10 +6287,11 @@ namespace Eagle._Components.Private
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void DebugTraceAlways(
-            Exception exception,   /* in */
-            string category,       /* in */
-            string prefix,         /* in */
-            TracePriority priority /* in */
+            Exception exception,    /* in */
+            string category,        /* in */
+            string prefix,          /* in */
+            ArgumentList arguments, /* in */
+            TracePriority priority  /* in */
             )
         {
             if (!IsTracePossible())
@@ -6313,7 +6316,7 @@ namespace Eagle._Components.Private
 
             MaybeAdjustSkipFrames(priority, ref skipFrames);
 
-            string message = FormatOps.TraceException(exception);
+            string message = FormatOps.TraceException(exception, priority);
 
 #if MAYBE_TRACE
             try
@@ -6328,10 +6331,14 @@ namespace Eagle._Components.Private
                 }
 #endif
 
+                string formatted = String.Format(
+                    (arguments != null) ?
+                        "{0}{1}{2}[[SCRIPT ARGUMENTS: {3}]]{2}" : "{0}{1}",
+                    prefix, message, Environment.NewLine, arguments);
+
                 DebugTraceCore(Interpreter.GetActive(),
                     GlobalState.GetCurrentSystemThreadId(),
-                    String.Format("{0}{1}", prefix,
-                    message), category, priority, skipFrames,
+                    formatted, category, priority, skipFrames,
                     true, false);
 #if MAYBE_TRACE
             }
@@ -6374,7 +6381,7 @@ namespace Eagle._Components.Private
 
             MaybeAdjustSkipFrames(priority, ref skipFrames);
 
-            string message = FormatOps.TraceException(exception);
+            string message = FormatOps.TraceException(exception, priority);
 
 #if MAYBE_TRACE
             try
@@ -6748,7 +6755,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void DebugTraceAlways(
+        public static void DebugTraceAlways(
             string methodName,         /* in */
             string message,            /* in */
             string category,           /* in */
