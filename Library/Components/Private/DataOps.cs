@@ -425,7 +425,8 @@ namespace Eagle._Components.Private
                 // NOTE: This type name is optional because it requires
                 //       the System.Data.SQLite assembly to be loaded
                 //       (i.e. from "https://system.data.sqlite.org/"
-                //       OR "https://sf.net/projects/sqlite-dotnet2/").
+                //       -OR- "https://sf.net/projects/sqlite-dotnet2/",
+                //       etc).
                 //
                 foreach (DbConnectionType dbConnectionType in
                     new DbConnectionType[] {

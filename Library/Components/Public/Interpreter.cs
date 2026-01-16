@@ -47123,6 +47123,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Thread & Lifetime Management
+        public bool DisposeThread()
+        {
+            CheckDisposed();
+
+            return MaybeDisposeThread();
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Data Type Conversion
         public string DateTimeFormat
         {
@@ -99626,6 +99637,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public int ActiveCount
+        {
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return GetActiveCount(false);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Private
 #if THREADING
         private IEngineContext GetEngineContext(
@@ -118942,7 +118965,7 @@ namespace Eagle._Components.Public
             //
             // NOTE: Try to verify that we are the last interpreter for this
             //       thread prior to getting rid of our native stack related
-            //       informmation.
+            //       information.
             //
             if (!isStoppingSoon &&
                 (CountThreadInterpreters() <= 1)) // BUGBUG: Was == 1 here?

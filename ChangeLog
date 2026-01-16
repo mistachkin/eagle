@@ -79,6 +79,8 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
 
+FEATURE: add the DisposeThread method to the IInterpreter interface.
+
 FEATURE: add the LastAccessedNoThrow property to the IInterpreter interface.
 
 FEATURE: add the -autoscan option to the [package require] sub-command.  this

@@ -5544,7 +5544,8 @@ namespace eval ::Eagle {
     }
 
     proc testForDynamicLoading { {fileName ""} {errorVarName ""} } {
-      if {![info exists ::no(testForDynamicLoading)]} then {
+      if {![info exists ::no(testForDynamicLoading)] && \
+          ![info exists ::env(testForDynamicLoading)]} then {
         if {[string length $errorVarName] > 0} then {
           upvar 1 $errorVarName error
         }
@@ -5614,7 +5615,8 @@ namespace eval ::Eagle {
       #       On some (Unix) systems, dlopen does not work (e.g. because
       #       Mono is statically linked, etc).
       #
-      if {[info exists ::no(checkForDynamicLoading)]} then {
+      if {[info exists ::no(checkForDynamicLoading)] || \
+          [info exists ::env(checkForDynamicLoading)]} then {
         #
         # NOTE: On (some releases of) macOS, it seems that loading and/or
         #       unloading a dynamic native library can cause kernel hangs
@@ -6312,7 +6314,8 @@ namespace eval ::Eagle {
       set prefix "---- checking for Tcl shell version... "
 
       if {[canExecTclShell] && \
-          ![info exists ::no(getTclVersionForTclShell)] && [catch {
+          ![info exists ::no(getTclVersionForTclShell)] && \
+          ![info exists ::env(getTclVersionForTclShell)] && [catch {
         getTclVersionForTclShell "" [getTclShellVerbosity]
       } version] == 0 && $version ne "error" && \
           ![string match "error: *" $version]} then {
@@ -6343,7 +6346,8 @@ namespace eval ::Eagle {
       set prefix "---- checking for Tk package version... "
 
       if {[canExecTclShell] && \
-          ![info exists ::no(getTkVersionForTclShell)] && [catch {
+          ![info exists ::no(getTkVersionForTclShell)] && \
+          ![info exists ::env(getTkVersionForTclShell)] && [catch {
         getTkVersionForTclShell "" [getTclShellVerbosity]
       } version] == 0 && $version ne "error" && \
           ![string match "error: *" $version]} then {

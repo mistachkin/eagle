@@ -165,6 +165,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static long GetTotalActiveCount()
+        {
+            return GlobalState.GetTotalActiveCount();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void PushActiveInterpreter(
             Interpreter interpreter
             )
@@ -5201,8 +5208,6 @@ namespace Eagle._Components.Public
             DebugOps.Output(message, localPriority);
         }
 #endif
-
-
 
         ///////////////////////////////////////////////////////////////////////
 

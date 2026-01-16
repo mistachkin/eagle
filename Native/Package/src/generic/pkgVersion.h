@@ -13,6 +13,7 @@
 #define _PKG_VERSION_H_
 
 #define PACKAGE_NAME		"Garuda"
+#define PACKAGE_NAME_0		"Garuda"
 #define PACKAGE_NAME_1		"dotnet"
 #define PACKAGE_NAME_2		"GarudaDotNetFx"
 #define PACKAGE_NAME_3		"GarudaDotNetCore"

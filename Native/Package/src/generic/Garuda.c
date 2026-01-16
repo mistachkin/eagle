@@ -183,7 +183,7 @@ static ClrTclStubs uTclStubs = { 0 };
  */
 
 static const char *packageNames[] = {
-    PACKAGE_NAME, PACKAGE_NAME_1, PACKAGE_NAME_2, PACKAGE_NAME_3, NULL
+    PACKAGE_NAME_0, PACKAGE_NAME_1, PACKAGE_NAME_2, PACKAGE_NAME_3, NULL
 };
 
 #if defined(USE_TCL_PRIVATE_STUBS)

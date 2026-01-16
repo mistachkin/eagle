@@ -576,6 +576,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region "First" / "Active" / "All" Interpreter Tracking
+        private static long totalActiveCount;
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static Interpreter firstInterpreter = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -3081,6 +3085,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static long GetTotalActiveCount()
+        {
+            return Interlocked.CompareExchange(
+                ref totalActiveCount, 0, 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void PushActiveInterpreter(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -3114,6 +3126,9 @@ namespace Eagle._Components.Private
             activeInterpreters.Push(
                 new MutableAnyPair<Interpreter, IClientData>(
                     true, interpreter, clientData));
+
+            /* IGNORED */
+            Interlocked.Increment(ref totalActiveCount);
 
             /* IGNORED */
             Interlocked.Increment(ref pushed);
@@ -3251,6 +3266,9 @@ namespace Eagle._Components.Private
                     }
 
                     anyPair = activeInterpreters.Pop();
+
+                    /* IGNORED */
+                    Interlocked.Decrement(ref totalActiveCount);
 
                     /* IGNORED */
                     Interlocked.Decrement(ref pushed);
