@@ -3093,6 +3093,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static long IncreaseActiveCount()
+        {
+            return Interlocked.Increment(ref totalActiveCount);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long DecreaseActiveCount()
+        {
+            return Interlocked.Decrement(ref totalActiveCount);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void PushActiveInterpreter(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -3128,10 +3142,10 @@ namespace Eagle._Components.Private
                     true, interpreter, clientData));
 
             /* IGNORED */
-            Interlocked.Increment(ref totalActiveCount);
+            Interlocked.Increment(ref pushed);
 
             /* IGNORED */
-            Interlocked.Increment(ref pushed);
+            IncreaseActiveCount();
 
             ///////////////////////////////////////////////////////////////////
 
@@ -3268,10 +3282,10 @@ namespace Eagle._Components.Private
                     anyPair = activeInterpreters.Pop();
 
                     /* IGNORED */
-                    Interlocked.Decrement(ref totalActiveCount);
+                    Interlocked.Decrement(ref pushed);
 
                     /* IGNORED */
-                    Interlocked.Decrement(ref pushed);
+                    DecreaseActiveCount();
                 }
             }
 
