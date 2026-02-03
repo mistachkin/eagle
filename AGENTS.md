@@ -4,10 +4,22 @@ This document provides guidance for AI agents (such as Claude, GPT, etc.) to wri
 
 ## Quick Reference
 
-**Documentation**: The complete Eagle Language Catalog and Script Library Catalog are available at:
-- **https://urn.to/r/docs** (redirects to the GitHub repository containing both catalogs)
+**Canonical Documentation Location**: The complete Eagle documentation is available at:
+- **https://urn.to/r/docs** (this will redirect)
 
-Always consult these catalogs for detailed command syntax, available procedures, and usage examples.
+**Documentation Files** in the repository:
+| File | Description |
+|------|-------------|
+| `core_language.md` | Core language reference - all built-in commands, syntax, and .NET integration |
+| `core_script_library.md` | Script library reference - procedures from Eagle's standard library packages |
+| `README.md` | Documentation index and overview |
+
+**How to Access Documentation**:
+1. Navigate to https://urn.to/r/docs
+2. Read `core_language.md` for command syntax and language features
+3. Read `core_script_library.md` for library procedures and utilities
+
+**For AI Agents**: When you need detailed information about Eagle commands or procedures, fetch and read the appropriate documentation file from the repository above.
 
 ---
 
@@ -906,8 +918,16 @@ test debug-1.1 {debugging example} -body {
 
 ## Additional Resources
 
-- **Eagle Language Catalog**: Complete command reference
-- **Eagle Script Library Catalog**: Procedure library documentation
-- **Both available at**: https://urn.to/r/docs
+**Eagle Documentation Repository**: https://urn.to/r/docs (this will redirect)
 
-When in doubt, always consult the catalogs for accurate syntax and usage examples.
+| Document | Contents |
+|----------|----------|
+| `core_language.md` | Complete command reference, syntax, .NET integration, flags enumerations, command callbacks |
+| `core_script_library.md` | Procedure library - test infrastructure, file operations, object utilities, platform detection |
+| `README.md` | Documentation overview and index |
+
+**Eagle Source Repository**: https://github.com/mistachkin/eagle
+- Source code, examples, and test suites
+- `Library/Tests/` - Comprehensive test examples
+
+When in doubt, consult the documentation files for accurate syntax and usage examples.
