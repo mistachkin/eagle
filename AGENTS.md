@@ -42,7 +42,6 @@ Eagle is a Tcl-compatible scripting language with deep .NET/CLR integration. It 
 | `namespace path` | Not supported |
 | `fileevent` | Use polling with `after` or .NET async patterns |
 | `try {} on error {} {}` | Use `try {} finally {}` or `catch` |
-| `lmap` | Use `foreach` with `lappend` |
 
 ---
 
