@@ -926,7 +926,7 @@ test debug-1.1 {debugging example} -body {
 | `core_script_library.md` | Procedure library - test infrastructure, file operations, object utilities, platform detection |
 | `README.md` | Documentation overview and index |
 
-**Eagle Source Repository**: https://github.com/mistachkin/eagle
+**Eagle Source Repository**: https://urn.to/r/eagle_repository (this will redirect)
 - Source code, examples, and test suites
 - `Library/Tests/` - Comprehensive test examples
 
