@@ -15,7 +15,7 @@ This document provides guidance for AI agents (such as Claude, GPT, etc.) to wri
 | `README.md` | Documentation index and overview |
 
 **How to Access Documentation**:
-1. Navigate to https://urn.to/r/docs
+1. Navigate to https://urn.to/r/docs (this will redirect)
 2. Read `core_language.md` for command syntax and language features
 3. Read `core_script_library.md` for library procedures and utilities
 
