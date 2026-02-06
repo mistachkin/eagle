@@ -71,7 +71,6 @@ runTestPrologue
 ###############################################################################
 
 runTestEpilogue
-unset -nocomplain test_channel
 ```
 
 ### The `test` Command
@@ -884,7 +883,6 @@ test myfeature-windows-1.1 {Windows-specific behavior} -constraints {
 ###############################################################################
 
 runTestEpilogue
-unset -nocomplain test_channel
 ```
 
 ---
