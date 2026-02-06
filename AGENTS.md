@@ -12,6 +12,7 @@ This document provides guidance for AI agents (such as Claude, GPT, etc.) to wri
 |------|-------------|
 | `core_language.md` | Core language reference - all built-in commands, syntax, and .NET integration |
 | `core_script_library.md` | Script library reference - procedures from Eagle's standard library packages |
+| `garuda.md` | Native Package for Tcl (Garuda) reference |
 | `README.md` | Documentation index and overview |
 | `AGENTS.md` | Agent documentation overview |
 
@@ -19,6 +20,7 @@ This document provides guidance for AI agents (such as Claude, GPT, etc.) to wri
 1. Navigate to https://urn.to/r/docs (this will redirect)
 2. Read `core_language.md` for command syntax and language features
 3. Read `core_script_library.md` for library procedures and utilities
+4. Read `garuda.md` for native Tcl-side integration and features
 
 **For AI Agents**: When you need detailed information about Eagle commands or procedures, fetch and read the appropriate documentation file from the repository above.
 
@@ -922,6 +924,7 @@ test debug-1.1 {debugging example} -body {
 |----------|----------|
 | `core_language.md` | Complete command reference, syntax, .NET integration, flags enumerations, command callbacks |
 | `core_script_library.md` | Procedure library - test infrastructure, file operations, object utilities, platform detection |
+| `garuda.md` | Native Package for Tcl (Garuda) reference |
 | `README.md` | Documentation overview and index |
 | `AGENTS.md` | Agent documentation overview |
 
