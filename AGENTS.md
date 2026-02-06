@@ -13,6 +13,7 @@ This document provides guidance for AI agents (such as Claude, GPT, etc.) to wri
 | `core_language.md` | Core language reference - all built-in commands, syntax, and .NET integration |
 | `core_script_library.md` | Script library reference - procedures from Eagle's standard library packages |
 | `README.md` | Documentation index and overview |
+| `AGENTS.md` | Agent documentation overview |
 
 **How to Access Documentation**:
 1. Navigate to https://urn.to/r/docs (this will redirect)
@@ -922,6 +923,7 @@ test debug-1.1 {debugging example} -body {
 | `core_language.md` | Complete command reference, syntax, .NET integration, flags enumerations, command callbacks |
 | `core_script_library.md` | Procedure library - test infrastructure, file operations, object utilities, platform detection |
 | `README.md` | Documentation overview and index |
+| `AGENTS.md` | Agent documentation overview |
 
 **Eagle Source Repository**: https://urn.to/r/github (this will redirect)
 - Source code, examples, and test suites
