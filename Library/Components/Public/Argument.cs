@@ -66,6 +66,7 @@ namespace Eagle._Components.Public
         public static readonly int NoLine = Parser.UnknownLine;
         public static readonly bool NoViaSource = false;
         public static readonly object NoCacheValue = null;
+        public static readonly long NoCacheGeneration = 0;
         public static readonly byte[] NoHashValue = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -98,10 +99,12 @@ namespace Eagle._Components.Public
             int endLine,
             bool viaSource,
             object cacheValue,
+            long cacheGeneration,
             byte[] hashValue
             )
             : this(flags, name, value, NoString, @default, fileName,
-                   startLine, endLine, viaSource, cacheValue, hashValue)
+                   startLine, endLine, viaSource, cacheValue, cacheGeneration,
+                   hashValue)
         {
             // do nothing.
         }
@@ -123,6 +126,7 @@ namespace Eagle._Components.Public
             int endLine,
             bool viaSource,
             object cacheValue,
+            long cacheGeneration,
             byte[] hashValue
             )
         {
@@ -140,6 +144,7 @@ namespace Eagle._Components.Public
             this.endLine = endLine;
             this.viaSource = viaSource;
             this.cacheValue = cacheValue;
+            this.cacheGeneration = cacheGeneration;
             this.hashValue = hashValue;
             this.engineData = null;
         }
@@ -154,7 +159,7 @@ namespace Eagle._Components.Public
             object @default
             )
             : this(flags, name, value, @default, NoFileName, NoLine, NoLine,
-                   NoViaSource, NoCacheValue, NoHashValue)
+                   NoViaSource, NoCacheValue, NoCacheGeneration, NoHashValue)
         {
             // do nothing.
         }
@@ -168,7 +173,7 @@ namespace Eagle._Components.Public
             object value
             )
             : this(flags, name, value, NoDefault, NoFileName, NoLine, NoLine,
-                   NoViaSource, NoCacheValue, NoHashValue)
+                   NoViaSource, NoCacheValue, NoCacheGeneration, NoHashValue)
         {
             // do nothing.
         }
@@ -181,7 +186,7 @@ namespace Eagle._Components.Public
             string name
             )
             : this(flags, name, NoValue, NoDefault, NoFileName, NoLine, NoLine,
-                   NoViaSource, NoCacheValue, NoHashValue)
+                   NoViaSource, NoCacheValue, NoCacheGeneration, NoHashValue)
         {
             // do nothing.
         }
@@ -197,7 +202,8 @@ namespace Eagle._Components.Public
             object value
             )
             : this(NoFlags, NoName, value, NoDefault, NoFileName, NoLine,
-                   NoLine, NoViaSource, NoCacheValue, NoHashValue)
+                   NoLine, NoViaSource, NoCacheValue, NoCacheGeneration,
+                   NoHashValue)
         {
             // do nothing.
         }
@@ -220,6 +226,7 @@ namespace Eagle._Components.Public
                    (value != null) ? value.EndLine : NoLine,
                    (value != null) ? value.ViaSource : NoViaSource,
                    (value != null) ? value.CacheValue : NoCacheValue,
+                   (value != null) ? value.CacheGeneration : NoCacheGeneration,
                    (value != null) ? value.HashValue : NoHashValue)
         {
             // do nothing.
@@ -232,7 +239,8 @@ namespace Eagle._Components.Public
             Interpreter value
             )
             : this(NoFlags, NoName, value, NoDefault, NoFileName, NoLine,
-                   NoLine, NoViaSource, NoCacheValue, NoHashValue)
+                   NoLine, NoViaSource, NoCacheValue, NoCacheGeneration,
+                   NoHashValue)
         {
             // do nothing.
         }
@@ -245,7 +253,7 @@ namespace Eagle._Components.Public
             )
             : this(NoFlags, NoName, (value != null) ? value.Value : null,
                    NoDefault, NoFileName, NoLine, NoLine, NoViaSource,
-                   NoCacheValue, NoHashValue)
+                   NoCacheValue, NoCacheGeneration, NoHashValue)
         {
             // do nothing.
         }
@@ -258,7 +266,7 @@ namespace Eagle._Components.Public
             )
             : this(NoFlags, NoName, (value != null) ? value.Value : null,
                    NoDefault, NoFileName, NoLine, NoLine, NoViaSource,
-                   NoCacheValue, NoHashValue)
+                   NoCacheValue, NoCacheGeneration, NoHashValue)
         {
             // do nothing.
         }
@@ -282,7 +290,7 @@ namespace Eagle._Components.Public
 #endif
 #endif
                    NoDefault, fileName, startLine, endLine, viaSource,
-                   NoCacheValue, NoHashValue)
+                   NoCacheValue, NoCacheGeneration, NoHashValue)
         {
             // do nothing.
         }
@@ -373,6 +381,7 @@ namespace Eagle._Components.Public
                 this.viaSource = false;
 
                 this.cacheValue = null;
+                this.cacheGeneration = 0;
                 this.hashValue = null;
             }
             else
@@ -392,6 +401,7 @@ namespace Eagle._Components.Public
                 this.viaSource = NoViaSource;
 
                 this.cacheValue = NoCacheValue;
+                this.cacheGeneration = NoCacheGeneration;
                 this.hashValue = NoHashValue;
             }
 
@@ -2318,13 +2328,64 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICacheValue Members
+        //
+        // WARNING: This property is for private and/or diagnostic use only.
+        //
         private object cacheValue;
         public object CacheValue
         {
             [DebuggerStepThrough()]
             get { return cacheValue; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This property is for private and/or diagnostic use only.
+        //
+        private long cacheGeneration;
+        public long CacheGeneration
+        {
             [DebuggerStepThrough()]
-            set { cacheValue = value; }
+            get { return cacheGeneration; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        public object GetCacheValue(
+            Interpreter interpreter
+            )
+        {
+#if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
+            if ((interpreter == null) ||
+                !interpreter.MatchCacheGeneration(true, ref cacheGeneration))
+            {
+                return null;
+            }
+#endif
+
+            return cacheValue;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        public bool SetCacheValue(
+            Interpreter interpreter,
+            object value
+            )
+        {
+#if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
+            if ((interpreter == null) ||
+                !interpreter.MatchCacheGeneration(false, ref cacheGeneration))
+            {
+                return false;
+            }
+#endif
+
+            cacheValue = value;
+            return true;
         }
         #endregion
 

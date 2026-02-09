@@ -2434,12 +2434,12 @@ namespace Eagle._Components.Public
                                 character1 = Characters.VerticalTab;
                                 break;
                             }
-                        case Characters.Backslash: /* custom */
+                        case Characters.Backslash:
                             {
                                 character1 = Characters.Backslash;
                                 break;
                             }
-                        case Characters.B:
+                        case Characters.B: /* custom */
                             {
                                 long number = 0;
 
@@ -2455,7 +2455,7 @@ namespace Eagle._Components.Public
 
                                 break;
                             }
-                        case Characters.o:
+                        case Characters.o: /* custom */
                             {
                                 long number = 0;
 
@@ -2471,7 +2471,7 @@ namespace Eagle._Components.Public
 
                                 break;
                             }
-                        case Characters.d:
+                        case Characters.d: /* custom */
                             {
                                 long number = 0;
 
@@ -2503,7 +2503,7 @@ namespace Eagle._Components.Public
 
                                 break;
                             }
-                        case Characters.X:
+                        case Characters.X: /* custom */
                             {
                                 long number = 0;
 

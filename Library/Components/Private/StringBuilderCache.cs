@@ -83,6 +83,24 @@ namespace Eagle._Components.Private
         //       capacity.
         //
         private static int PreferStartIndex = -1;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is the extra offset value to add when converting an
+        //       index value to a capacity value, i.e. a value of one will
+        //       cause the capacity to be increased by a factor of two.
+        //
+        private static int ExtraOffset = 1;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: If this field is false, only a slot index matching the
+        //       requested capacity will be acquired from / released to;
+        //       otherwise, any slot index may be used.
+        //
+        private static bool TryForAny = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -125,7 +143,7 @@ namespace Eagle._Components.Private
         //       minimum capacity for each slot will be defined as follows,
         //       with N as the slot index:
         //
-        //                  2 ** (N + log2(MinimumCapacity))
+        //                  2 ** (N + log2(MinimumCapacity) + ExtraOffset)
         //
         private static readonly StringBuilder[] instances = {
             null, null, null, null, null, null, null, null
@@ -219,7 +237,7 @@ namespace Eagle._Components.Private
 
                 try
                 {
-                    int capacity = IndexToCapacity(index);
+                    int capacity = IndexToCapacity(index, false);
 
                     if (capacity > 0)
                     {
@@ -281,12 +299,10 @@ namespace Eagle._Components.Private
         {
             if (builder == null)
             {
-                StringBuilder instance = Interlocked.CompareExchange(
-                    ref instances[index], null, null);
+                StringBuilder instance = Interlocked.Exchange(
+                    ref instances[index], null);
 
-                if ((instance != null) && Object.ReferenceEquals(
-                        instance, Interlocked.CompareExchange(
-                        ref instances[index], null, instance)))
+                if (instance != null)
                 {
 #if CACHE_STATISTICS
                     Interlocked.Increment(
@@ -337,6 +353,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static int CapacityToIndex(
+            int capacity /* in */
+            )
+        {
+            return MathOps.Log2(capacity) - GetIndexOffset() - ExtraOffset;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ulong? IndexToCapacity(
+            int index /* in */
+            )
+        {
+            return MathOps.Pow2(index + GetIndexOffset() + ExtraOffset);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int CapacityToIndex(
             int capacity, /* in */
             bool release  /* in: NOT USED */
             )
@@ -359,7 +393,7 @@ namespace Eagle._Components.Private
             if ((capacity <= 0) || (capacity == MinimumCapacity))
                 return 0;
 
-            startIndex = MathOps.Log2(capacity) - GetIndexOffset();
+            startIndex = CapacityToIndex(capacity);
 
             if ((startIndex < 0) || (startIndex >= length))
                 startIndex = 0;
@@ -370,7 +404,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static int IndexToCapacity(
-            int index /* in */
+            int index,   /* in */
+            bool release /* in: NOT USED */
             )
         {
             if (FixedCapacity > 0)
@@ -379,8 +414,7 @@ namespace Eagle._Components.Private
             }
             else
             {
-                ulong? capacity = MathOps.Pow2(
-                    index + GetIndexOffset());
+                ulong? capacity = IndexToCapacity(index);
 
                 if (capacity == null)
                     return 0;
@@ -406,6 +440,33 @@ namespace Eagle._Components.Private
             ref StringBuilder builder /* in, out: OPTIONAL */
             )
         {
+            return TryForAny ?
+                TryAcquireAny(capacity, ref builder) :
+                TryAcquireFirst(capacity, ref builder);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool TryAcquireFirst(
+            int capacity,             /* in */
+            ref StringBuilder builder /* in, out: OPTIONAL */
+            )
+        {
+            int index = CapacityToIndex(capacity, false);
+
+            if (TryAcquireFrom(index, ref builder))
+                return true;
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool TryAcquireAny(
+            int capacity,             /* in */
+            ref StringBuilder builder /* in, out: OPTIONAL */
+            )
+        {
             int startIndex = CapacityToIndex(capacity, false);
             int length = GetLength();
 
@@ -419,6 +480,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool TryRelease(
+            int capacity,             /* in */
+            ref StringBuilder builder /* in, out: OPTIONAL */
+            )
+        {
+            return TryForAny ?
+                TryReleaseAny(capacity, ref builder) :
+                TryReleaseFirst(capacity, ref builder);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool TryReleaseFirst(
+            int capacity,             /* in */
+            ref StringBuilder builder /* in, out: OPTIONAL */
+            )
+        {
+            int index = CapacityToIndex(capacity, true);
+
+            if (TryReleaseTo(index, ref builder))
+                return true;
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool TryReleaseAny(
             int capacity,             /* in */
             ref StringBuilder builder /* in, out: OPTIONAL */
             )
@@ -511,7 +599,7 @@ namespace Eagle._Components.Private
                 {
                     if (TryAcquireFrom(index, ref builder))
                     {
-                        int capacity = IndexToCapacity(index);
+                        int capacity = IndexToCapacity(index, false);
 
                         if ((capacity > 0) &&
                             CheckCapacity(builder, capacity))

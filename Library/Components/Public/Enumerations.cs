@@ -2695,7 +2695,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         ForceTrim = 0x1000,       /* Forcibly trim the specified caches if necessary,
-                                   * ignorning any limits on how many items may be
+                                   * ignoring any limits on how many items may be
                                    * trimmed at once. */
         Unlock = 0x2000,          /* Unlock the specified caches. */
         Lock = 0x4000,            /* Lock the specified caches. */
@@ -2704,14 +2704,21 @@ namespace Eagle._Components.Public
                                    * reset their settings back to their originally
                                    * configured values. */
         Clear = 0x20000,          /* Empty the specified caches. */
-        PreSetup = 0x40000,       /* Initialize the caches, again if neeed. */
+        PreSetup = 0x40000,       /* Initialize the caches, again if need. */
         FullClear = 0x80000,      /* Force all subsystems fully cleared. */
+        NoGeneration = 0x100000,  /* Force all subsystems fully cleared. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
 #if CACHE_DICTIONARY
-        SetProperties = 0x100000, /* Configure various properties of the caches. */
+        SetProperties = 0x200000, /* Configure various properties of the caches. */
 #endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
 #if CACHE_STATISTICS
-        KeepCounts = 0x200000,    /* When resetting the cache, keep its counts. */
-        ZeroCounts = 0x400000,    /* When resetting the cache, zero its counts. */
+        KeepCounts = 0x400000,    /* When resetting the cache, keep its counts. */
+        ZeroCounts = 0x800000,    /* When resetting the cache, zero its counts. */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2721,14 +2728,14 @@ namespace Eagle._Components.Public
         //       of the associated cache, when appropriate (typically when
         //       under heavy load).
         //
-        ForceTrimArgument = 0x800000,
-        ForceTrimStringList = 0x1000000,
-        ForceTrimIParseState = 0x2000000,
-        ForceTrimIExecute = 0x4000000, /* NOT YET IMPLEMENTED */
-        ForceTrimType = 0x8000000,
-        ForceTrimComTypeList = 0x10000000,
-        ForceTrimStringBuilder = 0x20000000, /* NOT YET IMPLEMENTED */
-        ForceTrimMiscellaneous = 0x40000000, /* NOT YET IMPLEMENTED */
+        ForceTrimArgument = 0x1000000,
+        ForceTrimStringList = 0x2000000,
+        ForceTrimIParseState = 0x4000000,
+        ForceTrimIExecute = 0x8000000, /* NOT YET IMPLEMENTED */
+        ForceTrimType = 0x10000000,
+        ForceTrimComTypeList = 0x20000000,
+        ForceTrimStringBuilder = 0x40000000, /* NOT YET IMPLEMENTED */
+        ForceTrimMiscellaneous = 0x80000000, /* NOT YET IMPLEMENTED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2738,14 +2745,14 @@ namespace Eagle._Components.Public
         //       would have been appropriate (typically when under heavy
         //       load).
         //
-        LockArgument = 0x80000000,
-        LockStringList = 0x100000000,
-        LockIParseState = 0x200000000,
-        LockIExecute = 0x400000000, /* NOT YET IMPLEMENTED */
-        LockType = 0x800000000,
-        LockComTypeList = 0x1000000000,
-        LockStringBuilder = 0x2000000000, /* NOT YET IMPLEMENTED */
-        LockMiscellaneous = 0x4000000000, /* NOT YET IMPLEMENTED */
+        LockArgument = 0x100000000,
+        LockStringList = 0x200000000,
+        LockIParseState = 0x400000000,
+        LockIExecute = 0x800000000, /* NOT YET IMPLEMENTED */
+        LockType = 0x1000000000,
+        LockComTypeList = 0x2000000000,
+        LockStringBuilder = 0x4000000000, /* NOT YET IMPLEMENTED */
+        LockMiscellaneous = 0x8000000000, /* NOT YET IMPLEMENTED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2755,14 +2762,14 @@ namespace Eagle._Components.Public
         //       the originally configured values when appropriate
         //       (typically when under heavy load).
         //
-        ResetArgument = 0x8000000000,
-        ResetStringList = 0x10000000000,
-        ResetIParseState = 0x20000000000,
-        ResetIExecute = 0x40000000000,
-        ResetType = 0x80000000000,
-        ResetComTypeList = 0x100000000000,
-        ResetStringBuilder = 0x200000000000, /* NOT YET IMPLEMENTED */
-        ResetMiscellaneous = 0x400000000000, /* NOT YET IMPLEMENTED */
+        ResetArgument = 0x10000000000,
+        ResetStringList = 0x20000000000,
+        ResetIParseState = 0x40000000000,
+        ResetIExecute = 0x80000000000,
+        ResetType = 0x100000000000,
+        ResetComTypeList = 0x200000000000,
+        ResetStringBuilder = 0x400000000000, /* NOT YET IMPLEMENTED */
+        ResetMiscellaneous = 0x800000000000, /* NOT YET IMPLEMENTED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2771,14 +2778,14 @@ namespace Eagle._Components.Public
         //       associated cache when appropriate (typically when
         //       under heavy load).
         //
-        ClearArgument = 0x800000000000,
-        ClearStringList = 0x1000000000000,
-        ClearIParseState = 0x2000000000000,
-        ClearIExecute = 0x4000000000000,
-        ClearType = 0x8000000000000,
-        ClearComTypeList = 0x10000000000000,
-        ClearStringBuilder = 0x20000000000000, /* NOT YET IMPLEMENTED */
-        ClearMiscellaneous = 0x40000000000000, /* NOT YET IMPLEMENTED */
+        ClearArgument = 0x1000000000000,
+        ClearStringList = 0x2000000000000,
+        ClearIParseState = 0x4000000000000,
+        ClearIExecute = 0x8000000000000,
+        ClearType = 0x10000000000000,
+        ClearComTypeList = 0x20000000000000,
+        ClearStringBuilder = 0x40000000000000, /* NOT YET IMPLEMENTED */
+        ClearMiscellaneous = 0x80000000000000, /* NOT YET IMPLEMENTED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2791,10 +2798,10 @@ namespace Eagle._Components.Public
         //       which may improve performance in some rare use
         //       cases.
         //
-        ForResult = 0x80000000000000,
-        ForResultWithLocation = 0x100000000000000,
-        ForVariant = 0x200000000000000,
-        ForProcedure = 0x400000000000000,
+        ForResult = 0x100000000000000,
+        ForResultWithLocation = 0x200000000000000,
+        ForVariant = 0x400000000000000,
+        ForProcedure = 0x800000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 

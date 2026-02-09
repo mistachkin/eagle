@@ -5827,7 +5827,8 @@ namespace Eagle._Components.Private
                 if (secondArgument != null)
                 {
                     ISubCommand localSubCommand =
-                        secondArgument.CacheValue as ISubCommand;
+                        secondArgument.GetCacheValue(
+                            interpreter) as ISubCommand;
 
                     if (localSubCommand != null)
                     {
@@ -5843,20 +5844,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool MaybeCacheISubCommandViaArgument(
-            Argument argument,     /* in */
-            bool viaArgument,      /* in */
-            ISubCommand subCommand /* in */
+            Interpreter interpreter, /* in */
+            Argument argument,       /* in */
+            bool viaArgument,        /* in */
+            ISubCommand subCommand   /* in */
             )
         {
             if (viaArgument && (argument != null))
-            {
-                argument.CacheValue = subCommand;
-                return true;
-            }
+                return argument.SetCacheValue(interpreter, subCommand);
             else
-            {
                 return false;
-            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5934,7 +5931,7 @@ namespace Eagle._Components.Private
             //
             /* IGNORED */
             MaybeCacheISubCommandViaArgument(
-                secondArgument, viaArgument, subCommand);
+                interpreter, secondArgument, viaArgument, subCommand);
 
         execute:
 

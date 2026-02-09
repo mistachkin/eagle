@@ -1743,6 +1743,14 @@ namespace Eagle._Components.Public
 #if COM_TYPE_CACHE
         private IntPtrTypeListDictionary comTypeListCache;
 #endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
+        private long cacheGeneration;
+        private long cacheHits;
+        private long cacheMisses;
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5094,6 +5102,80 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
+        internal bool MatchCacheGeneration(
+            bool readOnly, /* in */
+            ref long value /* in, out */
+            )
+        {
+            //
+            // WARNING: Having this flag set is dangerous because it could, at
+            //          least in theory, lead to incorrect command resolution.
+            //          This flag is primarily for diagnostic / test use only.
+            //
+            if (FlagOps.HasFlags(
+                    cacheFlags, CacheFlags.NoGeneration, true)) /* NO-LOCK */
+            {
+                /* IGNORED */
+                Interlocked.Increment(ref cacheHits);
+
+                return true;
+            }
+
+            long localCacheGeneration = Interlocked.CompareExchange(
+                ref cacheGeneration, 0, 0);
+
+            if (localCacheGeneration <= 0) /* NOTE: Forbidden. */
+            {
+                /* IGNORED */
+                Interlocked.Increment(ref cacheMisses);
+
+                return false;
+            }
+
+            if (readOnly)
+            {
+                //
+                // NOTE: Very strict, exact match only.
+                //
+                if (localCacheGeneration == value)
+                {
+                    /* IGNORED */
+                    Interlocked.Increment(ref cacheHits);
+
+                    return true;
+                }
+                else
+                {
+                    /* IGNORED */
+                    Interlocked.Increment(ref cacheMisses);
+
+                    return false;
+                }
+            }
+            else
+            {
+                //
+                // TODO: Should this actually be allowed?
+                //
+                // if (value <= 0) /* NOTE: Forbidden. */
+                // {
+                //     /* IGNORED */
+                //     Interlocked.Increment(ref cacheMisses);
+                //
+                //     return false;
+                // }
+                //
+
+                /* IGNORED */
+                Interlocked.Increment(ref cacheHits);
+
+                value = localCacheGeneration;
+                return true;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal bool InternalAreCachesEnabled(
             CacheFlags flags
             )
@@ -5537,6 +5619,8 @@ namespace Eagle._Components.Public
 
                 if (hiddenExecuteCache != null)
                 {
+                    Interlocked.Increment(ref cacheGeneration);
+
                     result += hiddenExecuteCache.Count;
                     hiddenExecuteCache.Clear();
 
@@ -5548,6 +5632,8 @@ namespace Eagle._Components.Public
 
                 if (executeCache != null)
                 {
+                    Interlocked.Increment(ref cacheGeneration);
+
                     result += executeCache.Count;
                     executeCache.Clear();
 
@@ -57645,6 +57731,8 @@ namespace Eagle._Components.Public
                 {
                     if (hiddenExecuteCache != null)
                     {
+                        Interlocked.Increment(ref cacheGeneration);
+
                         return hiddenExecuteCache.AddOrUpdate(
                             name, execute, invalidate);
                     }
@@ -57653,6 +57741,8 @@ namespace Eagle._Components.Public
                 {
                     if (executeCache != null)
                     {
+                        Interlocked.Increment(ref cacheGeneration);
+
                         return executeCache.AddOrUpdate(
                             name, execute, invalidate);
                     }
@@ -57678,6 +57768,8 @@ namespace Eagle._Components.Public
                 {
                     if (hiddenExecuteCache != null)
                     {
+                        Interlocked.Increment(ref cacheGeneration);
+
                         return hiddenExecuteCache.Rename(
                             oldName, newName, execute, invalidate);
                     }
@@ -57686,6 +57778,8 @@ namespace Eagle._Components.Public
                 {
                     if (executeCache != null)
                     {
+                        Interlocked.Increment(ref cacheGeneration);
+
                         return executeCache.Rename(
                             oldName, newName, execute, invalidate);
                     }
@@ -57709,6 +57803,8 @@ namespace Eagle._Components.Public
                 {
                     if (hiddenExecuteCache != null)
                     {
+                        Interlocked.Increment(ref cacheGeneration);
+
                         return hiddenExecuteCache.Remove(
                             name, invalidate);
                     }
@@ -57717,6 +57813,8 @@ namespace Eagle._Components.Public
                 {
                     if (executeCache != null)
                     {
+                        Interlocked.Increment(ref cacheGeneration);
+
                         return executeCache.Remove(
                             name, invalidate);
                     }
@@ -80420,6 +80518,9 @@ namespace Eagle._Components.Public
                 //
                 if (!PrivateIsSdk(SdkType.AnySdkMask, createFlags, false))
                 {
+                    /* IGNORED */
+                    Interlocked.Increment(ref cacheGeneration);
+
                     /* IGNORED */
                     PreSetupCaches();
                 }
@@ -111692,6 +111793,9 @@ namespace Eagle._Components.Public
                     return;
 
                 StringPairList localList; /* REUSED */
+                long longValue1; /* REUSED */
+                long longValue2; /* REUSED */
+                double doubleValue1; /* REUSED */
                 bool empty = HostOps.HasEmptyContent(detailFlags);
 
                 ///////////////////////////////////////////////////////////////////////////////////////
@@ -111753,6 +111857,38 @@ namespace Eagle._Components.Public
                 ///////////////////////////////////////////////////////////////////////////////////////
 
                 localList = new StringPairList();
+
+                if (empty || (cacheFlags != CacheFlags.None))
+                    localList.Add("CacheFlags", cacheFlags.ToString());
+
+                longValue1 = Interlocked.CompareExchange(ref cacheGeneration, 0, 0);
+
+                if (empty || (longValue1 > 0))
+                    localList.Add("CacheGeneration", longValue1.ToString());
+
+                longValue1 = Interlocked.CompareExchange(ref cacheHits, 0, 0);
+
+                if (empty || (longValue1 > 0))
+                    localList.Add("CacheHits", longValue1.ToString());
+
+                longValue1 = Interlocked.CompareExchange(ref cacheMisses, 0, 0);
+
+                if (empty || (longValue1 > 0))
+                    localList.Add("CacheMisses", longValue1.ToString());
+
+                longValue2 = Interlocked.CompareExchange(ref cacheHits, 0, 0);
+                longValue1 += longValue2;
+
+                doubleValue1 = (longValue1 != 0) ?
+                    ((double)longValue2 / (double)longValue1) * 100 : 0.0;
+
+                if (empty || (doubleValue1 > 0.0))
+                {
+                    localList.Add("CacheHit%",
+                        String.Format("{0:0.####}%", doubleValue1));
+                }
+
+                ///////////////////////////////////////////////////////////////////////////////////////
 
 #if EXECUTE_CACHE
 #if CACHE_STATISTICS

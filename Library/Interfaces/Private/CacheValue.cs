@@ -10,12 +10,26 @@
  */
 
 using Eagle._Attributes;
+using Eagle._Components.Public;
 
 namespace Eagle._Interfaces.Private
 {
     [ObjectId("5f29ebf4-ab12-4019-982a-915e4c73051c")]
     internal interface ICacheValue
     {
-        object CacheValue { get; set; }
+        //
+        // WARNING: This property is for private and/or diagnostic use only.
+        //
+        object CacheValue { get; }
+
+        //
+        // WARNING: This property is for private and/or diagnostic use only.
+        //
+        long CacheGeneration { get; }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        object GetCacheValue(Interpreter interpreter);
+        bool SetCacheValue(Interpreter interpreter, object value);
     }
 }

@@ -11137,7 +11137,8 @@ namespace Eagle._Components.Public
 
                 if (viaArgument)
                 {
-                    execute = argument.CacheValue as IExecute;
+                    execute = argument.GetCacheValue(
+                        interpreter) as IExecute;
 
                     if (execute != null)
                         return true;
@@ -11150,20 +11151,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         private static bool MaybeCacheIExecuteViaArgument(
+            Interpreter interpreter,
             Argument argument,
             bool viaArgument,
             IExecute execute
             )
         {
             if (viaArgument && (argument != null))
-            {
-                argument.CacheValue = execute;
-                return true;
-            }
+                return argument.SetCacheValue(interpreter, execute);
             else
-            {
                 return false;
-            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -11272,7 +11269,7 @@ namespace Eagle._Components.Public
                 {
                     /* IGNORED */
                     MaybeCacheIExecuteViaArgument(
-                        firstArgument, viaArgument, execute);
+                        interpreter, firstArgument, viaArgument, execute);
                 }
                 else
                 {
