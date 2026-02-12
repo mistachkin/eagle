@@ -57,6 +57,9 @@ REFACTOR: make the GetChannelVirtualOutput and SetChannelVirtualOutput methods
           public via the IInterpreter interface.  also, make the CommandCount
           property public via the IInterpreter interface.
 
+REFACTOR: *BREAKING CHANGE* add a interpreter path argument to the sub-command
+          [debug readonly].
+
 REFACTOR: *BREAKING CHANGE* remove the IInterpreter.Created property; instead,
           please use the IInterpreter.CreatedNoThrow property.
 

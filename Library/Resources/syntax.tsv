@@ -108,7 +108,7 @@ debug pluginexecute	debug pluginexecute name request
 debug pluginflags	debug pluginflags ?flags?
 debug procedureflags	debug procedureflags procName ?flags?
 debug purge	debug purge
-debug readonly	debug readonly kind enabled ?pattern?
+debug readonly	debug readonly path kind enabled ?pattern?
 debug ready	debug ready ?isolated?
 debug refreshautopath	debug refreshautopath ?verbose?
 debug restore	debug restore ?strict? ?verbose?

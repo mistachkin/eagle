@@ -3489,145 +3489,156 @@ namespace Eagle._Commands
                                     }
                                 case "readonly":
                                     {
-                                        if ((newArguments.Count >= 4) && (newArguments.Count <= 5))
+                                        if ((newArguments.Count >= 4) && (newArguments.Count <= 6))
                                         {
-                                            IdentifierKind kind = IdentifierKind.None;
+                                            string path = newArguments[2];
+                                            Interpreter childInterpreter = null;
 
-                                            object enumValue = EnumOps.TryParseFlags(
-                                                interpreter, typeof(IdentifierKind), kind.ToString(),
-                                                newArguments[2], interpreter.InternalCultureInfo,
-                                                true, true, true, ref result);
+                                            code = interpreter.GetNestedChildInterpreter(
+                                                path, LookupFlags.Interpreter, false,
+                                                ref childInterpreter, ref result);
 
-                                            if (enumValue is IdentifierKind)
+                                            if (code == ReturnCode.Ok)
                                             {
-                                                kind = (IdentifierKind)enumValue;
+                                                IdentifierKind kind = IdentifierKind.None;
 
-                                                bool? enabled = null;
+                                                object enumValue = EnumOps.TryParseFlags(
+                                                    childInterpreter, typeof(IdentifierKind),
+                                                    kind.ToString(), newArguments[3],
+                                                    childInterpreter.InternalCultureInfo,
+                                                    true, true, true, ref result);
 
-                                                code = Value.GetNullableBoolean2(
-                                                    newArguments[3], ValueFlags.AnyBoolean,
-                                                    interpreter.InternalCultureInfo, ref enabled,
-                                                    ref result);
-
-                                                string pattern = null;
-
-                                                if (newArguments.Count == 5)
-                                                    pattern = newArguments[4];
-
-                                                if (code == ReturnCode.Ok)
+                                                if (enumValue is IdentifierKind)
                                                 {
-                                                    int count;
+                                                    kind = (IdentifierKind)enumValue;
 
-                                                    switch (kind)
+                                                    bool? enabled = null;
+
+                                                    code = Value.GetNullableBoolean2(
+                                                        newArguments[4], ValueFlags.AnyBoolean,
+                                                        childInterpreter.InternalCultureInfo, ref enabled,
+                                                        ref result);
+
+                                                    string pattern = null;
+
+                                                    if (newArguments.Count >= 6)
+                                                        pattern = newArguments[5];
+
+                                                    if (code == ReturnCode.Ok)
                                                     {
-                                                        case IdentifierKind.Command:
-                                                            {
-                                                                if (pattern != null)
-                                                                    pattern = ScriptOps.MakeCommandName(pattern);
+                                                        int count;
 
-                                                                if (enabled != null)
+                                                        switch (kind)
+                                                        {
+                                                            case IdentifierKind.Command:
                                                                 {
-                                                                    count = interpreter.SetCommandsReadOnly(
-                                                                        pattern, false, (bool)enabled);
+                                                                    if (pattern != null)
+                                                                        pattern = ScriptOps.MakeCommandName(pattern);
 
-                                                                    result = String.Format(
-                                                                        "{0} {1} {2}", (bool)enabled ? "locked" : "unlocked",
-                                                                        count, (count != 1) ? "commands" : "command");
-                                                                }
-                                                                else
-                                                                {
-                                                                    result = interpreter.GetCommandsReadOnly(
-                                                                        pattern, false, true);
-                                                                }
-                                                                break;
-                                                            }
-                                                        case IdentifierKind.Procedure:
-                                                            {
-                                                                if (pattern != null)
-                                                                    pattern = ScriptOps.MakeCommandName(pattern);
-
-                                                                if (enabled != null)
-                                                                {
-                                                                    count = interpreter.SetProceduresReadOnly(
-                                                                        pattern, false, (bool)enabled);
-
-                                                                    result = String.Format(
-                                                                        "{0} {1} {2}", (bool)enabled ? "locked" : "unlocked",
-                                                                        count, (count != 1) ? "procedures" : "procedure");
-                                                                }
-                                                                else
-                                                                {
-                                                                    result = interpreter.GetProceduresReadOnly(
-                                                                        pattern, false, true);
-                                                                }
-                                                                break;
-                                                            }
-                                                        case IdentifierKind.Variable:
-                                                            {
-                                                                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
-                                                                {
-                                                                    ICallFrame variableFrame = null;
-
-                                                                    code = interpreter.GetVariableFrameViaResolvers(
-                                                                        LookupFlags.Default, ref variableFrame,
-                                                                        ref pattern, ref result);
-
-                                                                    if (code == ReturnCode.Ok)
+                                                                    if (enabled != null)
                                                                     {
-                                                                        if (variableFrame != null)
+                                                                        count = childInterpreter.SetCommandsReadOnly(
+                                                                            pattern, false, (bool)enabled);
+
+                                                                        result = String.Format(
+                                                                            "{0} {1} {2}", (bool)enabled ? "locked" : "unlocked",
+                                                                            count, (count != 1) ? "commands" : "command");
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        result = childInterpreter.GetCommandsReadOnly(
+                                                                            pattern, false, true);
+                                                                    }
+                                                                    break;
+                                                                }
+                                                            case IdentifierKind.Procedure:
+                                                                {
+                                                                    if (pattern != null)
+                                                                        pattern = ScriptOps.MakeCommandName(pattern);
+
+                                                                    if (enabled != null)
+                                                                    {
+                                                                        count = childInterpreter.SetProceduresReadOnly(
+                                                                            pattern, false, (bool)enabled);
+
+                                                                        result = String.Format(
+                                                                            "{0} {1} {2}", (bool)enabled ? "locked" : "unlocked",
+                                                                            count, (count != 1) ? "procedures" : "procedure");
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        result = childInterpreter.GetProceduresReadOnly(
+                                                                            pattern, false, true);
+                                                                    }
+                                                                    break;
+                                                                }
+                                                            case IdentifierKind.Variable:
+                                                                {
+                                                                    lock (childInterpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                                                    {
+                                                                        ICallFrame variableFrame = null;
+
+                                                                        code = childInterpreter.GetVariableFrameViaResolvers(
+                                                                            LookupFlags.Default, ref variableFrame,
+                                                                            ref pattern, ref result);
+
+                                                                        if (code == ReturnCode.Ok)
                                                                         {
-                                                                            VariableDictionary variables = variableFrame.Variables;
-
-                                                                            if (variables != null)
+                                                                            if (variableFrame != null)
                                                                             {
-                                                                                if (enabled != null)
-                                                                                {
-                                                                                    count = variables.SetReadOnly(
-                                                                                        interpreter, pattern, (bool)enabled);
+                                                                                VariableDictionary variables = variableFrame.Variables;
 
-                                                                                    result = String.Format(
-                                                                                        "{0} {1} {2} in call frame {3}", (bool)enabled ?
-                                                                                        "locked" : "unlocked", count, (count != 1) ?
-                                                                                        "variables" : "variable", variableFrame.Name);
+                                                                                if (variables != null)
+                                                                                {
+                                                                                    if (enabled != null)
+                                                                                    {
+                                                                                        count = variables.SetReadOnly(
+                                                                                            childInterpreter, pattern, (bool)enabled);
+
+                                                                                        result = String.Format(
+                                                                                            "{0} {1} {2} in call frame {3}", (bool)enabled ?
+                                                                                            "locked" : "unlocked", count, (count != 1) ?
+                                                                                            "variables" : "variable", variableFrame.Name);
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        result = variables.GetReadOnly(
+                                                                                            childInterpreter, pattern, true);
+                                                                                    }
                                                                                 }
                                                                                 else
                                                                                 {
-                                                                                    result = variables.GetReadOnly(
-                                                                                        interpreter, pattern, true);
+                                                                                    result = "call frame does not support variables";
+                                                                                    code = ReturnCode.Error;
                                                                                 }
                                                                             }
                                                                             else
                                                                             {
-                                                                                result = "call frame does not support variables";
+                                                                                result = "invalid call frame";
                                                                                 code = ReturnCode.Error;
                                                                             }
                                                                         }
-                                                                        else
-                                                                        {
-                                                                            result = "invalid call frame";
-                                                                            code = ReturnCode.Error;
-                                                                        }
                                                                     }
+                                                                    break;
                                                                 }
-                                                                break;
-                                                            }
-                                                        default:
-                                                            {
-                                                                result = "unsupported identifier kind";
-                                                                code = ReturnCode.Error;
-                                                                break;
-                                                            }
+                                                            default:
+                                                                {
+                                                                    result = "unsupported identifier kind";
+                                                                    code = ReturnCode.Error;
+                                                                    break;
+                                                                }
+                                                        }
                                                     }
                                                 }
-                                            }
-                                            else
-                                            {
-                                                code = ReturnCode.Error;
+                                                else
+                                                {
+                                                    code = ReturnCode.Error;
+                                                }
                                             }
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"debug readonly kind enabled ?pattern?\"";
+                                            result = "wrong # args: should be \"debug readonly path kind enabled ?pattern?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

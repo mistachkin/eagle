@@ -332,12 +332,12 @@ runTest {test proc-3.1 {locked procedures} -setup {
   set interp [interp create -safe -noloader -nosecurity]
 } -body {
   list [catch {interp eval $interp {isEagle}} error] $error [catch {interp \
-      invokehidden $interp debug readonly procedure true isEagle} error] \
+      invokehidden $interp debug readonly {} procedure true isEagle} error] \
       $error [catch {interp eval $interp {proc isEagle {} {return false}}} \
       error] $error [catch {interp eval $interp {rename isEagle nope}} error] \
       $error [catch {interp eval $interp {rename isEagle ""}} error] $error \
       [catch {interp eval $interp {isEagle}} error] $error [catch {interp \
-      invokehidden $interp debug readonly procedure false isEagle} error] \
+      invokehidden $interp debug readonly {} procedure false isEagle} error] \
       $error [catch {interp eval $interp {rename isEagle ""}} error] $error \
       [catch {interp eval $interp {isEagle}} error] $error
 } -cleanup {
