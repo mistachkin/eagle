@@ -46,6 +46,7 @@ jobs:
       - name: Run the test suite using the .NET 10 runtime
         env:
           EAGLE_TEST_TEMP: ${{ runner.temp }}
+          logRemoteMessagePassword: ${{ secrets.LOG_REMOTE_MESSAGE_PASSWORD }}
         run: >
           dotnet exec
           "$EAGLE_ROOT/bin/DebugNetStandard21/bin/netcoreapp3.0/EagleShell.dll"
