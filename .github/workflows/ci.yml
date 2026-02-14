@@ -1,0 +1,52 @@
+name: Eagle Test Suite
+
+on:
+  push:
+    branches: [trunk]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    if: github.event.pull_request.draft != true
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+
+    env:
+      EAGLE_ROOT: ${{ github.workspace }}
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+    steps:
+      - name: Checkout the Eagle repository
+        uses: actions/checkout@v4
+
+      - name: Setup the .NET 10 runtime
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build solution for the .NET Standard 2.1
+        run: >
+          dotnet build "$EAGLE_ROOT/EagleNetStandard2X.sln"
+          /property:EagleBuildType=NetStandard21
+          /property:EaglePatchLevel=false
+
+      - name: Copy the .NET 10 runtime configuration file
+        run: >
+          cp "$EAGLE_ROOT/Shell/Configurations/dotNet/10.0/EagleShell.runtimeconfig.json"
+          "$EAGLE_ROOT/bin/DebugNetStandard21/bin/netcoreapp3.0"
+
+      - name: Run the test suite using the .NET 10 runtime
+        env:
+          EAGLE_TEST_TEMP: ${{ runner.temp }}
+        run: >
+          dotnet exec
+          "$EAGLE_ROOT/bin/DebugNetStandard21/bin/netcoreapp3.0/EagleShell.dll"
+          -file "$EAGLE_ROOT/Library/Tests/all.eagle"
