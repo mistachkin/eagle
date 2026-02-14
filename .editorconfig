@@ -1,0 +1,51 @@
+# EditorConfig - https://editorconfig.org
+
+root = true
+
+# Default settings for all files
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+max_line_length = 79
+
+# C# source files
+[*.cs]
+indent_size = 4
+
+# Eagle scripts and Tcl files
+[*.{eagle,eeagle,tcl,tk,itcl,itk}]
+indent_size = 2
+
+# XML, project files, and props/targets
+[*.{xml,csproj,vbproj,props,targets,config,nuspec,resx}]
+indent_size = 2
+
+# JSON files
+[*.json]
+indent_size = 2
+
+# YAML files (GitHub Actions workflows, etc.)
+[*.{yml,yaml}]
+indent_size = 2
+end_of_line = lf
+
+# Markdown
+[*.md]
+trim_trailing_whitespace = false
+
+# Makefiles require tabs
+[Makefile]
+indent_style = tab
+end_of_line = lf
+
+# Shell scripts
+[*.sh]
+indent_size = 2
+end_of_line = lf
+
+# Solution files use tabs
+[*.sln]
+indent_style = tab
