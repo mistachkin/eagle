@@ -9,6 +9,7 @@ in addition to adding entirely new features.
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
 [![Discord](https://img.shields.io/discord/1147557513588375572?style=flat-square&label=Discord&logo=discord&logoColor=white&color=7289DA)](https://urn.to/r/discord)
 [![Coverity Scan](https://img.shields.io/coverity/scan/eagle)](https://scan.coverity.com/projects/eagle)
+[![Eagle Test Suite](https://github.com/mistachkin/eagle/actions/workflows/ci.yml/badge.svg?branch=trunk)](https://github.com/mistachkin/eagle/actions/workflows/ci.yml)
 
 ## Official Link Redirector
 
