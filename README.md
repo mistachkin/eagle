@@ -6,6 +6,10 @@ written entirely in C# and provides most of the functionality of the Tcl 8.4
 interpreter while incorporating selected features from Tcl 8.5 and Tcl 8.6,
 in addition to adding entirely new features.
 
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
+[![Discord](https://img.shields.io/discord/1147557513588375572?style=flat-square&label=Discord&logo=discord&logoColor=white&color=7289DA)](https://urn.to/r/discord)
+[![Coverity Scan](https://img.shields.io/coverity/scan/eagle)](https://scan.coverity.com/projects/eagle)
+
 ## Official Link Redirector
 
 The short links below use the **https://urn.to/** redirector, which is
