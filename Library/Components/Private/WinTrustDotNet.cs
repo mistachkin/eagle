@@ -104,7 +104,7 @@ namespace Eagle._Components.Private
             try
             {
                 VerificationResult result = VerifyPeFileSignature(
-                    fileName); /* throw */
+                    fileName, null); /* throw */
 
                 if ((result != null) && result.AllValid)
                     return true;
