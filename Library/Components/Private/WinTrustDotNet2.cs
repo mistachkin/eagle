@@ -27,8 +27,7 @@ namespace Eagle._Components.Private
     {
         #region Private Constants
         //
-        // NOTE: OIDs used for timestamp and nested
-        //       signature attribute lookup.
+        // NOTE: OIDs used for timestamp and nested signature attribute lookup.
         //
         private const string OID_CMS_SIGNED_DATA = "1.2.840.113549.1.7.2";
 
@@ -42,8 +41,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // NOTE: Encoded OID for id-ct-TSTInfo
-        //       (1.2.840.113549.1.9.16.1.4).
+        // NOTE: Encoded OID for id-ct-TSTInfo (1.2.840.113549.1.9.16.1.4).
         //
         private static readonly byte[] OID_TSTINFO_ENC = new byte[] {
             0x06, 0x0B, 0x2A, 0x86, 0x48, 0x86, 0xF7,
@@ -71,16 +69,14 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             //
-            // NOTE: Custom roots (directory with
-            //       *.cer/*.crt/*.pem files).
+            // NOTE: Custom roots (directory with *.cer/*.crt/*.pem files).
             //
             public bool UseCustomRootTrust = false;
             public string CustomRootDirectory = null;
 
             //
             // NOTE: If the runtime lacks CustomRootTrust
-            //       (e.g., .NET Core 2.x), allow a
-            //       compatibility fallback.
+            //       (e.g., .NET Core 2.x), allow a compatibility fallback.
             //
             public bool
                 TrustIfOnlyUntrustedRootAndMatchesCustomRoot
@@ -116,8 +112,7 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             //
-            // NOTE: Require TSA EKU.  Standards say yes;
-            //       set false to relax.
+            // NOTE: Require TSA EKU.  Standards say yes; set false to relax.
             //
             public bool RequireTsaEku = true;
 
@@ -199,8 +194,7 @@ namespace Eagle._Components.Private
                         return false;
 
                     //
-                    // NOTE: Enforce timestamp only if
-                    //       the caller requires one.
+                    // NOTE: Enforce timestamp only if the caller requires one.
                     //
                     if ((OptionsReference != null) &&
                         (OptionsReference.RequireTimestamp))
@@ -221,19 +215,13 @@ namespace Eagle._Components.Private
                         }
 
                         //
-                        // HACK: This is needed due to:
-                        //       https://github.com/
-                        //       dotnet/runtime/issues/
-                        //       62307
+                        // HACK: This is needed due to: https://github.com/
+                        //       dotnet/runtime/issues/62307
                         //
-                        // NOTE: Please also see:
-                        //       https://github.com/
-                        //       dotnet/runtime/issues/
-                        //       65163
+                        // NOTE: Please also see: https://github.com/
+                        //       dotnet/runtime/issues/65163
                         //
-                        //       https://github.com/
-                        //       dotnet/runtime/pull/
-                        //       64348
+                        //       https://github.com/dotnet/runtime/pull/64348
                         //
                         if ((OptionsReference.ValidateTimestampChain) &&
                             (!Timestamp.ChainValid))
@@ -249,8 +237,7 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             //
-            // NOTE: For AllValid computation with
-            //       RequireTimestamp.
+            // NOTE: For AllValid computation with RequireTimestamp.
             //
             internal VerificationOptions
                 OptionsReference;
@@ -300,8 +287,7 @@ namespace Eagle._Components.Private
             {
                 //
                 // NOTE: Step 1 - Locate PE offsets
-                //       (checksum, security directory,
-                //       certificate table).
+                //       (checksum, security directory, certificate table).
                 //
                 PeLayout pe = ReadPeLayout(fs);
 
@@ -315,8 +301,7 @@ namespace Eagle._Components.Private
                 }
 
                 //
-                // NOTE: Step 2 - Read first PKCS#7
-                //       blob from WIN_CERTIFICATE
+                // NOTE: Step 2 - Read first PKCS#7 blob from WIN_CERTIFICATE
                 //       table.
                 //
                 byte[] pkcs7 = ReadFirstPkcs7FromWinCertificateTable(
@@ -342,8 +327,7 @@ namespace Eagle._Components.Private
                 cms.Decode(pkcs7);
 
                 //
-                // NOTE: Step 4 - Cryptographic
-                //       verification of CMS signatures
+                // NOTE: Step 4 - Cryptographic verification of CMS signatures
                 //       (not chain).
                 //
                 try
@@ -360,10 +344,8 @@ namespace Eagle._Components.Private
                 }
 
                 //
-                // NOTE: Step 5 - Parse
-                //       SpcIndirectDataContent to
-                //       learn digest algorithm and
-                //       expected digest.
+                // NOTE: Step 5 - Parse SpcIndirectDataContent to
+                //       learn digest algorithm and expected digest.
                 //
                 byte[] eContent = cms.ContentInfo.Content;
 
@@ -380,8 +362,7 @@ namespace Eagle._Components.Private
                 result.DigestAlgorithmOid = digestOid;
 
                 //
-                // NOTE: Step 5b - Reject disallowed
-                //       digest algorithms.
+                // NOTE: Step 5b - Reject disallowed digest algorithms.
                 //
                 if (!IsDigestAlgorithmAllowed(digestOid, options))
                 {
@@ -391,8 +372,7 @@ namespace Eagle._Components.Private
                 }
 
                 //
-                // NOTE: Step 6 - Compute the
-                //       Authenticode hash of the file
+                // NOTE: Step 6 - Compute the Authenticode hash of the file
                 //       and compare.
                 //
                 using (HashAlgorithm hash = CreateHashFromOid(digestOid))
@@ -415,8 +395,7 @@ namespace Eagle._Components.Private
                 }
 
                 //
-                // NOTE: Step 7 - Get primary signer
-                //       (first).
+                // NOTE: Step 7 - Get primary signer (first).
                 //
                 X509Certificate2 signerCert = null;
                 SignerInfo primarySigner = null;
@@ -455,8 +434,7 @@ namespace Eagle._Components.Private
                     }
 
                     //
-                    // NOTE: Add user-supplied
-                    //       intermediates.
+                    // NOTE: Add user-supplied intermediates.
                     //
                     X509Certificate2[] extraFromDir =
                         LoadCertificatesFromDirectory(options
@@ -475,18 +453,15 @@ namespace Eagle._Components.Private
                             .CustomRootDirectory);
 
                     //
-                    // NOTE: Discover timestamp across
-                    //       all signers and nests
-                    //       *before* building the
-                    //       signer chain.
+                    // NOTE: Discover timestamp across all signers and nests
+                    //       *before* building the signer chain.
                     //
                     result.Timestamp = FindBestTimestampAcrossSigners(
                             cms, options);
 
                     //
                     // NOTE: Prefer the timestamp time
-                    //       (if present) when building
-                    //       the signer chain.
+                    //       (if present) when building the signer chain.
                     //
                     DateTimeOffset? chainTime = result.Timestamp != null ?
                         result.Timestamp.TimeUtc : null;
@@ -508,8 +483,7 @@ namespace Eagle._Components.Private
                 else
                 {
                     //
-                    // NOTE: If not required, treat as
-                    //       ok.
+                    // NOTE: If not required, treat as ok.
                     //
                     result.SignerChainValid = !options.ValidateSignerChain;
                 }
@@ -538,8 +512,7 @@ namespace Eagle._Components.Private
                 // NOTE: First element is OID (but some
                 //       signers omit it); if present,
                 //       just skip.  If first tag is OID,
-                //       read it, else assume we are
-                //       already at ContentInfo.
+                //       read it, else assume we are already at ContentInfo.
                 //
                 byte nextTagPeek = seq.PeekTag();
 
@@ -560,8 +533,7 @@ namespace Eagle._Components.Private
                 }
 
                 //
-                // NOTE: Now expect ContentInfo as a
-                //       SEQUENCE.  Return its raw
+                // NOTE: Now expect ContentInfo as a SEQUENCE.  Return its raw
                 //       slice.
                 //
                 int start, length;
@@ -593,8 +565,7 @@ namespace Eagle._Components.Private
         //       countersignature signature itself; that
         //       messageDigest(signedAttrs) matches
         //       HASH(parent signature); and (optionally)
-        //       TSA chain trust (usually TSA cert has
-        //       EKU timeStamping).
+        //       TSA chain trust (usually TSA cert has EKU timeStamping).
         //
         private static bool
             TryVerifyCounterSignatureTimestamp(
@@ -607,8 +578,7 @@ namespace Eagle._Components.Private
             SignerInfo countersigner = null;
 
             //
-            // NOTE: Look at CounterSignerInfos
-            //       collection.
+            // NOTE: Look at CounterSignerInfos collection.
             //
             if ((signer.CounterSignerInfos != null) &&
                 (signer.CounterSignerInfos.Count > 0))
@@ -620,8 +590,7 @@ namespace Eagle._Components.Private
                 //
                 // NOTE: Some implementations include
                 //       the OID but not the convenient
-                //       property; try to detect the
-                //       attribute anyway.
+                //       property; try to detect the attribute anyway.
                 //
                 CryptographicAttributeObjectCollection
                     ua = signer.UnsignedAttributes;
@@ -636,12 +605,9 @@ namespace Eagle._Components.Private
                             attr.Oid.Value, oidCounter.Value)))
                     {
                         //
-                        // NOTE: .NET exposes counter-
-                        //       signers via the
-                        //       CounterSignerInfos
-                        //       property, so if it is
-                        //       missing, we cannot
-                        //       easily decode here.
+                        // NOTE: .NET exposes counter- signers via the
+                        //       CounterSignerInfos property, so if it is
+                        //       missing, we cannot easily decode here.
                         //
                         break;
                     }
@@ -655,8 +621,7 @@ namespace Eagle._Components.Private
             info.IsRfc3161 = false;
 
             //
-            // NOTE: Step 1: Verify countersignature
-            //       cryptographically.
+            // NOTE: Step 1: Verify countersignature cryptographically.
             //
             try
             {
@@ -678,8 +643,7 @@ namespace Eagle._Components.Private
             info.TimeUtc = TryGetSigningTimeUtc(countersigner);
 
             //
-            // NOTE: Step 3: Verify binding --
-            //       messageDigest(signedAttrs) must
+            // NOTE: Step 3: Verify binding -- messageDigest(signedAttrs) must
             //       equal HASH(parentSigner signature).
             //
             byte[] parentSig = null;
@@ -699,8 +663,7 @@ namespace Eagle._Components.Private
             if (parentSig != null)
             {
                 //
-                // NOTE: Find signed attribute
-                //       messageDigest (OID
+                // NOTE: Find signed attribute messageDigest (OID
                 //       1.2.840.113549.1.9.4).
                 //
                 byte[] mdAttr = GetSingleAttributeOctetValue(
@@ -730,8 +693,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Step 4: TSA chain trust
-            //       (countersigner cert usually
+            // NOTE: Step 4: TSA chain trust (countersigner cert usually
             //       has EKU timeStamping).
             //
             if ((options.ValidateTimestampChain) &&
@@ -872,10 +834,8 @@ namespace Eagle._Components.Private
                     indent + 2, includeNested);
 
                 //
-                // NOTE: Unsigned attributes (where
-                //       RFC3161, nested signatures,
-                //       and countersignature
-                //       references usually live).
+                // NOTE: Unsigned attributes (where RFC3161, nested signatures,
+                //       and countersignature references usually live).
                 //
                 DumpAttributeCollection("UnsignedAttributes",
                     si.UnsignedAttributes, si, cms, sb,
@@ -953,8 +913,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: e.g., 2.16.840.1.101.3.4.2.1
-            //       for SHA-256.
+            // NOTE: e.g., 2.16.840.1.101.3.4.2.1 for SHA-256.
             //
             Oid dig = si.DigestAlgorithm;
 
@@ -962,8 +921,7 @@ namespace Eagle._Components.Private
                 (dig != null ? dig.Value : ""));
 
             //
-            // NOTE: SigningTime (signed attribute,
-            //       if present).
+            // NOTE: SigningTime (signed attribute, if present).
             //
             DateTimeOffset? st = TryGetSigningTimeUtc(si);
 
@@ -1059,12 +1017,9 @@ namespace Eagle._Components.Private
                     else if (StringEquals(oid, "1.2.840.113549.1.9.6"))
                     {
                         //
-                        // NOTE: counterSignature.
-                        //       CounterSignerInfos
-                        //       are exposed on the
-                        //       SignerInfo already;
-                        //       we printed them
-                        //       elsewhere.
+                        // NOTE: counterSignature. CounterSignerInfos
+                        //       are exposed on the SignerInfo already;
+                        //       we printed them elsewhere.
                         //
                         Indent(sb, indent + 6).AppendLine(
                             "(PKCS#9 countersignature" + " present; see " +
@@ -1075,12 +1030,9 @@ namespace Eagle._Components.Private
                             "1.3.6.1.4.1" + ".311.3.3.1")))
                     {
                         //
-                        // NOTE: RFC3161 id-aa-
-                        //       signatureTimeStampToken
-                        //       or Microsoft timestamp
-                        //       OID.  Try to decode a
-                        //       nested SignedCms
-                        //       (timestamp token).
+                        // NOTE: RFC3161 id-aa- signatureTimeStampToken
+                        //       or Microsoft timestamp OID.  Try to decode a
+                        //       nested SignedCms (timestamp token).
                         //
                         SignedCms ts;
 
@@ -1118,8 +1070,7 @@ namespace Eagle._Components.Private
                             }
 
                             //
-                            // NOTE: TSA signer (if
-                            //       present).
+                            // NOTE: TSA signer (if present).
                             //
                             if ((ts.SignerInfos.Count
                                     > 0) && (ts.SignerInfos[0].Certificate !=
@@ -1140,11 +1091,8 @@ namespace Eagle._Components.Private
                                 " (raw first bytes): " + Hex(raw, 200));
 
                             //
-                            // NOTE: Fallback -- try to
-                            //       pull TSTInfo
-                            //       directly so we can
-                            //       at least show the
-                            //       time.
+                            // NOTE: Fallback -- try to pull TSTInfo
+                            //       directly so we can at least show the time.
                             //
                             byte[] tstInfo;
 
@@ -1217,8 +1165,7 @@ namespace Eagle._Components.Private
                     else
                     {
                         //
-                        // NOTE: Unknown -- show a
-                        //       small hex preview.
+                        // NOTE: Unknown -- show a small hex preview.
                         //
                         if (raw != null)
                         {
@@ -1348,8 +1295,7 @@ namespace Eagle._Components.Private
         // NOTE: Fallback -- scan an attribute's RawData
         //       for a ContentInfo carrying TSTInfo and
         //       extract the inner TSTInfo DER (OCTET
-        //       STRING).  This works even when
-        //       SignedCms.Decode fails.
+        //       STRING).  This works even when SignedCms.Decode fails.
         //
         private static bool TryExtractTstInfoByScan(
             byte[] raw,
@@ -1364,8 +1310,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Step 1: Find the TSTInfo OID
-            //       byte pattern anywhere in the
+            // NOTE: Step 1: Find the TSTInfo OID byte pattern anywhere in the
             //       attribute value.
             //
             int idx = -1;
@@ -1399,27 +1344,21 @@ namespace Eagle._Components.Private
             if (idx < 0) return false;
 
             //
-            // NOTE: After eContentType OID,
-            //       ContentInfo.encapContentInfo
-            //       MUST contain eContent as [0]
-            //       EXPLICIT OCTET STRING.  Scan
-            //       forward for tag 0xA0
-            //       (context-specific [0]) and
-            //       then for an OCTET STRING
-            //       (0x04) inside.
+            // NOTE: After eContentType OID, ContentInfo.encapContentInfo
+            //       MUST contain eContent as [0] EXPLICIT OCTET STRING.  Scan
+            //       forward for tag 0xA0 (context-specific [0]) and
+            //       then for an OCTET STRING (0x04) inside.
             //
             int pos = idx + OID_TSTINFO_ENC.Length;
 
             //
             // NOTE: Bound the scan so we do not
-            //       walk the whole blob on malformed
-            //       data.
+            //       walk the whole blob on malformed data.
             //
             int scanEnd = Math.Min(raw.Length, pos + 4096);
 
             //
-            // NOTE: Step 2: Find [0] EXPLICIT
-            //       wrapper (tag 0xA0).
+            // NOTE: Step 2: Find [0] EXPLICIT wrapper (tag 0xA0).
             //
             int a0Pos = -1;
 
@@ -1435,8 +1374,7 @@ namespace Eagle._Components.Private
             if (a0Pos < 0) return false;
 
             //
-            // NOTE: Read [0] length and compute
-            //       its content range.
+            // NOTE: Read [0] length and compute its content range.
             //
             int a0Len, a0Content;
 
@@ -1452,12 +1390,10 @@ namespace Eagle._Components.Private
                 return false;
 
             //
-            // NOTE: Step 3: Inside [0], the first
-            //       element should be the OCTET
+            // NOTE: Step 3: Inside [0], the first element should be the OCTET
             //       STRING carrying TSTInfo.  Try
             //       the first element; if it is not
-            //       an OCTET STRING, scan a few
-            //       bytes inside for tag 0x04.
+            //       an OCTET STRING, scan a few bytes inside for tag 0x04.
             //
             int osPos = a0Content;
 
@@ -1467,8 +1403,7 @@ namespace Eagle._Components.Private
             if (raw[osPos] != 0x04)
             {
                 //
-                // NOTE: Scan for an OCTET STRING
-                //       tag within the [0] content.
+                // NOTE: Scan for an OCTET STRING tag within the [0] content.
                 //
                 int found = -1;
 
@@ -1489,8 +1424,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Read OCTET STRING length and
-            //       slice out the TSTInfo DER.
+            // NOTE: Read OCTET STRING length and slice out the TSTInfo DER.
             //
             int osLen, osContent;
 
@@ -1524,17 +1458,14 @@ namespace Eagle._Components.Private
                 return false;
 
             //
-            // NOTE: Step 1: Direct decode (works
-            //       for most tokens).
+            // NOTE: Step 1: Direct decode (works for most tokens).
             //
             if (TryDecodeCms(raw, out cms))
                 return true;
 
             //
-            // NOTE: Step 2: OCTET STRING unwrap
-            //       (sometimes the value is an
-            //       OCTET STRING containing
-            //       ContentInfo).
+            // NOTE: Step 2: OCTET STRING unwrap (sometimes the value is an
+            //       OCTET STRING containing ContentInfo).
             //
             if (raw[0] == 0x04)
             {
@@ -1563,15 +1494,13 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Step 3: SEQUENCE wrapper case
-            //       -- copy the ENTIRE SEQUENCE
+            // NOTE: Step 3: SEQUENCE wrapper case -- copy the ENTIRE SEQUENCE
             //       (tag + len + content).
             //
             if (raw[0] == 0x30)
             {
                 //
-                // NOTE: Use a DerReader just to
-                //       compute the correct slice
+                // NOTE: Use a DerReader just to compute the correct slice
                 //       for the outer SEQUENCE.
                 //
                 DerReader r = new DerReader(raw);
@@ -1584,8 +1513,7 @@ namespace Eagle._Components.Private
                     Buffer.BlockCopy(raw, seqStart, contentInfo, 0, seqTotal);
 
                     //
-                    // NOTE: Try decode this
-                    //       ContentInfo.
+                    // NOTE: Try decode this ContentInfo.
                     //
                     if (TryDecodeCms(contentInfo, out cms))
                     {
@@ -1593,8 +1521,7 @@ namespace Eagle._Components.Private
                     }
 
                     //
-                    // NOTE: If it is actually raw
-                    //       SignedData inside, try
+                    // NOTE: If it is actually raw SignedData inside, try
                     //       wrapping it.
                     //
                     byte[] wrapped2;
@@ -1611,8 +1538,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Step 4: Last resort -- assume
-            //       raw SignedData; wrap into
+            // NOTE: Step 4: Last resort -- assume raw SignedData; wrap into
             //       ContentInfo and decode.
             //
             byte[] wrapped3;
@@ -1635,8 +1561,7 @@ namespace Eagle._Components.Private
         //       structure is: ContentInfo { oid signedData,
         //       [0] SignedData } with
         //       SignedData.encapContentInfo.eContentType =
-        //       id-ct-TSTInfo and eContent = [0] EXPLICIT
-        //       OCTET STRING.
+        //       id-ct-TSTInfo and eContent = [0] EXPLICIT OCTET STRING.
         //
         private static bool
             TryExtractTstInfoFromMsRfc3161(
@@ -1662,8 +1587,7 @@ namespace Eagle._Components.Private
             int p = ciContent;
 
             //
-            // NOTE: Optional leading OID
-            //       (contentType).
+            // NOTE: Optional leading OID (contentType).
             //
             if ((p < ciEnd) && (raw[p] == 0x06))
             {
@@ -1696,10 +1620,8 @@ namespace Eagle._Components.Private
             int q = a0Content;
 
             //
-            // NOTE: SignedData ::= SEQUENCE {
-            //       version INTEGER,
-            //       digestAlgorithms SET,
-            //       encapContentInfo SEQUENCE, ... }
+            // NOTE: SignedData ::= SEQUENCE { version INTEGER,
+            //       digestAlgorithms SET, encapContentInfo SEQUENCE, ... }
             //
             if (!((q < a0End) && (raw[q] == 0x30)))
                 return false;
@@ -1765,8 +1687,7 @@ namespace Eagle._Components.Private
             int r = eciContent;
 
             //
-            // NOTE: eContentType OID (should be
-            //       id-ct-TSTInfo:
+            // NOTE: eContentType OID (should be id-ct-TSTInfo:
             //       1.2.840.113549.1.9.16.1.4).
             //
             if (!((r < eciEnd) && (raw[r] == 0x06)))
@@ -1783,8 +1704,7 @@ namespace Eagle._Components.Private
             r = oidContent + oidLen;
 
             //
-            // NOTE: eContent [0] EXPLICIT OCTET
-            //       STRING.
+            // NOTE: eContent [0] EXPLICIT OCTET STRING.
             //
             if (!((r < eciEnd) && (raw[r] == 0xA0)))
                 return false;
@@ -1851,8 +1771,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // NOTE: Build: SEQUENCE { OID signedData
-        //       (06 09 2A864886F70D010702),
+        // NOTE: Build: SEQUENCE { OID signedData (06 09 2A864886F70D010702),
         //       [0] EXPLICIT <signedData> }
         //
         private static bool
@@ -1869,8 +1788,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Quick sanity check -- a DER
-            //       SEQUENCE starts with 0x30.
+            // NOTE: Quick sanity check -- a DER SEQUENCE starts with 0x30.
             //
             if (signedData[0] != 0x30)
                 return false;
@@ -1884,8 +1802,7 @@ namespace Eagle._Components.Private
             };
 
             //
-            // NOTE: [0] EXPLICIT wrapper for the
-            //       ANY content.
+            // NOTE: [0] EXPLICIT wrapper for the ANY content.
             //
             byte[] a0Len = EncodeDerLength(signedData.Length);
 
@@ -1936,8 +1853,7 @@ namespace Eagle._Components.Private
                 return new byte[] { (byte)len };
 
             //
-            // NOTE: Up to 4 bytes length is enough
-            //       here.
+            // NOTE: Up to 4 bytes length is enough here.
             //
             byte b3 = (byte)((len >> 24) & 0xFF);
             byte b2 = (byte)((len >> 16) & 0xFF);
@@ -2012,8 +1928,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // NOTE: Prefer fully-valid > has
-        //       time+binding > just present.
+        // NOTE: Prefer fully-valid > has time+binding > just present.
         //
         private static TimestampInfo PickBetter(
             TimestampInfo current,
@@ -2044,8 +1959,7 @@ namespace Eagle._Components.Private
             if (candFull == currFull)
             {
                 //
-                // NOTE: If both same class, prefer
-                //       the one that at least has
+                // NOTE: If both same class, prefer the one that at least has
                 //       Time.
                 //
                 if ((candidate.TimeUtc.HasValue) &&
@@ -2069,8 +1983,7 @@ namespace Eagle._Components.Private
             )
         {
             //
-            // NOTE: Safety limit on recursion
-            //       depth.
+            // NOTE: Safety limit on recursion depth.
             //
             if ((cms == null) || (depth > 4))
                 return new TimestampInfo();
@@ -2078,8 +1991,7 @@ namespace Eagle._Components.Private
             TimestampInfo best = new TimestampInfo();
 
             //
-            // NOTE: Step 1: Scan all signers at
-            //       this level.
+            // NOTE: Step 1: Scan all signers at this level.
             //
             for (int s = 0;
                     s < cms.SignerInfos.Count; s++)
@@ -2097,8 +2009,7 @@ namespace Eagle._Components.Private
                         si, cms, options, cs);
 
                 //
-                // NOTE: If we have a fully valid
-                //       timestamp, return it
+                // NOTE: If we have a fully valid timestamp, return it
                 //       immediately.
                 //
                 if ((foundRfc) && (IsFullyValidTs(rfc, options)))
@@ -2112,8 +2023,7 @@ namespace Eagle._Components.Private
                 }
 
                 //
-                // NOTE: Otherwise, keep the better
-                //       partial candidate.
+                // NOTE: Otherwise, keep the better partial candidate.
                 //
                 if (foundRfc)
                     best = PickBetter(best, rfc);
@@ -2123,8 +2033,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Step 2: Recurse into nested
-            //       signatures.
+            // NOTE: Step 2: Recurse into nested signatures.
             //
             for (int s = 0;
                     s < cms.SignerInfos.Count; s++)
@@ -2205,8 +2114,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Step 3: If nothing fully valid
-            //       was found, return the best
+            // NOTE: Step 3: If nothing fully valid was found, return the best
             //       partial (so Time shows up).
             //
             return best;
@@ -2242,8 +2150,7 @@ namespace Eagle._Components.Private
                 string oid = attr.Oid.Value;
 
                 //
-                // NOTE: Standard + Microsoft RFC3161
-                //       attribute OIDs.
+                // NOTE: Standard + Microsoft RFC3161 attribute OIDs.
                 //
                 if ((!StringEquals(oid, "1.2.840.113549" +
                         ".1.9.16.2.14")) && (!StringEquals(oid,
@@ -2260,8 +2167,7 @@ namespace Eagle._Components.Private
                 byte[] raw = attr.Values[0].RawData;
 
                 //
-                // NOTE: Path A -- full CMS decode
-                //       for cryptographic / chain
+                // NOTE: Path A -- full CMS decode for cryptographic / chain
                 //       validation.
                 //
                 SignedCms tsCms;
@@ -2382,21 +2288,17 @@ namespace Eagle._Components.Private
                     }
 
                     //
-                    // NOTE: Found a token via the
-                    //       decode path.
+                    // NOTE: Found a token via the decode path.
                     //
                     return true;
                 }
 
                 //
-                // NOTE: Path B -- decoder failed;
-                //       scan/extract TSTInfo so we
-                //       still get Time + Binding.
-                //       The byte-scan fallback is
+                // NOTE: Path B -- decoder failed; scan/extract TSTInfo so we
+                //       still get Time + Binding. The byte-scan fallback is
                 //       fragile and can be disabled
                 //       via options.  It is gated to
-                //       prevent a crafted timestamp
-                //       blob from being
+                //       prevent a crafted timestamp blob from being
                 //       misinterpreted.
                 //
                 byte[] tstInfo;
@@ -2447,10 +2349,8 @@ namespace Eagle._Components.Private
                     }
 
                     //
-                    // NOTE: No TSA chain possible
-                    //       without a decoded CMS --
-                    //       leave ChainValid based on
-                    //       policy.
+                    // NOTE: No TSA chain possible without a decoded CMS --
+                    //       leave ChainValid based on policy.
                     //
                     info.ChainValid = !options.ValidateTimestampChain;
 
@@ -2461,8 +2361,7 @@ namespace Eagle._Components.Private
                 }
 
                 //
-                // NOTE: Continue loop in case there
-                //       are multiple timestamp
+                // NOTE: Continue loop in case there are multiple timestamp
                 //       attributes (rare).
                 //
             }
@@ -2504,8 +2403,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: EKU constraints -- for code
-            //       signing or TSA depending on
+            // NOTE: EKU constraints -- for code signing or TSA depending on
             //       use-case.
             //
             if (requireTimeStampingEku)
@@ -2536,10 +2434,8 @@ namespace Eagle._Components.Private
                 try
                 {
                     //
-                    // NOTE: Reflection to avoid
-                    //       compile-time dependency
-                    //       (still compiles on
-                    //       netstandard2.0).
+                    // NOTE: Reflection to avoid compile-time dependency
+                    //       (still compiles on netstandard2.0).
                     //
                     X509ChainPolicy policy = chain.ChainPolicy;
 
@@ -2649,8 +2545,7 @@ namespace Eagle._Components.Private
                     if (IsInCollectionByThumbprint(customRoots, root))
                     {
                         //
-                        // NOTE: Treat as trusted
-                        //       via provided roots.
+                        // NOTE: Treat as trusted via provided roots.
                         //
                         ok = true;
                     }
@@ -2674,8 +2569,7 @@ namespace Eagle._Components.Private
             )
         {
             //
-            // NOTE: Step 1: Try once with what we
-            //       already have.
+            // NOTE: Step 1: Try once with what we already have.
             //
             bool ok = BuildChainWithOptions(leaf, extra, verificationTime,
                 options, customRoots, requireTimeStampingEku,
@@ -2687,8 +2581,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Step 2: AIA-chase loop --
-            //       download intermediates and
+            // NOTE: Step 2: AIA-chase loop -- download intermediates and
             //       retry up to AiaMaxDepth times.
             //
             HashSet<string> visitedThumbprints = new HashSet<string>(
@@ -2698,8 +2591,7 @@ namespace Eagle._Components.Private
                     StringComparer.OrdinalIgnoreCase);
 
             //
-            // NOTE: Seed visited with what we
-            //       already have to avoid loops.
+            // NOTE: Seed visited with what we already have to avoid loops.
             //
             visitedThumbprints.Add(leaf.Thumbprint);
 
@@ -2718,8 +2610,7 @@ namespace Eagle._Components.Private
                 // NOTE: Find certs currently in the
                 //       partial chain that have AIA
                 //       "caIssuers" URIs we have not
-                //       tried yet.  Rebuild to get
-                //       the latest ChainElements
+                //       tried yet.  Rebuild to get the latest ChainElements
                 //       for inspection.
                 //
                 string[] ignore;
@@ -2728,8 +2619,7 @@ namespace Eagle._Components.Private
                     options, customRoots, requireTimeStampingEku, out ignore);
 
                 //
-                // NOTE: Gather candidates from leaf
-                //       + all extras (simple and
+                // NOTE: Gather candidates from leaf + all extras (simple and
                 //       robust).
                 //
                 List<string> urls = new List<string>();
@@ -2749,8 +2639,7 @@ namespace Eagle._Components.Private
                     break;
 
                 //
-                // NOTE: Try to download any new
-                //       certs and add to extra.
+                // NOTE: Try to download any new certs and add to extra.
                 //
                 int added = 0;
 
@@ -2779,8 +2668,7 @@ namespace Eagle._Components.Private
                         }
 
                         //
-                        // NOTE: Avoid adding the
-                        //       leaf itself again.
+                        // NOTE: Avoid adding the leaf itself again.
                         //
                         if (!StringEquals(cert.Thumbprint, leaf.Thumbprint))
                         {
@@ -2800,8 +2688,7 @@ namespace Eagle._Components.Private
                     break;
 
                 //
-                // NOTE: Retry build with the newly
-                //       added intermediates.
+                // NOTE: Retry build with the newly added intermediates.
                 //
                 ok = BuildChainWithOptions(leaf, extra, verificationTime,
                     options, customRoots, requireTimeStampingEku,
@@ -2812,8 +2699,7 @@ namespace Eagle._Components.Private
 
             //
             // NOTE: Final attempt result is already
-            //       in statusStrings from the last
-            //       build.
+            //       in statusStrings from the last build.
             //
             return false;
         }
@@ -2833,8 +2719,7 @@ namespace Eagle._Components.Private
             public ushort SizeOfOptionalHeader;
 
             //
-            // NOTE: File offset to first
-            //       IMAGE_SECTION_HEADER.
+            // NOTE: File offset to first IMAGE_SECTION_HEADER.
             //
             public long SectionTableOffset;
 
@@ -2884,8 +2769,7 @@ namespace Eagle._Components.Private
                 long coffOffset = peHeaderOffset + 4;
 
                 //
-                // NOTE: COFF File Header (20
-                //       bytes).
+                // NOTE: COFF File Header (20 bytes).
                 //
 
                 //
@@ -2910,8 +2794,7 @@ namespace Eagle._Components.Private
                 fs.Position = optionalHeaderOffset;
 
                 //
-                // NOTE: 0x10B (PE32) or
-                //       0x20B (PE32+).
+                // NOTE: 0x10B (PE32) or 0x20B (PE32+).
                 //
                 ushort magic = br.ReadUInt16();
 
@@ -2924,30 +2807,24 @@ namespace Eagle._Components.Private
                 bool pe32Plus = (magic == 0x20B);
 
                 //
-                // NOTE: CheckSum field is at +0x40
-                //       from start of optional
-                //       header on both PE32 and
-                //       PE32+ (per PE/COFF).
+                // NOTE: CheckSum field is at +0x40 from start of optional
+                //       header on both PE32 and PE32+ (per PE/COFF).
                 long checksumOffset = optionalHeaderOffset + 0x40;
 
                 //
-                // NOTE: DataDirectory start at
-                //       +0x60 (PE32) or +0x70
-                //       (PE32+).
+                // NOTE: DataDirectory start at +0x60 (PE32) or +0x70 (PE32+).
                 //
                 long dataDirStart = optionalHeaderOffset +
                     (pe32Plus ? 0x70 : 0x60);
 
                 //
-                // NOTE: Security Directory entry
-                //       (index 4): 8 bytes
+                // NOTE: Security Directory entry (index 4): 8 bytes
                 //       (VA/Offset + Size).
                 //
                 long securityDirEntryOffset = dataDirStart + (8 * 4);
 
                 //
-                // NOTE: Verify the security
-                //       directory entry falls
+                // NOTE: Verify the security directory entry falls
                 //       within the file.
                 //
                 if (securityDirEntryOffset + 8 > fs.Length)
@@ -2957,8 +2834,7 @@ namespace Eagle._Components.Private
                 }
 
                 //
-                // NOTE: Read SizeOfHeaders (offset
-                //       0x3C from optional header
+                // NOTE: Read SizeOfHeaders (offset 0x3C from optional header
                 //       start).
                 //
                 fs.Position = optionalHeaderOffset + 0x3C;
@@ -2966,10 +2842,8 @@ namespace Eagle._Components.Private
                 uint sizeOfHeaders = br.ReadUInt32();
 
                 //
-                // NOTE: Read Cert Table (file
-                //       offset, size) from security
-                //       directory entry.  For the
-                //       Security directory, this
+                // NOTE: Read Cert Table (file offset, size) from security
+                //       directory entry.  For the Security directory, this
                 //       is a FILE OFFSET (not RVA).
                 //
                 fs.Position = securityDirEntryOffset;
@@ -2979,8 +2853,7 @@ namespace Eagle._Components.Private
                 uint certSize = br.ReadUInt32();
 
                 //
-                // NOTE: Section table starts right
-                //       after the optional header.
+                // NOTE: Section table starts right after the optional header.
                 //
                 long sectionTableOffset = optionalHeaderOffset +
                     sizeOfOptional;
@@ -3028,10 +2901,8 @@ namespace Eagle._Components.Private
                     ushort wType = br.ReadUInt16();
 
                     //
-                    // NOTE: Validate dwLength to
-                    //       prevent integer overflow
-                    //       and excessively large
-                    //       allocations from
+                    // NOTE: Validate dwLength to prevent integer overflow
+                    //       and excessively large allocations from
                     //       malformed PE files.
                     //
                     long bodyLen = (long)dwLength - 8;
@@ -3046,8 +2917,7 @@ namespace Eagle._Components.Private
                     byte[] body = br.ReadBytes((int)bodyLen);
 
                     //
-                    // NOTE:
-                    //       WIN_CERT_TYPE_PKCS_SIGNED_DATA
+                    // NOTE: WIN_CERT_TYPE_PKCS_SIGNED_DATA
                     //
                     if ((wType == 0x0002) &&
                         (body != null) &&
@@ -3057,8 +2927,7 @@ namespace Eagle._Components.Private
                     }
 
                     //
-                    // NOTE: Each entry is aligned
-                    //       to 8 bytes.
+                    // NOTE: Each entry is aligned to 8 bytes.
                     //
                     long padded = ((dwLength + 7U) & ~7U);
 
@@ -3093,8 +2962,7 @@ namespace Eagle._Components.Private
             long fileLen = fs.Length;
 
             //
-            // NOTE: Step 1: Headers
-            //       (0 .. SizeOfHeaders), skipping
+            // NOTE: Step 1: Headers (0 .. SizeOfHeaders), skipping
             //       Checksum and Cert Table entry.
             //
             long headersEnd = Math.Min((long)pe.SizeOfHeaders, fileLen);
@@ -3110,14 +2978,12 @@ namespace Eagle._Components.Private
             long afterChecksum = pe.ChecksumFieldOffset + 4;
 
             //
-            // NOTE: (Checksum+4 ..
-            //       SecurityDirEntry).
+            // NOTE: (Checksum+4 .. SecurityDirEntry).
             //
             HashRange(fs, hash, afterChecksum, pe.SecurityDirEntryOffset);
 
             //
-            // NOTE: Skip Security Directory entry
-            //       (8 bytes).
+            // NOTE: Skip Security Directory entry (8 bytes).
             //
             long afterSecDir = pe.SecurityDirEntryOffset + 8;
 
@@ -3130,15 +2996,13 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Track a "cursor" so we never
-            //       double-hash if a section
+            // NOTE: Track a "cursor" so we never double-hash if a section
             //       overlaps the header.
             //
             long cursor = headersEnd;
 
             //
-            // NOTE: Step 2: Sections -- sort by
-            //       PointerToRawData; hash
+            // NOTE: Step 2: Sections -- sort by PointerToRawData; hash
             //       SizeOfRawData bytes for each.
             //
             SectionSpan[] secs = ReadSections(fs, pe);
@@ -3163,8 +3027,7 @@ namespace Eagle._Components.Private
                 if (end > fileLen) end = fileLen;
 
                 //
-                // NOTE: Avoid double-hashing if
-                //       section begins inside
+                // NOTE: Avoid double-hashing if section begins inside
                 //       already-hashed header area.
                 //
                 if (start < cursor)
@@ -3180,8 +3043,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Hash any remaining bytes before
-            //       the certificate table
+            // NOTE: Hash any remaining bytes before the certificate table
             //       (overlay/padding).
             //
 #if true
@@ -3211,8 +3073,7 @@ namespace Eagle._Components.Private
             //
             // NOTE: Step 3: DO NOT hash any bytes
             //       past the last section.  (Overlay
-            //       is excluded.)  Per Microsoft
-            //       Learn "Process for Generating
+            //       is excluded.)  Per Microsoft Learn "Process for Generating
             //       the Authenticode PE Image Hash":
             //       "Information past the end of the
             //       last section ... is not hashed."
@@ -3230,8 +3091,7 @@ namespace Eagle._Components.Private
             )
         {
             //
-            // NOTE: Each IMAGE_SECTION_HEADER is
-            //       40 bytes.
+            // NOTE: Each IMAGE_SECTION_HEADER is 40 bytes.
             //
             const int SectSize = 40;
 
@@ -3258,8 +3118,7 @@ namespace Eagle._Components.Private
                     fs.Position = off;
 
                     //
-                    // NOTE: PointerToRawData offset
-                    //       within section header.
+                    // NOTE: PointerToRawData offset within section header.
                     //
                     fs.Position = off + 0x14;
 
@@ -3292,8 +3151,7 @@ namespace Eagle._Components.Private
             )
         {
             //
-            // NOTE: Simple insertion sort; avoids
-            //       LINQ.
+            // NOTE: Simple insertion sort; avoids LINQ.
             //
             for (int i = 1; i < secs.Length; i++)
             {
@@ -3346,8 +3204,7 @@ namespace Eagle._Components.Private
         #region Minimal DER Helpers
         //
         // NOTE: Parse SpcIndirectDataContent into
-        //       DigestInfo (AlgorithmIdentifier OID
-        //       + digest OCTET STRING).
+        //       DigestInfo (AlgorithmIdentifier OID + digest OCTET STRING).
         //
         private static bool
             TryParseSpcIndirectDataDigest(
@@ -3413,10 +3270,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // NOTE: Parse RFC3161 TSTInfo:
-        //       messageImprint.hashAlgorithm OID,
-        //       messageImprint.hashedMessage,
-        //       genTime (GeneralizedTime).
+        // NOTE: Parse RFC3161 TSTInfo: messageImprint.hashAlgorithm OID,
+        //       messageImprint.hashedMessage, genTime (GeneralizedTime).
         //
         private static bool TryParseRfc3161TstInfo(
             byte[] tstInfoDer,
@@ -3477,8 +3332,7 @@ namespace Eagle._Components.Private
                 seq.SkipValueExpectedTag(0x02);
 
                 //
-                // NOTE: genTime (GeneralizedTime,
-                //       tag 0x18).
+                // NOTE: genTime (GeneralizedTime, tag 0x18).
                 //
                 genTime = seq.ReadGeneralizedTime();
 
@@ -3507,8 +3361,7 @@ namespace Eagle._Components.Private
             )
         {
             //
-            // NOTE: Path A -- use the API if it
-            //       exists (newer runtimes).
+            // NOTE: Path A -- use the API if it exists (newer runtimes).
             //
             try
             {
@@ -3524,8 +3377,7 @@ namespace Eagle._Components.Private
                     if (roMem != null)
                     {
                         //
-                        // NOTE: On modern runtimes
-                        //       this returns
+                        // NOTE: On modern runtimes this returns
                         //       ReadOnlyMemory<byte>.
                         //
                         Type t = roMem.GetType();
@@ -3545,9 +3397,7 @@ namespace Eagle._Components.Private
                         }
 
                         //
-                        // NOTE: Some builds may
-                        //       return byte[]
-                        //       directly.
+                        // NOTE: Some builds may return byte[] directly.
                         //
                         byte[] asBytes = roMem as byte[];
 
@@ -3563,8 +3413,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Path B -- parse the CMS DER to
-            //       find the matching
+            // NOTE: Path B -- parse the CMS DER to find the matching
             //       SignerInfo.signature.
             //
             byte[] sig;
@@ -3610,8 +3459,7 @@ namespace Eagle._Components.Private
         //       STRING) from SignedData.signerInfos
         //       matching the 'target' signer.  Match
         //       by Issuer+SerialNumber if available,
-        //       otherwise by SubjectKeyIdentifier
-        //       (SKI).
+        //       otherwise by SubjectKeyIdentifier (SKI).
         //
         private static bool
             TryExtractSignerSignatureFromCmsDer(
@@ -3626,8 +3474,7 @@ namespace Eagle._Components.Private
                 return false;
 
             //
-            // NOTE: ContentInfo ::= SEQUENCE {
-            //       contentType OID,
+            // NOTE: ContentInfo ::= SEQUENCE { contentType OID,
             //       [0] EXPLICIT ANY }
             //
             int len, content;
@@ -3676,11 +3523,8 @@ namespace Eagle._Components.Private
             int sdEnd = a0Content + a0Len;
 
             //
-            // NOTE: SignedData ::= SEQUENCE {
-            //       version, digestAlgorithms,
-            //       encapContentInfo,
-            //       [0] certs OPTIONAL,
-            //       [1] crls OPTIONAL,
+            // NOTE: SignedData ::= SEQUENCE { version, digestAlgorithms,
+            //       encapContentInfo, [0] certs OPTIONAL, [1] crls OPTIONAL,
             //       signerInfos SET }
             //
             if ((sdPos >= sdEnd) || (der[sdPos] != 0x30))
@@ -3803,8 +3647,7 @@ namespace Eagle._Components.Private
             if (cert != null)
             {
                 //
-                // NOTE: Issuer DER from the
-                //       certificate TBSCertificate.
+                // NOTE: Issuer DER from the certificate TBSCertificate.
                 //
                 try
                 {
@@ -3825,8 +3668,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Iterate each SignerInfo
-            //       (SEQUENCE) in the SET.
+            // NOTE: Iterate each SignerInfo (SEQUENCE) in the SET.
             //
             while (siPos < siEnd)
             {
@@ -3844,13 +3686,9 @@ namespace Eagle._Components.Private
                 int tEnd = oneContent + oneLen;
 
                 //
-                // NOTE: SignerInfo ::= SEQUENCE {
-                //       version, sid,
-                //       digestAlgorithm,
-                //       [0] signedAttrs OPTIONAL,
-                //       signatureAlgorithm,
-                //       signature OCTET STRING,
-                //       ... }
+                // NOTE: SignerInfo ::= SEQUENCE { version, sid,
+                //       digestAlgorithm, [0] signedAttrs OPTIONAL,
+                //       signatureAlgorithm, signature OCTET STRING, ... }
                 //
 
                 //
@@ -3874,8 +3712,7 @@ namespace Eagle._Components.Private
                 t = svContent + svLen;
 
                 //
-                // NOTE: sid
-                //       (IssuerAndSerialNumber OR
+                // NOTE: sid (IssuerAndSerialNumber OR
                 //       [0] SubjectKeyIdentifier).
                 //
                 bool sidMatches = false;
@@ -3883,8 +3720,7 @@ namespace Eagle._Components.Private
                 if ((t < tEnd) && (der[t] == 0x30))
                 {
                     //
-                    // NOTE: IssuerAndSerialNumber --
-                    //       capture issuer DER.
+                    // NOTE: IssuerAndSerialNumber -- capture issuer DER.
                     //
                     int issLen, issContent;
 
@@ -3933,8 +3769,7 @@ namespace Eagle._Components.Private
                     if ((targetIssuer != null) && (targetSerialBE != null))
                     {
                         //
-                        // NOTE: Normalize serial --
-                        //       remove leading 0x00
+                        // NOTE: Normalize serial -- remove leading 0x00
                         //       from INTEGER content.
                         //
                         byte[] serialNorm = TrimLeftZeros(serialDer);
@@ -3956,8 +3791,7 @@ namespace Eagle._Components.Private
                 else if ((t < tEnd) && (der[t] == 0x80))
                 {
                     //
-                    // NOTE: [0] IMPLICIT
-                    //       SubjectKeyIdentifier.
+                    // NOTE: [0] IMPLICIT SubjectKeyIdentifier.
                     //
                     int skiLen, skiContent;
 
@@ -4009,8 +3843,7 @@ namespace Eagle._Components.Private
                 t = dAlgContent + dAlgLen;
 
                 //
-                // NOTE: [0] signedAttrs OPTIONAL
-                //       (skip if present).
+                // NOTE: [0] signedAttrs OPTIONAL (skip if present).
                 //
                 if ((t < tEnd) && (der[t] == 0xA0))
                 {
@@ -4047,8 +3880,7 @@ namespace Eagle._Components.Private
                 t = sAlgContent + sAlgLen;
 
                 //
-                // NOTE: signature OCTET STRING --
-                //       this is what we need.
+                // NOTE: signature OCTET STRING -- this is what we need.
                 //
                 if ((t < tEnd) && (der[t] == 0x04))
                 {
@@ -4072,10 +3904,8 @@ namespace Eagle._Components.Private
                     }
 
                     //
-                    // NOTE: Move past signature to
-                    //       continue scanning
-                    //       (unsignedAttrs may
-                    //       follow).
+                    // NOTE: Move past signature to continue scanning
+                    //       (unsignedAttrs may follow).
                     //
                     t = sigContent + sigLen;
                 }
@@ -4098,8 +3928,7 @@ namespace Eagle._Components.Private
             try
             {
                 //
-                // NOTE: GetSerialNumber() returns
-                //       little-endian; reverse to
+                // NOTE: GetSerialNumber() returns little-endian; reverse to
                 //       big-endian.
                 //
                 byte[] le = cert.GetSerialNumber();
@@ -4162,10 +3991,8 @@ namespace Eagle._Components.Private
                         (StringEquals(ext.Oid.Value, "2.5.29.14")))
                     {
                         //
-                        // NOTE: The extension value
-                        //       is an OCTET STRING
-                        //       wrapping the SKI
-                        //       OCTET STRING.
+                        // NOTE: The extension value is an OCTET STRING
+                        //       wrapping the SKI OCTET STRING.
                         //
                         byte[] ski = ExtractOctetString(ext.RawData);
 
@@ -4231,8 +4058,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: Extract OCTET STRING value from a
         //       single-valued attribute (RawData
-        //       encodes the value, i.e., includes
-        //       '04 len ...').
+        //       encodes the value, i.e., includes '04 len ...').
         //
         private static byte[]
             GetSingleAttributeOctetValue(CryptographicAttributeObjectCollection
@@ -4302,19 +4128,15 @@ namespace Eagle._Components.Private
 
 #if NET_STANDARD_21
             //
-            // NOTE: Use constant-time comparison
-            //       to avoid timing side-channel
+            // NOTE: Use constant-time comparison to avoid timing side-channel
             //       attacks on digest comparisons.
             //
             return CryptographicOperations.FixedTimeEquals(a, b);
 #else
             //
-            // NOTE: Best-effort constant-time
-            //       comparison for older runtimes.
-            //       This avoids short-circuit
-            //       evaluation; however, JIT or CPU
-            //       branch prediction may still
-            //       introduce timing variance.
+            // NOTE: Best-effort constant-time comparison for older runtimes.
+            //       This avoids short-circuit evaluation; however, JIT or CPU
+            //       branch prediction may still introduce timing variance.
             //
             int diff = 0;
 
@@ -4381,8 +4203,7 @@ namespace Eagle._Components.Private
                 return true;
 
             //
-            // NOTE: MD5 is cryptographically broken
-            //       for collision resistance.
+            // NOTE: MD5 is cryptographically broken for collision resistance.
             //
             if ((StringEquals(
                     oid, "1.2.840.113549.2.5")) &&
@@ -4392,8 +4213,7 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: SHA-1 has practical collision
-            //       attacks (SHAttered, 2017).
+            // NOTE: SHA-1 has practical collision attacks (SHAttered, 2017).
             //
             if ((StringEquals(oid, "1.3.14.3.2.26")) && (!options.AllowSha1))
             {
@@ -4461,11 +4281,8 @@ namespace Eagle._Components.Private
                         if (ext == ".pem")
                         {
                             //
-                            // NOTE: PEM files may
-                            //       contain multiple
-                            //       certificates
-                            //       (e.g., a full
-                            //       chain).
+                            // NOTE: PEM files may contain multiple
+                            //       certificates (e.g., a full chain).
                             //
                             byte[][] derBlocks = PemToDerMultiple(raw);
 
@@ -4504,8 +4321,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // NOTE: Minimal PEM parser for
-        //       "-----BEGIN CERTIFICATE-----".
+        // NOTE: Minimal PEM parser for "-----BEGIN CERTIFICATE-----".
         //
         private static byte[] PemToDer(
             byte[] pemBytes
@@ -4625,8 +4441,7 @@ namespace Eagle._Components.Private
                     continue;
 
                 //
-                // NOTE: Authority Information
-                //       Access.
+                // NOTE: Authority Information Access.
                 //
                 if (!StringEquals(ext.Oid.Value, "1.3.6.1.5.5.7.1.1"))
                 {
@@ -4638,9 +4453,7 @@ namespace Eagle._Components.Private
                     DerReader r = new DerReader(ext.RawData);
 
                     //
-                    // NOTE:
-                    //       AuthorityInfoAccessSyntax
-                    //       ::= SEQUENCE OF
+                    // NOTE: AuthorityInfoAccessSyntax ::= SEQUENCE OF
                     //       AccessDescription.
                     //
                     DerReader aiaSeq = r.ReadSequence();
@@ -4658,10 +4471,8 @@ namespace Eagle._Components.Private
                         string methodOid = ad.ReadOid();
 
                         //
-                        // NOTE: accessLocation is a
-                        //       GeneralName; for URI
-                        //       it is [6] IA5String
-                        //       (tag 0x86).
+                        // NOTE: accessLocation is a GeneralName; for URI
+                        //       it is [6] IA5String (tag 0x86).
                         //
                         string uri = ad.ReadUriIfPresent();
 
@@ -4723,11 +4534,9 @@ namespace Eagle._Components.Private
                     http.Timeout = options.AiaHttpTimeout;
 
                     //
-                    // NOTE: Enforce a maximum
-                    //       response size to prevent
+                    // NOTE: Enforce a maximum response size to prevent
                     //       memory exhaustion from a
-                    //       malicious or misconfigured
-                    //       AIA URL.
+                    //       malicious or misconfigured AIA URL.
                     //
                     http.MaxResponseContentBufferSize =
                         options.AiaMaxResponseSize;
@@ -4749,8 +4558,7 @@ namespace Eagle._Components.Private
                     }
 
                     //
-                    // NOTE: Try decode as PKCS#7
-                    //       cert bag (p7c).
+                    // NOTE: Try decode as PKCS#7 cert bag (p7c).
                     //
                     try
                     {
@@ -4878,8 +4686,7 @@ namespace Eagle._Components.Private
             public string ReadUriIfPresent()
             {
                 //
-                // NOTE: A GeneralName with tag [6]
-                //       IA5String uses the context-
+                // NOTE: A GeneralName with tag [6] IA5String uses the context-
                 //       specific primitive tag 0x86.
                 //
                 if (!HasData) return null;
@@ -4887,9 +4694,7 @@ namespace Eagle._Components.Private
                 if (_data[_pos] != 0x86)
                 {
                     //
-                    // NOTE: Not a URI; skip the
-                    //       value to keep parsing
-                    //       aligned.
+                    // NOTE: Not a URI; skip the value to keep parsing aligned.
                     //
                     SkipValue();
                     return null;
@@ -4927,8 +4732,7 @@ namespace Eagle._Components.Private
 
             //
             // NOTE: Correctly returns the SEQUENCE
-            //       start (tag) and total encoded
-            //       length (header + content).
+            //       start (tag) and total encoded length (header + content).
             //
             public bool TryReadRawSequenceFull(
                 out int sequenceStart,
@@ -4953,8 +4757,7 @@ namespace Eagle._Components.Private
                     }
 
                     //
-                    // NOTE: Start at the SEQUENCE
-                    //       TAG (not at content).
+                    // NOTE: Start at the SEQUENCE TAG (not at content).
                     //
                     sequenceStart = save;
 
@@ -4964,8 +4767,7 @@ namespace Eagle._Components.Private
                     totalEncodedLength = hdr + len;
 
                     //
-                    // NOTE: Advance to end of this
-                    //       SEQUENCE.
+                    // NOTE: Advance to end of this SEQUENCE.
                     //
                     _pos = save + totalEncodedLength;
 
@@ -4983,8 +4785,7 @@ namespace Eagle._Components.Private
             //
             // NOTE: Reads a SEQUENCE and returns
             //       its raw slice offsets (without
-            //       advancing outer reader except
-            //       consuming the sequence).
+            //       advancing outer reader except consuming the sequence).
             //
             public bool TryReadRawSequence(
                 out int contentStart,
@@ -5015,8 +4816,7 @@ namespace Eagle._Components.Private
                     totalLength = len + hdr;
 
                     //
-                    // NOTE: Move to end of
-                    //       sequence.
+                    // NOTE: Move to end of sequence.
                     //
                     _pos = contentStart + len;
                     return true;
@@ -5200,12 +5000,9 @@ namespace Eagle._Components.Private
                 _pos += len;
 
                 //
-                // NOTE: Accept forms:
-                //       YYYYMMDDHHMMSSZ or with
-                //       fractional seconds (e.g.,
-                //       .fff) and 'Z'.  Parse
-                //       minimally and assume 'Z'
-                //       (UTC).
+                // NOTE: Accept forms: YYYYMMDDHHMMSSZ or with
+                //       fractional seconds (e.g., .fff) and 'Z'.  Parse
+                //       minimally and assume 'Z' (UTC).
                 //
                 if (!s.EndsWith("Z", StringComparison.Ordinal))
                 {
@@ -5216,16 +5013,14 @@ namespace Eagle._Components.Private
                 s = s.Substring(0, s.Length - 1);
 
                 //
-                // NOTE: Trim fractional seconds
-                //       if present.
+                // NOTE: Trim fractional seconds if present.
                 //
                 int dot = s.IndexOf('.');
 
                 string basePart = dot >= 0 ? s.Substring(0, dot) : s;
 
                 //
-                // NOTE: Ensure at least
-                //       YYYYMMDDHHMMSS.
+                // NOTE: Ensure at least YYYYMMDDHHMMSS.
                 //
                 if (basePart.Length < 14)
                 {
@@ -5312,8 +5107,7 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             //
-            // NOTE: Helper used by
-            //       GetSingleAttributeOctetValue.
+            // NOTE: Helper used by GetSingleAttributeOctetValue.
             //
             public static bool ReadLength(
                 byte[] data,
