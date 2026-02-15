@@ -122,6 +122,15 @@ synchronization.  Follow the existing patterns in the codebase (e.g.,
 `lock` on a dedicated `syncRoot` object).  If there is a possibility
 of deadlock, the **TryLock pattern** must be used.
 
+### Documentation Repository
+
+The [Eagle documentation repository](https://github.com/mistachkin/docs)
+must be kept up-to-date with changes in this repository.  If your pull
+request adds, changes, or removes any user-facing functionality (commands,
+sub-commands, options, configuration, APIs, etc.), a corresponding pull
+request to the documentation repository is required and must be linked
+in your PR description.
+
 ### No Unused Code
 
 Do not leave dead code, commented-out blocks, or any unused `using`
@@ -365,3 +374,7 @@ Before submitting a pull request, verify that:
 - [ ] If `Eagle1.0` or `Test1.0` library scripts were modified, the
       embedded resource files have been rebuilt.
 - [ ] All CI checks pass on both Linux and macOS.
+- [ ] If user-facing functionality was added or changed, a corresponding
+      PR to the
+      [documentation repository](https://github.com/mistachkin/docs)
+      has been opened and linked.

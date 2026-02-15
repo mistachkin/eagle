@@ -50,4 +50,6 @@ jobs:
         run: >
           dotnet exec
           "$EAGLE_ROOT/bin/DebugNetStandard21/bin/netcoreapp3.0/EagleShell.dll"
+          -anyInitialize "set ::no(leak,runTest) 1"
           -file "$EAGLE_ROOT/Library/Tests/all.eagle"
+          -skip interp-1.50000

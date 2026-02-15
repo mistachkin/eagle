@@ -48,6 +48,10 @@ Please verify the following before requesting review.  See
 - [ ] Bug fixes have regression tests.
 - [ ] The `ChangeLog` has been updated.
 - [ ] All CI checks pass on both Linux and macOS.
+- [ ] If user-facing functionality was added or changed, a corresponding
+      PR to the
+      [documentation repository](https://github.com/mistachkin/docs)
+      has been opened and linked.
 
 ### Script Changes (if applicable)
 
