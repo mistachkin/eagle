@@ -124,7 +124,7 @@ of deadlock, the **TryLock pattern** must be used.
 
 ### Documentation Repository
 
-The [Eagle documentation repository](https://github.com/mistachkin/docs)
+The [Eagle documentation repository](https://urn.to/r/docs) (this will redirect)
 must be kept up-to-date with changes in this repository.  If your pull
 request adds, changes, or removes any user-facing functionality (commands,
 sub-commands, options, configuration, APIs, etc.), a corresponding pull
@@ -151,9 +151,8 @@ Every C# file must begin with the standard copyright header:
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
- * See the file "license.terms" for information on usage and
- * redistribution of this file, and for a DISCLAIMER OF ALL
- * WARRANTIES.
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
  * RCS: @(#) $Id: $
  */
@@ -253,9 +252,8 @@ Every Eagle script file must begin with the standard copyright header:
 #
 # Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
 #
-# See the file "license.terms" for information on usage and
-# redistribution of this file, and for a DISCLAIMER OF ALL
-# WARRANTIES.
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
 # RCS: @(#) $Id: $
 #
@@ -376,5 +374,5 @@ Before submitting a pull request, verify that:
 - [ ] All CI checks pass on both Linux and macOS.
 - [ ] If user-facing functionality was added or changed, a corresponding
       PR to the
-      [documentation repository](https://github.com/mistachkin/docs)
+      [documentation repository](https://urn.to/r/docs) (this will redirect)
       has been opened and linked.
