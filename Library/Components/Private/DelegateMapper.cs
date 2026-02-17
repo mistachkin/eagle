@@ -376,15 +376,15 @@ namespace Eagle._Components.Public
                 DelegateFlags localDelegateFlags = (delegateFlags != null) ?
                     (DelegateFlags)delegateFlags : DelegateFlags.Default;
 
+                delegates.Add(new DelegateTriplet(true,
+                    method, null, localDelegateFlags));
+
                 if (marshalFlags != null)
                 {
                     MaybeSortDelegates(
                         delegates, (MarshalFlags)marshalFlags,
                         localDelegateFlags);
                 }
-
-                delegates.Add(new DelegateTriplet(true,
-                    method, null, localDelegateFlags));
 
                 count++;
 

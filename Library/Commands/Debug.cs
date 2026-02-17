@@ -4715,24 +4715,41 @@ namespace Eagle._Commands
 
                                             StringList list = new StringList();
 
-                                            if (debugger != null)
-                                                list.Add("debugger available");
+                                            if (DebugOps.IsAttached())
+                                                list.Add("managed debugger attached");
                                             else
-                                                list.Add("debugger not available");
+                                                list.Add("managed debugger not attached");
+
+#if NATIVE && WINDOWS
+                                            if (PlatformOps.IsWindowsOperatingSystem() &&
+                                                NativeOps.SafeNativeMethods.IsDebuggerPresent())
+                                            {
+                                                list.Add("native debugger attached");
+                                            }
+                                            else
+                                            {
+                                                list.Add("native debugger not attached");
+                                            }
+#endif
+
+                                            if (debugger != null)
+                                                list.Add("script debugger available");
+                                            else
+                                                list.Add("script debugger not available");
 
                                             if ((debugger != null) && enabled)
-                                                list.Add("debugger enabled");
+                                                list.Add("script debugger enabled");
                                             else
-                                                list.Add("debugger not enabled");
+                                                list.Add("script debugger not enabled");
 
                                             list.Add(String.Format(
-                                                "header flags are \"{0}\"",
+                                                "script debugger header flags are \"{0}\"",
                                                 headerFlags));
 
                                             if (debugInterpreter != null)
-                                                list.Add("debugger interpreter available");
+                                                list.Add("script debugger interpreter available");
                                             else
-                                                list.Add("debugger interpreter not available");
+                                                list.Add("script debugger interpreter not available");
 
                                             result = list;
                                             code = ReturnCode.Ok;

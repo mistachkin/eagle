@@ -5518,18 +5518,18 @@ runTest {test interp-1.70001 {automatic object commands} -setup {
   set instance(3) $interpreter
   set instance(4) [object invoke -alias $typeName(4) Create]
 
-  oip $instance(4) createCount 0;              # Default.cs:29091
-  oip $instance(4) instanceCount 0;            # Default.cs:29094
-  oip $instance(4) staticCount 0;              # Default.cs:29097
-  oip $instance(4) dispose0Count 0;            # Default.cs:29100
-  oip $instance(4) significantDispose1Count 0; # Default.cs:29103
-  oip $instance(4) significantRelease1Count 0; # Default.cs:29106
-  oip $instance(4) redundantDispose1Count 0;   # Default.cs:29109
-  oip $instance(4) redundantRelease1Count 0;   # Default.cs:29112
-  oip $instance(4) destroyCount 0;             # Default.cs:29115
-  oip $typeName(4) neutralStaticField 1;       # Default.cs:29120
-  oip $typeName(4) safeStaticField 2;          # Default.cs:29123
-  oip $typeName(4) unsafeStaticField 3;        # Default.cs:29126
+  oip $instance(4) createCount 0;              # Default.cs:29908
+  oip $instance(4) instanceCount 0;            # Default.cs:29911
+  oip $instance(4) staticCount 0;              # Default.cs:29914
+  oip $instance(4) dispose0Count 0;            # Default.cs:29917
+  oip $instance(4) significantDispose1Count 0; # Default.cs:29920
+  oip $instance(4) significantRelease1Count 0; # Default.cs:29923
+  oip $instance(4) redundantDispose1Count 0;   # Default.cs:29926
+  oip $instance(4) redundantRelease1Count 0;   # Default.cs:29929
+  oip $instance(4) destroyCount 0;             # Default.cs:29932
+  oip $typeName(4) neutralStaticField 1;       # Default.cs:29937
+  oip $typeName(4) safeStaticField 2;          # Default.cs:29940
+  oip $typeName(4) unsafeStaticField 3;        # Default.cs:29943
 
   interp set $interp instance(4) $instance(4)
   interp shareobject $interp $instance(4)
@@ -5560,9 +5560,16 @@ runTest {test interp-1.70001 {automatic object commands} -setup {
   set delegateFlags null; set count 0; set tokens null
   set result null
 
+  #
+  # HACK: This uses the SortMembers value for the MarshalFlags
+  #       to make sure the method overload resolution (e.g. for
+  #       the two parameter variants of the TryGetEventManager
+  #       method) is 100% deterministic.
+  #
   set code [oip $interpreter AddAutomaticCommands \
       null null $typedInstances null $bindingFlags \
-      null $delegateFlags false count tokens result]
+      SortMembers $delegateFlags false count tokens \
+      result]
 
   if {$code ne "Ok"} then {
     error [getStringFromObjectHandle $result]
@@ -5850,10 +5857,10 @@ bad_option\}
 \{1 \{wrong # args: should be "thing \?options\? method \?arg \.\.\.\?"\}\} \{0\
 \{\}\} \{0 \{\}\}
 5
-\{0 EventManager#\d+\} \{1 \{could not convert method #0\
+\{0 EventManager#\d+\} \{0 EventManager#\d+\} \{1 \{could not convert method #0\
 "Eagle\._Components\.Public\.Interpreter\.TryGetEventManager" argument #0\
 "limit" with value "0" to type "System\.Int32&": can't read "0": no such\
-variable\}\} \{0 EventManager#\d+\} \{0 EventManager#\d+\}
+variable\}\} \{0 EventManager#\d+\}
 6
 \{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1\
 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1 bad_option\} \{1\

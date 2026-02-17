@@ -70320,7 +70320,7 @@ namespace Eagle._Components.Public
                     // BUGBUG: This may need revision; we do need some way to remove
                     //         "stale" undefined variables from the call frame even
                     //         though the only way to officially create one is via the
-                    //         global or upvar commands and those get cleaned up
+                    //         [global] or [upvar] commands and those get cleaned up
                     //         automatically upon procedure exit.
                     //
                     bool haveVariable = (variable != null);
@@ -72895,7 +72895,7 @@ namespace Eagle._Components.Public
                             // BUGBUG: This may need revision; we do need some way to remove
                             //         "stale" undefined variables from the call frame even
                             //         though the only way to officially create one is via the
-                            //         global or upvar commands and those get cleaned up
+                            //         [global] or [upvar] commands and those get cleaned up
                             //         automatically upon procedure exit.
                             //
                             if (FlagOps.HasFlags(flags, VariableFlags.NoComplain, true))

@@ -1121,7 +1121,9 @@ namespace Eagle._Components.Private
             #region Private Methods
             private void SetupComparers()
             {
-                nameComparer = Comparer<string>.Default;
+                nameComparer = StringOps.GetStringComparer(
+                    StringComparison.InvariantCulture);
+
                 countComparer = Comparer<int>.Default;
             }
 
@@ -1151,27 +1153,82 @@ namespace Eagle._Components.Private
                     if (result != 0)
                         return result;
 
-                    ParameterInfo[] leftParameterInfo = left.GetParameters();
-                    ParameterInfo[] rightParameterInfo = right.GetParameters();
+                    ParameterInfo[] leftParameterInfos = left.GetParameters();
+                    ParameterInfo[] rightParameterInfos = right.GetParameters();
 
-                    if ((leftParameterInfo == null) &&
-                        (rightParameterInfo == null))
+                    if ((leftParameterInfos == null) &&
+                        (rightParameterInfos == null))
                     {
                         return 0;
                     }
-                    else if (leftParameterInfo == null)
+                    else if (leftParameterInfos == null)
                     {
                         return -1;
                     }
-                    else if (rightParameterInfo == null)
+                    else if (rightParameterInfos == null)
                     {
                         return 1;
                     }
                     else
                     {
-                        return countComparer.Compare(
-                            leftParameterInfo.Length,
-                            rightParameterInfo.Length);
+                        int leftParameterLength = leftParameterInfos.Length;
+                        int rightParameterLength = rightParameterInfos.Length;
+
+                        result = countComparer.Compare(
+                            leftParameterLength, rightParameterLength);
+
+                        if (result != 0)
+                            return result;
+
+                        int parameterLength = Math.Min( /* REDUNDANT */
+                            leftParameterLength, rightParameterLength);
+
+                        for (int parameterIndex = 0;
+                                parameterIndex < parameterLength;
+                                parameterIndex++)
+                        {
+                            ParameterInfo leftParameterInfo =
+                                leftParameterInfos[parameterIndex];
+
+                            ParameterInfo rightParameterInfo =
+                                rightParameterInfos[parameterIndex];
+
+                            if ((leftParameterInfo == null) &&
+                                (rightParameterInfo == null))
+                            {
+                                continue;
+                            }
+                            else if (leftParameterInfo == null)
+                            {
+                                return -1;
+                            }
+                            else if (rightParameterInfo == null)
+                            {
+                                return 1;
+                            }
+                            else
+                            {
+                                Type leftType =
+                                    leftParameterInfo.ParameterType;
+
+                                Type rightType =
+                                    rightParameterInfo.ParameterType;
+
+                                string leftTypeName = (leftType != null) ?
+                                    leftType.FullName : null;
+
+                                string rightTypeName = (rightType != null) ?
+                                    rightType.FullName : null;
+
+                                result = nameComparer.Compare(
+                                    leftTypeName, rightTypeName);
+
+                                if (result != 0)
+                                    return result;
+                            }
+                        }
+
+                        return 0;
                     }
                 }
             }
@@ -1248,7 +1305,9 @@ namespace Eagle._Components.Private
             #region Private Methods
             private void SetupComparers()
             {
-                nameComparer = Comparer<string>.Default;
+                nameComparer = StringOps.GetStringComparer(
+                    StringComparison.InvariantCulture);
+
                 methodComparer = new MethodBaseComparer(ascending);
             }
 
