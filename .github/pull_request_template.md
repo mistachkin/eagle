@@ -58,3 +58,8 @@ Please verify the following before requesting review.  See
 - [ ] PR is tagged **"scripts"** (Eagle scripts were modified).
 - [ ] Embedded resource files rebuilt if `Eagle1.0` or `Test1.0`
       library scripts were modified.
+
+### Legal
+
+- [ ] I have read and signed the [Contributor License Agreement](../CLA.md),
+      or I am listed in the CLA allowlist.

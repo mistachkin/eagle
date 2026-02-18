@@ -11,6 +11,23 @@ All contributions must be dedicated to the public domain **or** signed
 over to the project administrator via a signed copyright release.  By
 submitting a pull request you acknowledge this requirement.
 
+### Contributor License Agreement (CLA)
+
+This repository uses the [CLA Assistant](https://github.com/contributor-assistant/github-action)
+to automate contributor license management.  When you open a pull request:
+
+1. The CLA Assistant bot will post a comment with a link to the
+   [CLA](CLA.md).
+2. Read the CLA and choose **Option A** (public domain dedication) or
+   **Option B** (copyright assignment).
+3. Post the following comment on the pull request to sign:
+   **"I have read the CLA Document and I hereby sign the CLA"**
+4. The `cla-check` status will update automatically once your signature
+   is recorded.
+
+Your signature is stored in the repository and applies to all future
+contributions -- you only need to sign once.
+
 ## General Rules
 
 ### Line Length

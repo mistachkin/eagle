@@ -24,14 +24,15 @@ This document provides guidance for AI agents (such as Claude, GPT, etc.) to wri
 
 **How to Access Documentation**:
 1. Navigate to https://urn.to/r/docs (this will redirect)
-2. Read `quick_start_guide.md` for getting started with Eagle
-3. Read `core_language.md` for command syntax and language features
-4. Read `core_examples.md` for runnable examples of every command
-5. Read `core_script_library.md` for library procedures and utilities
-6. Read `tips_and_tricks.md` for Eagle-specific idioms and best practices
-7. Read `garuda.md` for native Tcl-side integration and features
-8. Read `integrations.md` for MSBuild, WiX, PowerShell, and MonoDevelop integration
-9. Read `updater.md` for the Eagle Updater (Hippogriff) architecture
+2. Read `why_eagle.md` for feature overview and language comparisons
+3. Read `quick_start_guide.md` for getting started with Eagle
+4. Read `core_language.md` for command syntax and language features
+5. Read `core_examples.md` for runnable examples of every command
+6. Read `core_script_library.md` for library procedures and utilities
+7. Read `tips_and_tricks.md` for Eagle-specific idioms and best practices
+8. Read `garuda.md` for native Tcl-side integration and features
+9. Read `integrations.md` for MSBuild, WiX, PowerShell, and MonoDevelop integration
+10. Read `updater.md` for the Eagle Updater (Hippogriff) architecture
 
 **For AI Agents**: When you need detailed information about Eagle commands or procedures, fetch and read the appropriate documentation file from the repository above.
 
@@ -52,6 +53,7 @@ Eagle is a Tcl-compatible scripting language with deep .NET/CLR integration. It 
 |-------------|-------------------|
 | `{*}` expansion operator | Use `[eval]` with `[list]` for argument expansion |
 | `dict` command | Use key-value lists with `getDictionaryValue` |
+| `scan` command | Use `regexp` or `string` operations |
 | `namespace ensemble` | Not supported |
 | `namespace path` | Not supported |
 | `fileevent` | Use polling with `after` or .NET async patterns |
@@ -935,14 +937,14 @@ test debug-1.1 {debugging example} -body {
 |----------|----------|
 | [`why_eagle.md`](https://github.com/mistachkin/docs/blob/trunk/why_eagle.md) | Feature overview, language comparisons, security model, and use-case guidance |
 | [`quick_start_guide.md`](https://github.com/mistachkin/docs/blob/trunk/quick_start_guide.md) | Quick start guide for new Eagle users |
-| [`core_language.md`](https://github.com/mistachkin/docs/blob/trunk/core_language.md) | Complete command reference, syntax, .NET integration, flags enumerations, command callbacks |
+| [`core_language.md`](https://github.com/mistachkin/docs/blob/trunk/core_language.md) | Core language reference - all built-in commands, syntax, and .NET integration |
 | [`core_examples.md`](https://github.com/mistachkin/docs/blob/trunk/core_examples.md) | Runnable examples for every command and sub-command |
-| [`core_script_library.md`](https://github.com/mistachkin/docs/blob/trunk/core_script_library.md) | Procedure library - test infrastructure, file operations, object utilities, platform detection |
+| [`core_script_library.md`](https://github.com/mistachkin/docs/blob/trunk/core_script_library.md) | Script library reference - procedures from Eagle's standard library packages |
 | [`tips_and_tricks.md`](https://github.com/mistachkin/docs/blob/trunk/tips_and_tricks.md) | Eagle-specific features, advanced idioms, and best practices |
 | [`garuda.md`](https://github.com/mistachkin/docs/blob/trunk/garuda.md) | Native Package for Tcl (Garuda) reference |
 | [`integrations.md`](https://github.com/mistachkin/docs/blob/trunk/integrations.md) | Integration sub-projects (MSBuild, WiX, PowerShell, MonoDevelop) |
 | [`updater.md`](https://github.com/mistachkin/docs/blob/trunk/updater.md) | Eagle Updater (Hippogriff) architecture and design |
-| [`README.md`](https://github.com/mistachkin/docs/blob/trunk/README.md) | Documentation overview and index |
+| [`README.md`](https://github.com/mistachkin/docs/blob/trunk/README.md) | Documentation index and overview |
 | [`AGENTS.md`](https://github.com/mistachkin/docs/blob/trunk/AGENTS.md) | Agent documentation overview |
 
 **Eagle Source Repository**: https://urn.to/r/github (this will redirect)
