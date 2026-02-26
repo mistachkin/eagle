@@ -389,7 +389,7 @@ namespace Eagle._Commands
                                                                                         variables[variable2.Name] = variable2;
 
                                                                                         if (!noSignal)
-                                                                                            EntityOps.SignalDirty(variable, null);
+                                                                                            EntityOps.SignalDirty(variable2, null);
 
                                                                                         result = String.Empty;
                                                                                     }
@@ -404,7 +404,7 @@ namespace Eagle._Commands
                                                                                     variables[variable2.Name] = variable2;
 
                                                                                     if (!noSignal)
-                                                                                        EntityOps.SignalDirty(variable, null);
+                                                                                        EntityOps.SignalDirty(variable2, null);
 
                                                                                     result = String.Empty;
                                                                                 }

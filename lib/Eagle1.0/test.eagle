@@ -1796,6 +1796,54 @@ namespace eval ::Eagle {
     } elseif {$force || ![info exists openAiProxyUri]} then {
       set openAiProxyUri {${baseUri}/${openAiProxyUrn}}
     }
+
+    #
+    # NOTE: The URN, relative to the base URI, where Anthropic (Claude)
+    #       API web requests should be sent.
+    #
+    variable anthropicUrn; # DEFAULT: anthropic
+
+    if {$cleanup} then {
+      unset -nocomplain anthropicUrn
+    } elseif {$force || ![info exists anthropicUrn]} then {
+      set anthropicUrn anthropic
+    }
+
+    #
+    # NOTE: The URI where Anthropic (Claude) API web requests should be
+    #       sent.
+    #
+    variable anthropicUri; # DEFAULT: ${baseUri}/${anthropicUrn}
+
+    if {$cleanup} then {
+      unset -nocomplain anthropicUri
+    } elseif {$force || ![info exists anthropicUri]} then {
+      set anthropicUri {${baseUri}/${anthropicUrn}}
+    }
+
+    #
+    # NOTE: The URN, relative to the base URI, where Anthropic (Claude)
+    #       API proxy web requests should be sent.
+    #
+    variable anthropicProxyUrn; # DEFAULT: anthropic_proxy
+
+    if {$cleanup} then {
+      unset -nocomplain anthropicProxyUrn
+    } elseif {$force || ![info exists anthropicProxyUrn]} then {
+      set anthropicProxyUrn anthropic_proxy
+    }
+
+    #
+    # NOTE: The URI where Anthropic (Claude) API proxy web requests
+    #       should be sent.
+    #
+    variable anthropicProxyUri; # DEFAULT: ${baseUri}/${anthropicProxyUrn}
+
+    if {$cleanup} then {
+      unset -nocomplain anthropicProxyUri
+    } elseif {$force || ![info exists anthropicProxyUri]} then {
+      set anthropicProxyUri {${baseUri}/${anthropicProxyUrn}}
+    }
   }
 
   proc getTestRunTag {} {
@@ -10946,6 +10994,52 @@ namespace eval ::Eagle {
       return $result
     }
 
+    proc anthropic_getPrompt { command {channel stdout} {quiet false} } {
+      set result ""; set prompt {
+        When responding, please include only new and/or corrected
+        script command(s) without any other content.
+
+        The script command after the colon, which is in the Eagle
+        scripting language, encountered an "invalid command name"
+        error in Eagle v}
+
+      if {[info exists ::eagle_platform(patchLevel)]} then {
+        append prompt $::eagle_platform(patchLevel)
+      } else {
+        append prompt 1.0
+      }
+
+      append prompt .
+
+      append prompt {
+        Please correct it and/or offer suggestions that improve it.
+        Here is the command: }
+
+      regsub -all -- {\s{2,}} $prompt " " prompt
+      append prompt $command
+      set prompt [string trim $prompt]
+
+      maybeInvokeForTester ::beforeAnthropic_getPrompt; # HOOK
+
+      if {[string length $result] == 0} then {
+        set result $prompt
+        maybeInvokeForTester ::afterAnthropic_getPrompt; # HOOK
+
+        if {!$quiet} then {
+          tputs [getTestChannelOrDefault] [appendArgs \
+              "---- prompt for Anthropic is \"" $result \"\n]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs [getTestChannelOrDefault] [appendArgs \
+              "---- prompt for Anthropic overridden to \"" \
+              $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
     proc openAI_getJsonPaths { json {channel stdout} {quiet false} } {
       set result ""; set paths [list choices 0 message content]
       maybeInvokeForTester ::beforeOpenAI_getJsonPaths; # HOOK
@@ -10962,6 +11056,29 @@ namespace eval ::Eagle {
         if {!$quiet} then {
           tputs $channel [appendArgs \
               "---- json paths for OpenAI overridden to \"" \
+              $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
+    proc anthropic_getJsonPaths { json {channel stdout} {quiet false} } {
+      set result ""; set paths [list content 0 text]
+      maybeInvokeForTester ::beforeAnthropic_getJsonPaths; # HOOK
+
+      if {[string length $result] == 0} then {
+        set result $paths
+        maybeInvokeForTester ::afterAnthropic_getJsonPaths; # HOOK
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- json paths for Anthropic is \"" $result \"\n]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- json paths for Anthropic overridden to \"" \
               $result \"\n]
         }
       }
@@ -11100,6 +11217,61 @@ namespace eval ::Eagle {
       return false
     }
 
+    proc anthropic_enableUnknown {
+            {enable ""} {options true} {whatIf true} {channel stdout}
+            {quiet false} } {
+      set defaultUnknown [object invoke -flags +NonPublic \
+          Eagle._Components.Private.TclVars+Command Unknown]
+
+      set oldUnknown [object invoke Interpreter.GetActive Unknown]
+
+      if {[string length $enable] > 0} then {
+        set newUnknown [list ::anthropic_unknown $whatIf $channel $quiet]
+
+        if {$enable} then {
+          if {$oldUnknown eq $defaultUnknown} then {
+            object invoke Interpreter.GetActive Unknown $newUnknown
+
+            if {$options} then {
+              addRuntimeOption eagleUnknownAnthropic
+              addRuntimeOption eagleUnknownEnableSecurity
+              addRuntimeOption eagleUnknownAutomaticAnthropic
+            }
+
+            return true
+          }
+        } else {
+          if {$oldUnknown eq $newUnknown} then {
+            object invoke Interpreter.GetActive Unknown $defaultUnknown
+
+            if {$options} then {
+              removeRuntimeOption eagleUnknownAnthropic
+              removeRuntimeOption eagleUnknownEnableSecurity
+              removeRuntimeOption eagleUnknownAutomaticAnthropic
+            }
+
+            return true
+          }
+        }
+      } else {
+        if {$oldUnknown eq $defaultUnknown} then {
+          return false
+        }
+
+        if {$options} then {
+          if {![hasRuntimeOption eagleUnknownAnthropic] || \
+              ![hasRuntimeOption eagleUnknownEnableSecurity] || \
+              ![hasRuntimeOption eagleUnknownAutomaticAnthropic]} then {
+            return false
+          }
+        }
+
+        return true
+      }
+
+      return false
+    }
+
     proc verifyConfigurationDirectory { directory {pattern ""} } {
       if {[string is not path -strict $directory]} then {
         error [appendArgs \
@@ -11218,7 +11390,95 @@ namespace eval ::Eagle {
           "remote script keyring \"" $fileNameOnly "\" not found"]
     }
 
+    proc anthropic_getKeyRingDirectory { {channel stdout} {quiet false} } {
+      set result ""; set fileNameOnly keyRing.two.eagle
+      maybeInvokeForTester ::beforeAnthropic_getKeyRingDirectory; # HOOK
+
+      if {[string length $result] == 0} then {
+        if {[info exists ::env(ANTHROPIC_KEYRING_DIRECTORY)]} then {
+          set directory $::env(ANTHROPIC_KEYRING_DIRECTORY)
+          set fileName [file join $directory $fileNameOnly]
+
+          if {[file exists $fileName]} then {
+            set result $directory
+            maybeInvokeForTester ::afterAnthropic_getKeyRingDirectory; # HOOK
+
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "---- keyring directory for Anthropic is \"" $result \"\n]
+            }
+
+            return $result
+          }
+        } else {
+          set directories [list [info binary]]
+
+          if {[llength [info commands keyring]] > 0} then {
+            lappend directories [keyring directory]
+          }
+
+          if {[info exists ::env(KAPOK_KEYRING_PATH)]} then {
+            lappend directories $::env(KAPOK_KEYRING_PATH)
+          }
+
+          if {[info exists ::env(KAPOK_BIN_PATH)]} then {
+            lappend directories $::env(KAPOK_BIN_PATH)
+          }
+
+          if {[info exists ::env(KAPOK_LIB_PATH)]} then {
+            lappend directories $::env(KAPOK_LIB_PATH)
+          }
+
+          foreach directory $directories {
+            set fileName [file join $directory $fileNameOnly]
+
+            if {[file exists $fileName]} then {
+              set result $directory
+              maybeInvokeForTester \
+                  ::after_anthropic_getKeyRingDirectory; # HOOK
+
+              if {!$quiet} then {
+                tputs $channel [appendArgs \
+                    "---- keyring directory for Anthropic is \"" \
+                    $result \"\n]
+              }
+
+              return $result
+            }
+          }
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- keyring directory for Anthropic overridden to \"" \
+              $result \"\n]
+        }
+
+        return $result
+      }
+
+      maybeInvokeForTester ::errorAnthropic_getKeyRingDirectory; # HOOK
+
+      error [appendArgs \
+          "remote script keyring \"" $fileNameOnly "\" not found"]
+    }
+
     proc openAI_writeScript { script } {
+      try {
+        set fileName [appendArgs [file tempname] .eagle]
+
+        file cleanup $fileName
+        writeFile $fileName $script
+
+        return $fileName
+      } finally {
+        if {[info exists fileName]} then {
+          catch {file cleanup $fileName}
+        }
+      }
+    }
+
+    proc anthropic_writeScript { script } {
       try {
         set fileName [appendArgs [file tempname] .eagle]
 
@@ -11243,6 +11503,16 @@ namespace eval ::Eagle {
       return false
     }
 
+    proc anthropic_haveSecurity { {channel stdout} {quiet false} } {
+      if {[llength [info commands security]] > 0} then {; # Security.Core
+        if {[security ""]} then {; # AllowSignedOnly (?)
+          return true
+        }
+      }
+
+      return false
+    }
+
     proc openAI_enableSecurity {
             {varName ""} {channel stdout} {quiet false} } {
       if {[string length $varName] > 0} then {
@@ -11254,6 +11524,33 @@ namespace eval ::Eagle {
 
         keyring merge [file join \
             [openAI_getKeyRingDirectory $channel $quiet] \
+            keyRing.two.eagle]; # 0x180558840e482cda
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- trusted script keyring is now: " \
+              [keyring script] \n]
+        }
+      } error] == 0} then {
+        set haveSecurity true
+      } else {
+        set haveSecurity false
+      }
+
+      return $haveSecurity
+    }
+
+    proc anthropic_enableSecurity {
+            {varName ""} {channel stdout} {quiet false} } {
+      if {[string length $varName] > 0} then {
+        upvar 1 $varName haveSecurity
+      }
+
+      if {[catch {
+        source enableSecurity
+
+        keyring merge [file join \
+            [anthropic_getKeyRingDirectory $channel $quiet] \
             keyRing.two.eagle]; # 0x180558840e482cda
 
         if {!$quiet} then {
@@ -11292,6 +11589,28 @@ namespace eval ::Eagle {
       return ""
     }
 
+    proc anthropic_cleanupSandbox { {channel stdout} {quiet false} } {
+      maybeInvokeForTester ::beforeAnthropic_cleanupSandbox; # HOOK
+
+      if {[info exists ::eagle_debugger(sandbox)] && \
+          [string is interpreter $::eagle_debugger(sandbox)]} then {
+        set interp $::eagle_debugger(sandbox)
+
+        interp delete $interp
+        maybeInvokeForTester ::cleanupAnthropic_sandbox; # HOOK
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- sandbox interpreter \"" $interp "\" deleted\n"]
+        }
+      }
+
+      maybeInvokeForTester ::afterAnthropic_cleanupSandbox; # HOOK
+      unset -nocomplain ::eagle_debugger(sandbox)
+
+      return ""
+    }
+
     proc openAI_maybeEvaluateInSandbox {
             fileName security {channel stdout} {quiet false} } {
       maybeInvokeForTester ::beforeOpenAI_evaluateInSandbox; # HOOK
@@ -11313,6 +11632,36 @@ namespace eval ::Eagle {
       maybeInvokeForTester ::afterOpenAI_evaluateInSandbox; # HOOK
 
       if {[openAI_haveSecurity $channel $quiet]} then {
+        return [interp eval $interp \
+            [interp readorgetscriptfile {} $fileName]]
+      } else {
+        error [appendArgs \
+            "security unavailable for sandbox in context: " \
+            [info context]]
+      }
+    }
+
+    proc anthropic_maybeEvaluateInSandbox {
+            fileName security {channel stdout} {quiet false} } {
+      maybeInvokeForTester ::beforeAnthropic_evaluateInSandbox; # HOOK
+
+      if {![info exists ::eagle_debugger(sandbox)] || [string \
+          is not interpreter $::eagle_debugger(sandbox)]} then {
+        set ::eagle_debugger(sandbox) [set interp [interp create -safe]]
+        maybeInvokeForTester ::createAnthropic_sandbox; # HOOK
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- sandbox interpreter \"" $interp "\" created\n"]
+        }
+      } else {
+        set interp $::eagle_debugger(sandbox)
+        maybeInvokeForTester ::reuseAnthropic_sandbox; # HOOK
+      }
+
+      maybeInvokeForTester ::afterAnthropic_evaluateInSandbox; # HOOK
+
+      if {[anthropic_haveSecurity $channel $quiet]} then {
         return [interp eval $interp \
             [interp readorgetscriptfile {} $fileName]]
       } else {
@@ -11387,6 +11736,75 @@ namespace eval ::Eagle {
       return -code error [appendArgs "invalid command name \"" $name \"]
     }
 
+    proc anthropic_unknown { whatIf channel quiet name args } {
+      #
+      # NOTE: This is an [unknown] procedure that normally produces an
+      #       appropriate error message; however, it can optionally try
+      #       to ask Anthropic (Claude) for corrections and/or suggestions.
+      #
+      if {[hasRuntimeOption eagleUnknownAnthropic]} then {
+        set haveSecurity false
+
+        if {[catch {
+          if {[hasRuntimeOption eagleUnknownEnableSecurity]} then {
+            anthropic_enableSecurity haveSecurity $channel $quiet
+          }
+
+          set assembly [object load Newtonsoft.Json]; # NOTE: Not loaded yet?
+        } result] == 0} then {
+          set command [list]
+
+          lappend command $name
+          eval lappend command $args
+
+          set response [anthropic_chatCompletion \
+              prompt [anthropic_getPrompt $command $channel $quiet] \
+              whatIf $whatIf channel $channel quiet $quiet]
+
+          if {[string length $response] > 0} then {
+            set content [getOrSetViaJsonPaths $response \
+                [anthropic_getJsonPaths $response $channel $quiet]]
+
+            maybeInvokeForTester ::beforeAnthropic_unknownContent; # HOOK
+
+            if {[string length $content] > 0} then {
+              if {[hasRuntimeOption eagleUnknownAutomaticAnthropic]} then {
+                if {$haveSecurity} then {
+                  if {[catch {
+                    set fileName [anthropic_writeScript $content]
+                    maybeInvokeForTester ::beforeAnthropic_sandbox; # HOOK
+
+                    if {[hasRuntimeOption \
+                        eagleUnknownSandboxAnthropic]} then {
+                      anthropic_maybeEvaluateInSandbox \
+                          $fileName $haveSecurity $channel $quiet
+                    } elseif {[anthropic_haveSecurity \
+                        $channel $quiet]} then {
+                      uplevel 1 [list source $fileName]
+                    }
+                  } result] == 0} then {
+                    maybeInvokeForTester \
+                        ::afterAnthropic_unknownContent; # HOOK
+
+                    return -code ok $result
+                  }
+                }
+              }
+
+              maybeInvokeForTester ::errorAnthropic_unknownContent; # HOOK
+              return -code error $content
+            }
+
+            maybeInvokeForTester ::errorAnthropic_unknownResponse; # HOOK
+            return -code error $response
+          }
+        }
+      }
+
+      maybeInvokeForTester ::errorAnthropic_unknownCommand; # HOOK
+      return -code error [appendArgs "invalid command name \"" $name \"]
+    }
+
     #
     # NOTE: This procedure may be by the _Tests.Default.ScriptWebClient class
     #       methods when it has been setup for an interpreter.  This procedure
@@ -11441,6 +11859,72 @@ namespace eval ::Eagle {
       }
     }
 
+    #
+    # NOTE: This procedure may be used by the _Tests.Default.ScriptWebClient
+    #       class methods when it has been setup for an interpreter.  This
+    #       procedure is designed to be used with the [anthropic_chatCompletion]
+    #       procedure (below).  This procedure must reside in the global
+    #       namespace.
+    #
+    # <callback>
+    nproc anthropic_scriptWebClient { args } {
+      if {[catch {
+        string trimleft [lindex [info level -1] 0] :; # NOTE: Which caller?
+      } level]} then {
+        set level ""
+      }
+
+      maybeInvokeForTester ::beforeAnthropic_scriptWebClient; # HOOK
+
+      if {$level eq "anthropic_chatCompletion" && \
+          [methodName ToString] eq "GetWebRequest"} then {
+        upvar 1 apiKey apiKey
+        upvar 1 useProxy useProxy
+        upvar 1 whatIf whatIf
+
+        if {![info exists useProxy] || \
+            [string is not true -strict $useProxy]} then {
+          webRequest ContentType application/json
+        }
+
+        if {[isUriLikelyToBeRedirected [webRequest RequestUri]]} then {
+          set token ""
+        } else {
+          if {[info exists useProxy] && \
+              [string is true -strict $useProxy]} then {
+            set token ""
+          } elseif {[info exists whatIf] && \
+              [string is true -strict $whatIf]} then {
+            set token [guid null]
+          } elseif {[info exists apiKey]} then {
+            set token $apiKey
+          } else {
+            set token ""
+          }
+        }
+
+        #
+        # NOTE: The Anthropic API uses the "x-api-key" header for
+        #       authentication (not the "Authorization: Bearer" scheme
+        #       used by OpenAI).
+        #
+        if {[string length $token] > 0} then {
+          webRequest Headers.Add x-api-key $token
+        }
+
+        #
+        # NOTE: The Anthropic API requires an "anthropic-version" header
+        #       specifying the API version to use.
+        #
+        webRequest Headers.Add anthropic-version 2023-06-01
+
+        webRequest UserAgent [appendArgs \
+            "Eagle/1.0 (" [string map [list "{} " ""] [version]] )]
+
+        maybeInvokeForTester ::after_anthropic_scriptWebClient; # HOOK
+      }
+    }
+
     proc openAI_setupScriptWebClient {
             enable varName {channel stdout} {quiet false} } {
       if {$enable} then {
@@ -11459,6 +11943,65 @@ namespace eval ::Eagle {
         if {[llength [info nprocs ::openAI_scriptWebClient]] == 0 && \
             [llength [info commands ::scriptWebClient]] > 0} then {
           rename ::scriptWebClient ::openAI_scriptWebClient
+        }
+      }
+
+      #
+      # HACK: Use of ScriptWebClient is required here due to needing to
+      #       adjust the HTTP headers, etc.
+      #
+      upvar 1 $varName savedTestFlags
+
+      if {$enable} then {
+        if {[info exists ::eagle_platform(compileOptions)]} then {
+          set options $::eagle_platform(compileOptions)
+        } else {
+          set options [list]; # options missing?
+        }
+
+        if {[lsearch -exact $options TEST] == -1 || \
+            [lsearch -exact $options NETWORK] == -1} then {
+          error "library missing TEST and/or NETWORK compile-options"
+        }
+
+        set savedTestFlags [enableInterpreterTestFlags]; # query
+        enableInterpreterTestFlags +ScriptWebClientMask true; # add
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- saved interpreter test flags: " \
+              $savedTestFlags \n]
+        }
+      } elseif {[info exists savedTestFlags]} then {
+        enableInterpreterTestFlags [appendArgs = $savedTestFlags]; # reset
+        unset savedTestFlags; # cleanup
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- restored interpreter test flags: " \
+              [enableInterpreterTestFlags] \n]
+        }
+      }
+    }
+
+    proc anthropic_setupScriptWebClient {
+            enable varName {channel stdout} {quiet false} } {
+      if {$enable} then {
+        #
+        # HACK: Unless a [::scriptWebClient] procedure has already been
+        #       defined, force ours to be used now.
+        #
+        if {[llength [info nprocs ::anthropic_scriptWebClient]] > 0 && \
+            [llength [info commands ::scriptWebClient]] == 0} then {
+          rename ::anthropic_scriptWebClient ::scriptWebClient
+        }
+      } else {
+        #
+        # NOTE: Attempt to restore all the original procedure names.
+        #
+        if {[llength [info nprocs ::anthropic_scriptWebClient]] == 0 && \
+            [llength [info commands ::scriptWebClient]] > 0} then {
+          rename ::scriptWebClient ::anthropic_scriptWebClient
         }
       }
 
@@ -11523,6 +12066,29 @@ namespace eval ::Eagle {
       return $result
     }
 
+    proc anthropic_getTypes { {channel stdout} {quiet false} } {
+      set result ""; set types [list "" messages]
+      maybeInvokeForTester ::beforeAnthropic_getTypes; # HOOK
+
+      if {[string length $result] == 0} then {
+        set result $types
+        maybeInvokeForTester ::afterAnthropic_getTypes; # HOOK
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- default types for Anthropic are \"" $result \"\n]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- default types for Anthropic overridden to \"" \
+              $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
     #
     # TODO: When more model types need to be supported by this module, add
     #       the needed OpenAI model names and types here.
@@ -11560,6 +12126,41 @@ namespace eval ::Eagle {
 
     #
     # TODO: When more model types need to be supported by this module, add
+    #       the needed Anthropic model names and types here.
+    #
+    proc anthropic_getDefaultModel { type {channel stdout} {quiet false} } {
+      set result ""; set types [anthropic_getTypes $channel $quiet]
+      maybeInvokeForTester ::beforeAnthropic_getDefaultModel; # HOOK
+
+      if {[string length $result] == 0} then {
+        if {$type in $types} then {
+          set result claude-haiku-4-5-20251001; # TODO: Good default?
+          maybeInvokeForTester ::afterAnthropic_getDefaultModel; # HOOK
+
+          if {!$quiet} then {
+            tputs $channel [appendArgs \
+                "---- default model for Anthropic type " \
+                [expr {[string length $type] > 0 ? \
+                [appendArgs \" $type \"] : "<empty>"}] \
+                " is \"" $result \"\n]
+          }
+        } else {
+          error [appendArgs \
+              "bad type, must be one of: " $types]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- default model for Anthropic type \"" \
+              $type "\" overridden to \"" $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
+    #
+    # TODO: When more model types need to be supported by this module, add
     #       the needed OpenAI model names and types here.
     #
     proc openAI_getStandardModel { type {channel stdout} {quiet false} } {
@@ -11586,6 +12187,41 @@ namespace eval ::Eagle {
         if {!$quiet} then {
           tputs $channel [appendArgs \
               "---- standard model for OpenAI type \"" \
+              $type "\" overridden to \"" $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
+    #
+    # TODO: When more model types need to be supported by this module, add
+    #       the needed Anthropic model names and types here.
+    #
+    proc anthropic_getStandardModel { type {channel stdout} {quiet false} } {
+      set result ""; set types [anthropic_getTypes $channel $quiet]
+      maybeInvokeForTester ::beforeAnthropic_getStandardModel; # HOOK
+
+      if {[string length $result] == 0} then {
+        if {$type in $types} then {
+          set result claude-sonnet-4-20250514; # TODO: Good default?
+          maybeInvokeForTester ::afterAnthropic_getStandardModel; # HOOK
+
+          if {!$quiet} then {
+            tputs $channel [appendArgs \
+                "---- standard model for Anthropic type " \
+                [expr {[string length $type] > 0 ? \
+                [appendArgs \" $type \"] : "<empty>"}] \
+                " is \"" $result \"\n]
+          }
+        } else {
+          error [appendArgs \
+              "bad type, must be one of: " $types]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- standard model for Anthropic type \"" \
               $type "\" overridden to \"" $result \"\n]
         }
       }
@@ -11663,6 +12299,75 @@ namespace eval ::Eagle {
       return $result
     }
 
+    proc anthropic_getJson {
+            prompt model maxTokens options {channel stdout} {quiet false} } {
+      #
+      # NOTE: For JSON safety, escape all arguments that will [subst]
+      #       in the final web request block.
+      #
+      set model [escapeForJsonString $model]
+      set prompt [escapeForJsonString $prompt]
+
+      #
+      # NOTE: Build the final JSON payload for the request.  This is
+      #       purposely minimal and could be extended to support many
+      #       more options.  The Anthropic Messages API requires a
+      #       "max_tokens" field.
+      #
+      maybeInvokeForTester ::beforeAnthropic_setJsonExtra; # HOOK
+
+      if {![info exists extra]} then {
+        if {[string is true -strict \
+            [getDictionaryValue $options deterministic]]} then {
+          #
+          # HACK: These parameters produce more deterministic results,
+          #       suitable for testing.
+          #
+          set extra {,
+                "temperature" : 0,
+                "top_p" : 1
+          }
+        } else {
+          set extra ""
+        }
+      }
+
+      maybeInvokeForTester ::afterAnthropic_setJsonExtra; # HOOK
+
+      set result ""; set json [subst -nocommands -nobackslashes {
+        {
+          "model" : "${model}",
+          "max_tokens" : ${maxTokens},
+          "messages" : [
+            {
+              "role" : "user",
+              "content" : "${prompt}"
+            }
+          ]${extra}
+        }
+      }]
+
+      maybeInvokeForTester ::beforeAnthropic_getJson; # HOOK
+
+      if {[string length $result] == 0} then {
+        set result $json
+        maybeInvokeForTester ::afterAnthropic_getJson; # HOOK
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- default JSON for Anthropic is \"" $result \"\n]
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- default JSON for Anthropic overridden to \"" \
+              $result \"\n]
+        }
+      }
+
+      return $result
+    }
+
     proc openAI_getAnyApiKey { proxy {varName ""} } {
       if {[string length $varName] > 0} then {
         upvar 1 $varName useProxy
@@ -11700,6 +12405,50 @@ namespace eval ::Eagle {
             set useProxy false; # NOTE: By default, no proxy.
 
             maybeInvokeForTester ::errorOpenAI_getDirectApiKey; # HOOK
+          }
+        }
+      }
+
+      return $apiKey
+    }
+
+    proc anthropic_getAnyApiKey { proxy {varName ""} } {
+      if {[string length $varName] > 0} then {
+        upvar 1 $varName useProxy
+      }
+
+      if {$proxy} then {
+        maybeInvokeForTester ::beforeAnthropic_useHarpy; # HOOK
+
+        if {[llength [info commands harpy]] > 0} then {
+          set apiKey [getDictionaryValue [harpy machine] id]
+          set useProxy true
+
+          maybeInvokeForTester ::afterAnthropic_useHarpy; # HOOK
+        } else {
+          set apiKey ""; # NOTE: No API key available?
+          set useProxy true; # NOTE: By default, use proxy.
+
+          maybeInvokeForTester ::errorAnthropic_getProxyApiKey; # HOOK
+        }
+      } else {
+        if {[info exists ::env(ANTHROPIC_API_KEY)]} then {
+          set apiKey $::env(ANTHROPIC_API_KEY)
+        } elseif {[info exists ::env(ANTHROPIC_API_KEY_FILE)]} then {
+          set apiKey [readSharedFile $::env(ANTHROPIC_API_KEY_FILE)]
+        } else {
+          maybeInvokeForTester ::beforeAnthropic_useHarpy; # HOOK
+
+          if {[llength [info commands harpy]] > 0} then {
+            set apiKey [getDictionaryValue [harpy machine] id]
+            set useProxy true
+
+            maybeInvokeForTester ::afterAnthropic_useHarpy; # HOOK
+          } else {
+            set apiKey ""; # NOTE: No API key available?
+            set useProxy false; # NOTE: By default, no proxy.
+
+            maybeInvokeForTester ::errorAnthropic_getDirectApiKey; # HOOK
           }
         }
       }
@@ -11897,6 +12646,216 @@ namespace eval ::Eagle {
         return $result
       } finally {
         openAI_setupScriptWebClient false savedTestFlags $channel $quiet
+      }
+    }
+
+    #
+    # NOTE: This procedure attempts to call the Anthropic (Claude) API and
+    #       return results of the specified prompt.  The apiKey argument may
+    #       be empty if the ANTHROPIC_API_KEY or ANTHROPIC_API_KEY_FILE
+    #       environment variables have been set.  Currently, the model
+    #       argument may be an empty string or one of the Claude model IDs.
+    #       Currently, the type argument may be an empty string or the value
+    #       "messages".  This procedure may raise script errors.
+    #
+    # <public>
+    nproc anthropic_chatCompletion {
+            prompt {apiKey ""} {model ""} {type ""} {options ""}
+            {maxTokens 1024} {proxy false} {whatIf true} {fake false}
+            {channel stdout} {quiet false} } {
+      setupTestPackageVars false
+
+      variable baseUri
+      variable anthropicProxyUri
+      variable anthropicProxyUrn
+      variable anthropicUri
+      variable anthropicUrn
+      variable whatIfUri
+      variable whatIfUrn
+
+      #########################################################################
+
+      set useProxy false
+      maybeInvokeForTester ::beforeAnthropic_ApiKey; # HOOK
+
+      if {[string length $apiKey] == 0} then {
+        set apiKey [anthropic_getAnyApiKey $proxy useProxy]
+      }
+
+      maybeInvokeForTester ::afterAnthropic_ApiKey; # HOOK
+
+      if {[string length $apiKey] == 0} then {
+        error [appendArgs \
+            "please set either the ANTHROPIC_API_KEY or " \
+            "ANTHROPIC_API_KEY_FILE environment variables " \
+            "and/or \[load\] the security plugin first"]
+      }
+
+      #########################################################################
+
+      if {[string length $model] == 0} then {
+        if {$useProxy} then {
+          set model [anthropic_getStandardModel $type $channel $quiet]
+        } else {
+          set model [anthropic_getDefaultModel $type $channel $quiet]
+        }
+      }
+
+      #########################################################################
+      #
+      # NOTE: Choose the correct URI for the endpoint.  This will
+      #       either be the Anthropic Messages API endpoint -OR-
+      #       the "what-if" endpoint, depending on the value of
+      #       the whatIf argument.  These URIs are configurable,
+      #       via overridding these script variables, which were
+      #       originally created in the [::setupTestPackageVars]
+      #       procedure.
+      #
+      if {$whatIf} then {
+        set uri [subst $whatIfUri]
+      } elseif {$useProxy} then {
+        set uri [subst $anthropicProxyUri]
+      } else {
+        set uri [subst $anthropicUri]
+      }
+
+      #
+      # HACK: Since the "x-api-key" header is required by our
+      #       Anthropic API requests and the .NET Framework will strip
+      #       it out following any 3xx redirects, we must manually
+      #       follow the (first?) redirect instead, using "preview
+      #       mode", prior to sending the request to the redirected
+      #       endpoint.
+      #
+      set uri [maybeFullyResolveUri $uri 20 $channel $quiet]
+
+      #########################################################################
+
+      anthropic_setupScriptWebClient true savedTestFlags $channel $quiet
+
+      try {
+        if {$useProxy} then {
+          set data [list \
+              nop false prompt $prompt apiKey $apiKey model $model \
+              type $type options $options maxTokens $maxTokens \
+              whatIf $whatIf fake $fake]
+
+          maybeInvokeForTester ::beforeProxyAnthropic; # HOOK
+
+          if {!$quiet} then {
+            if {![info exists ::no(NoShowProxyAnthropicRequestJson)] && \
+                ![info exists ::env(NoShowProxyAnthropicRequestJson)]} then {
+              set dataId [eagle_buildDataId $data]
+
+              set message [appendArgs \
+                  "---- request \"" $dataId \
+                  "\" raw data for ProxyAnthropic: " \
+                  $data \n]
+
+              host result Ok $message
+
+              if {![info exists \
+                  ::no(NoKapokLogProxyAnthropicRequestJson)] && \
+                  ![info exists \
+                  ::env(NoKapokLogProxyAnthropicRequestJson)]} then {
+                if {[llength [info commands kapok]] > 0} then {
+                  catch {kapok log $message {+Highest ForceFlush}}
+                }
+              }
+
+              if {![info exists \
+                  ::no(NoLogProxyAnthropicRequestJson)] && \
+                  ![info exists \
+                  ::env(NoLogProxyAnthropicRequestJson)]} then {
+                tputs $channel $message
+              }
+            }
+          }
+
+          set result [uri upload \
+              -timeouttype network -inline -retries 0 \
+              -data $data -- $uri]
+
+          maybeInvokeForTester ::afterProxyAnthropic; # HOOK
+        } else {
+          set json [anthropic_getJson \
+              $prompt $model $maxTokens $options $channel $quiet]
+
+          maybeInvokeForTester ::beforeAnthropic; # HOOK
+
+          if {!$quiet} then {
+            if {![info exists ::no(NoShowAnthropicRequestJson)] && \
+                ![info exists ::env(NoShowAnthropicRequestJson)]} then {
+              set dataId [eagle_buildDataId $prompt]
+
+              set message [appendArgs \
+                  "---- request \"" $dataId \
+                  "\" raw JSON for Anthropic: " \
+                  $json \n]
+
+              host result Ok $message
+
+              if {![info exists \
+                  ::no(NoKapokLogAnthropicRequestJson)] && \
+                  ![info exists \
+                  ::env(NoKapokLogAnthropicRequestJson)]} then {
+                if {[llength [info commands kapok]] > 0} then {
+                  catch {kapok log $message {+Highest ForceFlush}}
+                }
+              }
+
+              if {![info exists \
+                  ::no(NoLogAnthropicRequestJson)] && \
+                  ![info exists \
+                  ::env(NoLogAnthropicRequestJson)]} then {
+                tputs $channel $message
+              }
+            }
+          }
+
+          set data [list [object create String $json]]; # HACK: Need object.
+
+          if {$fake} then {; # NOTE: Simulated response?
+            set dataId [eagle_buildDataId $json]
+
+            set fileName [file join \
+                [info binary] [appendArgs \
+                fake-response-anthropic- $dataId .json]]
+
+            if {![file exists $fileName]} then {
+              set fileName [file join \
+                  [info binary] fake-response-anthropic.json]
+            }
+
+            maybeInvokeForTester ::beforeAnthropic_fake; # HOOK
+
+            if {[file exists $fileName]} then {
+              set result [readSharedFile $fileName]
+            } else {
+              set result ""
+              maybeInvokeForTester ::missingAnthropic_fake; # HOOK
+
+              if {[string length $result] == 0} then {
+                error [appendArgs \
+                    "simulated Anthropic response \"" \
+                    $dataId "\" data is missing"]
+              }
+            }
+
+            maybeInvokeForTester ::afterAnthropic_fake; # HOOK
+          } else {
+            set result [uri upload \
+                -timeouttype network -inline -raw -retries 0 \
+                -data $data -- $uri]
+          }
+
+          maybeInvokeForTester ::afterAnthropic; # HOOK
+        }
+
+        return $result
+      } finally {
+        anthropic_setupScriptWebClient \
+            false savedTestFlags $channel $quiet
       }
     }
 

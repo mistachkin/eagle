@@ -111,22 +111,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Static "Factory" Methods
-        public static ObjectDictionary FromObject(
-            object value,
+        #region Private Methods
+        private static ObjectDictionary PrivateFromString(
+            string value,
             bool addOnly,
+            bool keysOnly,
             ref Result error
             )
         {
-            string stringValue;
-
-            if (value is string)
-                stringValue = (string)value;
-            else
-                stringValue = StringOps.GetStringFromObject(value);
-
             StringDictionary dictionary1 = StringDictionary.FromString(
-                stringValue, addOnly, ref error);
+                value, addOnly, keysOnly, ref error);
 
             if (dictionary1 == null)
                 return null;
@@ -137,6 +131,62 @@ namespace Eagle._Containers.Public
                 dictionary2[pair.Key] = pair.Value;
 
             return dictionary2;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Static "Factory" Methods
+        public static ObjectDictionary FromObject(
+            object value,
+            bool addOnly,
+            ref Result error
+            )
+        {
+            return FromObject(value, addOnly, false, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ObjectDictionary FromObject(
+            object value,
+            bool addOnly,
+            bool keysOnly,
+            ref Result error
+            )
+        {
+            string stringValue;
+
+            if (value is string)
+                stringValue = (string)value;
+            else
+                stringValue = StringOps.GetStringFromObject(value);
+
+            return PrivateFromString(
+                stringValue, addOnly, keysOnly, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ObjectDictionary FromString(
+            string value,
+            bool addOnly,
+            ref Result error
+            )
+        {
+            return FromString(value, addOnly, false, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ObjectDictionary FromString(
+            string value,
+            bool addOnly,
+            bool keysOnly,
+            ref Result error
+            )
+        {
+            return PrivateFromString(value, addOnly, keysOnly, ref error);
         }
         #endregion
 
@@ -159,11 +209,90 @@ namespace Eagle._Containers.Public
 
         #region Public Methods
         public void Add(
-            IDictionary<string, object> dictionary
+            IDictionary<string, object> dictionary /* in */
             )
         {
             foreach (KeyValuePair<string, object> pair in dictionary)
                 this.Add(pair.Key, pair.Value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool TryTraverse(
+            StringList keys,  /* in */
+            ref object value, /* out */
+            ref Result error  /* out */
+            )
+        {
+            if (keys == null)
+            {
+                error = "invalid dictionary key list";
+                return false;
+            }
+
+            ObjectDictionary dictionary = this;
+            int count = keys.Count;
+
+            if (count == 0)
+            {
+                value = dictionary;
+                return true;
+            }
+
+            string localKey;
+            object localValue;
+
+            for (int index = 0; index < count - 1; index++)
+            {
+                localKey = keys[index];
+
+                if (localKey == null)
+                    continue;
+
+                if (!dictionary.TryGetValue(localKey, out localValue))
+                {
+                    error = String.Format(
+                        "cannot find work dictionary key {0}",
+                        FormatOps.DisplayTraverseList(
+                            keys.GetRange(0, index + 1)));
+
+                    return false;
+                }
+
+                dictionary = localValue as ObjectDictionary;
+
+                if (dictionary == null)
+                {
+                    error = String.Format(
+                        "cannot traverse dictionary key {0}, wrong type {1}",
+                        FormatOps.DisplayTraverseList(
+                            keys.GetRange(0, index + 1)),
+                        MarshalOps.GetErrorTypeName(localValue));
+
+                    return false;
+                }
+            }
+
+            localKey = keys[count - 1];
+
+            if (localKey == null)
+            {
+                value = dictionary;
+                return true;
+            }
+
+            if (!dictionary.TryGetValue(localKey, out localValue))
+            {
+                error = String.Format(
+                    "cannot find final dictionary key {0}",
+                    FormatOps.DisplayTraverseList(
+                        keys.GetRange(0, count)));
+
+                return false;
+            }
+
+            value = localValue;
+            return true;
         }
         #endregion
 

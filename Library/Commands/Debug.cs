@@ -4747,9 +4747,15 @@ namespace Eagle._Commands
                                                 headerFlags));
 
                                             if (debugInterpreter != null)
-                                                list.Add("script debugger interpreter available");
+                                            {
+                                                list.Add(String.Format(
+                                                    "script debugger interpreter #{0} available",
+                                                    debugInterpreter.IdNoThrow));
+                                            }
                                             else
+                                            {
                                                 list.Add("script debugger interpreter not available");
+                                            }
 
                                             result = list;
                                             code = ReturnCode.Ok;

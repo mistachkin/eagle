@@ -29888,6 +29888,288 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region [dict] Command Test Class
+        [ObjectId("dc87a0be-2552-4244-8fcb-70f581ae0b70")]
+        [CommandFlags(
+            CommandFlags.NoPopulate | CommandFlags.NoAdd |
+            CommandFlags.Safe | CommandFlags.Standard
+        )]
+        [ObjectGroup("list")]
+        internal sealed class Dict : _Commands.Core
+        {
+            #region Public Constructors
+            public Dict(
+                ICommandData commandData
+                )
+                : base(commandData)
+            {
+                // do nothing.
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////
+
+            #region IEnsemble Members
+            private readonly EnsembleDictionary subCommands =
+                new EnsembleDictionary(new string[] {
+                "append", "create", "exists", "filter", "foreach", "get",
+                "incr", "info", "keys", "lappend", "map", "merge", "remove",
+                "replace", "set", "size", "unset", "update", "values", "with"
+            });
+
+            ///////////////////////////////////////////////////////////////////
+
+            public override EnsembleDictionary SubCommands
+            {
+                get { return subCommands; }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////
+
+            #region IExecute Members
+            public override ReturnCode Execute(
+                Interpreter interpreter,
+                IClientData clientData,
+                ArgumentList arguments,
+                ref Result result
+                )
+            {
+                if (interpreter == null)
+                {
+                    result = "invalid interpreter";
+                    return ReturnCode.Error;
+                }
+
+                if (arguments == null)
+                {
+                    result = "invalid argument list";
+                    return ReturnCode.Error;
+                }
+
+                int argumentCount = arguments.Count;
+
+                if (argumentCount < 2)
+                {
+                    result = "wrong # args: should be \"dict option ?arg ...?\"";
+                    return ReturnCode.Error;
+                }
+
+                ReturnCode code;
+                string subCommand = arguments[1];
+                bool tried = false;
+
+                code = ScriptOps.TryExecuteSubCommandFromEnsemble(
+                    interpreter, this, clientData, arguments, true,
+                    null, ref subCommand, ref tried, ref result);
+
+                if ((code != ReturnCode.Ok) || tried)
+                    goto done;
+
+                int argumentIndex; /* REUSED */
+                string variableName; /* REUSED */
+                string keyName; /* REUSED */
+                object value; /* REUSED */
+                IVariable variable; /* REUSED */
+                ObjectDictionary dictionary; /* REUSED */
+
+                switch (subCommand)
+                {
+                    case "append":
+                        {
+                            if (argumentCount >= 4)
+                            {
+                                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                {
+                                    VariableFlags variableFlags = VariableFlags.ArrayCommandMask;
+
+                                    variableName = arguments[2];
+                                    variable = null;
+
+                                    code = interpreter.GetVariableViaResolversWithSplit(
+                                        variableName, ref variableFlags, ref variable,
+                                        ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    value = variable.Value;
+
+                                    if (value is ObjectDictionary)
+                                    {
+                                        dictionary = (ObjectDictionary)value;
+                                    }
+                                    else
+                                    {
+                                        dictionary = ObjectDictionary.FromString(
+                                            StringOps.GetStringFromObject(value),
+                                            false, ref result);
+
+                                        if (dictionary == null)
+                                            goto done;
+                                    }
+
+                                    StringBuilder builder;
+
+                                    keyName = arguments[3];
+
+                                    if (dictionary.TryGetValue(keyName, out value))
+                                    {
+                                        builder = (value is StringBuilder) ?
+                                            (StringBuilder)value : StringBuilderFactory.Create(
+                                                StringOps.GetStringFromObject(value));
+                                    }
+                                    else
+                                    {
+                                        builder = StringBuilderFactory.Create();
+                                    }
+
+                                    for (argumentIndex = 4;
+                                            argumentIndex < argumentCount; argumentIndex++)
+                                    {
+                                        builder.Append(arguments[argumentIndex]);
+                                    }
+
+                                    value = builder;
+
+                                    code = interpreter.FireTraces(
+                                        BreakpointType.BeforeVariableSet, variableFlags,
+                                        null, variableName, null, value, null, null,
+                                        variable, ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    variable.Value = value;
+
+                                    EntityOps.SignalDirty(variable, null);
+                                }
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict append dictionaryVariable key ?string ...?\"";
+                                code = ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case "create":
+                        {
+                            if ((argumentCount >= 2) &&
+                                (((argumentCount - 2) % 2) == 0))
+                            {
+                                dictionary = new ObjectDictionary();
+
+                                for (argumentIndex = 2;
+                                        argumentIndex < argumentCount;
+                                        argumentIndex += 2)
+                                {
+                                    dictionary[arguments[argumentIndex]] =
+                                        arguments[argumentIndex + 1];
+                                }
+
+                                result = Result.FromObject(
+                                    dictionary, false, false, false);
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict create ?key value ...?\"";
+                                code = ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case "exists":
+                        {
+                            break;
+                        }
+                    case "filter":
+                        {
+                            break;
+                        }
+                    case "foreach":
+                        {
+                            break;
+                        }
+                    case "get":
+                        {
+                            break;
+                        }
+                    case "incr":
+                        {
+                            break;
+                        }
+                    case "info":
+                        {
+                            break;
+                        }
+                    case "keys":
+                        {
+                            break;
+                        }
+                    case "lappend":
+                        {
+                            break;
+                        }
+                    case "map":
+                        {
+                            break;
+                        }
+                    case "merge":
+                        {
+                            break;
+                        }
+                    case "remove":
+                        {
+                            break;
+                        }
+                    case "replace":
+                        {
+                            break;
+                        }
+                    case "set":
+                        {
+                            break;
+                        }
+                    case "size":
+                        {
+                            break;
+                        }
+                    case "unset":
+                        {
+                            break;
+                        }
+                    case "update":
+                        {
+                            break;
+                        }
+                    case "values":
+                        {
+                            break;
+                        }
+                    case "with":
+                        {
+                            break;
+                        }
+                    default:
+                        {
+                            result = ScriptOps.BadSubCommand(
+                                interpreter, null, null, subCommand, this,
+                                null, null);
+
+                            code = ReturnCode.Error;
+                            break;
+                        }
+                }
+
+            done:
+
+                return code;
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Automatic Commands Test Class
         [ObjectId("d47ad977-fd77-488a-91f7-d28650172c12")]
         public sealed class Automatic :

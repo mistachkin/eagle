@@ -103,6 +103,7 @@ namespace Eagle._Components.Private
         private static readonly string DisplayNullObject = "<nullObject>";
         private static readonly string DisplayNullString = "<nullString>";
         private static readonly string DisplayEmptyString = "<emptyString>";
+        private static readonly string DisplayToStringError = "<toStringError>";
         internal static readonly string DisplayEmpty = "<empty>";
         internal static readonly string DisplayNothing = "<nothing>";
         internal static readonly string DisplayInvalid = "<invalid>";
@@ -4619,6 +4620,82 @@ namespace Eagle._Components.Private
             {
                 if (list.Count > 0)
                     return list.ToString();
+
+                return DisplayEmpty;
+            }
+
+            return DisplayNull;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string DisplayTraverseList(
+            IList list
+            )
+        {
+            if (list != null)
+            {
+                if (list.Count > 0)
+                {
+                    StringBuilder builder = StringBuilderFactory.Create();
+
+                    foreach (object element in list)
+                    {
+                        if (builder.Length > 0)
+                            builder.Append(Characters.CommaSpaceString);
+
+                        if (element == null)
+                        {
+                            builder.Append(DisplayNullObject);
+                            continue;
+                        }
+
+                        string stringValue1;
+
+                        try
+                        {
+                            stringValue1 = element.ToString();
+                        }
+                        catch
+                        {
+                            builder.Append(DisplayToStringError);
+                            continue;
+                        }
+
+                        if (stringValue1 == null)
+                        {
+                            builder.Append(DisplayNullString);
+                            continue;
+                        }
+
+                        if (stringValue1.Length == 0)
+                        {
+                            builder.Append(DisplayEmptyString);
+                            continue;
+                        }
+
+                        string prefix = WrapPrefix;
+                        string suffix = WrapSuffix;
+                        string stringValue2;
+
+                        MaybeChangeWrapPrefixAndSuffix(
+                            true, stringValue1, ref prefix,
+                            ref suffix, out stringValue2);
+
+                        builder.Append(WrapOrNull(
+                            true, false, false, false, prefix,
+                            stringValue2, suffix));
+                    }
+
+                    if (builder.Length > 0)
+                    {
+                        builder.Insert(0, Characters.OpenBracket);
+                        builder.Append(Characters.CloseBracket);
+                    }
+
+                    return StringBuilderCache.GetStringAndRelease(
+                        ref builder);
+                }
 
                 return DisplayEmpty;
             }
