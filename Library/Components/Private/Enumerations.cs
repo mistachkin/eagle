@@ -14,6 +14,19 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Private
 {
+    [ObjectId("8c591d9f-b9f1-46f0-86ba-48d9cabdd6ca")]
+    internal enum DictionaryFilterType
+    {
+        // None = 0x0,
+        // Invalid = 0x1,
+
+        Key = 0x100,
+        Value = 0x200,
+        Script = 0x400
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     [Flags()]
     [ObjectId("f8def65f-3589-4d35-ac93-e6f31cadf86f")]
     internal enum CommandCountType

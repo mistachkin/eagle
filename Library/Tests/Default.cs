@@ -92,6 +92,7 @@ using _RuntimeOps = Eagle._Components.Private.RuntimeOps;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using _Public = Eagle._Components.Public;
 using _Rule = Eagle._Components.Public.Rule;
+using ObjectPair = System.Collections.Generic.KeyValuePair<string, object>;
 
 using RuleDictionary = System.Collections.Generic.Dictionary<
     string, Eagle._Interfaces.Public.IRule>;
@@ -1395,6 +1396,74 @@ namespace Eagle._Tests
 
                 return ReturnCode.Error;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestAddUnsupportedCommands(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in: OPTIONAL */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            IPlugin plugin = interpreter.GetCorePlugin(ref error);
+
+            if (plugin == null)
+                return ReturnCode.Error;
+
+            ICommand command = new Dict(new CommandData(
+                "dict", null, null, null, typeof(Dict).FullName,
+                CommandFlags.None, plugin, 0));
+
+            long token = 0;
+
+            if (interpreter.AddCommand(command,
+                    clientData, ref token, ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (token != 0)
+            {
+                bool pluginHadTokens;
+                LongList tokens = plugin.CommandTokens;
+
+                if (tokens != null)
+                {
+                    pluginHadTokens = true;
+                }
+                else
+                {
+                    tokens = new LongList();
+                    pluginHadTokens = false;
+                }
+
+                tokens.Add(token);
+
+                //
+                // HACK: Force the command tokens for the
+                //       isolated plugin to be updated.
+                //
+                // HACK: Also, update the plugin command
+                //       tokens if they were null.
+                //
+                if (!pluginHadTokens
+#if ISOLATED_PLUGINS
+                    || AppDomainOps.IsIsolated(plugin)
+#endif
+                    )
+                {
+                    plugin.CommandTokens = tokens;
+                }
+            }
+
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -22373,7 +22442,7 @@ namespace Eagle._Tests
                             return ReturnCode.Error;
                         }
 
-                        foreach (KeyValuePair<string, object> pair in objects)
+                        foreach (ObjectPair pair in objects)
                         {
                             string objectName = pair.Key;
 
@@ -29907,7 +29976,7 @@ namespace Eagle._Tests
             }
             #endregion
 
-            ///////////////////////////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////
 
             #region IEnsemble Members
             private readonly EnsembleDictionary subCommands =
@@ -29967,11 +30036,25 @@ namespace Eagle._Tests
                     goto done;
 
                 int argumentIndex; /* REUSED */
+                VariableFlags variableFlags; /* REUSED */
                 string variableName; /* REUSED */
                 string keyName; /* REUSED */
                 object value; /* REUSED */
+                string keyVarName; /* REUSED */
+                string valueVarName; /* REUSED */
+                string body; /* REUSED */
+                IScriptLocation location; /* REUSED */
+                long longValue; /* REUSED */
+                bool boolValue; /* REUSED */
+                StringList keyNames; /* REUSED */
+                StringList list; /* REUSED */
                 IVariable variable; /* REUSED */
                 ObjectDictionary dictionary; /* REUSED */
+                ObjectDictionary localDictionary; /* REUSED */
+                ObjectDictionary otherDictionary; /* REUSED */
+                int changeCount; /* REUSED */
+                bool stopOnNotFound; /* REUSED */
+                Result localResult; /* REUSED */
 
                 switch (subCommand)
                 {
@@ -29981,37 +30064,29 @@ namespace Eagle._Tests
                             {
                                 lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                                 {
-                                    VariableFlags variableFlags = VariableFlags.ArrayCommandMask;
-
+                                    variableFlags = VariableFlags.ArrayCommandMask;
                                     variableName = arguments[2];
                                     variable = null;
+                                    dictionary = null;
 
-                                    code = interpreter.GetVariableViaResolversWithSplit(
-                                        variableName, ref variableFlags, ref variable,
+                                    code = interpreter.GetDictionaryVariableViaResolversWithSplit(
+                                        variableName, ref variableFlags, ref variable, ref dictionary,
                                         ref result);
 
                                     if (code != ReturnCode.Ok)
                                         goto done;
 
-                                    value = variable.Value;
-
-                                    if (value is ObjectDictionary)
-                                    {
-                                        dictionary = (ObjectDictionary)value;
-                                    }
-                                    else
-                                    {
-                                        dictionary = ObjectDictionary.FromString(
-                                            StringOps.GetStringFromObject(value),
-                                            false, ref result);
-
-                                        if (dictionary == null)
-                                            goto done;
-                                    }
-
                                     StringBuilder builder;
 
                                     keyName = arguments[3];
+
+                                    if (keyName == null)
+                                    {
+                                        result = "invalid dictionary key name";
+                                        code = ReturnCode.Error;
+
+                                        goto done;
+                                    }
 
                                     if (dictionary.TryGetValue(keyName, out value))
                                     {
@@ -30024,25 +30099,28 @@ namespace Eagle._Tests
                                         builder = StringBuilderFactory.Create();
                                     }
 
+                                    dictionary[keyName] = builder;
+
                                     for (argumentIndex = 4;
                                             argumentIndex < argumentCount; argumentIndex++)
                                     {
                                         builder.Append(arguments[argumentIndex]);
                                     }
 
-                                    value = builder;
-
                                     code = interpreter.FireTraces(
                                         BreakpointType.BeforeVariableSet, variableFlags,
-                                        null, variableName, null, value, null, null,
+                                        null, variableName, null, dictionary, null, null,
                                         variable, ref result);
 
                                     if (code != ReturnCode.Ok)
                                         goto done;
 
-                                    variable.Value = value;
+                                    variable.Value = dictionary;
 
                                     EntityOps.SignalDirty(variable, null);
+
+                                    result = Result.FromObject(
+                                        dictionary, false, false, false);
                                 }
                             }
                             else
@@ -30057,7 +30135,7 @@ namespace Eagle._Tests
                             if ((argumentCount >= 2) &&
                                 (((argumentCount - 2) % 2) == 0))
                             {
-                                dictionary = new ObjectDictionary();
+                                dictionary = new ObjectDictionary(true);
 
                                 for (argumentIndex = 2;
                                         argumentIndex < argumentCount;
@@ -30079,74 +30157,1301 @@ namespace Eagle._Tests
                         }
                     case "exists":
                         {
+                            if (argumentCount >= 4)
+                            {
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[2], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                result = dictionary.CanTraverse(
+                                    arguments.GetRange(3, argumentCount - 3), true);
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict exists dictionaryValue key ?key ...?\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "filter":
                         {
+                            if (argumentCount >= 4)
+                            {
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[2], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                object enumValue = EnumOps.TryParse(
+                                    typeof(DictionaryFilterType), arguments[3],
+                                    true, true, ref result);
+
+                                if (!(enumValue is DictionaryFilterType))
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                switch ((DictionaryFilterType)enumValue)
+                                {
+                                    case DictionaryFilterType.Key:
+                                        {
+                                            if (argumentCount >= 4)
+                                            {
+                                                localDictionary = new ObjectDictionary(true);
+
+                                                for (argumentIndex = 4;
+                                                        argumentIndex < argumentCount;
+                                                        argumentIndex++)
+                                                {
+                                                    string pattern = arguments[argumentIndex];
+
+                                                    foreach (ObjectPair pair in dictionary)
+                                                    {
+                                                        if ((pattern == null) || StringOps.Match(
+                                                                interpreter, MatchMode.Glob,
+                                                                pair.Key, pattern, false))
+                                                        {
+                                                            localDictionary[pair.Key] = pair.Value;
+                                                        }
+                                                    }
+                                                }
+
+                                                result = Result.FromObject(
+                                                    localDictionary, false, false, false);
+                                            }
+                                            else
+                                            {
+                                                result = "wrong # args: should be \"dict filter dictionaryValue key ?pattern ...?\"";
+                                                code = ReturnCode.Error;
+                                            }
+                                            break;
+                                        }
+                                    case DictionaryFilterType.Value:
+                                        {
+                                            if (argumentCount >= 4)
+                                            {
+                                                localDictionary = new ObjectDictionary(true);
+
+                                                for (argumentIndex = 4;
+                                                        argumentIndex < argumentCount;
+                                                        argumentIndex++)
+                                                {
+                                                    string pattern = arguments[argumentIndex];
+
+                                                    foreach (ObjectPair pair in dictionary)
+                                                    {
+                                                        if ((pattern == null) || StringOps.Match(
+                                                                interpreter, MatchMode.Glob,
+                                                                StringOps.GetStringFromObject(
+                                                                    pair.Value), pattern, false))
+                                                        {
+                                                            localDictionary[pair.Key] = pair.Value;
+                                                        }
+                                                    }
+                                                }
+
+                                                result = Result.FromObject(
+                                                    localDictionary, false, false, false);
+                                            }
+                                            else
+                                            {
+                                                result = "wrong # args: should be \"dict filter dictionaryValue value ?pattern ...?\"";
+                                                code = ReturnCode.Error;
+                                            }
+                                            break;
+                                        }
+                                    case DictionaryFilterType.Script:
+                                        {
+                                            if (argumentCount == 6)
+                                            {
+                                                list = null;
+
+                                                code = ListOps.GetOrCopyOrSplitList(
+                                                    interpreter, arguments[4], true, ref list,
+                                                    ref result);
+
+                                                if (code != ReturnCode.Ok)
+                                                    goto done;
+
+                                                if (list.Count != 2)
+                                                {
+                                                    result = "must have exactly two variable names";
+                                                    code = ReturnCode.Error;
+
+                                                    goto done;
+                                                }
+
+                                                keyVarName = list[0];
+                                                valueVarName = list[1];
+
+                                                body = arguments[5];
+                                                location = arguments[5];
+
+                                                localDictionary = new ObjectDictionary(true);
+
+                                                foreach (ObjectPair pair in dictionary)
+                                                {
+                                                    code = interpreter.SetVariableValue(
+                                                        VariableFlags.None, keyVarName,
+                                                        pair.Key, null, ref result);
+
+                                                    if (code != ReturnCode.Ok)
+                                                        break;
+
+                                                    code = interpreter.SetVariableValue(
+                                                        VariableFlags.None, valueVarName,
+                                                        StringOps.GetStringFromObject(pair.Value),
+                                                        null, ref result);
+
+                                                    if (code != ReturnCode.Ok)
+                                                        break;
+
+                                                    localResult = null;
+
+                                                    code = interpreter.EvaluateScript(
+                                                        body, location, ref localResult);
+
+                                                    if (code != ReturnCode.Ok)
+                                                    {
+                                                        result = localResult;
+                                                        break;
+                                                    }
+
+                                                    boolValue = false;
+
+                                                    code = Engine.ToBoolean(
+                                                        localResult, interpreter.InternalCultureInfo,
+                                                        ref boolValue, ref localResult);
+
+                                                    if (code != ReturnCode.Ok)
+                                                        break;
+
+                                                    if (boolValue)
+                                                        localDictionary[pair.Key] = pair.Value;
+                                                }
+
+                                                if (code == ReturnCode.Ok)
+                                                {
+                                                    result = Result.FromObject(
+                                                        localDictionary, false, false, false);
+                                                }
+                                            }
+                                            else
+                                            {
+                                                result = "wrong # args: should be \"dict filter dictionaryValue script {keyVariable valueVariable} body\"";
+                                                code = ReturnCode.Error;
+                                            }
+                                            break;
+                                        }
+                                    default:
+                                        {
+                                            result = ScriptOps.BadValue(
+                                                null, "filter type", enumValue.ToString(),
+                                                Enum.GetNames(typeof(DictionaryFilterType)),
+                                                null, null);
+
+                                            code = ReturnCode.Error;
+                                            break;
+                                        }
+                                }
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict filter dictionaryValue filterType ...\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "foreach":
                         {
+                            if (argumentCount == 5)
+                            {
+                                list = null;
+
+                                code = ListOps.GetOrCopyOrSplitList(
+                                    interpreter, arguments[2], true, ref list,
+                                    ref result);
+
+                                if (code != ReturnCode.Ok)
+                                    goto done;
+
+                                if (list.Count != 2)
+                                {
+                                    result = "must have exactly two variable names";
+                                    code = ReturnCode.Error;
+
+                                    goto done;
+                                }
+
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[3], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                keyVarName = list[0];
+                                valueVarName = list[1];
+
+                                body = arguments[4];
+                                location = arguments[4];
+
+                                foreach (ObjectPair pair in dictionary)
+                                {
+                                    code = interpreter.SetVariableValue(
+                                        VariableFlags.None, keyVarName,
+                                        pair.Key, null, ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                    {
+                                        Engine.AddErrorInformation(
+                                            interpreter, result, String.Format(
+                                                "{0}    (setting dict foreach loop variable \"{1}\")",
+                                                Environment.NewLine,
+                                                FormatOps.Ellipsis(keyVarName)));
+
+                                        break;
+                                    }
+
+                                    code = interpreter.SetVariableValue(
+                                        VariableFlags.None, valueVarName,
+                                        StringOps.GetStringFromObject(pair.Value),
+                                        null, ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                    {
+                                        Engine.AddErrorInformation(
+                                            interpreter, result, String.Format(
+                                                "{0}    (setting dict foreach loop variable \"{1}\")",
+                                                Environment.NewLine,
+                                                FormatOps.Ellipsis(valueVarName)));
+
+                                        break;
+                                    }
+
+                                    localResult = null;
+
+                                    code = interpreter.EvaluateScript(
+                                        body, location, ref localResult);
+
+                                    if (code == ReturnCode.Ok)
+                                    {
+                                        if (interpreter.ExitNoThrow)
+                                            break;
+                                    }
+                                    else if (code == ReturnCode.Continue)
+                                    {
+                                        code = ReturnCode.Ok;
+                                    }
+                                    else if (code == ReturnCode.Break)
+                                    {
+                                        code = ReturnCode.Ok;
+                                        break;
+                                    }
+                                    else if (code == ReturnCode.Error)
+                                    {
+                                        Engine.AddErrorInformation(
+                                            interpreter, localResult, String.Format(
+                                                "{0}    (\"dict foreach\" body line {1})",
+                                                Environment.NewLine,
+                                                Interpreter.GetErrorLine(interpreter)));
+
+                                        result = localResult;
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        result = localResult;
+                                        break;
+                                    }
+                                }
+
+                                if (code == ReturnCode.Ok)
+                                    Engine.ResetResult(interpreter, ref result);
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict foreach {keyVar valueVar} dictionaryValue body\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "get":
                         {
+                            if (argumentCount >= 3)
+                            {
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[2], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                if (argumentCount >= 4)
+                                {
+                                    value = null;
+
+                                    if (!dictionary.TryTraverse(
+                                            arguments.GetRange(3, argumentCount - 3),
+                                            true, ref value, ref result))
+                                    {
+                                        code = ReturnCode.Error;
+                                        goto done;
+                                    }
+
+                                    result = StringOps.GetStringFromObject(value);
+                                }
+                                else
+                                {
+                                    result = dictionary.KeysAndValuesToString(null, false);
+                                }
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict get dictionaryValue ?key ...?\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "incr":
                         {
+                            if ((argumentCount == 4) || (argumentCount == 5))
+                            {
+                                long increment = 1;
+
+                                if (argumentCount == 5)
+                                {
+                                    code = Value.GetWideInteger2(
+                                        (IGetValue)arguments[4], ValueFlags.AnyWideInteger,
+                                        interpreter.InternalCultureInfo, ref increment,
+                                        ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+                                }
+
+                                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                {
+                                    variableFlags = VariableFlags.ArrayCommandMask;
+                                    variableName = arguments[2];
+                                    variable = null;
+                                    dictionary = null;
+
+                                    code = interpreter.GetDictionaryVariableViaResolversWithSplit(
+                                        variableName, ref variableFlags, ref variable, ref dictionary,
+                                        ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    keyName = arguments[3];
+
+                                    if (keyName == null)
+                                    {
+                                        result = "invalid dictionary key name";
+                                        code = ReturnCode.Error;
+
+                                        goto done;
+                                    }
+
+                                    longValue = 0;
+
+                                    if (dictionary.TryGetValue(keyName, out value))
+                                    {
+                                        code = Value.GetWideInteger2(
+                                            StringOps.GetStringFromObject(value),
+                                            ValueFlags.AnyWideInteger,
+                                            interpreter.InternalCultureInfo,
+                                            ref longValue, ref result);
+
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+                                    }
+
+                                    longValue += increment;
+                                    dictionary[keyName] = longValue;
+
+                                    code = interpreter.FireTraces(
+                                        BreakpointType.BeforeVariableSet, variableFlags,
+                                        null, variableName, null, dictionary, null,
+                                        null, variable, ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    variable.Value = dictionary;
+
+                                    EntityOps.SignalDirty(variable, null);
+
+                                    result = longValue;
+                                }
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict incr dictionaryVariable key ?increment?\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "info":
                         {
+                            if (argumentCount == 3)
+                            {
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[2], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                result = String.Format(
+                                    "{0} root entries in table, {1} nested entries in table, hash code 0x{2:X}",
+                                    dictionary.Count, dictionary.TraverseAndCount(interpreter, null, false),
+                                    dictionary.GetHashCode());
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict info dictionaryValue\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "keys":
                         {
+                            if ((argumentCount >= 3) && (argumentCount <= 4))
+                            {
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[2], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                string pattern = null;
+
+                                if (argumentCount == 4)
+                                    pattern = arguments[3];
+
+                                result = dictionary.KeysToString(pattern, false);
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict keys dictionaryValue ?pattern?\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "lappend":
                         {
+                            if (argumentCount >= 4)
+                            {
+                                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                {
+                                    variableFlags = VariableFlags.ArrayCommandMask;
+                                    variableName = arguments[2];
+                                    variable = null;
+                                    dictionary = null;
+
+                                    code = interpreter.GetDictionaryVariableViaResolversWithSplit(
+                                        variableName, ref variableFlags, ref variable, ref dictionary,
+                                        ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    keyName = arguments[3];
+
+                                    if (keyName == null)
+                                    {
+                                        result = "invalid dictionary key name";
+                                        code = ReturnCode.Error;
+
+                                        goto done;
+                                    }
+
+                                    if (dictionary.TryGetValue(keyName, out value))
+                                    {
+                                        list = null;
+
+                                        code = ParserOps<string>.SplitList(
+                                            interpreter, StringOps.GetStringFromObject(
+                                            value), 0, Length.Invalid, true, ref list,
+                                            ref result);
+
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+                                    }
+                                    else
+                                    {
+                                        list = new StringList();
+                                    }
+
+                                    for (argumentIndex = 4;
+                                            argumentIndex < argumentCount;
+                                            argumentIndex++)
+                                    {
+                                        list.Add(arguments[argumentIndex]);
+                                    }
+
+                                    dictionary[keyName] = list;
+
+                                    code = interpreter.FireTraces(
+                                        BreakpointType.BeforeVariableSet, variableFlags,
+                                        null, variableName, null, dictionary, null,
+                                        null, variable, ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    variable.Value = dictionary;
+
+                                    EntityOps.SignalDirty(variable, null);
+
+                                    result = Result.FromObject(
+                                        dictionary, false, false, false);
+                                }
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict lappend dictionaryVariable key ?value ...?\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "map":
                         {
+                            if (argumentCount == 5)
+                            {
+                                list = null;
+
+                                code = ListOps.GetOrCopyOrSplitList(
+                                    interpreter, arguments[2], true, ref list,
+                                    ref result);
+
+                                if (code != ReturnCode.Ok)
+                                    goto done;
+
+                                if (list.Count != 2)
+                                {
+                                    result = "must have exactly two variable names";
+                                    code = ReturnCode.Error;
+
+                                    goto done;
+                                }
+
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[3], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                keyVarName = list[0];
+                                valueVarName = list[1];
+
+                                body = arguments[4];
+                                location = arguments[4];
+
+                                localDictionary = new ObjectDictionary(true);
+
+                                foreach (ObjectPair pair in dictionary)
+                                {
+                                    code = interpreter.SetVariableValue(
+                                        VariableFlags.None, keyVarName,
+                                        pair.Key, null, ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                    {
+                                        Engine.AddErrorInformation(
+                                            interpreter, result, String.Format(
+                                                "{0}    (setting dict map loop variable \"{1}\")",
+                                                Environment.NewLine,
+                                                FormatOps.Ellipsis(keyVarName)));
+
+                                        break;
+                                    }
+
+                                    code = interpreter.SetVariableValue(
+                                        VariableFlags.None, valueVarName,
+                                        StringOps.GetStringFromObject(pair.Value),
+                                        null, ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                    {
+                                        Engine.AddErrorInformation(
+                                            interpreter, result, String.Format(
+                                                "{0}    (setting dict map loop variable \"{1}\")",
+                                                Environment.NewLine,
+                                                FormatOps.Ellipsis(valueVarName)));
+
+                                        break;
+                                    }
+
+                                    localResult = null;
+
+                                    code = interpreter.EvaluateScript(
+                                        body, location, ref localResult);
+
+                                    if (code == ReturnCode.Ok)
+                                    {
+                                        if (interpreter.ExitNoThrow)
+                                            break;
+
+                                        if (!String.IsNullOrEmpty(localResult))
+                                            localDictionary[pair.Key] = localResult;
+                                    }
+                                    else if (code == ReturnCode.Continue)
+                                    {
+                                        code = ReturnCode.Ok;
+                                    }
+                                    else if (code == ReturnCode.Break)
+                                    {
+                                        code = ReturnCode.Ok;
+                                        break;
+                                    }
+                                    else if (code == ReturnCode.Error)
+                                    {
+                                        Engine.AddErrorInformation(
+                                            interpreter, localResult, String.Format(
+                                                "{0}    (\"dict map\" body line {1})",
+                                                Environment.NewLine,
+                                                Interpreter.GetErrorLine(interpreter)));
+
+                                        result = localResult;
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        result = localResult;
+                                        break;
+                                    }
+                                }
+
+                                if (code == ReturnCode.Ok)
+                                {
+                                    result = Result.FromObject(
+                                        localDictionary, false, false, false);
+                                }
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict map {keyVar valueVar} dictionaryValue body\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "merge":
                         {
+                            if (argumentCount >= 2)
+                            {
+                                dictionary = new ObjectDictionary(true);
+
+                                for (argumentIndex = 2;
+                                        argumentIndex < argumentCount;
+                                        argumentIndex++)
+                                {
+                                    otherDictionary = ObjectDictionary.FromString(
+                                        arguments[argumentIndex], true, false, ref result);
+
+                                    if (otherDictionary == null)
+                                    {
+                                        code = ReturnCode.Error;
+                                        goto done;
+                                    }
+
+                                    foreach (ObjectPair pair in otherDictionary)
+                                        dictionary[pair.Key] = pair.Value;
+                                }
+
+                                result = Result.FromObject(
+                                    dictionary, false, false, false);
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict merge ?dictionaryValue ...?\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "remove":
                         {
+                            if (argumentCount >= 3)
+                            {
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[2], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                for (argumentIndex = 3;
+                                        argumentIndex < argumentCount;
+                                        argumentIndex++)
+                                {
+                                    dictionary.Remove(arguments[argumentIndex]);
+                                }
+
+                                result = Result.FromObject(
+                                    dictionary, false, false, false);
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict remove dictionaryValue ?key ...?\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "replace":
                         {
+                            if ((argumentCount >= 3) &&
+                                (((argumentCount - 3) % 2) == 0))
+                            {
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[2], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                for (argumentIndex = 3;
+                                        argumentIndex < argumentCount;
+                                        argumentIndex += 2)
+                                {
+                                    dictionary[arguments[argumentIndex]] =
+                                        arguments[argumentIndex + 1];
+                                }
+
+                                result = Result.FromObject(
+                                    dictionary, false, false, false);
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict replace dictionaryValue ?key value ...?\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "set":
                         {
+                            if (argumentCount >= 5)
+                            {
+                                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                {
+                                    variableFlags = VariableFlags.ArrayCommandMask;
+                                    variableName = arguments[2];
+                                    variable = null;
+                                    dictionary = null;
+
+                                    code = interpreter.GetDictionaryVariableViaResolversWithSplit(
+                                        variableName, ref variableFlags, ref variable, ref dictionary,
+                                        ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    if (argumentCount > 5)
+                                    {
+                                        changeCount = 0;
+                                        stopOnNotFound = false;
+
+                                        localDictionary = dictionary.TraverseAndCreate(
+                                            arguments.GetRange(3, argumentCount - 5), 0,
+                                            Index.Invalid, true, ref changeCount,
+                                            ref stopOnNotFound, ref result);
+
+                                        if (localDictionary == null)
+                                        {
+                                            code = ReturnCode.Error;
+                                            goto done;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        localDictionary = dictionary;
+                                    }
+
+                                    keyName = arguments[argumentCount - 2];
+                                    value = arguments[argumentCount - 1];
+                                    localDictionary[keyName] = value;
+
+                                    code = interpreter.FireTraces(
+                                        BreakpointType.BeforeVariableSet, variableFlags,
+                                        null, variableName, null, dictionary, null,
+                                        null, variable, ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    variable.Value = dictionary;
+
+                                    EntityOps.SignalDirty(variable, null);
+
+                                    result = Result.FromObject(
+                                        dictionary, false, false, false);
+                                }
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict set dictionaryVariable key ?key ...? value\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "size":
                         {
+                            if (argumentCount == 3)
+                            {
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[2], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                result = dictionary.Count;
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict size dictionaryValue\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "unset":
                         {
+                            if (argumentCount >= 4)
+                            {
+                                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                {
+                                    variableFlags = VariableFlags.ArrayCommandMask;
+                                    variableName = arguments[2];
+                                    variable = null;
+                                    dictionary = null;
+
+                                    code = interpreter.GetDictionaryVariableViaResolversWithSplit(
+                                        variableName, ref variableFlags, ref variable, ref dictionary,
+                                        ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    changeCount = 0;
+
+                                    if (argumentCount > 4)
+                                    {
+                                        stopOnNotFound = true;
+
+                                        localDictionary = dictionary.TraverseAndCreate(
+                                            arguments.GetRange(3, argumentCount - 4), 0,
+                                            Index.Invalid, true, ref changeCount,
+                                            ref stopOnNotFound, ref result);
+
+                                        if (localDictionary == null)
+                                        {
+                                            if (stopOnNotFound)
+                                            {
+                                                code = ReturnCode.Error;
+                                                goto done;
+                                            }
+                                            else
+                                            {
+                                                //
+                                                // NOTE: Per Tcl, [dict unset] does not
+                                                //       raise a script error when any
+                                                //       intermediate keys do not exist.
+                                                //
+                                                goto skipUnset;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        localDictionary = dictionary;
+                                    }
+
+                                    localDictionary.Remove(arguments[argumentCount - 1]);
+                                    changeCount++;
+
+                                skipUnset:
+
+                                    //
+                                    // HACK: This is a bit sub-optimal as we may fire these
+                                    //       variable traces even when a dictionary appears
+                                    //       to be unchanged.  This is necessary because an
+                                    //       the internal variable value may have just been
+                                    //       mutated (i.e. to create nested dictionaries).
+                                    //
+                                    if (changeCount > 0)
+                                    {
+                                        code = interpreter.FireTraces(
+                                            BreakpointType.BeforeVariableSet, variableFlags,
+                                            null, variableName, null, dictionary, null,
+                                            null, variable, ref result);
+
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+
+                                        variable.Value = dictionary;
+
+                                        EntityOps.SignalDirty(variable, null);
+                                    }
+
+                                    result = Result.FromObject(
+                                        dictionary, false, false, false);
+                                }
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict unset dictionaryVariable key ?key ...?\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "update":
                         {
+                            if ((argumentCount >= 6) &&
+                                (((argumentCount - 4) % 2) == 0))
+                            {
+                                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                {
+                                    variableFlags = VariableFlags.ArrayCommandMask;
+                                    variableName = arguments[2];
+                                    variable = null;
+                                    dictionary = null;
+
+                                    code = interpreter.GetDictionaryVariableViaResolversWithSplit(
+                                        variableName, ref variableFlags, ref variable, ref dictionary,
+                                        ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    for (argumentIndex = 3;
+                                            argumentIndex < argumentCount - 1;
+                                            argumentIndex += 2)
+                                    {
+                                        keyName = arguments[argumentIndex];
+
+                                        if (keyName == null)
+                                        {
+                                            result = "invalid dictionary key name";
+                                            code = ReturnCode.Error;
+
+                                            goto done;
+                                        }
+
+                                        if (dictionary.TryGetValue(keyName, out value))
+                                        {
+                                            code = interpreter.SetVariableValue(
+                                                VariableFlags.None,
+                                                arguments[argumentIndex + 1],
+                                                StringOps.GetStringFromObject(value),
+                                                null, ref result);
+                                        }
+                                        else
+                                        {
+                                            code = interpreter.UnsetVariable(
+                                                VariableFlags.NoComplain,
+                                                arguments[argumentIndex + 1],
+                                                ref result);
+                                        }
+
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+                                    }
+                                }
+
+                                body = arguments[argumentCount - 1];
+                                location = arguments[argumentCount - 1];
+                                localResult = null;
+
+                                code = interpreter.EvaluateScript(
+                                    body, location, ref localResult);
+
+                                if (code == ReturnCode.Ok)
+                                {
+                                    lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                    {
+                                        variableFlags = VariableFlags.ArrayCommandMask;
+                                        variableName = arguments[2];
+                                        variable = null;
+                                        dictionary = null;
+
+                                        code = interpreter.GetDictionaryVariableViaResolversWithSplit(
+                                            variableName, ref variableFlags, ref variable, ref dictionary,
+                                            ref result);
+
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+
+                                        for (argumentIndex = 3;
+                                                argumentIndex < (argumentCount - 1);
+                                                argumentIndex += 2)
+                                        {
+                                            keyName = arguments[argumentIndex];
+                                            localResult = null;
+
+                                            if (interpreter.GetVariableValue(
+                                                    VariableFlags.None,
+                                                    arguments[argumentIndex + 1],
+                                                    ref localResult) == ReturnCode.Ok)
+                                            {
+                                                dictionary[keyName] = localResult;
+                                            }
+                                            else
+                                            {
+                                                dictionary.Remove(keyName);
+                                            }
+                                        }
+
+                                        code = interpreter.FireTraces(
+                                            BreakpointType.BeforeVariableSet, variableFlags,
+                                            null, variableName, null, dictionary, null,
+                                            null, variable, ref result);
+
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+
+                                        variable.Value = dictionary;
+
+                                        EntityOps.SignalDirty(variable, null);
+                                    }
+
+                                    Engine.ResetResult(interpreter, ref result);
+                                }
+                                else if (code == ReturnCode.Error)
+                                {
+                                    Engine.AddErrorInformation(
+                                        interpreter, localResult, String.Format(
+                                            "{0}    (\"dict update\" body line {1})",
+                                            Environment.NewLine,
+                                            Interpreter.GetErrorLine(interpreter)));
+
+                                    result = localResult;
+                                }
+                                else
+                                {
+                                    result = localResult;
+                                }
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict update dictionaryVariable key varName ?key varName ...? body\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "values":
                         {
+                            if ((argumentCount >= 3) && (argumentCount <= 4))
+                            {
+                                dictionary = ObjectDictionary.FromString(
+                                    arguments[2], true, false, ref result);
+
+                                if (dictionary == null)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                string pattern = null;
+
+                                if (argumentCount == 4)
+                                    pattern = arguments[3];
+
+                                result = dictionary.ValuesToString(pattern, false);
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict values dictionaryValue ?pattern?\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     case "with":
                         {
+                            if (argumentCount >= 4)
+                            {
+                                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                {
+                                    variableFlags = VariableFlags.ArrayCommandMask;
+                                    variableName = arguments[2];
+                                    variable = null;
+                                    dictionary = null;
+
+                                    code = interpreter.GetDictionaryVariableViaResolversWithSplit(
+                                        variableName, ref variableFlags, ref variable, ref dictionary,
+                                        ref result);
+
+                                    if (code != ReturnCode.Ok)
+                                        goto done;
+
+                                    if (argumentCount > 4)
+                                    {
+                                        changeCount = 0;
+                                        stopOnNotFound = false;
+
+                                        localDictionary = dictionary.TraverseAndCreate(
+                                            arguments.GetRange(3, argumentCount - 4), 0,
+                                            Index.Invalid, true, ref changeCount,
+                                            ref stopOnNotFound, ref result);
+
+                                        if (localDictionary == null)
+                                            goto done;
+                                    }
+                                    else
+                                    {
+                                        localDictionary = dictionary;
+                                    }
+
+                                    keyNames = new StringList(localDictionary.Keys);
+
+                                    foreach (string keyName2 in keyNames)
+                                    {
+                                        if (localDictionary.TryGetValue(keyName2, out value))
+                                        {
+                                            code = interpreter.SetVariableValue(
+                                                VariableFlags.None, keyName2,
+                                                StringOps.GetStringFromObject(value),
+                                                null, ref result);
+                                        }
+                                        else
+                                        {
+                                            code = interpreter.SetVariableValue(
+                                                VariableFlags.None, keyName2, null,
+                                                null, ref result);
+                                        }
+
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+                                    }
+                                }
+
+                                body = arguments[argumentCount - 1];
+                                location = arguments[argumentCount - 1];
+                                localResult = null;
+
+                                code = interpreter.EvaluateScript(
+                                    body, location, ref localResult);
+
+                                if (code == ReturnCode.Ok)
+                                {
+                                    lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                    {
+                                        variableFlags = VariableFlags.ArrayCommandMask;
+                                        variableName = arguments[2];
+                                        variable = null;
+                                        dictionary = null;
+
+                                        code = interpreter.GetDictionaryVariableViaResolversWithSplit(
+                                            variableName, ref variableFlags, ref variable, ref dictionary,
+                                            ref result);
+
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+
+                                        if (argumentCount > 4)
+                                        {
+                                            changeCount = 0;
+                                            stopOnNotFound = false;
+
+                                            otherDictionary = dictionary.TraverseAndCreate(
+                                                arguments.GetRange(3, argumentCount - 4), 0,
+                                                Index.Invalid, true, ref changeCount,
+                                                ref stopOnNotFound, ref result);
+
+                                            if (otherDictionary == null)
+                                            {
+                                                code = ReturnCode.Error;
+                                                goto done;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            otherDictionary = dictionary;
+                                        }
+
+                                        keyNames = new StringList(otherDictionary.Keys);
+
+                                        foreach (string keyName2 in keyNames)
+                                        {
+                                            localResult = null;
+
+                                            if (interpreter.GetVariableValue(
+                                                    VariableFlags.None, keyName2,
+                                                    ref localResult) == ReturnCode.Ok)
+                                            {
+                                                otherDictionary[keyName2] = localResult;
+                                            }
+                                            else
+                                            {
+                                                otherDictionary.Remove(keyName2);
+                                            }
+                                        }
+
+                                        code = interpreter.FireTraces(
+                                            BreakpointType.BeforeVariableSet,
+                                            variableFlags, null, variableName,
+                                            null, dictionary, null, null,
+                                            variable, ref result);
+
+                                        if (code != ReturnCode.Ok)
+                                            goto done;
+
+                                        variable.Value = dictionary;
+
+                                        EntityOps.SignalDirty(variable, null);
+                                    }
+
+                                    if (code == ReturnCode.Ok)
+                                        Engine.ResetResult(interpreter, ref result);
+                                }
+                                else if (code == ReturnCode.Error)
+                                {
+                                    Engine.AddErrorInformation(
+                                        interpreter, localResult, String.Format(
+                                            "{0}    (\"dict with\" body line {1})",
+                                            Environment.NewLine,
+                                            Interpreter.GetErrorLine(interpreter)));
+
+                                    result = localResult;
+                                }
+                                else
+                                {
+                                    result = localResult;
+                                }
+                            }
+                            else
+                            {
+                                result = "wrong # args: should be \"dict with dictionaryVariable ?key ...? body\"";
+                                code = ReturnCode.Error;
+                            }
                             break;
                         }
                     default:

@@ -25,6 +25,8 @@ using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
+using StringPair = System.Collections.Generic.KeyValuePair<string, string>;
+using ObjectPair = System.Collections.Generic.KeyValuePair<string, object>;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -38,6 +40,16 @@ namespace Eagle._Containers.Public
     [ObjectId("2327d197-2cd8-440e-babe-1c9bd85a3cd4")]
     public sealed class ObjectDictionary : Dictionary<string, object>
     {
+        #region Private Data
+        //
+        // NOTE: When this field is non-zero, the overridden ToString method
+        //       will include all the keys and values, not just the keys.
+        //
+        private readonly bool viaScript = false;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Public Constructors
         public ObjectDictionary()
             : base()
@@ -111,9 +123,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Constructors
+        internal ObjectDictionary(
+            bool viaScript /* in */
+            )
+            : this()
+        {
+            this.viaScript = viaScript;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Methods
         private static ObjectDictionary PrivateFromString(
             string value,
+            bool viaScript,
             bool addOnly,
             bool keysOnly,
             ref Result error
@@ -125,9 +150,9 @@ namespace Eagle._Containers.Public
             if (dictionary1 == null)
                 return null;
 
-            ObjectDictionary dictionary2 = new ObjectDictionary();
+            ObjectDictionary dictionary2 = new ObjectDictionary(viaScript);
 
-            foreach (KeyValuePair<string, string> pair in dictionary1)
+            foreach (StringPair pair in dictionary1)
                 dictionary2[pair.Key] = pair.Value;
 
             return dictionary2;
@@ -139,17 +164,19 @@ namespace Eagle._Containers.Public
         #region Static "Factory" Methods
         public static ObjectDictionary FromObject(
             object value,
+            bool viaScript,
             bool addOnly,
             ref Result error
             )
         {
-            return FromObject(value, addOnly, false, ref error);
+            return FromObject(value, viaScript, addOnly, false, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ObjectDictionary FromObject(
             object value,
+            bool viaScript,
             bool addOnly,
             bool keysOnly,
             ref Result error
@@ -163,30 +190,34 @@ namespace Eagle._Containers.Public
                 stringValue = StringOps.GetStringFromObject(value);
 
             return PrivateFromString(
-                stringValue, addOnly, keysOnly, ref error);
+                stringValue, viaScript, addOnly, keysOnly, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ObjectDictionary FromString(
             string value,
+            bool viaScript,
             bool addOnly,
             ref Result error
             )
         {
-            return FromString(value, addOnly, false, ref error);
+            return FromString(
+                value, viaScript, addOnly, false, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ObjectDictionary FromString(
             string value,
+            bool viaScript,
             bool addOnly,
             bool keysOnly,
             ref Result error
             )
         {
-            return PrivateFromString(value, addOnly, keysOnly, ref error);
+            return PrivateFromString(
+                value, viaScript, addOnly, keysOnly, ref error);
         }
         #endregion
 
@@ -212,26 +243,215 @@ namespace Eagle._Containers.Public
             IDictionary<string, object> dictionary /* in */
             )
         {
-            foreach (KeyValuePair<string, object> pair in dictionary)
+            foreach (ObjectPair pair in dictionary)
                 this.Add(pair.Key, pair.Value);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
+        public bool CanTraverse(
+            IEnumerable keys, /* in */
+            bool viaScript    /* in */
+            )
+        {
+            object value = null;
+            Result error = null;
+
+            return TryTraverse(keys, viaScript, ref value, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public long TraverseAndCount(
+            Interpreter interpreter,
+            string pattern,
+            bool noCase
+            )
+        {
+            long count = 0;
+
+            foreach (ObjectPair pair in this)
+            {
+                if ((pattern != null) && !Parser.StringMatch(
+                        interpreter, pair.Key, 0, pattern, 0,
+                        noCase))
+                {
+                    continue;
+                }
+
+                ObjectDictionary dictionary = pair.Value as ObjectDictionary;
+
+                if (dictionary == null)
+                {
+                    count++; // NOTE: Another (matching) key, normal value.
+                    continue;
+                }
+
+                count += dictionary.TraverseAndCount(
+                    interpreter, pattern, noCase); /* RECURSIVE */
+            }
+
+            return count;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ObjectDictionary TraverseAndCreate(
+            IEnumerable keys,        /* in */
+            int startIndex,          /* in */
+            int stopIndex,           /* in */
+            bool viaScript,          /* in */
+            ref int changeCount,     /* in, out */
+            ref bool stopOnNotFound, /* in, out */
+            ref Result error         /* out */
+            )
+        {
+            if (keys == null)
+            {
+                error = "invalid dictionary key collection";
+                return null;
+            }
+
+            StringList localKeys = new StringList(keys);
+            int count = localKeys.Count;
+
+            if (count == 0)
+            {
+                error = "empty dictionary key collection";
+                return null;
+            }
+
+            if (startIndex >= 0)
+            {
+                if (startIndex >= count)
+                {
+                    error = String.Format(
+                        "start index {0} must be less than count {1}",
+                        startIndex, count);
+
+                    return null;
+                }
+            }
+            else
+            {
+                error = String.Format(
+                    "start index {0} cannot be less than zero",
+                    startIndex);
+
+                return null;
+            }
+
+            if (stopIndex >= 0)
+            {
+                if (stopIndex >= count)
+                {
+                    error = String.Format(
+                        "stop index {0} must be less than count {1}",
+                        stopIndex, count);
+
+                    return null;
+                }
+            }
+            else
+            {
+                stopIndex = count - 1;
+            }
+
+            if (startIndex > stopIndex)
+            {
+                error = String.Format(
+                    "start index {0} must be less than stop index {1}",
+                    startIndex, stopIndex);
+
+                return null;
+            }
+
+            ObjectDictionary dictionary = this;
+
+            for (int index = startIndex; index <= stopIndex; index++)
+            {
+                string localKey = localKeys[index];
+
+                if (localKey == null)
+                {
+                    error = String.Format(
+                        "invalid dictionary key #{0}", index + 1);
+
+                    return null;
+                }
+
+                object localValue;
+                ObjectDictionary localDictionary;
+
+                if (dictionary.TryGetValue(localKey, out localValue))
+                {
+                    localDictionary = localValue as ObjectDictionary;
+
+                    if (localDictionary != null)
+                    {
+                        dictionary = localDictionary;
+                    }
+                    else
+                    {
+                        localDictionary = ObjectDictionary.FromString(
+                            StringOps.GetStringFromObject(localValue),
+                            viaScript, false, ref error);
+
+                        if (localDictionary == null)
+                            return null;
+
+                        dictionary[localKey] = localDictionary;
+                        dictionary = localDictionary;
+
+                        changeCount++;
+                    }
+                }
+                else if (stopOnNotFound)
+                {
+                    //
+                    // HACK: This is not an error, per se; therefore,
+                    //       do not set an error message.  When the
+                    //       caller sets the "stopOnNotFound" flag to
+                    //       true, they are also expected to check it
+                    //       upon return.  When it is false, they can
+                    //       simply skip any subsequent (dictionary)
+                    //       processing and return success.
+                    //
+                    stopOnNotFound = false;
+                    return null;
+                }
+                else
+                {
+                    localDictionary = new ObjectDictionary(true);
+
+                    dictionary[localKey] = localDictionary;
+                    dictionary = localDictionary;
+
+                    changeCount++;
+                }
+            }
+
+            return dictionary;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public bool TryTraverse(
-            StringList keys,  /* in */
+            IEnumerable keys, /* in */
+            bool viaScript,   /* in */
             ref object value, /* out */
             ref Result error  /* out */
             )
         {
             if (keys == null)
             {
-                error = "invalid dictionary key list";
+                error = "invalid dictionary key collection";
                 return false;
             }
 
             ObjectDictionary dictionary = this;
-            int count = keys.Count;
+            StringList localKeys = new StringList(keys);
+            int count = localKeys.Count;
 
             if (count == 0)
             {
@@ -244,7 +464,7 @@ namespace Eagle._Containers.Public
 
             for (int index = 0; index < count - 1; index++)
             {
-                localKey = keys[index];
+                localKey = localKeys[index];
 
                 if (localKey == null)
                     continue;
@@ -254,26 +474,29 @@ namespace Eagle._Containers.Public
                     error = String.Format(
                         "cannot find work dictionary key {0}",
                         FormatOps.DisplayTraverseList(
-                            keys.GetRange(0, index + 1)));
+                            localKeys.GetRange(0, index + 1)));
 
                     return false;
                 }
+
+                ObjectDictionary savedDictionary = dictionary;
 
                 dictionary = localValue as ObjectDictionary;
 
-                if (dictionary == null)
-                {
-                    error = String.Format(
-                        "cannot traverse dictionary key {0}, wrong type {1}",
-                        FormatOps.DisplayTraverseList(
-                            keys.GetRange(0, index + 1)),
-                        MarshalOps.GetErrorTypeName(localValue));
+                if (dictionary != null)
+                    continue;
 
+                dictionary = ObjectDictionary.FromString(
+                    StringOps.GetStringFromObject(localValue),
+                    viaScript, false, ref error);
+
+                if (dictionary == null)
                     return false;
-                }
+
+                savedDictionary[localKey] = dictionary;
             }
 
-            localKey = keys[count - 1];
+            localKey = localKeys[count - 1];
 
             if (localKey == null)
             {
@@ -286,7 +509,7 @@ namespace Eagle._Containers.Public
                 error = String.Format(
                     "cannot find final dictionary key {0}",
                     FormatOps.DisplayTraverseList(
-                        keys.GetRange(0, count)));
+                        localKeys.GetRange(0, count)));
 
                 return false;
             }
@@ -454,7 +677,9 @@ namespace Eagle._Containers.Public
         #region System.Object Overrides
         public override string ToString()
         {
-            return ToString(null, false);
+            return viaScript ?
+                KeysAndValuesToString(null, false) :
+                ToString(null, false);
         }
         #endregion
     }

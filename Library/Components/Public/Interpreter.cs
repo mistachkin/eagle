@@ -59218,6 +59218,45 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        internal ReturnCode GetDictionaryVariableViaResolversWithSplit(
+            string name,                     /* in */
+            ref VariableFlags variableFlags, /* in, out */
+            ref IVariable variable,          /* out */
+            ref ObjectDictionary dictionary, /* out */
+            ref Result error                 /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (GetVariableViaResolversWithSplit(
+                        name, ref variableFlags, ref variable,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                object value = variable.Value;
+
+                if (value is ObjectDictionary)
+                {
+                    dictionary = (ObjectDictionary)value;
+                }
+                else
+                {
+                    dictionary = ObjectDictionary.FromString(
+                        StringOps.GetStringFromObject(value),
+                        true, false, ref error);
+
+                    if (dictionary == null)
+                        return ReturnCode.Error;
+                }
+
+                return ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         //
         // WARNING: For use by the ScriptOps.LinkVariable method only.
         //
@@ -77865,9 +77904,10 @@ namespace Eagle._Components.Public
                                     localResult = null;
 
                                     code = interpreter.Setup(
-                                        createFlags, hostCreateFlags, interpreterFlags,
-                                        pluginFlags, ruleSet, args, localAutoPathList,
-                                        policies, traces, ref localResult);
+                                        createFlags, hostCreateFlags, initializeFlags,
+                                        interpreterFlags, pluginFlags, ruleSet, args,
+                                        localAutoPathList, policies, traces,
+                                        ref localResult);
 
                                     if ((code != ReturnCode.Ok) &&
                                         (localResult != null))
@@ -81766,6 +81806,7 @@ namespace Eagle._Components.Public
         private ReturnCode Setup(
             CreateFlags createFlags,
             HostCreateFlags hostCreateFlags,
+            InitializeFlags initializeFlags,
             InterpreterFlags interpreterFlags,
             PluginFlags pluginFlags,
             IRuleSet ruleSet,
@@ -82037,6 +82078,10 @@ namespace Eagle._Components.Public
                 code = PrivatePreInitialize(false, ref result);
 
             ///////////////////////////////////////////////////////////////////////////////////////////
+            //
+            // Loader & Library Commands
+            //
+            ///////////////////////////////////////////////////////////////////////////////////////////
 
             if ((code == ReturnCode.Ok) && !noCommands)
             {
@@ -82088,9 +82133,30 @@ namespace Eagle._Components.Public
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
+            //
+            // Unsupported & Test Commands (optional)
+            //
+            ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if TEST
-            if ((code == ReturnCode.Ok) && GlobalConfiguration.DoesValueExist(
+            if ((code == ReturnCode.Ok) && !noCommands &&
+                FlagOps.HasFlags(
+                    initializeFlags, InitializeFlags.Unsupported, true))
+            {
+                if (FlagOps.HasFlags(
+                        initializeFlags, InitializeFlags.Unsupported, true))
+                {
+                    code = _Tests.Default.TestAddUnsupportedCommands(
+                        this, null, ref result);
+                }
+            }
+#endif
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if TEST
+            if ((code == ReturnCode.Ok) && !noCommands &&
+                GlobalConfiguration.DoesValueExist(
                     EnvVars.TestCommands, ConfigurationFlags.Interpreter))
             {
                 LongList tokens = null;
