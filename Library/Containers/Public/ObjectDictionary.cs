@@ -195,6 +195,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static ObjectDictionary FromString(
+            string value,
+            bool viaScript,
+            bool addOnly
+            )
+        {
+            Result error = null;
+
+            return FromString(value, viaScript, addOnly, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ObjectDictionary FromString(
             string value,
             bool viaScript,
@@ -263,32 +276,68 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         public long TraverseAndCount(
-            Interpreter interpreter,
-            string pattern,
-            bool noCase
+            Interpreter interpreter, /* in */
+            string pattern,          /* in */
+            bool noCase,             /* in */
+            bool matchAll,           /* in */
+            bool viaScript,          /* in */
+            bool aggressive          /* in */
+            )
+        {
+            return TraverseAndCount(
+                interpreter, 0, pattern, noCase, matchAll, viaScript,
+                aggressive);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private long TraverseAndCount(
+            Interpreter interpreter, /* in */
+            int level,               /* in */
+            string pattern,          /* in */
+            bool noCase,             /* in */
+            bool matchAll,           /* in */
+            bool viaScript,          /* in */
+            bool aggressive          /* in */
             )
         {
             long count = 0;
 
             foreach (ObjectPair pair in this)
             {
-                if ((pattern != null) && !Parser.StringMatch(
-                        interpreter, pair.Key, 0, pattern, 0,
-                        noCase))
+                if (matchAll || (level == 0))
                 {
-                    continue;
+                    if ((pattern != null) && !Parser.StringMatch(
+                            interpreter, pair.Key, 0, pattern, 0, noCase))
+                    {
+                        continue;
+                    }
                 }
+
+                count++; // NOTE: Another visited (or matching) key.
 
                 ObjectDictionary dictionary = pair.Value as ObjectDictionary;
 
                 if (dictionary == null)
                 {
-                    count++; // NOTE: Another (matching) key, normal value.
+                    if (aggressive)
+                    {
+                        dictionary = FromString(
+                            StringOps.GetStringFromObject(pair.Value),
+                            viaScript, false);
+
+                        if (dictionary != null)
+                            goto recurse;
+                    }
+
                     continue;
                 }
 
+            recurse:
+
                 count += dictionary.TraverseAndCount(
-                    interpreter, pattern, noCase); /* RECURSIVE */
+                    interpreter, level + 1, pattern, noCase, matchAll,
+                    viaScript, aggressive); /* RECURSIVE */
             }
 
             return count;
@@ -393,7 +442,7 @@ namespace Eagle._Containers.Public
                     }
                     else
                     {
-                        localDictionary = ObjectDictionary.FromString(
+                        localDictionary = FromString(
                             StringOps.GetStringFromObject(localValue),
                             viaScript, false, ref error);
 
@@ -486,7 +535,7 @@ namespace Eagle._Containers.Public
                 if (dictionary != null)
                     continue;
 
-                dictionary = ObjectDictionary.FromString(
+                dictionary = FromString(
                     StringOps.GetStringFromObject(localValue),
                     viaScript, false, ref error);
 

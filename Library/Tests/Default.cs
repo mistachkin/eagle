@@ -30621,8 +30621,10 @@ namespace Eagle._Tests
                                 }
 
                                 result = String.Format(
-                                    "{0} root entries in table, {1} nested entries in table, hash code 0x{2:X}",
-                                    dictionary.Count, dictionary.TraverseAndCount(interpreter, null, false),
+                                    "{0} root entries in table, {1} nested entries " +
+                                    "in table, hash code 0x{2:X}", dictionary.Count,
+                                    dictionary.TraverseAndCount(
+                                        interpreter, null, false, false, true, true),
                                     dictionary.GetHashCode());
                             }
                             else
@@ -31323,7 +31325,10 @@ namespace Eagle._Tests
                                             ref stopOnNotFound, ref result);
 
                                         if (localDictionary == null)
+                                        {
+                                            code = ReturnCode.Error;
                                             goto done;
+                                        }
                                     }
                                     else
                                     {
