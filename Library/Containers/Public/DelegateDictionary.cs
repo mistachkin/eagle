@@ -19,13 +19,21 @@ using System.Runtime.Serialization;
 using Eagle._Attributes;
 using Eagle._Interfaces.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, System.Delegate>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, System.Delegate>;
+#endif
+
 namespace Eagle._Containers.Public
 {
 #if SERIALIZATION
     [Serializable()]
 #endif
     [ObjectId("90375f51-488b-4fa6-9aed-510f70eefac4")]
-    public sealed class DelegateDictionary : Dictionary<string, Delegate>
+    public sealed class DelegateDictionary : SomeDictionary
     {
         #region Public Constructors
         public DelegateDictionary()

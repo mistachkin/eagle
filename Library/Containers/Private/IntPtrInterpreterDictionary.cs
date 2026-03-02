@@ -17,6 +17,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    System.IntPtr, Eagle._Components.Public.Interpreter>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    System.IntPtr, Eagle._Components.Public.Interpreter>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,8 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("f2367147-1421-40a9-8a4a-1558432232d1")]
-    internal sealed class IntPtrInterpreterDictionary :
-            Dictionary<IntPtr, Interpreter>, ICloneable
+    internal sealed class IntPtrInterpreterDictionary : SomeDictionary, ICloneable
     {
         #region Public Constructors
         public IntPtrInterpreterDictionary()

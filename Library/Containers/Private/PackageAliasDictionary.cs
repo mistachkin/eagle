@@ -25,6 +25,16 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Components.Public.AnyTriplet<string,
+    System.Version, Eagle._Components.Public.PackageFlags?>>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Components.Public.AnyTriplet<string,
+    System.Version, Eagle._Components.Public.PackageFlags?>>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -35,8 +45,7 @@ namespace Eagle._Containers.Private
     [Serializable()]
 #endif
     [ObjectId("6659ef52-e343-4c50-8d2b-24c8d055ae5d")]
-    internal sealed class PackageAliasDictionary :
-            Dictionary<string, AnyTriplet<string, System.Version, PackageFlags?>>
+    internal sealed class PackageAliasDictionary : SomeDictionary
     {
         #region Public Constructors
         public PackageAliasDictionary()

@@ -343,7 +343,7 @@ runTest {test array-1.26 {no recycled array elements} -setup {
     lappend foo(1) one
     lappend foo(2) two
 
-    return [array get foo]
+    return [testArrayGet foo]
   }
 } -body {
   list [myProc1] [unset foo] [myProc1]

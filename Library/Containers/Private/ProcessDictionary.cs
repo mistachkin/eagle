@@ -16,6 +16,10 @@ using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 
+#if FAST_DICTIONARY
+using Eagle._Containers.Public;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -23,7 +27,12 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("e061793d-5cad-4146-94a8-2b1a557aa15f")]
-    internal class ProcessDictionary<T> : Dictionary<Process, T>
+    internal class ProcessDictionary<T> :
+#if FAST_DICTIONARY
+        FastDictionary<Process, T>
+#else
+        Dictionary<Process, T>
+#endif
     {
         #region Public Constructors
         public ProcessDictionary()

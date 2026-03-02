@@ -16,12 +16,19 @@ using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, System.Collections.Generic.List<System.DateTime>>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, System.Collections.Generic.List<System.DateTime>>;
+#endif
+
 namespace Eagle._Containers.Private
 {
     [ObjectId("5abc22da-28bb-4d04-9c9d-c1067aa50c4f")]
     internal sealed class DateTimeListDictionary :
-            Dictionary<string, List<DateTime>>,
-            IDictionary<string, List<DateTime>>
+            SomeDictionary, IDictionary<string, List<DateTime>>
     {
         #region Public Constructors
         public DateTimeListDictionary()

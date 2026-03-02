@@ -1388,6 +1388,13 @@
     <EagleCacheDictionary Condition="'$(EagleCacheDictionary)' == ''">false</EagleCacheDictionary>
 
     <!--
+        NOTE: *EXPERIMENTAL* Enable use of the custom "fast" dictionary class?
+              By default, this is disabled.  This feature has not been fully
+              regression tested and may cause issues.
+    -->
+    <EagleFastDictionary Condition="'$(EagleFastDictionary)' == ''">false</EagleFastDictionary>
+
+    <!--
         NOTE: *EXPERIMENTAL* Enable caching of the string representations that
               are returned from the Argument.ToString method?  By default, this
               is enabled.  If this is disabled, overall performance of the core

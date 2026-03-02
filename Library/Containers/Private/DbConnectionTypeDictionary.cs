@@ -25,6 +25,16 @@ using Eagle._Containers.Public;
 using ConnectionTriplet = Eagle._Components.Public.AnyTriplet<
     string, string, byte[]>;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    Eagle._Components.Public.DbConnectionType,
+    Eagle._Components.Public.AnyTriplet<string, string, byte[]>>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    Eagle._Components.Public.DbConnectionType,
+    Eagle._Components.Public.AnyTriplet<string, string, byte[]>>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -35,8 +45,7 @@ namespace Eagle._Containers.Private
     [Serializable()]
 #endif
     [ObjectId("68dabc08-7849-439f-bcc7-bf5d6fb1a43e")]
-    internal sealed class DbConnectionTypeDictionary :
-            Dictionary<DbConnectionType, ConnectionTriplet>
+    internal sealed class DbConnectionTypeDictionary : SomeDictionary
     {
         #region Public Constructors
         public DbConnectionTypeDictionary()

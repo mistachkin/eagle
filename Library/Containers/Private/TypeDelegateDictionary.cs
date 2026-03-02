@@ -17,6 +17,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    System.Type, System.Delegate>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    System.Type, System.Delegate>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("cd380ed7-7485-4daa-a212-3b11e35e3cf4")]
-    internal sealed class TypeDelegateDictionary : Dictionary<Type, Delegate>
+    internal sealed class TypeDelegateDictionary : SomeDictionary
     {
         public TypeDelegateDictionary()
             : base()

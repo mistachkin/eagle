@@ -1012,6 +1012,10 @@ namespace Eagle._Components.Public
             {
                 return true;
             }
+            else if (type == typeof(ObjectDictionary))
+            {
+                return true;
+            }
             else if (type.IsEnum)
             {
                 return true;
@@ -1153,6 +1157,16 @@ namespace Eagle._Components.Public
         [DebuggerStepThrough()]
         private static Argument FromResultList(
             ResultList value
+            )
+        {
+            return PrivateCreate((object)value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        private static Argument FromObjectDictionary(
+            ObjectDictionary value
             )
         {
             return PrivateCreate((object)value);
@@ -1596,6 +1610,16 @@ namespace Eagle._Components.Public
             )
         {
             return FromResultList(value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        public static implicit operator Argument(
+            ObjectDictionary value
+            )
+        {
+            return FromObjectDictionary(value);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2354,12 +2378,13 @@ namespace Eagle._Components.Public
 
         [DebuggerStepThrough()]
         public object GetCacheValue(
-            Interpreter interpreter
+            Interpreter interpreter,
+            bool noGeneration
             )
         {
 #if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
-            if ((interpreter == null) ||
-                !interpreter.MatchCacheGeneration(true, ref cacheGeneration))
+            if (!noGeneration && ((interpreter == null) ||
+                !interpreter.MatchCacheGeneration(true, ref cacheGeneration)))
             {
                 return null;
             }
@@ -2373,12 +2398,13 @@ namespace Eagle._Components.Public
         [DebuggerStepThrough()]
         public bool SetCacheValue(
             Interpreter interpreter,
-            object value
+            object value,
+            bool noGeneration
             )
         {
 #if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
-            if ((interpreter == null) ||
-                !interpreter.MatchCacheGeneration(false, ref cacheGeneration))
+            if (!noGeneration && ((interpreter == null) ||
+                !interpreter.MatchCacheGeneration(false, ref cacheGeneration)))
             {
                 return false;
             }

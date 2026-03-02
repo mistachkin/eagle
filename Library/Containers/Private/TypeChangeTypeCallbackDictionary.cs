@@ -23,6 +23,14 @@ using Eagle._Components.Public.Delegates;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    System.Type, Eagle._Components.Public.Delegates.ChangeTypeCallback>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    System.Type, Eagle._Components.Public.Delegates.ChangeTypeCallback>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -33,7 +41,7 @@ namespace Eagle._Containers.Private
     [Serializable()]
 #endif
     [ObjectId("e5b4fd82-6b1f-4a20-8074-45629b66c413")]
-    internal sealed class TypeChangeTypeCallbackDictionary : Dictionary<Type, ChangeTypeCallback>
+    internal sealed class TypeChangeTypeCallbackDictionary : SomeDictionary
     {
         #region Public Constructors
         public TypeChangeTypeCallbackDictionary()

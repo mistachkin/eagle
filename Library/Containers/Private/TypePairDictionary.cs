@@ -26,7 +26,12 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("6c1d18ae-540c-458a-9c07-de27dd62b4df")]
-    internal sealed class TypePairDictionary<T1, T2> : Dictionary<Type, IAnyPair<T1, T2>>
+    internal sealed class TypePairDictionary<T1, T2> :
+#if FAST_DICTIONARY
+        FastDictionary<Type, IAnyPair<T1, T2>>
+#else
+        Dictionary<Type, IAnyPair<T1, T2>>
+#endif
     {
         #region Public Constructors
         public TypePairDictionary()

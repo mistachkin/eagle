@@ -26,7 +26,13 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("272c4460-6219-4683-a719-e297146d5992")]
-    public class UriDictionary<T> : Dictionary<Uri, T> where T : new()
+    public class UriDictionary<T> :
+#if FAST_DICTIONARY
+            FastDictionary<Uri, T>
+#else
+            Dictionary<Uri, T>
+#endif
+            where T : new()
     {
         #region Public Constructors
         public UriDictionary()

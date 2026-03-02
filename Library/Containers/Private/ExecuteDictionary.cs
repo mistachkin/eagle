@@ -17,6 +17,14 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Interfaces.Public.IExecute>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Interfaces.Public.IExecute>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("0d1fbbf8-b4e1-4d7f-af3b-b4e08f085ac3")]
-    internal sealed class ExecuteDictionary : Dictionary<string, IExecute>
+    internal sealed class ExecuteDictionary : SomeDictionary
     {
         public ExecuteDictionary()
             : base()

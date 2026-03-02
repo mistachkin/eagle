@@ -213,15 +213,15 @@ runTest {test namespace-97.9 {object load -namespace} -setup {
     #       procedure is building a command name, not an object name.
     #
     list [[appendArgs ::foo:: $x] ToString] \
-        [info commands foo::*] [info objects] [unset x] \
-        [info commands foo::*] [info objects]
+        [info commands foo::*] [lsort [info objects]] [unset x] \
+        [info commands foo::*] [lsort [info objects]]
   }
 } -cleanup {
   catch {interp delete $i}
 
   unset -nocomplain i
 } -constraints {eagle command.object namespaces.available} -match regexp \
--result {^0 ::foo::System#Int32#\d+ \{null System#Int32#\d+\} \{\} \{\} null$}}
+-result {^0 ::foo::System#Int32#\d+ \{System#Int32#\d+ null\} \{\} \{\} null$}}
 
 ###############################################################################
 
@@ -253,7 +253,7 @@ runTest {test namespace-97.10 {namespace rename (no cmds/vars)} -setup {
 
   lappend result [interp eval $i {
     set result ""
-    list [info procs] [info vars] \
+    list [info procs] [lsort [info vars]] \
         [catch {namespace children} result] $result \
         [catch {namespace children foo} result] $result \
         [catch {namespace children foo::bar} result] $result \
@@ -273,7 +273,7 @@ runTest {test namespace-97.10 {namespace rename (no cmds/vars)} -setup {
 
   lappend result [interp eval $i {
     set result ""
-    list [info procs] [info vars] \
+    list [info procs] [lsort [info vars]] \
         [catch {namespace children} result] $result \
         [catch {namespace children foo} result] $result \
         [catch {namespace children foo::bar} result] $result \
@@ -288,8 +288,8 @@ runTest {test namespace-97.10 {namespace rename (no cmds/vars)} -setup {
 } -constraints {eagle command.object namespaces.available compile.TEST\
 Eagle._Tests.Default.TestRenameNamespace} -result {{g1 {g result} 0 ::foo 0\
 ::foo::bar 0 ::foo::bar::splog 0 {} 1 {namespace "foo::x" not found in "::"} 1\
-{namespace "foo::x::splog" not found in "::"}} {g1 {g result errorInfo\
-errorCode} 0 ::foo 0 ::foo::x 1 {namespace "foo::bar" not found in "::"} 1\
+{namespace "foo::x::splog" not found in "::"}} {g1 {errorCode errorInfo g\
+result} 0 ::foo 0 ::foo::x 1 {namespace "foo::bar" not found in "::"} 1\
 {namespace "foo::bar::splog" not found in "::"} 0 ::foo::x::splog 0 {}}}}
 
 ###############################################################################
@@ -616,7 +616,7 @@ runTest {test namespace-99.999 {delete global w/o marking undefined} -setup {
     error [getStringFromObjectHandle $result]
   }
 
-  interp eval $i {set x 2; list [info vars] [info exists x]}
+  interp eval $i {set x 2; list [lsort [info vars]] [info exists x]}
 } -cleanup {
   catch {interp delete $i}
 

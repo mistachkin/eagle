@@ -26,6 +26,12 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<long, long>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<long, long>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -36,7 +42,7 @@ namespace Eagle._Containers.Private
     [Serializable()]
 #endif
     [ObjectId("4aa7c66d-41e8-4041-a858-5da1036ce8c4")]
-    internal sealed class LongLongDictionary : Dictionary<long, long>
+    internal sealed class LongLongDictionary : SomeDictionary
     {
         #region Private Constants
         private static readonly string KeyFormat = "X";

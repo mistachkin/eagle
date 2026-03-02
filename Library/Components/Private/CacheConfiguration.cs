@@ -43,7 +43,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // NOTE: These are the delimters used to split the settings text into
+        // NOTE: These are the delimiters used to split the settings text into
         //       its parts, which are then (currently) converted to integers.
         //
         private static readonly char[] Separators = {

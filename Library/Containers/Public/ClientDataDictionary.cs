@@ -25,6 +25,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Interfaces.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Interfaces.Public.IClientData>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Interfaces.Public.IClientData>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -35,7 +43,7 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("97d997cf-2db3-4d0d-8272-698435511b26")]
-    public sealed class ClientDataDictionary : Dictionary<string, IClientData>
+    public sealed class ClientDataDictionary : SomeDictionary
     {
         #region Public Constructors
         public ClientDataDictionary()

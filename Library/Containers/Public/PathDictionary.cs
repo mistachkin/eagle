@@ -36,7 +36,12 @@ namespace Eagle._Containers.Public
 #endif
     [ObjectId("0a2942ed-d174-4549-8cdf-8e8cf003d9b9")]
     public class PathDictionary<T> :
-            Dictionary<string, T>, IDictionary<string, T> where T : new()
+#if FAST_DICTIONARY
+            FastDictionary<string, T>,
+#else
+            Dictionary<string, T>,
+#endif
+            IDictionary<string, T> where T : new()
     {
         #region Private Data
         //
@@ -485,14 +490,14 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Collections.Generic.Dictionary<string, TValue> Overrides
-        public new KeyCollection Keys
+        public new ICollection<string> Keys
         {
             get { throw new NotSupportedException(); }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public new ValueCollection Values
+        public new ICollection<T> Values
         {
             get { throw new NotSupportedException(); }
         }
@@ -542,9 +547,9 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public new Dictionary<string, T>.Enumerator GetEnumerator()
+        public new IEnumerator<KeyValuePair<string, T>> GetEnumerator()
         {
-            return (Dictionary<string, T>.Enumerator)GetBaseEnumerator();
+            return GetBaseEnumerator();
         }
 
         ///////////////////////////////////////////////////////////////////////

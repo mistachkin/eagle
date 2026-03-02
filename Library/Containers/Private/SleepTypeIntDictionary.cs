@@ -15,6 +15,14 @@ using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    Eagle._Components.Public.SleepType, int>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    Eagle._Components.Public.SleepType, int>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -22,7 +30,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("29f6c8d2-8288-4447-88da-730f3a8f927d")]
-    internal sealed class SleepTypeIntDictionary : Dictionary<SleepType, int>
+    internal sealed class SleepTypeIntDictionary : SomeDictionary
     {
         #region Public Constructors
         public SleepTypeIntDictionary()

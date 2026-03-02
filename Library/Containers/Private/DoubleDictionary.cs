@@ -20,6 +20,13 @@ using System.Runtime.Serialization;
 #endif
 
 using Eagle._Attributes;
+using Eagle._Containers.Public;
+
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<string, double>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<string, double>;
+#endif
 
 namespace Eagle._Containers.Private
 {
@@ -27,7 +34,7 @@ namespace Eagle._Containers.Private
     [Serializable()]
 #endif
     [ObjectId("89e7e6d4-4366-472a-8d8e-f62acc65229e")]
-    internal sealed class DoubleDictionary : Dictionary<string, double>
+    internal sealed class DoubleDictionary : SomeDictionary
     {
         public DoubleDictionary()
             : base()

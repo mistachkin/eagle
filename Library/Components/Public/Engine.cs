@@ -11138,7 +11138,7 @@ namespace Eagle._Components.Public
                 if (viaArgument)
                 {
                     execute = argument.GetCacheValue(
-                        interpreter) as IExecute;
+                        interpreter, false) as IExecute;
 
                     if (execute != null)
                         return true;
@@ -11158,9 +11158,14 @@ namespace Eagle._Components.Public
             )
         {
             if (viaArgument && (argument != null))
-                return argument.SetCacheValue(interpreter, execute);
+            {
+                return argument.SetCacheValue(
+                    interpreter, execute, false);
+            }
             else
+            {
                 return false;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////

@@ -5828,7 +5828,7 @@ namespace Eagle._Components.Private
                 {
                     ISubCommand localSubCommand =
                         secondArgument.GetCacheValue(
-                            interpreter) as ISubCommand;
+                            interpreter, false) as ISubCommand;
 
                     if (localSubCommand != null)
                     {
@@ -5851,9 +5851,14 @@ namespace Eagle._Components.Private
             )
         {
             if (viaArgument && (argument != null))
-                return argument.SetCacheValue(interpreter, subCommand);
+            {
+                return argument.SetCacheValue(
+                    interpreter, subCommand, false);
+            }
             else
+            {
                 return false;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////

@@ -45,6 +45,8 @@ namespace Eagle._Containers.Private
     internal sealed class IntPtrTypeListDictionary :
 #if CACHE_DICTIONARY
         CacheDictionary<IntPtr, TypeList>
+#elif FAST_DICTIONARY
+        FastDictionary<IntPtr, TypeList>
 #else
         Dictionary<IntPtr, TypeList>
 #endif

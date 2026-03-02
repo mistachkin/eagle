@@ -29,6 +29,14 @@ using StringPair = System.Collections.Generic.KeyValuePair<string, string>;
 using RuleSetPair = System.Collections.Generic.KeyValuePair<string,
     Eagle._Interfaces.Public.IRuleSet>;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Interfaces.Public.IRuleSet>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Interfaces.Public.IRuleSet>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -39,8 +47,7 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("6b3804d6-cbb3-4830-9cdf-5e3c6ab5f6e6")]
-    public sealed class RuleSetDictionary :
-            Dictionary<string, IRuleSet>, IDisposable
+    public sealed class RuleSetDictionary : SomeDictionary, IDisposable
     {
         #region Public Constructors
         public RuleSetDictionary()

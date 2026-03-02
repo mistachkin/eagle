@@ -11360,6 +11360,12 @@ namespace Eagle._Tests
                 return ReturnCode.Error;
             }
 
+            if (list1 != null)
+                list1.Sort();
+
+            if (list2 != null)
+                list2.Sort();
+
             result = StringList.MakeList(
                 "commands", list1, "hiddenCommands", list2);
 
@@ -30099,7 +30105,7 @@ namespace Eagle._Tests
                                         builder = StringBuilderFactory.Create();
                                     }
 
-                                    dictionary[keyName] = builder;
+                                    dictionary.InternalAddOrChange(keyName, builder);
 
                                     for (argumentIndex = 4;
                                             argumentIndex < argumentCount; argumentIndex++)
@@ -30119,8 +30125,7 @@ namespace Eagle._Tests
 
                                     EntityOps.SignalDirty(variable, null);
 
-                                    result = Result.FromObject(
-                                        dictionary, false, false, false);
+                                    result = dictionary;
                                 }
                             }
                             else
@@ -30141,12 +30146,12 @@ namespace Eagle._Tests
                                         argumentIndex < argumentCount;
                                         argumentIndex += 2)
                                 {
-                                    dictionary[arguments[argumentIndex]] =
-                                        arguments[argumentIndex + 1];
+                                    dictionary.InternalAddOrChange(
+                                        arguments[argumentIndex],
+                                        arguments[argumentIndex + 1]);
                                 }
 
-                                result = Result.FromObject(
-                                    dictionary, false, false, false);
+                                result = dictionary;
                             }
                             else
                             {
@@ -30159,8 +30164,8 @@ namespace Eagle._Tests
                         {
                             if (argumentCount >= 4)
                             {
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[2], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[2], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -30182,8 +30187,8 @@ namespace Eagle._Tests
                         {
                             if (argumentCount >= 4)
                             {
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[2], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[2], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -30221,13 +30226,13 @@ namespace Eagle._Tests
                                                                 interpreter, MatchMode.Glob,
                                                                 pair.Key, pattern, false))
                                                         {
-                                                            localDictionary[pair.Key] = pair.Value;
+                                                            localDictionary.InternalAddOrChange(
+                                                                pair.Key, pair.Value);
                                                         }
                                                     }
                                                 }
 
-                                                result = Result.FromObject(
-                                                    localDictionary, false, false, false);
+                                                result = localDictionary;
                                             }
                                             else
                                             {
@@ -30255,13 +30260,13 @@ namespace Eagle._Tests
                                                                 StringOps.GetStringFromObject(
                                                                     pair.Value), pattern, false))
                                                         {
-                                                            localDictionary[pair.Key] = pair.Value;
+                                                            localDictionary.InternalAddOrChange(
+                                                                pair.Key, pair.Value);
                                                         }
                                                     }
                                                 }
 
-                                                result = Result.FromObject(
-                                                    localDictionary, false, false, false);
+                                                result = localDictionary;
                                             }
                                             else
                                             {
@@ -30337,14 +30342,14 @@ namespace Eagle._Tests
                                                         break;
 
                                                     if (boolValue)
-                                                        localDictionary[pair.Key] = pair.Value;
+                                                    {
+                                                        localDictionary.InternalAddOrChange(
+                                                            pair.Key, pair.Value);
+                                                    }
                                                 }
 
                                                 if (code == ReturnCode.Ok)
-                                                {
-                                                    result = Result.FromObject(
-                                                        localDictionary, false, false, false);
-                                                }
+                                                    result = localDictionary;
                                             }
                                             else
                                             {
@@ -30393,8 +30398,8 @@ namespace Eagle._Tests
                                     goto done;
                                 }
 
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[3], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[3], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -30492,8 +30497,8 @@ namespace Eagle._Tests
                         {
                             if (argumentCount >= 3)
                             {
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[2], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[2], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -30583,7 +30588,7 @@ namespace Eagle._Tests
                                     }
 
                                     longValue += increment;
-                                    dictionary[keyName] = longValue;
+                                    dictionary.InternalAddOrChange(keyName, longValue);
 
                                     code = interpreter.FireTraces(
                                         BreakpointType.BeforeVariableSet, variableFlags,
@@ -30611,8 +30616,8 @@ namespace Eagle._Tests
                         {
                             if (argumentCount == 3)
                             {
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[2], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[2], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -30638,8 +30643,8 @@ namespace Eagle._Tests
                         {
                             if ((argumentCount >= 3) && (argumentCount <= 4))
                             {
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[2], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[2], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -30713,7 +30718,7 @@ namespace Eagle._Tests
                                         list.Add(arguments[argumentIndex]);
                                     }
 
-                                    dictionary[keyName] = list;
+                                    dictionary.InternalAddOrChange(keyName, list);
 
                                     code = interpreter.FireTraces(
                                         BreakpointType.BeforeVariableSet, variableFlags,
@@ -30727,8 +30732,7 @@ namespace Eagle._Tests
 
                                     EntityOps.SignalDirty(variable, null);
 
-                                    result = Result.FromObject(
-                                        dictionary, false, false, false);
+                                    result = dictionary;
                                 }
                             }
                             else
@@ -30759,8 +30763,8 @@ namespace Eagle._Tests
                                     goto done;
                                 }
 
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[3], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[3], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -30820,7 +30824,10 @@ namespace Eagle._Tests
                                             break;
 
                                         if (!String.IsNullOrEmpty(localResult))
-                                            localDictionary[pair.Key] = localResult;
+                                        {
+                                            localDictionary.InternalAddOrChange(
+                                                pair.Key, localResult);
+                                        }
                                     }
                                     else if (code == ReturnCode.Continue)
                                     {
@@ -30850,10 +30857,7 @@ namespace Eagle._Tests
                                 }
 
                                 if (code == ReturnCode.Ok)
-                                {
-                                    result = Result.FromObject(
-                                        localDictionary, false, false, false);
-                                }
+                                    result = localDictionary;
                             }
                             else
                             {
@@ -30872,8 +30876,8 @@ namespace Eagle._Tests
                                         argumentIndex < argumentCount;
                                         argumentIndex++)
                                 {
-                                    otherDictionary = ObjectDictionary.FromString(
-                                        arguments[argumentIndex], true, false, ref result);
+                                    otherDictionary = ObjectDictionary.FromValue(
+                                        interpreter, arguments[argumentIndex], true, false, ref result);
 
                                     if (otherDictionary == null)
                                     {
@@ -30882,11 +30886,10 @@ namespace Eagle._Tests
                                     }
 
                                     foreach (ObjectPair pair in otherDictionary)
-                                        dictionary[pair.Key] = pair.Value;
+                                        dictionary.InternalAddOrChange(pair.Key, pair.Value);
                                 }
 
-                                result = Result.FromObject(
-                                    dictionary, false, false, false);
+                                result = dictionary;
                             }
                             else
                             {
@@ -30899,8 +30902,8 @@ namespace Eagle._Tests
                         {
                             if (argumentCount >= 3)
                             {
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[2], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[2], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -30908,15 +30911,18 @@ namespace Eagle._Tests
                                     goto done;
                                 }
 
+                                dictionary = new ObjectDictionary(
+                                    (IDictionary<string, object>)dictionary);
+
                                 for (argumentIndex = 3;
                                         argumentIndex < argumentCount;
                                         argumentIndex++)
                                 {
-                                    dictionary.Remove(arguments[argumentIndex]);
+                                    /* IGNORED */
+                                    dictionary.InternalRemove(arguments[argumentIndex]);
                                 }
 
-                                result = Result.FromObject(
-                                    dictionary, false, false, false);
+                                result = dictionary;
                             }
                             else
                             {
@@ -30930,8 +30936,8 @@ namespace Eagle._Tests
                             if ((argumentCount >= 3) &&
                                 (((argumentCount - 3) % 2) == 0))
                             {
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[2], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[2], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -30939,16 +30945,19 @@ namespace Eagle._Tests
                                     goto done;
                                 }
 
+                                dictionary = new ObjectDictionary(
+                                    (IDictionary<string, object>)dictionary);
+
                                 for (argumentIndex = 3;
                                         argumentIndex < argumentCount;
                                         argumentIndex += 2)
                                 {
-                                    dictionary[arguments[argumentIndex]] =
-                                        arguments[argumentIndex + 1];
+                                    dictionary.InternalAddOrChange(
+                                        arguments[argumentIndex],
+                                        arguments[argumentIndex + 1]);
                                 }
 
-                                result = Result.FromObject(
-                                    dictionary, false, false, false);
+                                result = dictionary;
                             }
                             else
                             {
@@ -30998,7 +31007,8 @@ namespace Eagle._Tests
 
                                     keyName = arguments[argumentCount - 2];
                                     value = arguments[argumentCount - 1];
-                                    localDictionary[keyName] = value;
+
+                                    localDictionary.InternalAddOrChange(keyName, value);
 
                                     code = interpreter.FireTraces(
                                         BreakpointType.BeforeVariableSet, variableFlags,
@@ -31012,8 +31022,7 @@ namespace Eagle._Tests
 
                                     EntityOps.SignalDirty(variable, null);
 
-                                    result = Result.FromObject(
-                                        dictionary, false, false, false);
+                                    result = dictionary;
                                 }
                             }
                             else
@@ -31027,8 +31036,8 @@ namespace Eagle._Tests
                         {
                             if (argumentCount == 3)
                             {
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[2], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[2], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -31097,8 +31106,11 @@ namespace Eagle._Tests
                                         localDictionary = dictionary;
                                     }
 
-                                    localDictionary.Remove(arguments[argumentCount - 1]);
-                                    changeCount++;
+                                    if (localDictionary.InternalRemove(
+                                            arguments[argumentCount - 1]))
+                                    {
+                                        changeCount++;
+                                    }
 
                                 skipUnset:
 
@@ -31124,8 +31136,7 @@ namespace Eagle._Tests
                                         EntityOps.SignalDirty(variable, null);
                                     }
 
-                                    result = Result.FromObject(
-                                        dictionary, false, false, false);
+                                    result = dictionary;
                                 }
                             }
                             else
@@ -31224,11 +31235,13 @@ namespace Eagle._Tests
                                                     arguments[argumentIndex + 1],
                                                     ref localResult) == ReturnCode.Ok)
                                             {
-                                                dictionary[keyName] = localResult;
+                                                dictionary.InternalAddOrChange(
+                                                    keyName, localResult);
                                             }
                                             else
                                             {
-                                                dictionary.Remove(keyName);
+                                                /* IGNORED */
+                                                dictionary.InternalRemove(keyName);
                                             }
                                         }
 
@@ -31273,8 +31286,8 @@ namespace Eagle._Tests
                         {
                             if ((argumentCount >= 3) && (argumentCount <= 4))
                             {
-                                dictionary = ObjectDictionary.FromString(
-                                    arguments[2], true, false, ref result);
+                                dictionary = ObjectDictionary.FromValue(
+                                    interpreter, arguments[2], true, false, ref result);
 
                                 if (dictionary == null)
                                 {
@@ -31412,11 +31425,13 @@ namespace Eagle._Tests
                                                     VariableFlags.None, keyName2,
                                                     ref localResult) == ReturnCode.Ok)
                                             {
-                                                otherDictionary[keyName2] = localResult;
+                                                otherDictionary.InternalAddOrChange(
+                                                    keyName2, localResult);
                                             }
                                             else
                                             {
-                                                otherDictionary.Remove(keyName2);
+                                                /* IGNORED */
+                                                otherDictionary.InternalRemove(keyName2);
                                             }
                                         }
 

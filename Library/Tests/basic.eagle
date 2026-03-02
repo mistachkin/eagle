@@ -2076,21 +2076,21 @@ runTest {test basic-1.64 {[array] System.Array variables} -setup {
 } -body {
   list [catch {set ptrVar(0,0) 0x12345678} result(0)] $result(0) \
       [catch {set objVar(0) $test} result(1)] $result(1) \
-      [catch {array names ptrVar} result(2)] $result(2) \
-      [catch {array names ptrVar 1,*} result(3)] $result(3) \
-      [catch {array values ptrVar} result(4)] $result(4) \
-      [catch {array values ptrVar 305419896} result(5)] $result(5) \
-      [catch {array get ptrVar} result(6)] $result(6) \
-      [catch {array get ptrVar 1,*} result(7)] $result(7) \
+      [catch {lsort [array names ptrVar]} result(2)] $result(2) \
+      [catch {lsort [array names ptrVar 1,*]} result(3)] $result(3) \
+      [catch {lsort [array values ptrVar]} result(4)] $result(4) \
+      [catch {lsort [array values ptrVar 305419896]} result(5)] $result(5) \
+      [catch {testArrayGet ptrVar} result(6)] $result(6) \
+      [catch {testArrayGet2 ptrVar 1,*} result(7)] $result(7) \
       [catch {array size ptrVar} result(8)] $result(8) \
       [catch {array unset ptrVar *} result(9)] $result(9) \
       [catch {array unset ptrVar} result(10)] $result(10) \
-      [catch {array names objVar} result(11)] $result(11) \
-      [catch {array names objVar 1} result(12)] $result(12) \
-      [catch {array values objVar} result(13)] $result(13) \
-      [catch {array values objVar Default#*} result(14)] $result(14) \
-      [catch {array get objVar} result(15)] $result(15) \
-      [catch {array get objVar 1} result(16)] $result(16) \
+      [catch {lsort [array names objVar]} result(11)] $result(11) \
+      [catch {lsort [array names objVar 1]} result(12)] $result(12) \
+      [catch {lsort [array values objVar]} result(13)] $result(13) \
+      [catch {lsort [array values objVar Default#*]} result(14)] $result(14) \
+      [catch {testArrayGet objVar} result(15)] $result(15) \
+      [catch {testArrayGet2 objVar 1} result(16)] $result(16) \
       [catch {array size objVar} result(17)] $result(17) \
       [catch {array unset objVar *} result(18)] $result(18) \
       [catch {array unset objVar} result(19)] $result(19)
@@ -2124,11 +2124,12 @@ Eagle._Tests.Default.TestIntPtrChangeTypeCallback\
 Eagle._Tests.Default.TestSetVariableSystemArray\
 Eagle._Tests.Default.TestUnsetVariableSystemArray} -match regexp -result {^0\
 0x12345678 0 Default#\d+ 0 \{0,0 0,1 0,2 1,0 1,1 1,2\} 0 \{1,0 1,1 1,2\} 0\
-\{305419896 0 0 0 0 0\} 0 305419896 0 \{0,0 0,1 0,2 1,0 1,1 1,2\} 0 \{1,0 1,1\
-1,2\} 0 6 1 \{can't unset matching "ptrVar" elements: operation not supported\
-for "System\.Array"\} 0 \{\} 0 0 0 \{\} 0 Eagle\._Tests\.Default 0 \{\} 0 0 0\
-\{\} 0 1 1 \{can't unset matching "objVar" elements: operation not supported\
-for "System\.Array"\} 0 \{\}$}}
+\{0 0 0 0 0 305419896\} 0 305419896 0 \{0,0 305419896 0,1 0 0,2 0 1,0 0 1,1 0\
+1,2 0\} 0 \{1,0 0 1,1 0 1,2 0\} 0 6 1 \{can't unset matching "ptrVar" elements:\
+operation not supported for "System\.Array"\} 0 \{\} 0 0 0 \{\} 0\
+Eagle\._Tests\.Default 0 \{\} 0 \{0 Default#\d+\} 0 \{\} 0 1 1 \{can't unset\
+matching "objVar" elements: operation not supported for "System\.Array"\} 0\
+\{\}$}}
 
 ###############################################################################
 
@@ -2161,7 +2162,7 @@ runTest {test basic-1.65 {[array startsearch] System.Array variables} -setup {
     lappend result $next $ptrVar($next)
   }
 
-  set result
+  testSortDictionary $result
 } -cleanup {
   array donesearch ptrVar $search; unset -nocomplain search
 

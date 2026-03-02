@@ -16,6 +16,15 @@ using Eagle._Components.Private.Tcl;
 using Eagle._Components.Public;
 using Eagle._Constants;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Components.Private.Tcl.TclBridge>;
+
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Components.Private.Tcl.TclBridge>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -28,7 +37,7 @@ namespace Eagle._Containers.Private.Tcl
 #else
     internal
 #endif
-    sealed class TclBridgeDictionary : Dictionary<string, TclBridge>
+    sealed class TclBridgeDictionary : SomeDictionary
     {
         #region Public Constructors
         public TclBridgeDictionary()

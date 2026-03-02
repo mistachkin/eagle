@@ -43,6 +43,8 @@ namespace Eagle._Containers.Private
     internal sealed class ParseStateDictionary :
 #if CACHE_DICTIONARY
         CacheDictionary<string, IParseState>
+#elif FAST_DICTIONARY
+        FastDictionary<string, IParseState>
 #else
         Dictionary<string, IParseState>
 #endif

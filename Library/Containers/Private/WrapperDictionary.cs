@@ -34,7 +34,12 @@ namespace Eagle._Containers.Private
     [Serializable()]
 #endif
     [ObjectId("9ac0fef2-369d-415b-8776-64ee78fcf0a6")]
-    internal class WrapperDictionary<TKey, TValue> : Dictionary<TKey, TValue>,
+    internal class WrapperDictionary<TKey, TValue> :
+#if FAST_DICTIONARY
+            FastDictionary<TKey, TValue>,
+#else
+            Dictionary<TKey, TValue>,
+#endif
             IDictionary<TKey, TValue> where TValue : IWrapperData
     {
         #region Private Constants

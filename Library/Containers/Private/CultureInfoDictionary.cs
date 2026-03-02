@@ -17,6 +17,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, System.Globalization.CultureInfo>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, System.Globalization.CultureInfo>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("87f76a7b-7e68-4ac9-937a-d225520971b9")]
-    internal sealed class CultureInfoDictionary : Dictionary<string, CultureInfo>
+    internal sealed class CultureInfoDictionary : SomeDictionary
     {
         public CultureInfoDictionary()
             : base()

@@ -14,11 +14,18 @@ using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Components.Private.Delegates;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    System.Type, Eagle._Components.Private.Delegates.FactoryCallback>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    System.Type, Eagle._Components.Private.Delegates.FactoryCallback>;
+#endif
+
 namespace Eagle._Containers.Private
 {
     [ObjectId("ef362c7e-fe48-479c-85d6-913f828abd36")]
-    internal sealed class TypeFactoryCallbackDictionary :
-        Dictionary<Type, FactoryCallback>
+    internal sealed class TypeFactoryCallbackDictionary : SomeDictionary
     {
         public TypeFactoryCallbackDictionary()
             : base()

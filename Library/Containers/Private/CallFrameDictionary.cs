@@ -17,6 +17,14 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Interfaces.Public.ICallFrame>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Interfaces.Public.ICallFrame>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("4299ddfd-2c8c-49a5-94f7-f5fb38bdf49d")]
-    internal sealed class CallFrameDictionary : Dictionary<string, ICallFrame>
+    internal sealed class CallFrameDictionary : SomeDictionary
     {
         public CallFrameDictionary()
             : base()

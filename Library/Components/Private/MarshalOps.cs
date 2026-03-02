@@ -2837,7 +2837,7 @@ namespace Eagle._Components.Private
                 }
 
                 if (dictionary != null)
-                    result = dictionary;
+                    result = dictionary.KeysAndValuesToString(null, false);
                 else
                     result = list;
             }

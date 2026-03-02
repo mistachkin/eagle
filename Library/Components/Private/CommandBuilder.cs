@@ -314,6 +314,9 @@ namespace Eagle._Components.Private
                     if (value is StringList)
                         return value;
 
+                    if (value is ObjectDictionary)
+                        return value;
+
                     ///////////////////////////////////////////////////////////
                     // TIER #2: These types are common.
                     ///////////////////////////////////////////////////////////

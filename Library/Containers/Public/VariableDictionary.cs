@@ -29,6 +29,14 @@ using Eagle._Interfaces.Public;
 using VariablePair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Interfaces.Public.IVariable>;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Interfaces.Public.IVariable>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Interfaces.Public.IVariable>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -39,7 +47,7 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("c1e0a819-c899-4d10-92ff-fea8b14841df")]
-    public sealed class VariableDictionary : Dictionary<string, IVariable>
+    public sealed class VariableDictionary : SomeDictionary
     {
         #region Public Constructors
         public VariableDictionary()

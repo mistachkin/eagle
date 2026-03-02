@@ -17,6 +17,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    System.Type, bool>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    System.Type, bool>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("5a852c26-c148-4c6e-9d90-cd16fd396717")]
-    internal sealed class TypeBoolDictionary : Dictionary<Type, bool>
+    internal sealed class TypeBoolDictionary : SomeDictionary
     {
         public TypeBoolDictionary()
             : base()

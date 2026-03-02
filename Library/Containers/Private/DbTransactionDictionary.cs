@@ -17,6 +17,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, System.Data.IDbTransaction>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, System.Data.IDbTransaction>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("2bdc5ff5-93ce-4fbf-b178-7937512ff4f4")]
-    internal sealed class DbTransactionDictionary : Dictionary<string, IDbTransaction>
+    internal sealed class DbTransactionDictionary : SomeDictionary
     {
         public DbTransactionDictionary()
             : base()

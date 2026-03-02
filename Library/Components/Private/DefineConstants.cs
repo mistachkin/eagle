@@ -260,6 +260,10 @@ namespace Eagle._Constants
             "EXTRA_DIAGNOSTICS",
 #endif
 
+#if FAST_DICTIONARY
+            "FAST_DICTIONARY",
+#endif
+
 #if FAST_ERRORCODE
             "FAST_ERRORCODE",
 #endif

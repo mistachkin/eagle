@@ -25,6 +25,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    Eagle._Components.Public.ReturnCode, string>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    Eagle._Components.Public.ReturnCode, string>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -35,7 +43,7 @@ namespace Eagle._Containers.Private
     [Serializable()]
 #endif
     [ObjectId("163bbc1c-f0c4-43a9-ad0e-cbb29f067575")]
-    internal sealed class ReturnCodeDictionary : Dictionary<ReturnCode, string>
+    internal sealed class ReturnCodeDictionary : SomeDictionary
     {
         #region Public Constructors
         public ReturnCodeDictionary()

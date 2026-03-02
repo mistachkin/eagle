@@ -1330,6 +1330,10 @@ namespace Eagle._Components.Public
             {
                 return true;
             }
+            else if (type == typeof(ObjectDictionary))
+            {
+                return true;
+            }
             else if (type.IsEnum)
             {
                 return true;
@@ -1477,6 +1481,16 @@ namespace Eagle._Components.Public
         [DebuggerStepThrough()]
         private static Result FromResultList(
             ResultList value
+            )
+        {
+            return new Result((object)value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        private static Result FromObjectDictionary(
+            ObjectDictionary value
             )
         {
             return new Result((object)value);
@@ -1915,6 +1929,16 @@ namespace Eagle._Components.Public
             )
         {
             return FromResultList(value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        public static implicit operator Result(
+            ObjectDictionary value
+            )
+        {
+            return FromObjectDictionary(value);
         }
 
         ///////////////////////////////////////////////////////////////////////

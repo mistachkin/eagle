@@ -26,6 +26,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, System.Text.Encoding>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, System.Text.Encoding>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -36,7 +44,7 @@ namespace Eagle._Containers.Private
     [Serializable()]
 #endif
     [ObjectId("78930c01-9509-4f65-89d6-3e1f03a6e0fd")]
-    internal sealed class EncodingDictionary : Dictionary<string, Encoding>
+    internal sealed class EncodingDictionary : SomeDictionary
     {
         public EncodingDictionary()
             : base()

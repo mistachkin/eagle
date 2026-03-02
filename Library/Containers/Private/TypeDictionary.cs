@@ -45,6 +45,8 @@ namespace Eagle._Containers.Private
     internal sealed class TypeDictionary :
 #if CACHE_DICTIONARY
         CacheDictionary<string, Type>
+#elif FAST_DICTIONARY
+        FastDictionary<string, Type>
 #else
         Dictionary<string, Type>
 #endif

@@ -3683,6 +3683,26 @@ namespace eval ::Eagle {
     return ""
   }
 
+  proc testSortDictionary { dictionary {integer false} } {
+    set pairs [list]
+
+    foreach {name value} $dictionary {
+      lappend pairs [list $name $value]
+    }
+
+    set command [list lsort -index 0]
+    if {$integer} then {lappend command -integer}
+    lappend command $pairs
+
+    set result [list]
+
+    foreach pair [eval $command] {
+      lappend result [lindex $pair 0] [lindex $pair 1]
+    }
+
+    return $result
+  }
+
   proc testArrayGet { varName {integer false} } {
     #
     # NOTE: Returns the results of [array get] in a well-defined order.
@@ -14689,10 +14709,10 @@ namespace eval ::Eagle {
         haveOrAddConstraint getConstraints getCachedConstraints \
         useCachedConstraints removeConstraint fixConstraints \
         isOfficialStableReleaseInProgress fixMemoryConstraints \
-        fixTimingConstraints testDebugBreak testArrayGet testArrayGet2 \
-        testResultGet testValueGet getValueOrDefault getFirstLineOfError \
-        calculateBogoCops calculateRelativePerformance formatTimeStamp \
-        formatElapsedTime sourceIfValid makeUseOfTestDefaults \
+        fixTimingConstraints testDebugBreak testSortDictionary testArrayGet \
+        testArrayGet2 testResultGet testValueGet getValueOrDefault \
+        getFirstLineOfError calculateBogoCops calculateRelativePerformance \
+        formatTimeStamp formatElapsedTime sourceIfValid makeUseOfTestDefaults \
         augmentTestArguments processTestArguments makeUseOfTestArguments \
         getTclShellFileName getTemporaryPath getTemporaryFileName \
         checkOsAndModeForPath isDirectoryReadable isFileReadable getFiles \

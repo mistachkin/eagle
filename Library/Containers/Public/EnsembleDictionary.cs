@@ -22,6 +22,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Interfaces.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Interfaces.Public.ISubCommand>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Interfaces.Public.ISubCommand>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -33,7 +41,7 @@ namespace Eagle._Containers.Public
 #endif
     [ObjectId("4c29e083-c823-43a1-9fc0-58d6737f3ce2")]
     public sealed class EnsembleDictionary :
-            Dictionary<string, ISubCommand>, IDictionary<string, ISubCommand>
+            SomeDictionary, IDictionary<string, ISubCommand>
     {
         #region Public Constructors
         public EnsembleDictionary()

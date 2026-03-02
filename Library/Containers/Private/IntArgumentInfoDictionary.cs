@@ -15,6 +15,14 @@ using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    int, Eagle._Components.Private.ArgumentInfo>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    int, Eagle._Components.Private.ArgumentInfo>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -22,8 +30,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("a4e59dc4-3b6c-4f41-a633-8b03a086e6b0")]
-    internal sealed class IntArgumentInfoDictionary :
-            Dictionary<int, ArgumentInfo>
+    internal sealed class IntArgumentInfoDictionary : SomeDictionary
     {
         #region Public Constructors
         public IntArgumentInfoDictionary()

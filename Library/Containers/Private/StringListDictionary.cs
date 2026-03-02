@@ -48,6 +48,8 @@ namespace Eagle._Containers.Private
     internal sealed class StringListDictionary :
 #if CACHE_DICTIONARY
         CacheDictionary<string, StringList>
+#elif FAST_DICTIONARY
+        FastDictionary<string, StringList>
 #else
         Dictionary<string, StringList>
 #endif

@@ -17,6 +17,14 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Private;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Interfaces.Private.IChannel>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Interfaces.Private.IChannel>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("62bcf37b-a971-4dc1-a59c-0f6adc16278f")]
-    internal sealed class ChannelDictionary : Dictionary<string, IChannel>
+    internal sealed class ChannelDictionary : SomeDictionary
     {
         public ChannelDictionary()
             : base()

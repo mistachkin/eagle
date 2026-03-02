@@ -17,6 +17,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    System.Type, System.IntPtr>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    System.Type, System.IntPtr>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("afaf8723-b1d9-49dc-b051-6f401fa9b362")]
-    internal sealed class TypeIntPtrDictionary : Dictionary<Type, IntPtr>
+    internal sealed class TypeIntPtrDictionary : SomeDictionary
     {
         public TypeIntPtrDictionary()
             : base()

@@ -33,6 +33,16 @@ using StringIntArgumentPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Interfaces.Public.IAnyPair<
         int, Eagle._Components.Public.Argument>>;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Interfaces.Public.IAnyPair<int,
+        Eagle._Components.Public.Argument>>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Interfaces.Public.IAnyPair<int,
+        Eagle._Components.Public.Argument>>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -44,8 +54,7 @@ namespace Eagle._Containers.Public
 #endif
     [ObjectId("79128dfe-c60b-441b-8bdf-709a6d483954")]
     public sealed class ArgumentDictionary :
-            Dictionary<string, IntArgumentPair>,
-            IDictionary<string, IntArgumentPair>
+            SomeDictionary, IDictionary<string, IntArgumentPair>
     {
         #region Private Data
         private int maximumId;

@@ -21,13 +21,23 @@ using System.Runtime.Serialization;
 
 using Eagle._Attributes;
 
+#if FAST_DICTIONARY
+using Eagle._Containers.Public;
+#endif
+
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<string, float>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<string, float>;
+#endif
+
 namespace Eagle._Containers.Private
 {
 #if SERIALIZATION
     [Serializable()]
 #endif
     [ObjectId("134668cd-45bc-4283-9c94-b51700abe4c3")]
-    internal sealed class SingleDictionary : Dictionary<string, float>
+    internal sealed class SingleDictionary : SomeDictionary
     {
         #region Public Constructors
         public SingleDictionary()

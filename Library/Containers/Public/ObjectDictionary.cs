@@ -25,8 +25,16 @@ using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
+using Eagle._Interfaces.Private;
+using Eagle._Interfaces.Public;
 using StringPair = System.Collections.Generic.KeyValuePair<string, string>;
 using ObjectPair = System.Collections.Generic.KeyValuePair<string, object>;
+
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<string, object>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<string, object>;
+#endif
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -38,7 +46,7 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("2327d197-2cd8-440e-babe-1c9bd85a3cd4")]
-    public sealed class ObjectDictionary : Dictionary<string, object>
+    public sealed class ObjectDictionary : SomeDictionary, IReadOnly
     {
         #region Private Data
         //
@@ -46,6 +54,16 @@ namespace Eagle._Containers.Public
         //       will include all the keys and values, not just the keys.
         //
         private readonly bool viaScript = false;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: When this field is non-zero, the entire dictionary instance
+        //       is read-only and cannot be modified in any way.  Any attempt
+        //       to modify read-only dictionary instances will result in an
+        //       exception being thrown.
+        //
+        private bool isReadOnly;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -135,7 +153,82 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Wrapper Methods
+        private void InternalAdd(
+            string key,  /* in */
+            object value /* in */
+            )
+        {
+            base.Add(key, value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal void InternalAddOrChange(
+            string key,  /* in */
+            object value /* in */
+            )
+        {
+            base[key] = value;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal bool InternalRemove(
+            string key /* in */
+            )
+        {
+            return base.Remove(key);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void InternalClear()
+        {
+            base.Clear();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_STANDARD_21
+        private bool InternalTryAdd(
+            string key,
+            object value
+            )
+        {
+            return base.TryAdd(key, value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool InternalRemove(
+            string key,
+            out object value
+            )
+        {
+            return base.Remove(key, out value);
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Methods
+        private void CheckReadOnly()
+        {
+            if (isReadOnly)
+                throw new ScriptException("dictionary is read-only");
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void MakeReadOnly()
+        {
+            isReadOnly = true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static ObjectDictionary PrivateFromString(
             string value,
             bool viaScript,
@@ -153,7 +246,7 @@ namespace Eagle._Containers.Public
             ObjectDictionary dictionary2 = new ObjectDictionary(viaScript);
 
             foreach (StringPair pair in dictionary1)
-                dictionary2[pair.Key] = pair.Value;
+                dictionary2.InternalAddOrChange(pair.Key, pair.Value);
 
             return dictionary2;
         }
@@ -162,6 +255,85 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        internal static ObjectDictionary FromValue(
+            Interpreter interpreter,
+            IGetValue getValue,
+            bool viaScript,
+            bool addOnly,
+            ref Result error
+            )
+        {
+            return FromValue(
+                interpreter, getValue, viaScript, addOnly, false,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ObjectDictionary FromValue(
+            Interpreter interpreter,
+            IGetValue getValue,
+            bool viaScript,
+            bool addOnly,
+            bool keysOnly,
+            ref Result error
+            )
+        {
+            if (getValue == null)
+            {
+                error = "expected outer value but got null";
+                return null;
+            }
+
+            object value = getValue.Value;
+
+            if (value == null)
+            {
+                error = "expected inner value but got null";
+                return null;
+            }
+
+            ObjectDictionary dictionary = value as ObjectDictionary;
+
+            if (dictionary != null)
+                return dictionary;
+
+            ICacheValue cacheValue = getValue as ICacheValue;
+
+            if (cacheValue != null)
+            {
+                dictionary = cacheValue.GetCacheValue(
+                    interpreter, true) as ObjectDictionary;
+
+                if (dictionary != null)
+                    return dictionary;
+            }
+
+            dictionary = FromString(StringOps.GetStringFromObject(
+                value), viaScript, addOnly, keysOnly, ref error);
+
+            if (dictionary == null)
+                return null;
+
+            dictionary.MakeReadOnly();
+
+            ISetValue setValue = getValue as ISetValue;
+
+            if (setValue != null)
+                setValue.Value = dictionary;
+
+            if (cacheValue != null)
+            {
+                /* IGNORED */
+                cacheValue.SetCacheValue(
+                    interpreter, dictionary, true);
+            }
+
+            return dictionary;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ObjectDictionary FromObject(
             object value,
             bool viaScript,
@@ -169,7 +341,8 @@ namespace Eagle._Containers.Public
             ref Result error
             )
         {
-            return FromObject(value, viaScript, addOnly, false, ref error);
+            return FromObject(
+                value, viaScript, addOnly, false, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -257,7 +430,7 @@ namespace Eagle._Containers.Public
             )
         {
             foreach (ObjectPair pair in dictionary)
-                this.Add(pair.Key, pair.Value);
+                this.Add(pair.Key, pair.Value); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -449,7 +622,9 @@ namespace Eagle._Containers.Public
                         if (localDictionary == null)
                             return null;
 
-                        dictionary[localKey] = localDictionary;
+                        dictionary.InternalAddOrChange(
+                            localKey, localDictionary);
+
                         dictionary = localDictionary;
 
                         changeCount++;
@@ -473,7 +648,9 @@ namespace Eagle._Containers.Public
                 {
                     localDictionary = new ObjectDictionary(true);
 
-                    dictionary[localKey] = localDictionary;
+                    dictionary.InternalAddOrChange(
+                        localKey, localDictionary);
+
                     dictionary = localDictionary;
 
                     changeCount++;
@@ -542,7 +719,8 @@ namespace Eagle._Containers.Public
                 if (dictionary == null)
                     return false;
 
-                savedDictionary[localKey] = dictionary;
+                savedDictionary.InternalAddOrChange(
+                    localKey, dictionary);
             }
 
             localKey = localKeys[count - 1];
@@ -723,6 +901,23 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IReadOnly Members
+#if FAST_DICTIONARY
+        public new bool IsReadOnly
+#else
+        public bool IsReadOnly
+#endif
+        {
+#if FAST_DICTIONARY
+            get { return isReadOnly || base.IsReadOnly; }
+#else
+            get { return isReadOnly; }
+#endif
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region System.Object Overrides
         public override string ToString()
         {
@@ -730,6 +925,79 @@ namespace Eagle._Containers.Public
                 KeysAndValuesToString(null, false) :
                 ToString(null, false);
         }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Dictionary<TKey, TValue> Overrides
+        public new void Add(
+            string key,
+            object value
+            )
+        {
+            CheckReadOnly();
+
+            InternalAdd(key, value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public new bool Remove(
+            string key
+            )
+        {
+            CheckReadOnly();
+
+            return InternalRemove(key);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public new void Clear()
+        {
+            CheckReadOnly();
+
+            InternalClear();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public new object this[string key]
+        {
+            get { return base[key]; }
+            set
+            {
+                CheckReadOnly();
+
+                InternalAddOrChange(key, value);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_STANDARD_21
+        public new bool TryAdd(
+            string key,
+            object value
+            )
+        {
+            CheckReadOnly();
+
+            return InternalTryAdd(key, value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public new bool Remove(
+            string key,
+            out object value
+            )
+        {
+            CheckReadOnly();
+
+            return InternalRemove(key, out value);
+        }
+#endif
         #endregion
     }
 }

@@ -23,6 +23,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, System.Enum>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, System.Enum>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -33,7 +41,7 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("f09ea871-dac3-41d0-baca-454765dd8d08")]
-    public sealed class EnumDictionary : Dictionary<string, Enum>
+    public sealed class EnumDictionary : SomeDictionary
     {
         #region Public Constructors
         public EnumDictionary()

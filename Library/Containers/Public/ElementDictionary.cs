@@ -35,6 +35,12 @@ using Eagle._Interfaces.Public;
 using VariableFlagsDictionary = System.Collections.Generic.Dictionary<
     string, Eagle._Components.Public.VariableFlags>;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<string, object>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<string, object>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -45,7 +51,7 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("93a6e29b-64cb-418d-9454-928e1dc05245")]
-    public sealed class ElementDictionary : Dictionary<string, object>
+    public sealed class ElementDictionary : SomeDictionary
     {
         #region Private Static Data
 #if !MONO
@@ -58,7 +64,7 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-#if !MONO
+#if !MONO && !FAST_DICTIONARY
         private static readonly string BucketsFieldName = "buckets";
         private static FieldInfo BucketsFieldInfo = null;
 #endif
@@ -468,7 +474,7 @@ namespace Eagle._Containers.Public
         //
         public int GetCapacity()
         {
-#if !MONO
+#if !MONO && !FAST_DICTIONARY
             if (!CommonOps.Runtime.IsMono())
             {
                 lock (syncRoot)

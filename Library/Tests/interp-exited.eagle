@@ -1889,8 +1889,8 @@ runTest {test interp-1.37 {"unsafe" load settings via script} -setup {
       flags settings error]
 
   list $code \
-      [expr {[string length $settings] > 0 ? \
-          [$settings KeysAndValuesToString null false] : ""}] \
+      [expr {[string length $settings] > 0 ? [testSortDictionary \
+      [$settings KeysAndValuesToString null false]] : ""}] \
       [getStringFromObjectHandle $error]
 } -cleanup {
   catch {file delete $fileName}
@@ -1917,8 +1917,8 @@ runTest {test interp-1.38 {"safe" load settings via script} -setup {
       flags settings error]
 
   list $code \
-      [expr {[string length $settings] > 0 ? \
-          [$settings KeysAndValuesToString null false] : ""}] \
+      [expr {[string length $settings] > 0 ? [testSortDictionary \
+      [$settings KeysAndValuesToString null false]] : ""}] \
       [getStringFromObjectHandle $error]
 } -cleanup {
   catch {file delete $fileName}
@@ -2110,12 +2110,12 @@ runTest {test interp-1.43 {load/merge settings via script} -setup {
       flags(3) settings(3) error(3)]
 
   list $code(1) $code(2) $code(3) \
-      [expr {[string length $settings(1)] > 0 ? \
-          [$settings(1) KeysAndValuesToString null false] : ""}] \
-      [expr {[string length $settings(2)] > 0 ? \
-          [$settings(2) KeysAndValuesToString null false] : ""}] \
-      [expr {[string length $settings(3)] > 0 ? \
-          [$settings(3) KeysAndValuesToString null false] : ""}] \
+      [expr {[string length $settings(1)] > 0 ? [testSortDictionary \
+          [$settings(1) KeysAndValuesToString null false]] : ""}] \
+      [expr {[string length $settings(2)] > 0 ? [testSortDictionary \
+          [$settings(2) KeysAndValuesToString null false]] : ""}] \
+      [expr {[string length $settings(3)] > 0 ? [testSortDictionary \
+          [$settings(3) KeysAndValuesToString null false]] : ""}] \
       [getStringFromObjectHandle $error(1)] \
       [getStringFromObjectHandle $error(2)] \
       [getStringFromObjectHandle $error(3)]
@@ -2822,26 +2822,26 @@ runTest {test interp-1.79 {reset exit on outermost catch} -setup {
 runTest {test interp-1.80 {info subcommands in "safe" interp} -setup {
   set i [interp create -safe]
 } -body {
-  list [info subcommands after] \
-      [info subcommands clock] \
-      [info subcommands file] \
-      [info subcommands info] \
-      [info subcommands interp] \
-      [info subcommands object] \
-      [info subcommands package] \
-      [info subcommands set] \
-      [info subcommands source] \
-      [info subcommands uri] \
-      [interp eval $i {info subcommands after}] \
-      [interp eval $i {info subcommands clock}] \
-      [interp eval $i {info subcommands file}] \
-      [interp eval $i {info subcommands info}] \
-      [interp eval $i {info subcommands interp}] \
-      [interp eval $i {info subcommands object}] \
-      [interp eval $i {info subcommands package}] \
-      [interp eval $i {info subcommands set}] \
-      [interp eval $i {info subcommands source}] \
-      [interp eval $i {info subcommands uri}]
+  list [lsort [info subcommands after]] \
+      [lsort [info subcommands clock]] \
+      [lsort [info subcommands file]] \
+      [lsort [info subcommands info]] \
+      [lsort [info subcommands interp]] \
+      [lsort [info subcommands object]] \
+      [lsort [info subcommands package]] \
+      [lsort [info subcommands set]] \
+      [lsort [info subcommands source]] \
+      [lsort [info subcommands uri]] \
+      [interp eval $i {lsort [info subcommands after]}] \
+      [interp eval $i {lsort [info subcommands clock]}] \
+      [interp eval $i {lsort [info subcommands file]}] \
+      [interp eval $i {lsort [info subcommands info]}] \
+      [interp eval $i {lsort [info subcommands interp]}] \
+      [interp eval $i {lsort [info subcommands object]}] \
+      [interp eval $i {lsort [info subcommands package]}] \
+      [interp eval $i {lsort [info subcommands set]}] \
+      [interp eval $i {lsort [info subcommands source]}] \
+      [interp eval $i {lsort [info subcommands uri]}]
 } -cleanup {
   catch {interp delete $i}
 
@@ -2866,7 +2866,7 @@ runtimeversion script setup sharedlibextension shelllibrary source subcommands\
 syntax sysvars tclversion tid transactions undefined user varlinks vars\
 whitespace windows windowtext} {addcommands alias aliases bgerror callbacklimit\
 cancel childlimit children create delete enabled eval eventlimit execlimit\
-exists expose exposed expr finallytimeout hide hidden immutable invokehidden\
+exists expose exposed expr finallytimeout hidden hide immutable invokehidden\
 isolated issafe issdk isstandard iterationlimit makesafe makestandard\
 marktrusted maybereadorgetscriptfile namespacelimit nopolicy parent policy\
 proclimit queue readonly readorgetscriptfile readylimit recursionlimit rename\
@@ -3426,24 +3426,24 @@ runTest {test interp-1.503 {variable limit} -setup {
       [catch {interp eval $interp $script(1)} result] $result \
       [catch {interp eval $interp $script(2)} result] $result \
       [catch {interp eval $interp $script(3)} result] $result \
-      [interp eval $interp {info vars}] \
+      [interp eval $interp {lsort [info vars]}] \
       [interp varlimit $interp 0] \
       [catch {interp eval $interp $script(4)} result] $result \
       [catch {interp eval $interp $script(1)} result] $result \
       [catch {interp eval $interp $script(2)} result] $result \
       [catch {interp eval $interp $script(3)} result] $result \
-      [interp eval $interp {info vars}] \
+      [interp eval $interp {lsort [info vars]}] \
       [interp varlimit $interp 1] \
       [catch {interp eval $interp $script(5)} result] $result \
       [catch {interp eval $interp $script(1)} result] $result \
       [catch {interp eval $interp $script(2)} result] $result \
       [catch {interp eval $interp $script(3)} result] $result \
-      [interp eval $interp {info vars}] \
+      [interp eval $interp {lsort [info vars]}] \
       [interp varlimit $interp 2] \
       [catch {interp eval $interp $script(1)} result] $result \
       [catch {interp eval $interp $script(2)} result] $result \
       [catch {interp eval $interp $script(3)} result] $result \
-      [interp eval $interp {info vars}] \
+      [interp eval $interp {lsort [info vars]}] \
       [interp varlimit $interp]
 } -cleanup {
   catch {interp delete $interp}
@@ -5401,7 +5401,24 @@ runTest {test interp-1.60003 {total interpreter count (AppDomain)} -body {
 #         by default.
 #
 runTest {test interp-1.70000 {IRuleSet handling} -setup {
+  proc sortIntrospectLists { dictionary } {
+    set compareCommand [list apply [list [list value1 value2] {
+      return [string compare [lindex $value1 1] [lindex $value2 1]]
+    }]]
+
+    return [list \
+        commands [lsort -command $compareCommand \
+        [getDictionaryValue $dictionary commands]] \
+        hiddenCommands [lsort -command $compareCommand \
+        [getDictionaryValue $dictionary hiddenCommands]]]
+  }
+
   set i [interp create -nosecurity]
+
+  interp eval $i [list \
+      proc sortIntrospectLists \
+      [info args sortIntrospectLists true] \
+      [info body sortIntrospectLists]]
 
   interp set $i fileName \
       [file join $env(XDG_RULESET_DIR) test1.ruleSet]
@@ -5419,12 +5436,12 @@ runTest {test interp-1.70000 {IRuleSet handling} -setup {
   }
 
   lappend result [interp eval $i {
-    mergeRules [readFile $fileName]
+    lsort -integer -index 1 [mergeRules [readFile $fileName]]
   }]
 
   lappend result [interp eval $i {
     set i [createWithRules -safe true]
-    introspect $i
+    sortIntrospectLists [introspect $i]
   }]
 
   interp eval $i {
@@ -5436,6 +5453,8 @@ runTest {test interp-1.70000 {IRuleSet handling} -setup {
   catch {interp delete $i}
 
   unset -nocomplain clientData tokens error code i result
+
+  rename sortIntrospectLists ""
 } -constraints {eagle command.object environment_XDG_RULESET_DIR\
 Eagle._Tests.Default.TestAddRuleSetCommands} -match regexp -result {^\{\{id 1\
 type Include kind Command mode \{Exact, Include\} patterns nop\} \{id 2 type\
@@ -5456,10 +5475,11 @@ SecuritySdk\} list\} \{\{Core, (?:NoAdd, )?Safe, Standard, (?:NoAttributes,\
 )?Initialize\} namespace\} \{\{Core, Safe, NonStandard, NoAttributes\} nop\}\
 \{\{Core, Safe, Standard, NoAttributes, SecuritySdk\} rename\} \{\{Core, Safe,\
 Standard, NoAttributes, Initialize, SecuritySdk\} string\}\} hiddenCommands\
-\{\{\{Core, Hidden, Unsafe, Standard, NoAttributes, SecuritySdk, LicenseSdk,\
-Critical\} load\} \{\{Core, Hidden, Unsafe, Standard, NoAttributes, Initialize,\
-SecuritySdk, LicenseSdk\} package\} \{\{Core, Hidden, (?:NativeCode, )?Unsafe,\
-Standard, NoAttributes, SecuritySdk, Critical\} file\}\}\}$}}
+\{\{\{Core, Hidden, (?:NativeCode, )?Unsafe, Standard, NoAttributes,\
+SecuritySdk, Critical\} file\} \{\{Core, Hidden, Unsafe, Standard,\
+NoAttributes, SecuritySdk, LicenseSdk, Critical\} load\} \{\{Core, Hidden,\
+Unsafe, Standard, NoAttributes, Initialize, SecuritySdk, LicenseSdk\}\
+package\}\}\}$}}
 
 ###############################################################################
 

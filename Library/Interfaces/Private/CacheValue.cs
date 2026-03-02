@@ -29,7 +29,15 @@ namespace Eagle._Interfaces.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        object GetCacheValue(Interpreter interpreter);
-        bool SetCacheValue(Interpreter interpreter, object value);
+        object GetCacheValue(
+            Interpreter interpreter,
+            bool noGeneration
+        );
+
+        bool SetCacheValue(
+            Interpreter interpreter,
+            object value,
+            bool noGeneration
+        );
     }
 }

@@ -721,10 +721,11 @@ set eagle_manifests(source) {
   Eagle/Library/Containers/Public/EnsembleDictionary.cs
   Eagle/Library/Containers/Public/EnumDictionary.cs
   Eagle/Library/Containers/Public/EnumList.cs
-  Eagle/Library/Containers/Public/IntList.cs
+  Eagle/Library/Containers/Public/FastDictionary.cs
   Eagle/Library/Containers/Public/InterpreterDictionary.cs
   Eagle/Library/Containers/Public/InterpreterList.cs
   Eagle/Library/Containers/Public/InterpreterObjectDictionary.cs
+  Eagle/Library/Containers/Public/IntList.cs
   Eagle/Library/Containers/Public/LongList.cs
   Eagle/Library/Containers/Public/MarshalFlagsList.cs
   Eagle/Library/Containers/Public/ObjectArrayList.cs
@@ -866,6 +867,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/Alias.cs
   Eagle/Library/Interfaces/Public/AliasData.cs
   Eagle/Library/Interfaces/Public/AnyClientData.cs
+  Eagle/Library/Interfaces/Public/AnyCollection.cs
   Eagle/Library/Interfaces/Public/AnyData.cs
   Eagle/Library/Interfaces/Public/AnyDataBase.cs
   Eagle/Library/Interfaces/Public/AnyPair.cs
@@ -3613,6 +3615,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Containers/Public/EnsembleDictionary.cs
   src/Library/Containers/Public/EnumDictionary.cs
   src/Library/Containers/Public/EnumList.cs
+  src/Library/Containers/Public/FastDictionary.cs
   src/Library/Containers/Public/InterpreterDictionary.cs
   src/Library/Containers/Public/InterpreterList.cs
   src/Library/Containers/Public/InterpreterObjectDictionary.cs
@@ -3746,6 +3749,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/Alias.cs
   src/Library/Interfaces/Public/AliasData.cs
   src/Library/Interfaces/Public/AnyClientData.cs
+  src/Library/Interfaces/Public/AnyCollection.cs
   src/Library/Interfaces/Public/AnyData.cs
   src/Library/Interfaces/Public/AnyDataBase.cs
   src/Library/Interfaces/Public/AnyPair.cs

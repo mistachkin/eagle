@@ -17,6 +17,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Components.Private.Tcl.TclThread>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Components.Private.Tcl.TclThread>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private.Tcl
 {
     [ObjectId("ef97f200-0d7d-4ea4-936a-748bafebc413")]
-    internal sealed class TclThreadDictionary : Dictionary<string, TclThread>
+    internal sealed class TclThreadDictionary : SomeDictionary
     {
         #region Public Constructors
         public TclThreadDictionary()

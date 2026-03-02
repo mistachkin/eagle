@@ -922,6 +922,7 @@
     <Compile Include="Containers\Public\EnsembleDictionary.cs" />
     <Compile Include="Containers\Public\EnumDictionary.cs" />
     <Compile Include="Containers\Public\EnumList.cs" />
+    <Compile Include="Containers\Public\FastDictionary.cs" />
     <Compile Include="Containers\Public\IntList.cs" />
     <Compile Include="Containers\Public\InterpreterDictionary.cs" />
     <Compile Include="Containers\Public\InterpreterList.cs" />
@@ -1038,6 +1039,7 @@
     <Compile Include="Interfaces\Public\Alias.cs" />
     <Compile Include="Interfaces\Public\AliasData.cs" />
     <Compile Include="Interfaces\Public\AnyClientData.cs" />
+    <Compile Include="Interfaces\Public\AnyCollection.cs" />
     <Compile Include="Interfaces\Public\AnyData.cs" />
     <Compile Include="Interfaces\Public\AnyDataBase.cs" />
     <Compile Include="Interfaces\Public\AnyPair.cs" />
@@ -1775,6 +1777,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(EagleCacheDictionary)' != 'false'">
     <DefineConstants>$(DefineConstants);CACHE_DICTIONARY</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleFastDictionary)' != 'false'">
+    <DefineConstants>$(DefineConstants);FAST_DICTIONARY</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(EagleCacheArgumentToString)' != 'false'">
     <DefineConstants>$(DefineConstants);CACHE_ARGUMENT_TOSTRING</DefineConstants>

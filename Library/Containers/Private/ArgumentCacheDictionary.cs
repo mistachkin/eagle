@@ -13,7 +13,7 @@
 using System;
 #endif
 
-#if !CACHE_DICTIONARY
+#if !CACHE_DICTIONARY && !FAST_DICTIONARY
 using System.Collections.Generic;
 #endif
 
@@ -36,6 +36,8 @@ namespace Eagle._Containers.Private
     internal sealed class ArgumentCacheDictionary :
 #if CACHE_DICTIONARY
         CacheDictionary<Argument, Argument>
+#elif FAST_DICTIONARY
+        FastDictionary<Argument, Argument>
 #else
         Dictionary<Argument, Argument>
 #endif

@@ -18,7 +18,7 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 ###############################################################################
 
 proc compareVars { vars } {
-  return [expr {[info globals] eq $vars ? 1 : 0}]
+  return [expr {[lsort [info globals]] eq [lsort $vars] ? 1 : 0}]
 }
 
 proc proc1 { script } {

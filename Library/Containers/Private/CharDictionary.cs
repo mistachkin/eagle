@@ -17,6 +17,12 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<char, object>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<char, object>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +30,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("a292e544-fcf4-4ca7-9e13-a7978c14ebbb")]
-    internal sealed class CharDictionary : Dictionary<char, object>, ICloneable
+    internal sealed class CharDictionary : SomeDictionary, ICloneable
     {
         public CharDictionary()
             : base()

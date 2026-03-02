@@ -837,14 +837,14 @@ runTest {test apply-3.5.1 {apply with non-global namespace and scope} -setup {
 } -body {
   list [apply $lambda3 test2] [apply $lambda3 test2 4] \
       [apply $lambda3 test2 4 5] [apply $lambda3 test2 4 5 6] \
-      [info vars ::foo::*] [set ::foo::name] [scope vars test2] \
-      [scope set test2 name]
+      [lsort [info vars ::foo::*]] [set ::foo::name] \
+      [lsort [scope vars test2]] [scope set test2 name]
 } -cleanup {
   catch {scope destroy test2}
   unset lambda3
   catch {namespace delete ::foo}
 } -constraints {eagle tip194 namespaces} -result {{::foo test2 0} {::foo test2\
-4} {::foo test2 13} {::foo test2 28} ::foo::name bar {name args sum} test2}}
+4} {::foo test2 13} {::foo test2 28} ::foo::name bar {args name sum} test2}}
 
 ###############################################################################
 
@@ -866,14 +866,14 @@ runTest {test apply-3.5.2 {napply with non-global namespace and scope} -setup {
 } -body {
   list [napply $lambda3 name test2] [napply $lambda3 name test2 4] \
       [napply $lambda3 name test2 4 5] [napply $lambda3 name test2 4 5 6] \
-      [info vars ::foo::*] [set ::foo::name] [scope vars test2] \
-      [scope set test2 name]
+      [lsort [info vars ::foo::*]] [set ::foo::name] \
+      [lsort [scope vars test2]] [scope set test2 name]
 } -cleanup {
   catch {scope destroy test2}
   unset lambda3
   catch {namespace delete ::foo}
 } -constraints {eagle tip194 namespaces} -result {{::foo test2 0} {::foo test2\
-4} {::foo test2 13} {::foo test2 28} ::foo::name bar {name args sum} test2}}
+4} {::foo test2 13} {::foo test2 28} ::foo::name bar {args name sum} test2}}
 
 ###############################################################################
 
@@ -898,16 +898,16 @@ runTest {test apply-3.6.1 {apply with non-global namespace and scope} -setup {
 } -body {
   list [apply $lambda3 test2] [apply $lambda3 test2 4] \
       [apply $lambda3 test2 4 5] [apply $lambda3 test2 4 5 6] \
-      [info vars ::foo::*] [info vars ::foo::bar::*] \
+      [lsort [info vars ::foo::*]] [info vars ::foo::bar::*] \
       [set ::foo::name] [set ::foo::bar::name] \
-      [scope vars test2] [scope set test2 name]
+      [lsort [scope vars test2]] [scope set test2 name]
 } -cleanup {
   catch {scope destroy test2}
   unset lambda3
   catch {namespace delete ::foo}
 } -constraints {eagle tip194 namespaces} -result {{::foo test2 0 splog bar}\
 {::foo test2 4 splog bar} {::foo test2 13 splog bar} {::foo test2 28 splog bar}\
-::foo::name ::foo::bar::name bar splog {name args sum} test2}}
+::foo::name ::foo::bar::name bar splog {args name sum} test2}}
 
 ###############################################################################
 
@@ -932,16 +932,16 @@ runTest {test apply-3.6.2 {napply with non-global namespace and scope} -setup {
 } -body {
   list [napply $lambda3 name test2] [napply $lambda3 name test2 4] \
       [napply $lambda3 name test2 4 5] [napply $lambda3 name test2 4 5 6] \
-      [info vars ::foo::*] [info vars ::foo::bar::*] \
+      [lsort [info vars ::foo::*]] [lsort [info vars ::foo::bar::*]] \
       [set ::foo::name] [set ::foo::bar::name] \
-      [scope vars test2] [scope set test2 name]
+      [lsort [scope vars test2]] [scope set test2 name]
 } -cleanup {
   catch {scope destroy test2}
   unset lambda3
   catch {namespace delete ::foo}
 } -constraints {eagle tip194 namespaces} -result {{::foo test2 0 splog bar}\
 {::foo test2 4 splog bar} {::foo test2 13 splog bar} {::foo test2 28 splog bar}\
-::foo::name ::foo::bar::name bar splog {name args sum} test2}}
+::foo::name ::foo::bar::name bar splog {args name sum} test2}}
 
 ###############################################################################
 

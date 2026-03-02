@@ -22,6 +22,10 @@ using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 
+#if FAST_DICTIONARY
+using Eagle._Containers.Public;
+#endif
+
 namespace Eagle._Containers.Private
 {
 #if SERIALIZATION
@@ -29,7 +33,12 @@ namespace Eagle._Containers.Private
 #endif
     [ObjectId("8ac7601d-e0f4-406c-9812-f3af76831d89")]
     internal class CacheDictionary<TKey, TValue> :
-            Dictionary<TKey, TValue>, IDictionary<TKey, TValue>
+#if FAST_DICTIONARY
+            FastDictionary<TKey, TValue>,
+#else
+            Dictionary<TKey, TValue>,
+#endif
+            IDictionary<TKey, TValue>
     {
         #region Private Constants
         private const double DefaultTrimMilliseconds = 60000.0; /* 1 min */
@@ -1026,6 +1035,40 @@ namespace Eagle._Containers.Private
 
             InitializeAccessed();
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_STANDARD_21
+        public virtual new bool TryAdd(
+            TKey key,
+            TValue value
+            )
+        {
+            bool result = base.TryAdd(key, value);
+
+            if (result)
+            {
+                UpdateAccessedAndCount(key, Now, 1, true);
+                UpdateMaximumCount();
+                UpdateChangeCountAndMaybeTouchEpoch();
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public virtual new bool Remove(
+            TKey key,
+            out TValue value
+            )
+        {
+            RemoveAccessed(key, GetAccessed(key));
+            UpdateChangeCountAndMaybeTouchEpoch();
+
+            return base.Remove(key, out value);
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

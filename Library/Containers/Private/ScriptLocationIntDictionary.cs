@@ -27,6 +27,14 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    Eagle._Interfaces.Public.IScriptLocation, int>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    Eagle._Interfaces.Public.IScriptLocation, int>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -37,8 +45,7 @@ namespace Eagle._Containers.Private
     [Serializable()]
 #endif
     [ObjectId("c153b7e8-af76-42e9-aab2-3c1b9b227f32")]
-    internal sealed class ScriptLocationIntDictionary
-            : Dictionary<IScriptLocation, int>
+    internal sealed class ScriptLocationIntDictionary : SomeDictionary
     {
         #region Private Constants
         private static readonly IScriptLocation AnyLineLocation =

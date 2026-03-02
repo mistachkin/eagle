@@ -17,6 +17,14 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, System.Data.IDbConnection>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, System.Data.IDbConnection>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("4539b54e-1800-40ca-aa07-8048857f8d36")]
-    internal sealed class DbConnectionDictionary : Dictionary<string, IDbConnection>
+    internal sealed class DbConnectionDictionary : SomeDictionary
     {
         public DbConnectionDictionary()
             : base()

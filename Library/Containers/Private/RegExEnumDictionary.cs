@@ -17,6 +17,14 @@ using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    System.Text.RegularExpressions.Regex, System.Enum>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    System.Text.RegularExpressions.Regex, System.Enum>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -24,7 +32,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("17d57884-7b6c-479d-9519-4b6b81ba9562")]
-    internal sealed class RegExEnumDictionary : Dictionary<Regex, Enum>
+    internal sealed class RegExEnumDictionary : SomeDictionary
     {
         public RegExEnumDictionary()
             : base()

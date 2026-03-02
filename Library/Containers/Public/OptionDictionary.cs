@@ -27,6 +27,14 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 using OptionPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Interfaces.Public.IOption>;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Interfaces.Public.IOption>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Interfaces.Public.IOption>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -41,7 +49,7 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("755e6bb2-b7e3-42df-bc4e-81610901e093")]
-    public sealed class OptionDictionary : Dictionary<string, IOption>
+    public sealed class OptionDictionary : SomeDictionary
     {
         #region Private Constants
         //

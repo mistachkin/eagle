@@ -19,8 +19,15 @@ using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 using ThrottlePair = System.Collections.Generic.KeyValuePair<
-    Eagle._Containers.Public.ThrottleDictionary.ThrottleKey,
-    ulong>;
+    Eagle._Containers.Public.ThrottleDictionary.ThrottleKey, ulong>;
+
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    Eagle._Containers.Public.ThrottleDictionary.ThrottleKey, ulong>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    Eagle._Containers.Public.ThrottleDictionary.ThrottleKey, ulong>;
+#endif
 
 namespace Eagle._Containers.Public
 {
@@ -28,8 +35,7 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("ef8da17f-150e-48b4-9177-0dc0ab202043")]
-    public sealed class ThrottleDictionary :
-            Dictionary<ThrottleDictionary.ThrottleKey, ulong>
+    public sealed class ThrottleDictionary : SomeDictionary
     {
         #region ThrottleKey Helper Class
 #if SERIALIZATION

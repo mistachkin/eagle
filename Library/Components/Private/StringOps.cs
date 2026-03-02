@@ -37,6 +37,7 @@ using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using SBF = Eagle._Components.Private.StringBuilderFactory;
+using ObjectPair = System.Collections.Generic.KeyValuePair<string, object>;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -4672,6 +4673,40 @@ namespace Eagle._Components.Private
                 return false;
 
             return Object.Equals(left, right);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static int StringOrObjectHashCode(
+            object value
+            )
+        {
+            if (value is string)
+                return ((string)value).GetHashCode();
+
+            ObjectDictionary dictionary = value as ObjectDictionary;
+
+            if (dictionary != null)
+            {
+                int result = dictionary.Count;
+
+                foreach (ObjectPair pair in dictionary)
+                {
+                    string localKey = pair.Key;
+
+                    if (localKey != null)
+                        result ^= localKey.GetHashCode();
+
+                    object localValue = pair.Value;
+
+                    if (localValue != null)
+                        result ^= localValue.GetHashCode();
+                }
+
+                return result;
+            }
+
+            return (value != null) ? value.GetHashCode() : 0;
         }
 #endif
 

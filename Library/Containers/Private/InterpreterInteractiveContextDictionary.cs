@@ -18,6 +18,16 @@ using Eagle._Containers.Public;
 using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    Eagle._Interfaces.Public.IInterpreter,
+    Eagle._Interfaces.Private.IInteractiveContext>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    Eagle._Interfaces.Public.IInterpreter,
+    Eagle._Interfaces.Private.IInteractiveContext>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -25,8 +35,7 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Containers.Private
 {
     [ObjectId("b804d1c6-fb8f-45fc-a8da-c822bd02f874")]
-    internal sealed class InterpreterInteractiveContextDictionary
-            : Dictionary<IInterpreter, IInteractiveContext>
+    internal sealed class InterpreterInteractiveContextDictionary : SomeDictionary
     {
         public InterpreterInteractiveContextDictionary()
             : base(new _Comparers._Interpreter())

@@ -13,10 +13,18 @@ using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 
+#if FAST_DICTIONARY
+using SomeDictionary = Eagle._Containers.Public.FastDictionary<
+    string, Eagle._Components.Private.ArraySearch>;
+#else
+using SomeDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Components.Private.ArraySearch>;
+#endif
+
 namespace Eagle._Containers.Private
 {
     [ObjectId("3f992cdc-cf6c-49c0-82fa-0f91c8ff2113")]
-    internal sealed class ArraySearchDictionary : Dictionary<string, ArraySearch>
+    internal sealed class ArraySearchDictionary : SomeDictionary
     {
         public ArraySearchDictionary()
             : base()
@@ -25,4 +33,3 @@ namespace Eagle._Containers.Private
         }
     }
 }
-
