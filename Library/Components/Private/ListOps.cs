@@ -43,6 +43,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static int toDictionaryCount;
         private static int getListCount;
         private static int copyListCount;
         private static int nonCollectionCount;
@@ -76,6 +77,11 @@ namespace Eagle._Components.Private
                 localList.Add("CanGetOrCopyList",
                     canGetOrCopyList > 0 ? "enabled" : "disabled");
             }
+
+            value = Interlocked.CompareExchange(ref toDictionaryCount, 0, 0);
+
+            if (empty || (value != 0))
+                localList.Add("ToDictionaryCount", value.ToString());
 
             value = Interlocked.CompareExchange(ref getListCount, 0, 0);
 
@@ -254,6 +260,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static StringList ToList(
+            IDictionary dictionary
+            )
+        {
+            if (dictionary == null)
+                return null;
+
+            StringList list = new StringList();
+
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                list.Add(StringOps.GetStringFromObject(entry.Key));
+                list.Add(StringOps.GetStringFromObject(entry.Value));
+            }
+
+            return list;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode GetOrCopyOrSplitList(
             Interpreter interpreter,
             IGetValue getValue,
@@ -293,6 +319,23 @@ namespace Eagle._Components.Private
 
                     if (collection != null)
                     {
+                        IViaScript viaScript = value as IViaScript;
+
+                        if ((viaScript != null) && viaScript.IsViaScript)
+                        {
+                            IDictionary dictionary = value as IDictionary;
+
+                            if (dictionary != null)
+                            {
+                                list = ToList(dictionary); /* DEEP-COPY */
+
+                                /* IGNORED */
+                                Interlocked.Increment(ref toDictionaryCount);
+
+                                return ReturnCode.Ok;
+                            }
+                        }
+
                         //
                         // NOTE: If the caller can guarantee that it will
                         //       only read from the returned list, we can

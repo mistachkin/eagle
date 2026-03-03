@@ -1,0 +1,443 @@
+###############################################################################
+#
+# dict.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test dict-1.1 {dict command: wrong args} -body {
+  list [catch {dict} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.dict} -result \
+{1 {wrong # args: should be "dict option ?arg ...?"}}}
+
+###############################################################################
+
+runTest {test dict-1.2 {dict command: unknown sub-command} -body {
+  list [catch {dict bogus} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.dict} -match glob -result \
+{1 {bad option "bogus": must be *}}}
+
+###############################################################################
+
+runTest {test dict-2.1 {dict create: no args} -body {
+  dict create
+} -constraints {command.dict} -result {}}
+
+###############################################################################
+
+runTest {test dict-2.2 {dict create: one pair} -body {
+  testSortDictionary [dict create a b]
+} -constraints {command.dict} -result {a b}}
+
+###############################################################################
+
+runTest {test dict-2.3 {dict create: multiple pairs} -body {
+  testSortDictionary [dict create a b c d e f]
+} -constraints {command.dict} -result {a b c d e f}}
+
+###############################################################################
+
+runTest {test dict-2.4 {dict create: odd args} -body {
+  list [catch {dict create a b c} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {command.dict} -result \
+{1 {wrong # args: should be "dict create ?key value ...?"}}}
+
+###############################################################################
+
+runTest {test dict-3.1 {dict get: all values} -body {
+  testSortDictionary [dict get {a b c d}]
+} -constraints {command.dict} -result {a b c d}}
+
+###############################################################################
+
+runTest {test dict-3.2 {dict get: single key} -body {
+  dict get {a b c d} a
+} -constraints {command.dict} -result {b}}
+
+###############################################################################
+
+runTest {test dict-3.3 {dict get: nested key} -body {
+  dict get {a {x y} c d} a x
+} -constraints {command.dict} -result {y}}
+
+###############################################################################
+
+runTest {test dict-3.4 {dict get: missing key} -body {
+  list [catch {dict get {a b c d} z} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {command.dict} -match glob -result {1 {*key*}}}
+
+###############################################################################
+
+runTest {test dict-4.1 {dict exists: key present} -body {
+  expr {int([dict exists {a b c d} a])}
+} -constraints {command.dict} -result {1}}
+
+###############################################################################
+
+runTest {test dict-4.2 {dict exists: key absent} -body {
+  expr {int([dict exists {a b c d} z])}
+} -constraints {command.dict} -result {0}}
+
+###############################################################################
+
+runTest {test dict-4.3 {dict exists: nested key present} -body {
+  expr {int([dict exists {a {x y} c d} a x])}
+} -constraints {command.dict} -result {1}}
+
+###############################################################################
+
+runTest {test dict-4.4 {dict exists: nested key absent} -body {
+  expr {int([dict exists {a {x y} c d} a z])}
+} -constraints {command.dict} -result {0}}
+
+###############################################################################
+
+runTest {test dict-5.1 {dict keys: all keys} -body {
+  lsort [dict keys {a b c d e f}]
+} -constraints {command.dict} -result {a c e}}
+
+###############################################################################
+
+runTest {test dict-5.2 {dict keys: pattern match} -body {
+  lsort [dict keys {abc 1 def 2 abx 3} ab*]
+} -constraints {command.dict} -result {abc abx}}
+
+###############################################################################
+
+runTest {test dict-6.1 {dict values: all values} -body {
+  lsort [dict values {a b c d e f}]
+} -constraints {command.dict} -result {b d f}}
+
+###############################################################################
+
+runTest {test dict-6.2 {dict values: pattern match} -body {
+  lsort -integer [dict values {a 1 b 2 c 10} 1*]
+} -constraints {command.dict} -result {1 10}}
+
+###############################################################################
+
+runTest {test dict-7.1 {dict size: empty} -body {
+  dict size {}
+} -constraints {command.dict} -result {0}}
+
+###############################################################################
+
+runTest {test dict-7.2 {dict size: non-empty} -body {
+  dict size {a b c d e f}
+} -constraints {command.dict} -result {3}}
+
+###############################################################################
+
+runTest {test dict-8.1 {dict append: new key} -body {
+  set d [dict create a b]
+  dict append d c hello
+  dict get $d c
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {hello}}
+
+###############################################################################
+
+runTest {test dict-8.2 {dict append: existing key} -body {
+  set d [dict create a hello]
+  dict append d a " world"
+  dict get $d a
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {hello world}}
+
+###############################################################################
+
+runTest {test dict-9.1 {dict incr: new key} -body {
+  set d [dict create]
+  dict incr d x
+  dict get $d x
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {1}}
+
+###############################################################################
+
+runTest {test dict-9.2 {dict incr: existing key} -body {
+  set d [dict create x 5]
+  dict incr d x 3
+  dict get $d x
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {8}}
+
+###############################################################################
+
+runTest {test dict-9.3 {dict incr: negative increment} -body {
+  set d [dict create x 10]
+  dict incr d x -7
+  dict get $d x
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {3}}
+
+###############################################################################
+
+runTest {test dict-10.1 {dict set: simple key} -body {
+  set d [dict create]
+  dict set d name eagle
+  dict get $d name
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {eagle}}
+
+###############################################################################
+
+runTest {test dict-10.2 {dict set: nested key} -body {
+  set d [dict create]
+  dict set d a b c
+  dict get $d a b
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {c}}
+
+###############################################################################
+
+runTest {test dict-10.3 {dict set: overwrite} -body {
+  set d [dict create a b]
+  dict set d a new
+  dict get $d a
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {new}}
+
+###############################################################################
+
+runTest {test dict-11.1 {dict unset: existing key} -body {
+  set d [dict create a b c d]
+  dict unset d a
+  dict keys $d
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {c}}
+
+###############################################################################
+
+runTest {test dict-11.2 {dict unset: missing key (no error)} -body {
+  set d [dict create a b c d]
+  dict unset d z
+  dict size $d
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {2}}
+
+###############################################################################
+
+runTest {test dict-12.1 {dict remove: single key} -body {
+  testSortDictionary [dict remove {a b c d e f} c]
+} -constraints {command.dict} -result {a b e f}}
+
+###############################################################################
+
+runTest {test dict-12.2 {dict remove: multiple keys} -body {
+  testSortDictionary [dict remove {a b c d e f} a e]
+} -constraints {command.dict} -result {c d}}
+
+###############################################################################
+
+runTest {test dict-12.3 {dict remove: missing key (no error)} -body {
+  testSortDictionary [dict remove {a b c d} z]
+} -constraints {command.dict} -result {a b c d}}
+
+###############################################################################
+
+runTest {test dict-13.1 {dict replace: add pair} -body {
+  testSortDictionary [dict replace {a b} c d]
+} -constraints {command.dict} -result {a b c d}}
+
+###############################################################################
+
+runTest {test dict-13.2 {dict replace: overwrite pair} -body {
+  testSortDictionary [dict replace {a b c d} a x]
+} -constraints {command.dict} -result {a x c d}}
+
+###############################################################################
+
+runTest {test dict-13.3 {dict replace: odd args error} -body {
+  list [catch {dict replace {a b} c} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.dict} -result \
+{1 {wrong # args: should be "dict replace dictionaryValue ?key value ...?"}}}
+
+###############################################################################
+
+runTest {test dict-14.1 {dict merge: empty} -body {
+  dict merge
+} -constraints {command.dict} -result {}}
+
+###############################################################################
+
+runTest {test dict-14.2 {dict merge: single dict} -body {
+  testSortDictionary [dict merge {a b c d}]
+} -constraints {command.dict} -result {a b c d}}
+
+###############################################################################
+
+runTest {test dict-14.3 {dict merge: later overrides earlier} -body {
+  testSortDictionary [dict merge {a 1 b 2} {b 3 c 4}]
+} -constraints {command.dict} -result {a 1 b 3 c 4}}
+
+###############################################################################
+
+runTest {test dict-15.1 {dict lappend: new key} -body {
+  set d [dict create]
+  dict lappend d x hello
+  dict get $d x
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {hello}}
+
+###############################################################################
+
+runTest {test dict-15.2 {dict lappend: existing key} -body {
+  set d [dict create x hello]
+  dict lappend d x world
+  dict get $d x
+} -cleanup {
+  unset -nocomplain d
+} -constraints {command.dict} -result {hello world}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  set subCmd foreach
+} else {
+  set subCmd for
+}
+
+###############################################################################
+
+runTest {test dict-16.1 {dict foreach: basic iteration} -body {
+  set keys {}
+  set vals {}
+  dict $subCmd {k v} {a 1 b 2 c 3} {
+    lappend keys $k
+    lappend vals $v
+  }
+  list $keys $vals
+} -cleanup {
+  unset -nocomplain keys vals k v
+} -constraints {command.dict} -result {{a b c} {1 2 3}}}
+
+###############################################################################
+
+runTest {test dict-16.2 {dict foreach: break} -body {
+  set keys {}
+  dict $subCmd {k v} {a 1 b 2 c 3} {
+    lappend keys $k
+    if {$k eq "b"} break
+  }
+  set keys
+} -cleanup {
+  unset -nocomplain keys k v
+} -constraints {command.dict} -result {a b}}
+
+###############################################################################
+
+runTest {test dict-16.3 {dict foreach: continue} -body {
+  set vals {}
+  dict $subCmd {k v} {a 1 b 2 c 3} {
+    if {$k eq "b"} continue
+    lappend vals $v
+  }
+  set vals
+} -cleanup {
+  unset -nocomplain vals k v
+} -constraints {command.dict} -result {1 3}}
+
+###############################################################################
+
+unset -nocomplain subCmd
+
+###############################################################################
+
+runTest {test dict-17.1 {dict map: transform values} -body {
+  testSortDictionary [dict map {k v} {a 1 b 2 c 3} {
+    expr {$v * 2}
+  }]
+} -cleanup {
+  unset -nocomplain k v
+} -constraints {command.dict} -result {a 2 b 4 c 6}}
+
+###############################################################################
+
+runTest {test dict-18.1 {dict filter key: glob pattern} -body {
+  testSortDictionary [dict filter {abc 1 def 2 abx 3} key ab*]
+} -constraints {command.dict} -result {abc 1 abx 3}}
+
+###############################################################################
+
+runTest {test dict-18.2 {dict filter value: glob pattern} -body {
+  testSortDictionary [dict filter {a 10 b 2 c 13} value 1*]
+} -constraints {command.dict} -result {a 10 c 13}}
+
+###############################################################################
+
+runTest {test dict-18.3 {dict filter script: select values > 5} -body {
+  testSortDictionary [dict filter {a 10 b 2 c 13 d 1} script {k v} {
+    expr {$v > 5}
+  }]
+} -cleanup {
+  unset -nocomplain k v
+} -constraints {command.dict} -result {a 10 c 13}}
+
+###############################################################################
+
+runTest {test dict-19.1 {dict update: modify key} -body {
+  set d [dict create a 1 b 2]
+  dict update d a x b y {
+    set x [expr {$x + 10}]
+  }
+  dict get $d a
+} -cleanup {
+  unset -nocomplain d x y
+} -constraints {command.dict} -result {11}}
+
+###############################################################################
+
+runTest {test dict-20.1 {dict with: modify keys} -body {
+  set d [dict create a 1 b 2]
+  dict with d {
+    set a [expr {$a + 10}]
+    set b [expr {$b + 20}]
+  }
+  list [dict get $d a] [dict get $d b]
+} -cleanup {
+  unset -nocomplain d a b
+} -constraints {command.dict} -result {11 22}}
+
+###############################################################################
+
+runTest {test dict-21.1 {dict info: returns string} -body {
+  string length [dict info {a b c d}]
+} -constraints {command.dict} -match glob -result {*}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

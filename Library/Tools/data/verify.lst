@@ -864,6 +864,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Private/ToString.cs
   Eagle/Library/Interfaces/Private/UpdateData.cs
   Eagle/Library/Interfaces/Private/VariableContext.cs
+  Eagle/Library/Interfaces/Private/ViaScript.cs
   Eagle/Library/Interfaces/Public/Alias.cs
   Eagle/Library/Interfaces/Public/AliasData.cs
   Eagle/Library/Interfaces/Public/AnyClientData.cs
@@ -1236,6 +1237,7 @@ set eagle_manifests(source) {
   Eagle/Library/Tests/debug2.eagle
   Eagle/Library/Tests/debug3.eagle
   Eagle/Library/Tests/delay-out.eagle
+  Eagle/Library/Tests/dict.eagle
   Eagle/Library/Tests/empty.eagle
   Eagle/Library/Tests/epilogue.eagle
   Eagle/Library/Tests/error.eagle
@@ -2150,6 +2152,7 @@ set eagle_manifests(binaryTests) {
   Eagle/Tests/debug3.eagle
   Eagle/Tests/debug-ops.eagle
   Eagle/Tests/delay-out.eagle
+  Eagle/Tests/dict.eagle
   Eagle/Tests/empty.eagle
   Eagle/Tests/epilogue.eagle
   Eagle/Tests/error.eagle
@@ -2376,6 +2379,7 @@ set eagle_manifests(setupFull) {
   {{app}\tests\debug3.eagle}
   {{app}\tests\debug-ops.eagle}
   {{app}\tests\delay-out.eagle}
+  {{app}\tests\dict.eagle}
   {{app}\tests\empty.eagle}
   {{app}\tests\epilogue.eagle}
   {{app}\tests\error.eagle}
@@ -3746,6 +3750,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Private/ToString.cs
   src/Library/Interfaces/Private/UpdateData.cs
   src/Library/Interfaces/Private/VariableContext.cs
+  src/Library/Interfaces/Private/ViaScript.cs
   src/Library/Interfaces/Public/Alias.cs
   src/Library/Interfaces/Public/AliasData.cs
   src/Library/Interfaces/Public/AnyClientData.cs

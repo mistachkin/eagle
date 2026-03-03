@@ -80,6 +80,7 @@ https://urn.to/r/eagle</URL>
 <file idref="fad79260-cac0-4649-999e-3452fca0d533" name="debug3.eagle" url="../../Tests/debug3.eagle" id="a5e59305-9587-4a2a-8219-fcbbbe65e122" />
 <file idref="fad79260-cac0-4649-999e-3452fca0d533" name="debug-ops.eagle" url="../../Tests/debug-ops.eagle" id="0a8385c9-b947-4cf3-8958-1592e91d0aa6" />
 <file idref="fad79260-cac0-4649-999e-3452fca0d533" name="delay-out.eagle" url="../../Tests/delay-out.eagle" id="6774f930-3086-416b-af81-32b2ce234344" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="dict.eagle" url="../../Tests/dict.eagle" id="c6a6ca7d-4c7f-42dc-b34a-fd1465ac73c2" />
 <file idref="fad79260-cac0-4649-999e-3452fca0d533" name="empty.eagle" url="../../Tests/empty.eagle" id="26994d5e-d5aa-4d2a-83ab-274650c78d07" />
 <file idref="fad79260-cac0-4649-999e-3452fca0d533" name="epilogue.eagle" url="../../Tests/epilogue.eagle" id="50145fc0-a55c-4a82-b24b-ebbe718ffb2b" />
 <file idref="fad79260-cac0-4649-999e-3452fca0d533" name="error.eagle" url="../../Tests/error.eagle" id="e15e998e-dc3a-42e9-827d-556ce8d71925" />

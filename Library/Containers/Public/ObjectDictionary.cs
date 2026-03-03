@@ -46,14 +46,14 @@ namespace Eagle._Containers.Public
     [Serializable()]
 #endif
     [ObjectId("2327d197-2cd8-440e-babe-1c9bd85a3cd4")]
-    public sealed class ObjectDictionary : SomeDictionary, IReadOnly
+    public sealed class ObjectDictionary : SomeDictionary, IReadOnly, IViaScript
     {
         #region Private Data
         //
         // NOTE: When this field is non-zero, the overridden ToString method
         //       will include all the keys and values, not just the keys.
         //
-        private readonly bool viaScript = false;
+        private readonly bool isViaScript = false;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -143,11 +143,22 @@ namespace Eagle._Containers.Public
 
         #region Private Constructors
         internal ObjectDictionary(
-            bool viaScript /* in */
+            bool isViaScript /* in */
             )
             : this()
         {
-            this.viaScript = viaScript;
+            this.isViaScript = isViaScript;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal ObjectDictionary(
+            IDictionary<string, object> dictionary,
+            bool isViaScript
+            )
+            : this(dictionary)
+        {
+            this.isViaScript = isViaScript;
         }
         #endregion
 
@@ -155,11 +166,41 @@ namespace Eagle._Containers.Public
 
         #region Private Wrapper Methods
         private void InternalAdd(
+            string key,        /* in */
+            IGetValue getValue /* in */
+            )
+        {
+            object value = null;
+
+            if (getValue != null)
+                value = getValue.Value;
+
+            InternalAdd(key, value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void InternalAdd(
             string key,  /* in */
             object value /* in */
             )
         {
             base.Add(key, value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal void InternalAddOrChange(
+            string key,        /* in */
+            IGetValue getValue /* in */
+            )
+        {
+            object value = null;
+
+            if (getValue != null)
+                value = getValue.Value;
+
+            InternalAddOrChange(key, value);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -918,10 +959,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IViaScript Members
+        public bool IsViaScript
+        {
+            get { return isViaScript; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region System.Object Overrides
         public override string ToString()
         {
-            return viaScript ?
+            return isViaScript ?
                 KeysAndValuesToString(null, false) :
                 ToString(null, false);
         }
@@ -937,7 +987,12 @@ namespace Eagle._Containers.Public
         {
             CheckReadOnly();
 
-            InternalAdd(key, value);
+            IGetValue getValue = value as IGetValue;
+
+            if (getValue != null)
+                InternalAdd(key, getValue);
+            else
+                InternalAdd(key, value);
         }
 
         ///////////////////////////////////////////////////////////////////////

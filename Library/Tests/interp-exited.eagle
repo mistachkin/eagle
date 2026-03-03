@@ -5538,18 +5538,18 @@ runTest {test interp-1.70001 {automatic object commands} -setup {
   set instance(3) $interpreter
   set instance(4) [object invoke -alias $typeName(4) Create]
 
-  oip $instance(4) createCount 0;              # Default.cs:29908
-  oip $instance(4) instanceCount 0;            # Default.cs:29911
-  oip $instance(4) staticCount 0;              # Default.cs:29914
-  oip $instance(4) dispose0Count 0;            # Default.cs:29917
-  oip $instance(4) significantDispose1Count 0; # Default.cs:29920
-  oip $instance(4) significantRelease1Count 0; # Default.cs:29923
-  oip $instance(4) redundantDispose1Count 0;   # Default.cs:29926
-  oip $instance(4) redundantRelease1Count 0;   # Default.cs:29929
-  oip $instance(4) destroyCount 0;             # Default.cs:29932
-  oip $typeName(4) neutralStaticField 1;       # Default.cs:29937
-  oip $typeName(4) safeStaticField 2;          # Default.cs:29940
-  oip $typeName(4) unsafeStaticField 3;        # Default.cs:29943
+  oip $instance(4) createCount 0;              # Default.cs:31515
+  oip $instance(4) instanceCount 0;            # Default.cs:31518
+  oip $instance(4) staticCount 0;              # Default.cs:31521
+  oip $instance(4) dispose0Count 0;            # Default.cs:31524
+  oip $instance(4) significantDispose1Count 0; # Default.cs:31527
+  oip $instance(4) significantRelease1Count 0; # Default.cs:31530
+  oip $instance(4) redundantDispose1Count 0;   # Default.cs:31533
+  oip $instance(4) redundantRelease1Count 0;   # Default.cs:31536
+  oip $instance(4) destroyCount 0;             # Default.cs:31539
+  oip $typeName(4) neutralStaticField 1;       # Default.cs:31544
+  oip $typeName(4) safeStaticField 2;          # Default.cs:31547
+  oip $typeName(4) unsafeStaticField 3;        # Default.cs:31550
 
   interp set $interp instance(4) $instance(4)
   interp shareobject $interp $instance(4)

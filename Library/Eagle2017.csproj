@@ -631,6 +631,7 @@
     <Compile Include="Interfaces\Private\String.cs" />
     <Compile Include="Interfaces\Private\ThreadContext.cs" />
     <Compile Include="Interfaces\Private\ToString.cs" />
+    <Compile Include="Interfaces\Private\ViaScript.cs" />
     <Compile Include="Interfaces\Public\Alias.cs" />
     <Compile Include="Interfaces\Public\AliasData.cs" />
     <Compile Include="Interfaces\Public\AnyClientData.cs" />
@@ -1982,6 +1983,7 @@
     <None Include="Tests\debug3.eagle" />
     <None Include="Tests\debug-ops.eagle" />
     <None Include="Tests\delay-out.eagle" />
+    <None Include="Tests\dict.eagle" />
     <None Include="Tests\empty.eagle" />
     <None Include="Tests\epilogue.eagle" />
     <None Include="Tests\error.eagle" />

@@ -11361,10 +11361,10 @@ namespace Eagle._Tests
             }
 
             if (list1 != null)
-                list1.Sort();
+                list1.Sort(); /* O(N) */
 
             if (list2 != null)
-                list2.Sort();
+                list2.Sort(); /* O(N) */
 
             result = StringList.MakeList(
                 "commands", list1, "hiddenCommands", list2);
@@ -16238,7 +16238,10 @@ namespace Eagle._Tests
                 if (subCommands != null)
                 {
                     StringList result = new StringList(subCommands.Keys);
-                    result.Sort(); return result;
+
+                    result.Sort(); /* O(N) */
+
+                    return result;
                 }
             }
 
@@ -30413,11 +30416,17 @@ namespace Eagle._Tests
                                 body = arguments[4];
                                 location = arguments[4];
 
-                                foreach (ObjectPair pair in dictionary)
+                                list = new StringList(dictionary.Keys);
+                                list.Sort(); /* O(N) */
+
+                                foreach (string element in list)
                                 {
+                                    if (element == null)
+                                        continue;
+
                                     code = interpreter.SetVariableValue(
                                         VariableFlags.None, keyVarName,
-                                        pair.Key, null, ref result);
+                                        element, null, ref result);
 
                                     if (code != ReturnCode.Ok)
                                     {
@@ -30430,9 +30439,11 @@ namespace Eagle._Tests
                                         break;
                                     }
 
+                                    value = dictionary[element];
+
                                     code = interpreter.SetVariableValue(
                                         VariableFlags.None, valueVarName,
-                                        StringOps.GetStringFromObject(pair.Value),
+                                        StringOps.GetStringFromObject(value),
                                         null, ref result);
 
                                     if (code != ReturnCode.Ok)
@@ -30912,7 +30923,7 @@ namespace Eagle._Tests
                                 }
 
                                 dictionary = new ObjectDictionary(
-                                    (IDictionary<string, object>)dictionary);
+                                    (IDictionary<string, object>)dictionary, true);
 
                                 for (argumentIndex = 3;
                                         argumentIndex < argumentCount;
@@ -30946,7 +30957,7 @@ namespace Eagle._Tests
                                 }
 
                                 dictionary = new ObjectDictionary(
-                                    (IDictionary<string, object>)dictionary);
+                                    (IDictionary<string, object>)dictionary, true);
 
                                 for (argumentIndex = 3;
                                         argumentIndex < argumentCount;

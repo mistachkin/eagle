@@ -3550,6 +3550,10 @@ if {![info exists no([file tail [info script]])]} then {
     checkForCommand $test_channel debug
   }
 
+  if {![info exists no(dictCommand)]} then {
+    checkForCommand $test_channel dict
+  }
+
   if {![info exists no(doCommand)]} then {
     checkForCommand $test_channel do
   }
