@@ -440,4 +440,21 @@ runTest {test dict-21.1 {dict info: returns string} -body {
 
 ###############################################################################
 
+runTest {test dict-22.1 {dict set: incorrect variable value} -body {
+  namespace eval ::X {
+    variable d [dict create]
+
+    proc test {} {
+      variable d
+      dict set d key1 value1
+    }
+  }
+
+  ::X::test
+} -cleanup {
+  catch {namespace delete ::X}
+} -constraints {command.dict} -result {key1 value1}}
+
+###############################################################################
+
 source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

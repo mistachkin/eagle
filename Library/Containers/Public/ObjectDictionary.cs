@@ -687,7 +687,8 @@ namespace Eagle._Containers.Public
                 }
                 else
                 {
-                    localDictionary = new ObjectDictionary(true);
+                    localDictionary = new ObjectDictionary(
+                        dictionary.IsViaScript);
 
                     dictionary.InternalAddOrChange(
                         localKey, localDictionary);

@@ -1417,49 +1417,54 @@ namespace Eagle._Tests
             if (plugin == null)
                 return ReturnCode.Error;
 
-            ICommand command = new Dict(new CommandData(
-                "dict", null, null, null, typeof(Dict).FullName,
-                CommandFlags.None, plugin, 0));
-
-            long token = 0;
-
-            if (interpreter.AddCommand(command,
-                    clientData, ref token, ref error) != ReturnCode.Ok)
+            if (interpreter.InternalDoesIExecuteExistViaResolvers(
+                    "dict") != ReturnCode.Ok)
             {
-                return ReturnCode.Error;
-            }
+                ICommand command = new Dict(new CommandData(
+                    "dict", null, null, null, typeof(Dict).FullName,
+                    CommandFlags.None, plugin, 0));
 
-            if (token != 0)
-            {
-                bool pluginHadTokens;
-                LongList tokens = plugin.CommandTokens;
+                long token = 0;
 
-                if (tokens != null)
+                if (interpreter.AddCommand(
+                        command, clientData, ref token,
+                        ref error) != ReturnCode.Ok)
                 {
-                    pluginHadTokens = true;
-                }
-                else
-                {
-                    tokens = new LongList();
-                    pluginHadTokens = false;
+                    return ReturnCode.Error;
                 }
 
-                tokens.Add(token);
+                if (token != 0)
+                {
+                    bool pluginHadTokens;
+                    LongList tokens = plugin.CommandTokens;
 
-                //
-                // HACK: Force the command tokens for the
-                //       isolated plugin to be updated.
-                //
-                // HACK: Also, update the plugin command
-                //       tokens if they were null.
-                //
-                if (!pluginHadTokens
+                    if (tokens != null)
+                    {
+                        pluginHadTokens = true;
+                    }
+                    else
+                    {
+                        tokens = new LongList();
+                        pluginHadTokens = false;
+                    }
+
+                    tokens.Add(token);
+
+                    //
+                    // HACK: Force the command tokens for the
+                    //       isolated plugin to be updated.
+                    //
+                    // HACK: Also, update the plugin command
+                    //       tokens if they were null.
+                    //
+                    if (!pluginHadTokens
 #if ISOLATED_PLUGINS
-                    || AppDomainOps.IsIsolated(plugin)
+                        || AppDomainOps.IsIsolated(plugin)
 #endif
-                    )
-                {
-                    plugin.CommandTokens = tokens;
+                        )
+                    {
+                        plugin.CommandTokens = tokens;
+                    }
                 }
             }
 

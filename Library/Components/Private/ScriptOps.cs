@@ -7633,6 +7633,75 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Variable Value Support Methods
+        public static ReturnCode ResolveVariableValue(
+            VariableFlags variableFlags, /* in */
+            IVariable variable,          /* in */
+            object @default,             /* in */
+            ref object value,            /* out */
+            ref Result error             /* out */
+            )
+        {
+            //
+            // NOTE: Follow variable links (i.e. via [variable] command,
+            //       etc).
+            //
+            variable = EntityOps.FollowLinks(
+                variable, variableFlags, ref error);
+
+            if (variable == null)
+                return ReturnCode.Error;
+
+            //
+            // NOTE: Grab the underlying value of the script variable.
+            //
+            object localValue = variable.Value;
+
+        retry:
+
+            //
+            // NOTE: Check if underlying variable value is explicitly null.
+            //       We cannot do much else with a null value; however, it
+            //       is technically legal.
+            //
+            if (localValue == null)
+            {
+                value = @default;
+                return ReturnCode.Ok;
+            }
+
+            //
+            // NOTE: If the underlying variable value has a "simple" type,
+            //       just return it verbatim.
+            //
+            if ((localValue is string) || (localValue is ValueType))
+            {
+                value = localValue;
+                return ReturnCode.Ok;
+            }
+
+            //
+            // NOTE: If the underlying variable value refers to an IGetValue
+            //       instance, grab the wrapped value and try our type checks
+            //       again.
+            //
+            if (localValue is IGetValue)
+            {
+                localValue = ((IGetValue)localValue).Value;
+                goto retry;
+            }
+
+            //
+            // NOTE: At this point, just return the current value (which may
+            //       have been an IGetValue wrapped value) and return it.
+            //
+            value = localValue;
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Variable Frame Support Methods
         public static ReturnCode LinkVariable(
             Interpreter interpreter, /* in */

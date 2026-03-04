@@ -59235,7 +59235,14 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
                 }
 
-                object value = variable.Value;
+                object value = null;
+
+                if (ScriptOps.ResolveVariableValue(
+                        variableFlags, variable, null, ref value,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
 
                 if (value is ObjectDictionary)
                 {

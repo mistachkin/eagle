@@ -120,7 +120,10 @@ proc getCmdList84 {} {
                 {extra cmd bgerror} \
                 [expr {[llength [info commands callback]] > 0 ? \
                     {extra cmd callback} : ""}] \
-                {extra cmd debug} {extra cmd do} \
+                {extra cmd debug} \
+                [expr {[llength [info commands dict]] > 0 ? \
+                    {extra cmd dict} : ""}] \
+                {extra cmd do} \
                 {extra cmd downlevel} \
                 {extra cmd fpclassify} \
                 [expr {[llength [info commands getf]] > 0 ? \
@@ -167,7 +170,9 @@ proc getCmdList85 {} {
                 {missing proc auto_load} {missing proc auto_load_index} \
                 {missing proc auto_qualify} {missing cmd binary} \
                 {missing cmd case} {missing cmd chan} \
-                {missing cmd dict} {missing cmd fileevent} \
+                [expr {[llength [info commands dict]] > 0 ? \
+                    "" : {missing cmd dict}}] \
+                {missing cmd fileevent} \
                 {missing cmd scan} {missing cmd trace}] \
                 [filter [list {extra cmd base64} {extra cmd bgerror} \
                 [expr {[llength [info commands callback]] > 0 ? \
@@ -232,7 +237,9 @@ proc getCmdList86 {} {
                 {missing proc auto_load} {missing proc auto_load_index} \
                 {missing proc auto_qualify} {missing cmd binary} \
                 {missing cmd case} {missing cmd chan} \
-                {missing cmd coroutine} {missing cmd dict} \
+                {missing cmd coroutine} \
+                [expr {[llength [info commands dict]] > 0 ? \
+                    "" : {missing cmd dict}}] \
                 {missing cmd fileevent} {missing cmd scan} \
                 {missing cmd tailcall} {missing cmd trace} \
                 {missing cmd yield} \
@@ -509,21 +516,21 @@ runTest {test commands-1.4 {command groups} -body {
 } -cleanup {
   unset -nocomplain code error token command name group result
 } -constraints [fixConstraints {eagle command.object command.callback\
-compile.CALLBACK_QUEUE command.lget command.library compile.EMIT compile.NATIVE\
-compile.LIBRARY command.socket compile.NETWORK command.sql compile.DATA\
-command.tcl compile.TCL command.xml compile.XML !security.enabled\
+compile.CALLBACK_QUEUE command.dict command.lget command.library compile.EMIT\
+compile.NATIVE compile.LIBRARY command.socket compile.NETWORK command.sql\
+compile.DATA command.tcl compile.TCL command.xml compile.XML !security.enabled\
 monoMatchFramework}] -result {{after event} {append string} {apply procedure}\
 {array variable} {base64 string} {bgerror scriptEnvironment} {break control}\
 {callback event} {catch control} {cd fileSystem} {clock time} {close channel}\
-{concat string} {continue control} {debug debug} {do loop} {downlevel control}\
-{encoding string} {eof channel} {error control} {eval engine} {exec\
-nativeEnvironment} {exit nativeEnvironment} {expr expression} {fblocked\
-channel} {fconfigure channel} {fcopy channel} {file fileSystem} {flush channel}\
-{for loop} {foreach loop} {format string} {fpclassify expression} {gets\
-channel} {glob fileSystem} {global variable} {guid string} {hash string} {host\
-managedEnvironment} {if conditional} {incr expression} {info introspection}\
-{interp scriptEnvironment} {invoke engine} {join string} {kill\
-nativeEnvironment} {lappend list} {lassign list} {lget list} {library\
+{concat string} {continue control} {debug debug} {dict list} {do loop}\
+{downlevel control} {encoding string} {eof channel} {error control} {eval\
+engine} {exec nativeEnvironment} {exit nativeEnvironment} {expr expression}\
+{fblocked channel} {fconfigure channel} {fcopy channel} {file fileSystem}\
+{flush channel} {for loop} {foreach loop} {format string} {fpclassify\
+expression} {gets channel} {glob fileSystem} {global variable} {guid string}\
+{hash string} {host managedEnvironment} {if conditional} {incr expression}\
+{info introspection} {interp scriptEnvironment} {invoke engine} {join string}\
+{kill nativeEnvironment} {lappend list} {lassign list} {lget list} {library\
 nativeEnvironment} {lindex list} {linsert list} {list list} {llength list}\
 {lmap loop} {load managedEnvironment} {lrange list} {lremove list} {lrepeat\
 list} {lreplace list} {lreverse list} {lsearch list} {lset list} {lsort list}\
