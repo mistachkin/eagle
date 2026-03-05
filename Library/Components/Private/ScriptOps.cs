@@ -7635,11 +7635,11 @@ namespace Eagle._Components.Private
 
         #region Variable Value Support Methods
         public static ReturnCode ResolveVariableValue(
-            VariableFlags variableFlags, /* in */
-            IVariable variable,          /* in */
-            object @default,             /* in */
-            ref object value,            /* out */
-            ref Result error             /* out */
+            object @default,                 /* in */
+            ref VariableFlags variableFlags, /* in, out */
+            ref IVariable variable,          /* in, out */
+            ref object value,                /* out */
+            ref Result error                 /* out */
             )
         {
             //

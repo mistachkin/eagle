@@ -59238,8 +59238,8 @@ namespace Eagle._Components.Public
                 object value = null;
 
                 if (ScriptOps.ResolveVariableValue(
-                        variableFlags, variable, null, ref value,
-                        ref error) != ReturnCode.Ok)
+                        null, ref variableFlags, ref variable,
+                        ref value, ref error) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }

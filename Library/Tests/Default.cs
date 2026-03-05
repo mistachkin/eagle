@@ -31021,10 +31021,9 @@ namespace Eagle._Tests
                                         localDictionary = dictionary;
                                     }
 
-                                    keyName = arguments[argumentCount - 2];
-                                    value = arguments[argumentCount - 1];
-
-                                    localDictionary.InternalAddOrChange(keyName, value);
+                                    localDictionary.InternalAddOrChange(
+                                        arguments[argumentCount - 2],
+                                        arguments[argumentCount - 1]);
 
                                     code = interpreter.FireTraces(
                                         BreakpointType.BeforeVariableSet, variableFlags,

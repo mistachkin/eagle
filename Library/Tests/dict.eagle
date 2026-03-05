@@ -453,7 +453,33 @@ runTest {test dict-22.1 {dict set: incorrect variable value} -body {
   ::X::test
 } -cleanup {
   catch {namespace delete ::X}
-} -constraints {command.dict} -result {key1 value1}}
+} -constraints {namespaces command.dict} -result {key1 value1}}
+
+###############################################################################
+
+runTest {test dict-22.2 {dict set: incorrect variable value} -setup {
+  proc helper { varName } {
+    upvar 1 $varName v
+    dict set v key1 value1
+  }
+} -body {
+  namespace eval ::X {
+    variable nsDict [dict create]
+
+    proc test {} {
+      variable nsDict
+      dict set nsDict section [dict create]
+      set d [dict get $nsDict section]
+      helper d; set d
+    }
+  }
+
+  ::X::test
+} -cleanup {
+  catch {namespace delete ::X}
+
+  rename helper ""
+} -constraints {namespaces command.dict} -result {key1 value1}}
 
 ###############################################################################
 
