@@ -140,6 +140,7 @@
     <Compile Include="Commands\Debug.cs" />
     <Compile Include="Commands\Default.cs" />
     <Compile Include="Commands\Delegate.cs" />
+    <Compile Include="Commands\Dict.cs" />
     <Compile Include="Commands\Do.cs" />
     <Compile Include="Commands\Downlevel.cs" />
     <Compile Include="Commands\Encoding.cs" />

@@ -20,7 +20,7 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Commands
 {
     [ObjectId("2039903a-b5fc-4afa-a43e-2d20d31c2f61")]
-    [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
+    [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard)]
     [ObjectGroup("procedure")]
     internal sealed class Nproc : Core
     {

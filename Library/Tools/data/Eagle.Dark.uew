@@ -15,6 +15,7 @@
 after append apply array
 bgerror break
 catch cd clock close concat continue
+dict
 else elseif encoding eof error eval exec exit expr
 fblocked fconfigure fcopy file finally flush for foreach format fpclassify
 gets glob global

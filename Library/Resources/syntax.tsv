@@ -146,6 +146,26 @@ debug variable	debug variable ?options? varName
 debug vout	debug vout ?channelId? ?enabled?
 debug watch	debug watch ?varName? ?types?
 debug write	debug write message ?priority?
+dict append	dict append dictionaryVariable key ?string ...?
+dict create	dict create ?key value ...?
+dict exists	dict exists dictionaryValue key ?key ...?
+dict filter	dict filter dictionaryValue key ?pattern ...?
+dict foreach	dict foreach {keyVar valueVar} dictionaryValue body
+dict get	dict get dictionaryValue ?key ...?
+dict incr	dict incr dictionaryVariable key ?increment?
+dict info	dict info dictionaryValue
+dict keys	dict keys dictionaryValue ?pattern?
+dict lappend	dict lappend dictionaryVariable key ?value ...?
+dict map	dict map {keyVar valueVar} dictionaryValue body
+dict merge	dict merge ?dictionaryValue ...?
+dict remove	dict remove dictionaryValue ?key ...?
+dict replace	dict replace dictionaryValue ?key value ...?
+dict set	dict set dictionaryVariable key ?key ...? value
+dict size	dict size dictionaryValue
+dict unset	dict unset dictionaryVariable key ?key ...?
+dict update	dict update dictionaryVariable key varName ?key varName ...? body
+dict values	dict values dictionaryValue ?pattern?
+dict with	dict with dictionaryVariable ?key ...? body
 do	do script clause test
 downlevel	downlevel arg ?arg ...?
 encoding convertfrom	encoding convertfrom ?encoding? data

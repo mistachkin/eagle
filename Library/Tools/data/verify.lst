@@ -221,6 +221,7 @@ set eagle_manifests(source) {
   Eagle/Library/Commands/Debug.cs
   Eagle/Library/Commands/Default.cs
   Eagle/Library/Commands/Delegate.cs
+  Eagle/Library/Commands/Dict.cs
   Eagle/Library/Commands/Do.cs
   Eagle/Library/Commands/Downlevel.cs
   Eagle/Library/Commands/Encoding.cs
@@ -3121,6 +3122,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Commands/Debug.cs
   src/Library/Commands/Default.cs
   src/Library/Commands/Delegate.cs
+  src/Library/Commands/Dict.cs
   src/Library/Commands/Do.cs
   src/Library/Commands/Downlevel.cs
   src/Library/Commands/Encoding.cs
