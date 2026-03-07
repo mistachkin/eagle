@@ -166,7 +166,12 @@ namespace Eagle._Commands
                                     builder = StringBuilderFactory.Create();
                                 }
 
-                                dictionary.InternalAddOrChange(keyName, builder);
+                                if (!dictionary.InternalAddOrChange(
+                                        interpreter, keyName, builder, ref result))
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
 
                                 for (argumentIndex = 4;
                                         argumentIndex < argumentCount; argumentIndex++)
@@ -207,9 +212,13 @@ namespace Eagle._Commands
                                     argumentIndex < argumentCount;
                                     argumentIndex += 2)
                             {
-                                dictionary.InternalAddOrChange(
-                                    arguments[argumentIndex],
-                                    arguments[argumentIndex + 1]);
+                                if (!dictionary.InternalAddOrChange(
+                                        interpreter, arguments[argumentIndex],
+                                        arguments[argumentIndex + 1], ref result))
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
                             }
 
                             result = dictionary;
@@ -234,7 +243,7 @@ namespace Eagle._Commands
                                 goto done;
                             }
 
-                            result = dictionary.CanTraverse(
+                            result = dictionary.CanTraverse(interpreter,
                                 arguments.GetRange(3, argumentCount - 3), true);
                         }
                         else
@@ -287,8 +296,13 @@ namespace Eagle._Commands
                                                             interpreter, MatchMode.Glob,
                                                             pair.Key, pattern, false))
                                                     {
-                                                        localDictionary.InternalAddOrChange(
-                                                            pair.Key, pair.Value);
+                                                        if (!localDictionary.InternalAddOrChange(
+                                                                interpreter, pair.Key, pair.Value,
+                                                                ref result))
+                                                        {
+                                                            code = ReturnCode.Error;
+                                                            goto done;
+                                                        }
                                                     }
                                                 }
                                             }
@@ -321,8 +335,13 @@ namespace Eagle._Commands
                                                             StringOps.GetStringFromObject(
                                                                 pair.Value), pattern, false))
                                                     {
-                                                        localDictionary.InternalAddOrChange(
-                                                            pair.Key, pair.Value);
+                                                        if (!localDictionary.InternalAddOrChange(
+                                                                interpreter, pair.Key, pair.Value,
+                                                                ref result))
+                                                        {
+                                                            code = ReturnCode.Error;
+                                                            goto done;
+                                                        }
                                                     }
                                                 }
                                             }
@@ -404,8 +423,13 @@ namespace Eagle._Commands
 
                                                 if (boolValue)
                                                 {
-                                                    localDictionary.InternalAddOrChange(
-                                                        pair.Key, pair.Value);
+                                                    if (!localDictionary.InternalAddOrChange(
+                                                            interpreter, pair.Key, pair.Value,
+                                                            ref result))
+                                                    {
+                                                        code = ReturnCode.Error;
+                                                        break;
+                                                    }
                                                 }
                                             }
 
@@ -580,7 +604,8 @@ namespace Eagle._Commands
                                 value = null;
 
                                 if (!dictionary.TryTraverse(
-                                        arguments.GetRange(3, argumentCount - 3),
+                                        interpreter, arguments.GetRange(
+                                            3, argumentCount - 3),
                                         true, ref value, ref result))
                                 {
                                     code = ReturnCode.Error;
@@ -657,7 +682,13 @@ namespace Eagle._Commands
                                 }
 
                                 longValue += increment;
-                                dictionary.InternalAddOrChange(keyName, longValue);
+
+                                if (!dictionary.InternalAddOrChange(
+                                        interpreter, keyName, longValue, ref result))
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
 
                                 code = interpreter.FireTraces(
                                     BreakpointType.BeforeVariableSet, variableFlags,
@@ -787,7 +818,12 @@ namespace Eagle._Commands
                                     list.Add(arguments[argumentIndex]);
                                 }
 
-                                dictionary.InternalAddOrChange(keyName, list);
+                                if (!dictionary.InternalAddOrChange(
+                                        interpreter, keyName, list, ref result))
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
 
                                 code = interpreter.FireTraces(
                                     BreakpointType.BeforeVariableSet, variableFlags,
@@ -894,8 +930,13 @@ namespace Eagle._Commands
 
                                     if (!String.IsNullOrEmpty(localResult))
                                     {
-                                        localDictionary.InternalAddOrChange(
-                                            pair.Key, localResult);
+                                        if (!localDictionary.InternalAddOrChange(
+                                                interpreter, pair.Key, localResult,
+                                                ref result))
+                                        {
+                                            code = ReturnCode.Error;
+                                            break;
+                                        }
                                     }
                                 }
                                 else if (code == ReturnCode.Continue)
@@ -946,7 +987,8 @@ namespace Eagle._Commands
                                     argumentIndex++)
                             {
                                 otherDictionary = ObjectDictionary.FromValue(
-                                    interpreter, arguments[argumentIndex], true, false, ref result);
+                                    interpreter, arguments[argumentIndex], true,
+                                    false, ref result);
 
                                 if (otherDictionary == null)
                                 {
@@ -955,7 +997,15 @@ namespace Eagle._Commands
                                 }
 
                                 foreach (ObjectPair pair in otherDictionary)
-                                    dictionary.InternalAddOrChange(pair.Key, pair.Value);
+                                {
+                                    if (!dictionary.InternalAddOrChange(
+                                            interpreter, pair.Key, pair.Value,
+                                            ref result))
+                                    {
+                                        code = ReturnCode.Error;
+                                        goto done;
+                                    }
+                                }
                             }
 
                             result = dictionary;
@@ -988,7 +1038,8 @@ namespace Eagle._Commands
                                     argumentIndex++)
                             {
                                 /* IGNORED */
-                                dictionary.InternalRemove(arguments[argumentIndex]);
+                                dictionary.InternalRemove(
+                                    interpreter, arguments[argumentIndex]);
                             }
 
                             result = dictionary;
@@ -1021,9 +1072,13 @@ namespace Eagle._Commands
                                     argumentIndex < argumentCount;
                                     argumentIndex += 2)
                             {
-                                dictionary.InternalAddOrChange(
-                                    arguments[argumentIndex],
-                                    arguments[argumentIndex + 1]);
+                                if (!dictionary.InternalAddOrChange(
+                                        interpreter, arguments[argumentIndex],
+                                        arguments[argumentIndex + 1], ref result))
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
                             }
 
                             result = dictionary;
@@ -1059,6 +1114,7 @@ namespace Eagle._Commands
                                     stopOnNotFound = false;
 
                                     localDictionary = dictionary.TraverseAndCreate(
+                                        interpreter,
                                         arguments.GetRange(3, argumentCount - 5), 0,
                                         Index.Invalid, true, ref changeCount,
                                         ref stopOnNotFound, ref result);
@@ -1074,9 +1130,13 @@ namespace Eagle._Commands
                                     localDictionary = dictionary;
                                 }
 
-                                localDictionary.InternalAddOrChange(
-                                    arguments[argumentCount - 2],
-                                    arguments[argumentCount - 1]);
+                                if (!localDictionary.InternalAddOrChange(
+                                        interpreter, arguments[argumentCount - 2],
+                                        arguments[argumentCount - 1], ref result))
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
 
                                 code = interpreter.FireTraces(
                                     BreakpointType.BeforeVariableSet, variableFlags,
@@ -1147,6 +1207,7 @@ namespace Eagle._Commands
                                     stopOnNotFound = true;
 
                                     localDictionary = dictionary.TraverseAndCreate(
+                                        interpreter,
                                         arguments.GetRange(3, argumentCount - 4), 0,
                                         Index.Invalid, true, ref changeCount,
                                         ref stopOnNotFound, ref result);
@@ -1175,7 +1236,7 @@ namespace Eagle._Commands
                                 }
 
                                 if (localDictionary.InternalRemove(
-                                        arguments[argumentCount - 1]))
+                                        interpreter, arguments[argumentCount - 1]))
                                 {
                                     changeCount++;
                                 }
@@ -1303,13 +1364,19 @@ namespace Eagle._Commands
                                                 arguments[argumentIndex + 1],
                                                 ref localResult) == ReturnCode.Ok)
                                         {
-                                            dictionary.InternalAddOrChange(
-                                                keyName, localResult);
+                                            if (!dictionary.InternalAddOrChange(
+                                                    interpreter, keyName, localResult,
+                                                    ref result))
+                                            {
+                                                code = ReturnCode.Error;
+                                                goto done;
+                                            }
                                         }
                                         else
                                         {
                                             /* IGNORED */
-                                            dictionary.InternalRemove(keyName);
+                                            dictionary.InternalRemove(
+                                                interpreter, keyName);
                                         }
                                     }
 
@@ -1401,6 +1468,7 @@ namespace Eagle._Commands
                                     stopOnNotFound = false;
 
                                     localDictionary = dictionary.TraverseAndCreate(
+                                        interpreter,
                                         arguments.GetRange(3, argumentCount - 4), 0,
                                         Index.Invalid, true, ref changeCount,
                                         ref stopOnNotFound, ref result);
@@ -1468,6 +1536,7 @@ namespace Eagle._Commands
                                         stopOnNotFound = false;
 
                                         otherDictionary = dictionary.TraverseAndCreate(
+                                            interpreter,
                                             arguments.GetRange(3, argumentCount - 4), 0,
                                             Index.Invalid, true, ref changeCount,
                                             ref stopOnNotFound, ref result);
@@ -1493,13 +1562,19 @@ namespace Eagle._Commands
                                                 VariableFlags.None, keyName2,
                                                 ref localResult) == ReturnCode.Ok)
                                         {
-                                            otherDictionary.InternalAddOrChange(
-                                                keyName2, localResult);
+                                            if (!otherDictionary.InternalAddOrChange(
+                                                    interpreter, keyName2, localResult,
+                                                    ref result))
+                                            {
+                                                code = ReturnCode.Error;
+                                                goto done;
+                                            }
                                         }
                                         else
                                         {
                                             /* IGNORED */
-                                            otherDictionary.InternalRemove(keyName2);
+                                            otherDictionary.InternalRemove(
+                                                interpreter, keyName2);
                                         }
                                     }
 

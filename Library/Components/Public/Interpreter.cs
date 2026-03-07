@@ -848,6 +848,22 @@ namespace Eagle._Components.Public
         //
         private static int DefaultUnsafeUnknownLimit = Limits.Unlimited;
         private static int DefaultSafeUnknownLimit = 1000;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are not read-only.
+        //
+        private static int DefaultUnsafeDictionaryNestLimit = Limits.Unlimited;
+        private static int DefaultSafeDictionaryNestLimit = 5;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are not read-only.
+        //
+        private static int DefaultUnsafeDictionaryPairLimit = Limits.Unlimited;
+        private static int DefaultSafeDictionaryPairLimit = 100;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1954,6 +1970,9 @@ namespace Eagle._Components.Public
         private long commandLimit;
         private long unknownCount;
         private long unknownLimit;
+        private long dictionaryPairLimit;
+        private long dictionaryNestLimit;
+
         private int readyCount;
         private int readyLimit;
         private int recursionLimit; // COMPAT: Tcl.
@@ -42352,6 +42371,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public long DictionaryPairLimit
+        {
+            get { CheckDisposed(); lock (syncRoot) { return dictionaryPairLimit; } }
+            set { CheckDisposed(); lock (syncRoot) { dictionaryPairLimit = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public long DictionaryNestLimit
+        {
+            get { CheckDisposed(); lock (syncRoot) { return dictionaryNestLimit; } }
+            set { CheckDisposed(); lock (syncRoot) { dictionaryNestLimit = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public bool LookForCommercialLicense(
             string name,
             out Guid? id,
@@ -48132,6 +48167,22 @@ namespace Eagle._Components.Public
         {
             get { /* NO-LOCK */ return unknownLimit; }
             set { /* NO-LOCK */ unknownLimit = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal long InternalDictionaryPairLimit
+        {
+            get { /* NO-LOCK */ return dictionaryPairLimit; }
+            set { /* NO-LOCK */ dictionaryPairLimit = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal long InternalDictionaryNestLimit
+        {
+            get { /* NO-LOCK */ return dictionaryNestLimit; }
+            set { /* NO-LOCK */ dictionaryNestLimit = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -59251,8 +59302,8 @@ namespace Eagle._Components.Public
                 else
                 {
                     dictionary = ObjectDictionary.FromString(
-                        StringOps.GetStringFromObject(value),
-                        true, false, ref error);
+                        this, StringOps.GetStringFromObject(
+                        value), true, false, ref error);
 
                     if (dictionary == null)
                         return ReturnCode.Error;
@@ -79863,6 +79914,8 @@ namespace Eagle._Components.Public
                     this.InternalOperationLimit = DefaultSafeOperationLimit;
                     this.InternalCommandLimit = DefaultSafeCommandLimit;
                     this.InternalUnknownLimit = DefaultSafeUnknownLimit;
+                    this.InternalDictionaryPairLimit = DefaultSafeDictionaryPairLimit;
+                    this.InternalDictionaryNestLimit = DefaultSafeDictionaryNestLimit;
                 }
                 else
                 {
@@ -79882,6 +79935,8 @@ namespace Eagle._Components.Public
                     this.InternalOperationLimit = DefaultUnsafeOperationLimit;
                     this.InternalCommandLimit = DefaultUnsafeCommandLimit;
                     this.InternalUnknownLimit = DefaultUnsafeUnknownLimit;
+                    this.InternalDictionaryPairLimit = DefaultUnsafeDictionaryPairLimit;
+                    this.InternalDictionaryNestLimit = DefaultUnsafeDictionaryNestLimit;
                 }
 
                 ///////////////////////////////////////////////////////////////////////////////////////
@@ -110129,6 +110184,12 @@ namespace Eagle._Components.Public
 
                 if (empty || (unknownLimit != Limits.Unlimited))
                     list.Add("UnknownLimit", unknownLimit.ToString());
+
+                if (empty || (dictionaryPairLimit != Limits.Unlimited))
+                    list.Add("DictionaryPairLimit", dictionaryPairLimit.ToString());
+
+                if (empty || (dictionaryNestLimit != Limits.Unlimited))
+                    list.Add("DictionaryNestLimit", dictionaryNestLimit.ToString());
 
 #if SHELL
                 if (empty || (globalInteractiveLoops > 0))

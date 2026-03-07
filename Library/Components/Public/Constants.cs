@@ -77,6 +77,7 @@ namespace Eagle._Constants
     {
         public static readonly int Unlimited = 0;
         public static readonly int Forbidden = -1;
+        public static readonly int Unknown = -2;
     }
 
     ///////////////////////////////////////////////////////////////////////////

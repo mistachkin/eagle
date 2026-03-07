@@ -165,9 +165,11 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Wrapper Methods
-        private void InternalAdd(
-            string key,        /* in */
-            IGetValue getValue /* in */
+        private bool InternalAdd(
+            Interpreter interpreter, /* in */
+            string key,              /* in */
+            IGetValue getValue,      /* in */
+            ref Result error         /* out */
             )
         {
             object value = null;
@@ -175,12 +177,119 @@ namespace Eagle._Containers.Public
             if (getValue != null)
                 value = getValue.Value;
 
-            InternalAdd(key, value);
+            return InternalAdd(interpreter, key, value, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private void InternalAdd(
+        private bool InternalAdd(
+            Interpreter interpreter, /* in */
+            string key,              /* in */
+            object value,            /* in */
+            ref Result error         /* out */
+            )
+        {
+            long limit = Limits.Unknown;
+
+            if (WouldExceedPairLimit(interpreter, key, ref limit))
+            {
+                error = String.Format(
+                    "would exceed dictionary pair limit {0}", limit);
+
+                return false;
+            }
+
+            base.Add(key, value);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal bool InternalAddOrChange(
+            Interpreter interpreter, /* in */
+            string key,              /* in */
+            IGetValue getValue,      /* in */
+            ref Result error         /* out */
+            )
+        {
+            object value = null;
+
+            if (getValue != null)
+                value = getValue.Value;
+
+            return InternalAddOrChange(
+                interpreter, key, value, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal bool InternalAddOrChange(
+            Interpreter interpreter, /* in */
+            string key,              /* in */
+            object value,            /* in */
+            ref Result error         /* out */
+            )
+        {
+            long limit = Limits.Unknown;
+
+            if (WouldExceedPairLimit(interpreter, key, ref limit))
+            {
+                error = String.Format(
+                    "would exceed dictionary pair limit {0}", limit);
+
+                return false;
+            }
+
+            PrivateAddOrChange(key, value);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal bool InternalRemove(
+            Interpreter interpreter, /* in: NOT USED */
+            string key               /* in */
+            )
+        {
+            return PrivateRemove(key);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void InternalClear(
+            Interpreter interpreter /* in: NOT USED */
+            )
+        {
+            PrivateClear();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_STANDARD_21
+        private bool InternalTryAdd(
+            Interpreter interpreter, /* in: NOT USED */
+            string key,              /* in */
+            object value             /* in */
+            )
+        {
+            return PrivateTryAdd(key, value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool InternalRemove(
+            Interpreter interpreter, /* in: NOT USED */
+            string key,              /* in */
+            out object value         /* in */
+            )
+        {
+            return PrivateRemove(key, out value);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void PrivateAdd(
             string key,  /* in */
             object value /* in */
             )
@@ -190,22 +299,7 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        internal void InternalAddOrChange(
-            string key,        /* in */
-            IGetValue getValue /* in */
-            )
-        {
-            object value = null;
-
-            if (getValue != null)
-                value = getValue.Value;
-
-            InternalAddOrChange(key, value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        internal void InternalAddOrChange(
+        private void PrivateAddOrChange(
             string key,  /* in */
             object value /* in */
             )
@@ -215,7 +309,7 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        internal bool InternalRemove(
+        private bool PrivateRemove(
             string key /* in */
             )
         {
@@ -224,7 +318,7 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        private void InternalClear()
+        private void PrivateClear()
         {
             base.Clear();
         }
@@ -232,9 +326,9 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_STANDARD_21
-        private bool InternalTryAdd(
-            string key,
-            object value
+        private bool PrivateTryAdd(
+            string key,  /* in */
+            object value /* in */
             )
         {
             return base.TryAdd(key, value);
@@ -242,9 +336,9 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        private bool InternalRemove(
-            string key,
-            out object value
+        private bool PrivateRemove(
+            string key,      /* in */
+            out object value /* in */
             )
         {
             return base.Remove(key, out value);
@@ -270,12 +364,65 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private bool WouldExceedPairLimit(
+            Interpreter interpreter, /* in */
+            string key,              /* in */
+            ref long limit           /* in, out */
+            )
+        {
+            if ((key != null) && this.ContainsKey(key))
+                return false;
+
+            if (interpreter == null)
+                return false;
+
+            limit = interpreter.InternalDictionaryPairLimit;
+
+            if (limit == Limits.Unlimited)
+                return false;
+
+            long count = this.Count + 1; // NOTE: Pre-add.
+
+            if (count < 0) /* IMPOSSIBLE */
+                return true;
+
+            return (count > limit);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool WouldExceedNestLimit(
+            Interpreter interpreter, /* in */
+            int startIndex,          /* in */
+            int stopIndex,           /* in */
+            ref long limit           /* in, out */
+            )
+        {
+            if (interpreter == null)
+                return false;
+
+            limit = interpreter.InternalDictionaryNestLimit;
+
+            if (limit == Limits.Unlimited)
+                return false;
+
+            long count = stopIndex - startIndex + 1;
+
+            if (count < 0) /* IMPOSSIBLE (?) */
+                return true;
+
+            return (count > limit);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static ObjectDictionary PrivateFromString(
-            string value,
-            bool viaScript,
-            bool addOnly,
-            bool keysOnly,
-            ref Result error
+            Interpreter interpreter, /* in */
+            string value,            /* in */
+            bool viaScript,          /* in */
+            bool addOnly,            /* in */
+            bool keysOnly,           /* in */
+            ref Result error         /* out */
             )
         {
             StringDictionary dictionary1 = StringDictionary.FromString(
@@ -287,7 +434,13 @@ namespace Eagle._Containers.Public
             ObjectDictionary dictionary2 = new ObjectDictionary(viaScript);
 
             foreach (StringPair pair in dictionary1)
-                dictionary2.InternalAddOrChange(pair.Key, pair.Value);
+            {
+                if (!dictionary2.InternalAddOrChange(
+                        interpreter, pair.Key, pair.Value, ref error))
+                {
+                    return null;
+                }
+            }
 
             return dictionary2;
         }
@@ -350,7 +503,8 @@ namespace Eagle._Containers.Public
                     return dictionary;
             }
 
-            dictionary = FromString(StringOps.GetStringFromObject(
+            dictionary = FromString(
+                interpreter, StringOps.GetStringFromObject(
                 value), viaScript, addOnly, keysOnly, ref error);
 
             if (dictionary == null)
@@ -376,6 +530,7 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static ObjectDictionary FromObject(
+            Interpreter interpreter,
             object value,
             bool viaScript,
             bool addOnly,
@@ -383,12 +538,13 @@ namespace Eagle._Containers.Public
             )
         {
             return FromObject(
-                value, viaScript, addOnly, false, ref error);
+                interpreter, value, viaScript, addOnly, false, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ObjectDictionary FromObject(
+            Interpreter interpreter,
             object value,
             bool viaScript,
             bool addOnly,
@@ -404,12 +560,14 @@ namespace Eagle._Containers.Public
                 stringValue = StringOps.GetStringFromObject(value);
 
             return PrivateFromString(
-                stringValue, viaScript, addOnly, keysOnly, ref error);
+                interpreter, stringValue, viaScript, addOnly, keysOnly,
+                ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static ObjectDictionary FromString(
+            Interpreter interpreter,
             string value,
             bool viaScript,
             bool addOnly
@@ -417,12 +575,14 @@ namespace Eagle._Containers.Public
         {
             Result error = null;
 
-            return FromString(value, viaScript, addOnly, ref error);
+            return FromString(
+                interpreter, value, viaScript, addOnly, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ObjectDictionary FromString(
+            Interpreter interpreter,
             string value,
             bool viaScript,
             bool addOnly,
@@ -430,12 +590,13 @@ namespace Eagle._Containers.Public
             )
         {
             return FromString(
-                value, viaScript, addOnly, false, ref error);
+                interpreter, value, viaScript, addOnly, false, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ObjectDictionary FromString(
+            Interpreter interpreter,
             string value,
             bool viaScript,
             bool addOnly,
@@ -444,7 +605,7 @@ namespace Eagle._Containers.Public
             )
         {
             return PrivateFromString(
-                value, viaScript, addOnly, keysOnly, ref error);
+                interpreter, value, viaScript, addOnly, keysOnly, ref error);
         }
         #endregion
 
@@ -477,14 +638,16 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool CanTraverse(
-            IEnumerable keys, /* in */
-            bool viaScript    /* in */
+            Interpreter interpreter, /* in */
+            IEnumerable keys,        /* in */
+            bool viaScript           /* in */
             )
         {
             object value = null;
             Result error = null;
 
-            return TryTraverse(keys, viaScript, ref value, ref error);
+            return TryTraverse(
+                interpreter, keys, viaScript, ref value, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -537,8 +700,8 @@ namespace Eagle._Containers.Public
                     if (aggressive)
                     {
                         dictionary = FromString(
-                            StringOps.GetStringFromObject(pair.Value),
-                            viaScript, false);
+                            interpreter, StringOps.GetStringFromObject(
+                            pair.Value), viaScript, false);
 
                         if (dictionary != null)
                             goto recurse;
@@ -560,6 +723,7 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         public ObjectDictionary TraverseAndCreate(
+            Interpreter interpreter, /* in */
             IEnumerable keys,        /* in */
             int startIndex,          /* in */
             int stopIndex,           /* in */
@@ -629,6 +793,17 @@ namespace Eagle._Containers.Public
                 return null;
             }
 
+            long limit = Limits.Unknown;
+
+            if (WouldExceedNestLimit(
+                    interpreter, startIndex, stopIndex, ref limit))
+            {
+                error = String.Format(
+                    "would exceed dictionary nesting limit {0}", limit);
+
+                return null;
+            }
+
             ObjectDictionary dictionary = this;
 
             for (int index = startIndex; index <= stopIndex; index++)
@@ -657,14 +832,18 @@ namespace Eagle._Containers.Public
                     else
                     {
                         localDictionary = FromString(
-                            StringOps.GetStringFromObject(localValue),
-                            viaScript, false, ref error);
+                            interpreter, StringOps.GetStringFromObject(
+                            localValue), viaScript, false, ref error);
 
                         if (localDictionary == null)
                             return null;
 
-                        dictionary.InternalAddOrChange(
-                            localKey, localDictionary);
+                        if (!dictionary.InternalAddOrChange(
+                                interpreter, localKey, localDictionary,
+                                ref error))
+                        {
+                            return null;
+                        }
 
                         dictionary = localDictionary;
 
@@ -690,8 +869,12 @@ namespace Eagle._Containers.Public
                     localDictionary = new ObjectDictionary(
                         dictionary.IsViaScript);
 
-                    dictionary.InternalAddOrChange(
-                        localKey, localDictionary);
+                    if (!dictionary.InternalAddOrChange(
+                            interpreter, localKey, localDictionary,
+                            ref error))
+                    {
+                        return null;
+                    }
 
                     dictionary = localDictionary;
 
@@ -705,10 +888,11 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool TryTraverse(
-            IEnumerable keys, /* in */
-            bool viaScript,   /* in */
-            ref object value, /* out */
-            ref Result error  /* out */
+            Interpreter interpreter, /* in */
+            IEnumerable keys,        /* in */
+            bool viaScript,          /* in */
+            ref object value,        /* out */
+            ref Result error         /* out */
             )
         {
             if (keys == null)
@@ -755,14 +939,18 @@ namespace Eagle._Containers.Public
                     continue;
 
                 dictionary = FromString(
-                    StringOps.GetStringFromObject(localValue),
-                    viaScript, false, ref error);
+                    interpreter, StringOps.GetStringFromObject(
+                    localValue), viaScript, false, ref error);
 
                 if (dictionary == null)
                     return false;
 
-                savedDictionary.InternalAddOrChange(
-                    localKey, dictionary);
+                if (!savedDictionary.InternalAddOrChange(
+                        interpreter, localKey, dictionary,
+                        ref error))
+                {
+                    return false;
+                }
             }
 
             localKey = localKeys[count - 1];
@@ -991,9 +1179,9 @@ namespace Eagle._Containers.Public
             IGetValue getValue = value as IGetValue;
 
             if (getValue != null)
-                InternalAdd(key, getValue);
+                PrivateAdd(key, getValue);
             else
-                InternalAdd(key, value);
+                PrivateAdd(key, value);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1004,7 +1192,7 @@ namespace Eagle._Containers.Public
         {
             CheckReadOnly();
 
-            return InternalRemove(key);
+            return PrivateRemove(key);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1013,7 +1201,7 @@ namespace Eagle._Containers.Public
         {
             CheckReadOnly();
 
-            InternalClear();
+            PrivateClear();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1025,7 +1213,7 @@ namespace Eagle._Containers.Public
             {
                 CheckReadOnly();
 
-                InternalAddOrChange(key, value);
+                PrivateAddOrChange(key, value);
             }
         }
 
@@ -1039,7 +1227,7 @@ namespace Eagle._Containers.Public
         {
             CheckReadOnly();
 
-            return InternalTryAdd(key, value);
+            return PrivateTryAdd(key, value);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1051,7 +1239,7 @@ namespace Eagle._Containers.Public
         {
             CheckReadOnly();
 
-            return InternalRemove(key, out value);
+            return PrivateRemove(key, out value);
         }
 #endif
         #endregion

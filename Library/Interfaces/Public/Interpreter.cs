@@ -64,6 +64,11 @@ namespace Eagle._Interfaces.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        long DictionaryPairLimit { get; set; }
+        long DictionaryNestLimit { get; set; }
+
+        ///////////////////////////////////////////////////////////////////////
+
         bool LookForCommercialLicense(
             string name, out Guid? id, ref Result error
         );

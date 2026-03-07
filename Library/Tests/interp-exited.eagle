@@ -4517,9 +4517,9 @@ runTest {test interp-1.2001 {info commands in "safe" interp} -setup {
 
   unset -nocomplain i
 } -constraints {eagle} -match regexp -result {^(?:Eagle_Nop )?after append\
-apply array base64 bgerror break (?:callback )?catch close concat continue do\
-downlevel encoding eof error eval exit expr fblocked fconfigure fcopy flush for\
-foreach format fpclassify gets global guid hash if incr invoke join lappend\
+apply array base64 bgerror break (?:callback )?catch close concat continue dict\
+do downlevel encoding eof error eval exit expr fblocked fconfigure fcopy flush\
+for foreach format fpclassify gets global guid hash if incr invoke join lappend\
 lassign lget lindex linsert list llength lmap lrange lremove lrepeat lreplace\
 lreverse lsearch lset lsort namespace napply nop nproc parse proc puts read\
 regexp regsub rename return scope seek set split string subst switch tell test1\

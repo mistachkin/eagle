@@ -379,14 +379,14 @@ runTest {test infoCommands-1.1 {info commands (only)} -setup {
 } -constraints {eagle} -match regexp -result [string map \
 [list Eagle_Nop [getNopCommandName]] {^(Eagle_Nop )?after append apply\
 array base64 bgerror break (callback )?catch cd clock close concat continue\
-debug do downlevel encoding eof error eval exec exit expr fblocked fconfigure\
-fcopy file flush for foreach format fpclassify (getf )?gets glob global guid\
-hash host if incr info interp invoke join kill lappend lassign lget (library\
-)?lindex linsert list llength lmap load lrange lremove lrepeat lreplace\
-lreverse lsearch lset lsort namespace napply nop nproc (object )?open package\
-parse pid proc puts pwd read regexp regsub rename return scope seek set (setf\
-)?(socket )?source split (sql )?string subst switch (tcl )?tell test1 test2\
-throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
+debug dict do downlevel encoding eof error eval exec exit expr fblocked\
+fconfigure fcopy file flush for foreach format fpclassify (getf )?gets glob\
+global guid hash host if incr info interp invoke join kill lappend lassign lget\
+(library )?lindex linsert list llength lmap load lrange lremove lrepeat\
+lreplace lreverse lsearch lset lsort namespace napply nop nproc (object )?open\
+package parse pid proc puts pwd read regexp regsub rename return scope seek set\
+(setf )?(socket )?source split (sql )?string subst switch (tcl )?tell test1\
+test2 throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
 variable version vwait while( xml)?$}]}
 
 ###############################################################################
@@ -406,13 +406,14 @@ runTest {test infoCommands-1.2 {info commands (safe)} -setup {
   unset -nocomplain savedDefaultInterpreterFlags
 } -constraints {eagle} -match regexp -result [string map \
 [list Eagle_Nop [getNopCommandName]] {^(Eagle_Nop )?after append apply\
-array base64 bgerror break (callback )?catch close concat continue do downlevel\
-encoding eof error eval exit expr fblocked fconfigure fcopy flush for foreach\
-format fpclassify gets global guid hash if incr invoke join lappend lassign\
-lget lindex linsert list llength lmap lrange lremove lrepeat lreplace lreverse\
-lsearch lset lsort namespace napply nop nproc parse proc puts read regexp\
-regsub rename return scope seek set split string subst switch tell test1 test2\
-throw time truncate try unset update uplevel upvar variable vwait while$}]}
+array base64 bgerror break (callback )?catch close concat continue dict do\
+downlevel encoding eof error eval exit expr fblocked fconfigure fcopy flush for\
+foreach format fpclassify gets global guid hash if incr invoke join lappend\
+lassign lget lindex linsert list llength lmap lrange lremove lrepeat lreplace\
+lreverse lsearch lset lsort namespace napply nop nproc parse proc puts read\
+regexp regsub rename return scope seek set split string subst switch tell test1\
+test2 throw time truncate try unset update uplevel upvar variable vwait\
+while$}]}
 
 ###############################################################################
 
@@ -432,14 +433,14 @@ runTest {test infoCommands-1.3 {info commands (-hidden)} -setup {
 } -constraints {eagle} -match regexp -result [string map \
 [list Eagle_Nop [getNopCommandName]] {^(Eagle_Nop )?after append apply\
 array base64 bgerror break (callback )?catch cd clock close concat continue\
-debug do downlevel encoding eof error eval exec exit expr fblocked fconfigure\
-fcopy file flush for foreach format fpclassify (getf )?gets glob global guid\
-hash host if incr info interp invoke join kill lappend lassign lget (library\
-)?lindex linsert list llength lmap load lrange lremove lrepeat lreplace\
-lreverse lsearch lset lsort namespace napply nop nproc (object )?open package\
-parse pid proc puts pwd read regexp regsub rename return scope seek set (setf\
-)?(socket )?source split (sql )?string subst switch (tcl )?tell test1 test2\
-throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
+debug dict do downlevel encoding eof error eval exec exit expr fblocked\
+fconfigure fcopy file flush for foreach format fpclassify (getf )?gets glob\
+global guid hash host if incr info interp invoke join kill lappend lassign lget\
+(library )?lindex linsert list llength lmap load lrange lremove lrepeat\
+lreplace lreverse lsearch lset lsort namespace napply nop nproc (object )?open\
+package parse pid proc puts pwd read regexp regsub rename return scope seek set\
+(setf )?(socket )?source split (sql )?string subst switch (tcl )?tell test1\
+test2 throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
 variable version vwait while( xml)?$}]}
 
 ###############################################################################
@@ -459,13 +460,14 @@ runTest {test infoCommands-1.4 {info commands (safe / -hidden)} -setup {
   unset -nocomplain savedDefaultInterpreterFlags
 } -constraints {eagle} -match regexp -result [string map \
 [list Eagle_Nop [getNopCommandName]] {^(Eagle_Nop )?after append apply\
-array base64 bgerror break (callback )?catch close concat continue do downlevel\
-encoding eof error eval exit expr fblocked fconfigure fcopy flush for foreach\
-format fpclassify gets global guid hash if incr invoke join lappend lassign\
-lget lindex linsert list llength lmap lrange lremove lrepeat lreplace lreverse\
-lsearch lset lsort namespace napply nop nproc parse proc puts read regexp\
-regsub rename return scope seek set split string subst switch tell test1 test2\
-throw time truncate try unset update uplevel upvar variable vwait while$}]}
+array base64 bgerror break (callback )?catch close concat continue dict do\
+downlevel encoding eof error eval exit expr fblocked fconfigure fcopy flush for\
+foreach format fpclassify gets global guid hash if incr invoke join lappend\
+lassign lget lindex linsert list llength lmap lrange lremove lrepeat lreplace\
+lreverse lsearch lset lsort namespace napply nop nproc parse proc puts read\
+regexp regsub rename return scope seek set split string subst switch tell test1\
+test2 throw time truncate try unset update uplevel upvar variable vwait\
+while$}]}
 
 ###############################################################################
 
@@ -488,25 +490,25 @@ runTest {test infoCommands-1.5 {info commands (hide / -hidden)} -setup {
 } -constraints {eagle command.object} -match regexp -result [string map \
 [list Eagle_Nop [getNopCommandName]] {^\{(Eagle_Nop )?after append apply\
 array base64 bgerror break (callback )?catch cd clock close concat continue\
-debug do downlevel encoding eof error eval exec exit expr fblocked fconfigure\
+debug dict do downlevel encoding eof error eval exec exit expr fblocked\
+fconfigure fcopy file flush for foreach format fpclassify (getf )?gets glob\
+global guid hash host if incr info interp invoke join kill lappend lassign lget\
+(library )?lindex linsert list llength lmap load lrange lremove lrepeat\
+lreplace lreverse lsearch lset lsort namespace napply nop nproc open package\
+parse pid proc puts pwd read regexp regsub rename return scope seek set (setf\
+)?(socket )?source split (sql )?string subst switch (tcl )?tell test1 test2\
+throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
+variable version vwait while( xml)?\} \{(Eagle_Nop )?after append apply array\
+base64 bgerror break (callback )?catch cd clock close concat continue debug\
+dict do downlevel encoding eof error eval exec exit expr fblocked fconfigure\
 fcopy file flush for foreach format fpclassify (getf )?gets glob global guid\
 hash host if incr info interp invoke join kill lappend lassign lget (library\
 )?lindex linsert list llength lmap load lrange lremove lrepeat lreplace\
-lreverse lsearch lset lsort namespace napply nop nproc open package parse pid\
-proc puts pwd read regexp regsub rename return scope seek set (setf )?(socket\
-)?source split (sql )?string subst switch (tcl )?tell test1 test2 throw time\
-truncate try unload unset (unsetf )?update uplevel upvar uri variable version\
-vwait while( xml)?\} \{(Eagle_Nop )?after append apply array base64 bgerror\
-break (callback )?catch cd clock close concat continue debug do downlevel\
-encoding eof error eval exec exit expr fblocked fconfigure fcopy file flush for\
-foreach format fpclassify (getf )?gets glob global guid hash host if incr info\
-interp invoke join kill lappend lassign lget (library )?lindex linsert list\
-llength lmap load lrange lremove lrepeat lreplace lreverse lsearch lset lsort\
-namespace napply nop nproc object open package parse pid proc puts pwd read\
-regexp regsub rename return scope seek set (setf )?(socket )?source split (sql\
-)?string subst switch (tcl )?tell test1 test2 throw time truncate try unload\
-unset (unsetf )?update uplevel upvar uri variable version vwait while(\
-xml)?\}$}]}
+lreverse lsearch lset lsort namespace napply nop nproc object open package\
+parse pid proc puts pwd read regexp regsub rename return scope seek set (setf\
+)?(socket )?source split (sql )?string subst switch (tcl )?tell test1 test2\
+throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
+variable version vwait while( xml)?\}$}]}
 
 ###############################################################################
 
