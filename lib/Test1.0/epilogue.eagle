@@ -25,24 +25,6 @@ if {![info exists no([file tail [info script]])]} then {
   }
 
   #
-  # NOTE: Verify that the current call frame is correct and that the
-  #       interpreter call stack has not been imbalanced by previous
-  #       tests or other errors.  This check only applies to Eagle.
-  #
-  if {[isEagle] && [llength [info commands object]] > 0} then {
-    #
-    # NOTE: Check the name of the current call frame against the one
-    #       that should be used for evaluating this script file.
-    #
-    if {[object invoke -flags +NonPublic \
-            Interpreter.GetActive.CurrentFrame Name] ne \
-        [list source [file normalize [info script]]]} then {
-      unset -nocomplain test_suite_running
-      error "cannot run epilogue, current frame not for this script"
-    }
-  }
-
-  #
   # NOTE: Make sure all global variables that may be set / used by
   #       this epilogue (and the associated prologue) are initially
   #       unset.
@@ -54,6 +36,48 @@ if {![info exists no([file tail [info script]])]} then {
       server multiplier percent timeStamp haveStartSentry \
       operationCount milliseconds usageKind usageData usageType \
       dictionary error code pair key value cmdType usage exitCode
+
+  #############################################################################
+
+  #
+  # NOTE: Verify that the current call frame is correct and that the
+  #       interpreter call stack has not been imbalanced by previous
+  #       tests or other errors.  This check only applies to Eagle.
+  #       This block requires the "Eagle.Library" package.
+  #
+  if {[isEagle] && [llength [info commands object]] > 0} then {
+    #
+    # NOTE: Check the name of the current call frame against the one
+    #       that SHOULD be used for evaluating this script file.
+    #
+    if {![info exists no(currentFrameName)]} then {
+      #
+      # HACK: This [object invoke] cannot be inside of a [catch] block
+      #       because that would alter the current call frame.  Do not
+      #       change this code without fully understanding what it is.
+      #
+      set frameName [object invoke -flags +NonPublic \
+          Interpreter.GetActive.CurrentFrame Name]
+
+      if {[file pathtype [info script]] eq "absolute"} then {
+        if {$frameName ne [list \
+              source [file normalize [info script]]]} then {
+          unset -nocomplain frameName test_suite_running
+          error "cannot run epilogue, current frame not absolute script"
+        }
+      } else {
+        if {$frameName ne [list \
+              source [info script]]} then {
+          unset -nocomplain frameName test_suite_running
+          error "cannot run epilogue, current frame not relative script"
+        }
+      }
+    }
+
+    unset -nocomplain frameName
+  }
+
+  #############################################################################
 
   #
   # HACK: Maybe process events for a little while on this thread to

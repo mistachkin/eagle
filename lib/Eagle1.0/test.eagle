@@ -6013,24 +6013,51 @@ namespace eval ::Eagle {
     }
 
     #
+    # NOTE: What is the (relative) path to the test package?
+    #
+    maybeInvokeForTester ::beforeTestProloguePackagePath; # HOOK
+
+    if {![info exists packagePath]} then {
+      set packagePath [file join lib Test1.0]
+    }
+
+    maybeInvokeForTester ::afterTestProloguePackagePath; # HOOK
+
+    #
     # NOTE: Evaluate the standard test prologue in the context of
     #       the caller.
     #
     set found false
 
-    foreach path [list \
-        $overridePath $::test_path [file join lib Test1.0]] {
+    foreach path [list $overridePath $::test_path $packagePath] {
       if {[string length $path] == 0} then {continue}
       set fileName [file join $path prologue.eagle]
 
       if {[file exists $fileName]} then {
         if {!$quiet} then {
           tqputs [getTestChannelOrDefault] [appendArgs \
-              "---- found test prologue \"" $fileName \"...\n]
+              "---- found external test prologue \"" $fileName \"...\n]
         }
 
         uplevel 1 [list source $fileName]
         set found true; break
+      }
+    }
+
+    if {!$found} then {
+      if {[isEagle] && \
+          ![info exists ::no(embeddedRunTestPrologue)]} then {
+        set fileName [file join $packagePath prologue.eagle]
+
+        if {[interp maybereadorgetscriptfile "" $fileName]} then {
+          if {!$quiet} then {
+            tqputs [getTestChannelOrDefault] [appendArgs \
+                "---- found embedded test prologue \"" $fileName \"...\n]
+          }
+
+          uplevel 1 [list source $fileName]
+          set found true
+        }
       }
     }
 
@@ -6057,24 +6084,51 @@ namespace eval ::Eagle {
     }
 
     #
+    # NOTE: What is the (relative) path to the test package?
+    #
+    maybeInvokeForTester ::beforeTestEpiloguePackagePath; # HOOK
+
+    if {![info exists packagePath]} then {
+      set packagePath [file join lib Test1.0]
+    }
+
+    maybeInvokeForTester ::afterTestEpiloguePackagePath; # HOOK
+
+    #
     # NOTE: Evaluate the standard test epilogue in the context of
     #       the caller.
     #
     set found false
 
-    foreach path [list \
-        $overridePath $::test_path [file join lib Test1.0]] {
+    foreach path [list $overridePath $::test_path $packagePath] {
       if {[string length $path] == 0} then {continue}
       set fileName [file join $path epilogue.eagle]
 
       if {[file exists $fileName]} then {
         if {!$quiet} then {
           tqputs [getTestChannelOrDefault] [appendArgs \
-              "---- found test epilogue \"" $fileName \"...\n]
+              "---- found external test epilogue \"" $fileName \"...\n]
         }
 
         uplevel 1 [list source $fileName]
         set found true; break
+      }
+    }
+
+    if {!$found} then {
+      if {[isEagle] && \
+          ![info exists ::no(embeddedRunTestEpilogue)]} then {
+        set fileName [file join $packagePath epilogue.eagle]
+
+        if {[interp maybereadorgetscriptfile "" $fileName]} then {
+          if {!$quiet} then {
+            tqputs [getTestChannelOrDefault] [appendArgs \
+                "---- found embedded test epilogue \"" $fileName \"...\n]
+          }
+
+          uplevel 1 [list source $fileName]
+          set found true
+        }
       }
     }
 
@@ -6087,8 +6141,7 @@ namespace eval ::Eagle {
     #       to come up with a half-baked solution to finding its
     #       own files.
     #
-    if {![info exists ::no(epilogue.eagle)] && \
-        [info exists ::path]} then {
+    if {![info exists ::no(epilogue.eagle)] && [info exists ::path]} then {
       unset ::path
 
       if {!$quiet} then {
