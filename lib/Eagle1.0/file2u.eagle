@@ -120,6 +120,39 @@ namespace eval ::Eagle {
   }
 
   #
+  # NOTE: This procedure reconfigures the specified channel to UTF-8 mode
+  #       without any line-ending translations.
+  #
+  proc makeUtf8BinaryChannel { channel } {
+    fconfigure $channel -encoding utf-8 -translation binary; # UTF-8 BINARY
+  }
+
+  #
+  # NOTE: This procedure reads all data from the specified UTF-8 file and
+  #       returns it.
+  #
+  proc readUtf8BinaryFile { fileName } {
+    set channel [open $fileName RDONLY]
+    makeUtf8BinaryChannel $channel
+    set result [read $channel]
+    close $channel
+    return $result
+  }
+
+  #
+  # NOTE: This procedure writes all data to the specified UTF-8 file and
+  #       returns an empty string.  Previous data contained in the file,
+  #       if any, is lost.
+  #
+  proc writeUtf8BinaryFile { fileName data } {
+    set channel [open $fileName {WRONLY CREAT TRUNC}]
+    makeUtf8BinaryChannel $channel
+    puts -nonewline $channel $data
+    close $channel
+    return ""
+  }
+
+  #
   # NOTE: Provide the Eagle UTF-8 file package to the interpreter.
   #
   package provide Eagle.File.Utf8 \

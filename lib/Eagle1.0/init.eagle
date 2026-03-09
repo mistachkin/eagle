@@ -737,23 +737,25 @@ namespace eval ::Eagle {
           haveColumnValue haveRowColumnValue getColumnValue getRowColumnValue \
           vwaitLocked tqputs tqlog makeBinaryChannel makeAsciiChannel \
           makeUnicodeBinaryChannel makeUnicodeChannel makeUtf8Channel \
-          makeLogChannel readFile readSharedFile writeFile appendFile \
-          appendLogFile appendSharedFile appendSharedLogFile readAsciiFile \
-          writeAsciiFile readUnicodeBinaryFile readUnicodeFile readUtf8File \
-          writeUnicodeBinaryFile writeUnicodeFile writeUtf8File foundInPath \
-          addToPath removeFromPath getShellExecutableName \
-          getRuntimeCommandLine execShell maybeGetExitCode lshuffle \
-          ldifference filter map reduce getLengthModifier debug \
-          tclLogForCommand populateTypesForComSpecDir populateTypesForGlob \
-          filterForGlob canUseComSpecDir pwdForDirResultPath getDirResultPath \
-          fileNormalizeForGlob performGlob maybeAppendPathResult findViaGlob \
-          findViaComSpecDir fileDirNameForFind fileTailForFind \
-          findDirectories findDirectoriesRecursive findFiles \
-          findFilesRecursive copyFilesRecursive \
-          exportAndImportPackageCommands setupUnzipVars unzipMustBeInstalled \
-          extractZipArchive hasRuntimeOption listRuntimeOptions \
-          addRuntimeOption removeRuntimeOption toggleRuntimeOption \
-          getBogusPackageName forceScanOfPackages] false false
+          makeUtf8BinaryChannel makeLogChannel readFile readSharedFile \
+          writeFile appendFile appendLogFile appendSharedFile \
+          appendSharedLogFile readAsciiFile writeAsciiFile \
+          readUnicodeBinaryFile readUnicodeFile readUtf8File \
+          readUtf8BinaryFile writeUnicodeBinaryFile writeUnicodeFile \
+          writeUtf8File writeUtf8BinaryFile foundInPath addToPath \
+          removeFromPath getShellExecutableName getRuntimeCommandLine \
+          execShell maybeGetExitCode lshuffle ldifference filter map reduce \
+          getLengthModifier debug tclLogForCommand populateTypesForComSpecDir \
+          populateTypesForGlob filterForGlob canUseComSpecDir \
+          pwdForDirResultPath getDirResultPath fileNormalizeForGlob \
+          performGlob maybeAppendPathResult findViaGlob findViaComSpecDir \
+          fileDirNameForFind fileTailForFind findDirectories \
+          findDirectoriesRecursive findFiles findFilesRecursive \
+          copyFilesRecursive exportAndImportPackageCommands setupUnzipVars \
+          unzipMustBeInstalled extractZipArchive hasRuntimeOption \
+          listRuntimeOptions addRuntimeOption removeRuntimeOption \
+          toggleRuntimeOption getBogusPackageName forceScanOfPackages] \
+          false false
     }
 
     ###########################################################################

@@ -269,9 +269,20 @@ namespace Eagle._Containers.Public
         private bool InternalTryAdd(
             Interpreter interpreter, /* in: NOT USED */
             string key,              /* in */
-            object value             /* in */
+            object value,            /* in */
+            ref Result error         /* out */
             )
         {
+            long limit = Limits.Unknown;
+
+            if (WouldExceedPairLimit(interpreter, key, ref limit))
+            {
+                error = String.Format(
+                    "would exceed dictionary pair limit {0}", limit);
+
+                return false;
+            }
+
             return PrivateTryAdd(key, value);
         }
 
