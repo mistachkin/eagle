@@ -1423,9 +1423,58 @@ namespace Eagle._Tests
             if (plugin == null)
                 return ReturnCode.Error;
 
-            //
-            // TODO: Add officially unsupported core commands here.
-            //
+            if (interpreter.InternalDoesIExecuteExistViaResolvers(
+                    "unsupported") != ReturnCode.Ok)
+            {
+                ICommand command = new Unsupported(
+                    new CommandData("unsupported", null, null, null,
+                    typeof(Unsupported).FullName, CommandFlags.None,
+                    plugin, 0));
+
+                long token = 0;
+
+                if (interpreter.AddCommand(
+                        command, clientData, ref token,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                if (token != 0)
+                {
+                    bool pluginHadTokens;
+                    LongList tokens = plugin.CommandTokens;
+
+                    if (tokens != null)
+                    {
+                        pluginHadTokens = true;
+                    }
+                    else
+                    {
+                        tokens = new LongList();
+                        pluginHadTokens = false;
+                    }
+
+                    tokens.Add(token);
+
+                    //
+                    // HACK: Force the command tokens for the
+                    //       isolated plugin to be updated.
+                    //
+                    // HACK: Also, update the plugin command
+                    //       tokens if they were null.
+                    //
+                    if (!pluginHadTokens
+#if ISOLATED_PLUGINS
+                        || AppDomainOps.IsIsolated(plugin)
+#endif
+                        )
+                    {
+                        plugin.CommandTokens = tokens;
+                    }
+                }
+            }
+
             return ReturnCode.Ok;
         }
 
@@ -31119,6 +31168,625 @@ namespace Eagle._Tests
                     interpreter.PopScopeCallFramesAndOneMore();
                     return code;
                 }
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Unsupported Commands Test Class
+        [CommandFlags(
+            CommandFlags.Unsafe | CommandFlags.NonStandard |
+            CommandFlags.NoPopulate | CommandFlags.NoAdd
+        )]
+        [ObjectId("4dce989d-fa4d-4458-b8b0-f0e78709549b")]
+        internal sealed class Unsupported : _Commands.Core
+        {
+            #region Private Data
+            //
+            // HACK: Which thread, if any, currently holds the lock?
+            //
+            private long lockThreadId = 0;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Constructors
+            public Unsupported(
+                ICommandData commandData /**/
+                )
+                : base(commandData)
+            {
+                // do nothing.
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IEnsemble Members
+            private readonly EnsembleDictionary subCommands =
+                new EnsembleDictionary(new string[] {
+                "evaluateWithLock", "evaluateWithTimedLock",
+                "evaluateWithUnset", "evaluateWithoutEvents",
+                "getVariableValueOrDefault", "setCallerVariableValue"
+            });
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override EnsembleDictionary SubCommands
+            {
+                get { return subCommands; }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Static Methods
+            private static object GetSyncRoot(
+                IObject @object /* in: OPTIONAL */
+                )
+            {
+                return (@object != null) ? @object.Value : null;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Methods
+            #region Threading Cooperative Locking Diagnostic Methods
+            private long MaybeWhoHasLock()
+            {
+                return Interlocked.CompareExchange(ref lockThreadId, 0, 0);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void MaybeSomebodyHasLock(
+                bool locked /* in */
+                )
+            {
+                if (locked)
+                {
+                    /* IGNORED */
+                    Interlocked.CompareExchange(ref lockThreadId,
+                        GlobalState.GetCurrentLockThreadId(), 0);
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void MaybeNobodyHasLock(
+                bool locked /* in */
+                )
+            {
+                if (locked)
+                {
+                    /* IGNORED */
+                    Interlocked.CompareExchange(ref lockThreadId,
+                        0, GlobalState.GetCurrentLockThreadId());
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Threading Cooperative Locking Methods
+            private void TryLock(
+                object syncRoot, /* in */
+                ref bool locked  /* out */
+                )
+            {
+                if (syncRoot == null)
+                    return;
+
+                locked = Monitor.TryEnter(syncRoot);
+                MaybeSomebodyHasLock(locked);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void TryLock(
+                object syncRoot, /* in */
+                int timeout,     /* in */
+                ref bool locked  /* out */
+                )
+            {
+                if (syncRoot == null)
+                    return;
+
+                locked = Monitor.TryEnter(syncRoot, timeout);
+                MaybeSomebodyHasLock(locked);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void ExitLock(
+                object syncRoot,
+                ref bool locked
+                )
+            {
+                if (syncRoot == null)
+                    return;
+
+                if (locked)
+                {
+                    MaybeNobodyHasLock(locked);
+                    Monitor.Exit(syncRoot);
+                    locked = false;
+                }
+            }
+            #endregion
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IExecute Members
+            /* Eagle._Components.Public.Delegates.ExecuteCallback */
+            public override ReturnCode Execute(
+                Interpreter interpreter, /* in */
+                IClientData clientData,  /* in */
+                ArgumentList arguments,  /* in */
+                ref Result result        /* out */
+                )
+            {
+                if (interpreter == null)
+                {
+                    result = "invalid interpreter";
+                    return ReturnCode.Error;
+                }
+
+                if (arguments == null)
+                {
+                    result = "invalid argument list";
+                    return ReturnCode.Error;
+                }
+
+                int argumentCount = arguments.Count;
+
+                if (argumentCount < 2)
+                {
+                    result = String.Format(
+                        "wrong # args: should be \"{0} option ?arg ...?\"",
+                        this.Name);
+
+                    return ReturnCode.Error;
+                }
+
+                ReturnCode code;
+                string subCommand = arguments[1];
+                bool tried = false;
+
+                code = ScriptOps.TryExecuteSubCommandFromEnsemble(
+                    interpreter, this, clientData, arguments, false,
+                    null, ref subCommand, ref tried, ref result);
+
+                if ((code != ReturnCode.Ok) || tried)
+                    goto done;
+
+                Result error; /* REUSED */
+
+                switch (subCommand)
+                {
+                    case "evaluateWithLock":
+                        {
+                            if (argumentCount == 4)
+                            {
+                                IObject @object = null;
+
+                                if (interpreter.GetObject(
+                                        arguments[2], LookupFlags.Default,
+                                        ref @object, ref result) != ReturnCode.Ok)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                object syncRoot = GetSyncRoot(@object);
+                                bool locked = false;
+
+                                if (syncRoot != null)
+                                {
+                                    try
+                                    {
+                                        TryLock(syncRoot,
+                                            ref locked); /* TRANSACTIONAL */
+
+                                        if (locked)
+                                        {
+                                            code = interpreter.EvaluateScript(
+                                                arguments[3], ref result);
+                                        }
+                                        else
+                                        {
+                                            TraceOps.LockTrace(
+                                                "Execute",
+                                                typeof(Unsupported).Name, false,
+                                                TracePriority.LockError3,
+                                                MaybeWhoHasLock());
+
+                                            result = "could not lock object";
+                                            code = ReturnCode.Error;
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        ExitLock(syncRoot,
+                                            ref locked); /* TRANSACTIONAL */
+                                    }
+                                }
+                                else
+                                {
+                                    try
+                                    {
+                                        interpreter.InternalSoftTryLock(
+                                            ref locked); /* TRANSACTIONAL */
+
+                                        if (locked)
+                                        {
+                                            code = interpreter.EvaluateScript(
+                                                arguments[3], ref result);
+                                        }
+                                        else
+                                        {
+                                            TraceOps.LockTrace(
+                                                "Execute",
+                                                typeof(Unsupported).Name, false,
+                                                TracePriority.LockError3,
+                                                MaybeWhoHasLock());
+
+                                            result = "could not lock interpreter";
+                                            code = ReturnCode.Error;
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        interpreter.InternalExitLock(
+                                            ref locked); /* TRANSACTIONAL */
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                result = String.Format(
+                                    "wrong # args: should be \"{0} {1} object script\"",
+                                    this.Name, subCommand);
+
+                                code = ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case "evaluateWithTimedLock":
+                        {
+                            if (argumentCount == 5)
+                            {
+                                IObject @object = null;
+
+                                if (interpreter.GetObject(
+                                        arguments[2], LookupFlags.Default,
+                                        ref @object, ref result) != ReturnCode.Ok)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                int? timeout = null;
+
+                                if (Value.GetNullableInteger2(
+                                        arguments[3], ValueFlags.AnyInteger,
+                                        interpreter.InternalCultureInfo,
+                                        ref timeout, ref result) != ReturnCode.Ok)
+                                {
+                                    code = ReturnCode.Error;
+                                    goto done;
+                                }
+
+                                if (timeout == null)
+                                {
+                                    timeout = interpreter.GetTimeout(
+                                        TimeoutType.Script, ref result);
+                                }
+
+                                object syncRoot = GetSyncRoot(@object);
+                                bool locked = false;
+
+                                if (syncRoot != null)
+                                {
+                                    try
+                                    {
+                                        TryLock(syncRoot, (int)timeout,
+                                            ref locked); /* TRANSACTIONAL */
+
+                                        if (locked)
+                                        {
+                                            code = interpreter.EvaluateScript(
+                                                arguments[4], ref result);
+                                        }
+                                        else
+                                        {
+                                            TraceOps.LockTrace(
+                                                "Execute",
+                                                typeof(Unsupported).Name, false,
+                                                TracePriority.LockError3,
+                                                MaybeWhoHasLock());
+
+                                            result = "could not lock object";
+                                            code = ReturnCode.Error;
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        ExitLock(syncRoot,
+                                            ref locked); /* TRANSACTIONAL */
+                                    }
+                                }
+                                else
+                                {
+                                    try
+                                    {
+                                        interpreter.InternalTryLock((int)timeout,
+                                            ref locked); /* TRANSACTIONAL */
+
+                                        if (locked)
+                                        {
+                                            code = interpreter.EvaluateScript(
+                                                arguments[4], ref result);
+                                        }
+                                        else
+                                        {
+                                            TraceOps.LockTrace(
+                                                "Execute",
+                                                typeof(Unsupported).Name, false,
+                                                TracePriority.LockError3,
+                                                MaybeWhoHasLock());
+
+                                            result = "could not lock interpreter";
+                                            code = ReturnCode.Error;
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        interpreter.InternalExitLock(
+                                            ref locked); /* TRANSACTIONAL */
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                result = String.Format(
+                                    "wrong # args: should be \"{0} {1} object timeout script\"",
+                                    this.Name, subCommand);
+
+                                code = ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case "evaluateWithUnset":
+                        {
+                            if (argumentCount >= 3)
+                            {
+                                ObjectDictionary dictionary = null;
+
+                                if (argumentCount >= 4)
+                                {
+                                    dictionary = new ObjectDictionary();
+
+                                    for (int argumentIndex = 3;
+                                            argumentIndex < argumentCount;
+                                            argumentIndex++)
+                                    {
+                                        string varName = arguments[argumentIndex];
+
+                                        if (varName == null)
+                                            continue;
+
+                                        dictionary[varName] = null;
+                                    }
+                                }
+
+                                VariableFlags variableFlags = VariableFlags.NoComplain;
+
+                                try
+                                {
+                                    code = interpreter.EvaluateScript(
+                                        arguments[2], ref result);
+
+                                    if (code == ReturnCode.Ok)
+                                        variableFlags |= VariableFlags.Success;
+                                }
+                                finally
+                                {
+                                    if (dictionary != null)
+                                    {
+                                        int unsetOk = 0;
+
+                                        error = null;
+
+                                        if (interpreter.UnsetVariables(
+                                                variableFlags, dictionary,
+                                                false, ref unsetOk,
+                                                ref error) == ReturnCode.Ok)
+                                        {
+                                            TraceOps.DebugTrace(String.Format(
+                                                "UnsetVariables: unsetOk = {0}",
+                                                unsetOk), typeof(Unsupported).Name,
+                                                TracePriority.CleanupDebug2);
+                                        }
+                                        else
+                                        {
+                                            TraceOps.DebugTrace(String.Format(
+                                                "UnsetVariables: error = {0}",
+                                                FormatOps.WrapOrNull(error)),
+                                                typeof(Unsupported).Name,
+                                                TracePriority.CleanupError);
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                result = String.Format(
+                                    "wrong # args: should be \"{0} {1} script ?varName ...?\"",
+                                    this.Name, subCommand);
+
+                                code = ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case "evaluateWithoutEvents":
+                        {
+                            if (argumentCount == 3)
+                            {
+                                IEventManager eventManager = interpreter.EventManager;
+
+                                if (!EventOps.ManagerIsOk(eventManager))
+                                {
+                                    result = "event manager not available";
+                                    code = ReturnCode.Error;
+
+                                    goto done;
+                                }
+
+                                bool savedEnabled = eventManager.Enabled;
+
+                                try
+                                {
+                                    eventManager.Enabled = false;
+
+                                    code = interpreter.EvaluateScript(
+                                        arguments[2], ref result);
+                                }
+                                finally
+                                {
+                                    eventManager.Enabled = savedEnabled;
+                                }
+                            }
+                            else
+                            {
+                                result = String.Format(
+                                    "wrong # args: should be \"{0} {1} script\"",
+                                    this.Name, subCommand);
+
+                                code = ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case "getVariableValueOrDefault":
+                        {
+                            if ((argumentCount >= 4) && (argumentCount <= 5))
+                            {
+                                string existsVarName = null;
+
+                                if (argumentCount == 5)
+                                {
+                                    existsVarName = arguments[4];
+
+                                    if (String.IsNullOrEmpty(existsVarName))
+                                        existsVarName = null;
+                                }
+
+                                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                {
+                                    Result value = null;
+
+                                    error = null; /* NOT USED */
+
+                                    if (interpreter.GetVariableValue(
+                                            arguments[2], ref value,
+                                            ref error) == ReturnCode.Ok)
+                                    {
+                                        if ((existsVarName != null) &&
+                                            (interpreter.SetVariableValue(
+                                                existsVarName, true.ToString(),
+                                                ref result) != ReturnCode.Ok))
+                                        {
+                                            code = ReturnCode.Error;
+                                            goto done;
+                                        }
+
+                                        result = value;
+                                    }
+                                    else
+                                    {
+                                        if ((existsVarName != null) &&
+                                            (interpreter.SetVariableValue(
+                                                existsVarName, false.ToString(),
+                                                ref result) != ReturnCode.Ok))
+                                        {
+                                            code = ReturnCode.Error;
+                                            goto done;
+                                        }
+
+                                        result = arguments[3];
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                result = String.Format(
+                                    "wrong # args: should be \"{0} {1} valueVarName defaultValue ?existsVarName?\"",
+                                    this.Name, subCommand);
+
+                                code = ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case "setCallerVariableValue":
+                        {
+                            if (argumentCount == 4)
+                            {
+                                string varName = arguments[2];
+
+                                if (String.IsNullOrEmpty(varName))
+                                    varName = null;
+
+                                if (varName != null)
+                                {
+                                    lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                    {
+                                        FrameResult frameResult;
+                                        ICallFrame frame = null;
+
+                                        frameResult = interpreter.GetCallFrame(
+                                            1.ToString(), ref frame, ref result);
+
+                                        if (frameResult != FrameResult.Invalid)
+                                        {
+                                            code = interpreter.SetVariableValue2(
+                                                VariableFlags.None, frame, varName,
+                                                arguments[3], ref result);
+                                        }
+                                        else
+                                        {
+                                            code = ReturnCode.Error;
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                result = String.Format(
+                                    "wrong # args: should be \"{0} {1} varName varValue\"",
+                                    this.Name, subCommand);
+
+                                code = ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    default:
+                        {
+                            result = ScriptOps.BadSubCommand(
+                                interpreter, null, null,
+                                subCommand, this, null, null);
+
+                            code = ReturnCode.Error;
+                            break;
+                        }
+                }
+
+            done:
+
+                return code;
             }
             #endregion
         }

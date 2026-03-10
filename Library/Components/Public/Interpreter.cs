@@ -263,6 +263,14 @@ using TclThreadPair = System.Collections.Generic.KeyValuePair<
 #endif
 #endif
 
+#if DATA
+using DbConnectionPair = System.Collections.Generic.KeyValuePair<
+    string, System.Data.IDbConnection>;
+
+using DbTransactionPair = System.Collections.Generic.KeyValuePair<
+    string, System.Data.IDbTransaction>;
+#endif
+
 using PackageAliasTriplet = Eagle._Components.Public.AnyTriplet<
     string, System.Version, Eagle._Components.Public.PackageFlags?>;
 
@@ -1720,6 +1728,10 @@ namespace Eagle._Components.Public
         private TraceList objectTraceList;
         private TraceList precisionTraceList;
         private TraceList testsTraceList;
+
+#if DATA
+        private TraceList dbTraceList;
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -19358,7 +19370,7 @@ namespace Eagle._Components.Public
                         if (objects == null)
                             objects = new List<ObjectWrapper>(names.Count);
 
-                        objects.Add(wrapper); /* throw */
+                        objects.Add(wrapper);
                     }
                 }
             }
@@ -30345,6 +30357,317 @@ namespace Eagle._Components.Public
 
         #region IDbConnection / IDbTransaction
 #if DATA
+        #region Database Trace Callback
+        #region Support Methods
+        internal static bool IsDbTraceCallback(
+            TraceCallback callback /* in */
+            )
+        {
+            return callback == DbTraceCallback;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: For use by the DbTraceCallback method only.
+        //
+        private void GetDbConnectionsForTrace(
+            StringList names,                      /* in */
+            ref DbConnectionDictionary connections /* in, out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (names == null)
+                    return;
+
+                DbConnectionDictionary localConnections = this.connections;
+
+                if ((localConnections == null) || (localConnections.Count == 0))
+                    return;
+
+                foreach (string name in names)
+                {
+                    if (name == null)
+                        continue;
+
+                    if ((connections != null) && connections.ContainsKey(name))
+                        continue;
+
+                    IDbConnection connection;
+
+                    if (localConnections.TryGetValue(name, out connection))
+                    {
+                        if (connections == null)
+                            connections = new DbConnectionDictionary();
+
+                        connections.Add(name, connection);
+                    }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: For use by the DbTraceCallback method only.
+        //
+        private void GetDbTransactionsForTrace(
+            StringList names,                        /* in */
+            ref DbTransactionDictionary transactions /* in, out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (names == null)
+                    return;
+
+                DbTransactionDictionary localTransactions = this.transactions;
+
+                if ((localTransactions == null) || (localTransactions.Count == 0))
+                    return;
+
+                foreach (string name in names)
+                {
+                    if (name == null)
+                        continue;
+
+                    if ((transactions != null) && transactions.ContainsKey(name))
+                        continue;
+
+                    IDbTransaction transaction;
+
+                    if (localTransactions.TryGetValue(name, out transaction))
+                    {
+                        if (transactions == null)
+                            transactions = new DbTransactionDictionary();
+
+                        transactions.Add(name, transaction);
+                    }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool CommitOrRollback(
+            IDbTransaction transaction, /* in */
+            ref bool commit,            /* in, out */
+            ref ResultList errors       /* in, out */
+            )
+        {
+            try
+            {
+                if (commit)
+                    transaction.Commit(); /* throw */
+                else
+                    transaction.Rollback(); /* throw */
+
+                return true;
+            }
+            catch (Exception e)
+            {
+                if (commit)
+                    commit = false; // NOTE: Force rollback?
+
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(e);
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal ReturnCode SetDbVariableValue(
+            string name,     /* in */
+            string value,    /* in */
+            ref Result error /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return SetVariableValue(
+                    VariableFlags.None, name, value, dbTraceList,
+                    ref error);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        [MethodFlags(
+            MethodFlags.VariableTrace | MethodFlags.System |
+            MethodFlags.NoAdd)]
+        private static ReturnCode DbTraceCallback(
+            BreakpointType breakpointType, /* in */
+            Interpreter interpreter,       /* in */
+            ITraceInfo traceInfo,          /* in */
+            ref Result result              /* out */
+            )
+        {
+            if (breakpointType != BreakpointType.BeforeVariableUnset)
+                return ReturnCode.Ok;
+
+            if (traceInfo == null)
+            {
+                result = "invalid trace";
+                return ReturnCode.Error;
+            }
+
+            if (FlagOps.HasFlags(
+                    traceInfo.Flags, VariableFlags.NoObject, true))
+            {
+                return ReturnCode.Ok;
+            }
+
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            IVariable variable = traceInfo.Variable;
+
+            if (variable == null)
+            {
+                result = "invalid variable";
+                return ReturnCode.Error;
+            }
+
+            StringList oldValues = null;
+
+            if (!EntityOps.IsUndefined(variable))
+            {
+                ElementDictionary arrayValue = null;
+
+                if ((traceInfo.Index == null) &&
+                    EntityOps.IsArray(variable, ref arrayValue))
+                {
+                    ScriptOps.GatherTraceValues(
+                        null, null, null, arrayValue,
+                        ref oldValues);
+                }
+                else if (traceInfo.OldValue != null)
+                {
+                    ScriptOps.GatherTraceValues(
+                        null, null, traceInfo.OldValue,
+                        null, ref oldValues);
+                }
+            }
+
+            ScriptOps.GatherTraceValues(
+                traceInfo.Name, traceInfo.Index, null,
+                traceInfo.OldValues, ref oldValues);
+
+            if (oldValues == null)
+                return ReturnCode.Ok;
+
+            DbConnectionDictionary oldConnections = null;
+
+            interpreter.GetDbConnectionsForTrace(
+                oldValues, ref oldConnections);
+
+            DbTransactionDictionary oldTransactions = null;
+
+            interpreter.GetDbTransactionsForTrace(
+                oldValues, ref oldTransactions);
+
+            string oldName; /* REUSED */
+            ResultList errors = null;
+
+            if (oldTransactions != null)
+            {
+                bool wasSuccess = FlagOps.HasFlags(
+                    traceInfo.Flags, VariableFlags.Success, true);
+
+                foreach (DbTransactionPair pair in oldTransactions)
+                {
+                    IDbTransaction oldTransaction = pair.Value;
+
+                    if (oldTransaction == null)
+                        continue;
+
+                    oldName = pair.Key;
+
+                    bool isSuccess = wasSuccess;
+
+                    if (CommitOrRollback(
+                            oldTransaction, ref isSuccess, ref errors))
+                    {
+                        if (!interpreter.RemoveDbTransaction(oldName))
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(String.Format(
+                                "cannot remove database transaction {0} after {1}",
+                                FormatOps.WrapOrNull(oldName), isSuccess ?
+                                "initial commit" : "initial rollback"));
+                        }
+                    }
+                    else if (wasSuccess && !isSuccess && CommitOrRollback(
+                            oldTransaction, ref isSuccess, ref errors))
+                    {
+                        if (!interpreter.RemoveDbTransaction(oldName))
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(String.Format(
+                                "cannot remove database transaction {0} after {1}",
+                                FormatOps.WrapOrNull(oldName), isSuccess ?
+                                "fail-safe commit" : "fail-safe rollback"));
+                        }
+                    }
+                }
+            }
+
+            if (oldConnections != null)
+            {
+                foreach (DbConnectionPair pair in oldConnections)
+                {
+                    IDbConnection oldConnection = pair.Value;
+
+                    if (oldConnection == null)
+                        continue;
+
+                    oldName = pair.Key;
+
+                    try
+                    {
+                        oldConnection.Close(); /* throw */
+
+                        if (!interpreter.RemoveDbConnection(oldName))
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(String.Format(
+                                "cannot remove database connection {0}",
+                                FormatOps.WrapOrNull(oldName)));
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(e);
+                    }
+                }
+            }
+
+            if (errors != null)
+                DebugOps.Complain(interpreter, ReturnCode.Error, errors);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public ReturnCode GetDbConnection(
             string name,
             LookupFlags lookupFlags,
@@ -74213,6 +74536,9 @@ namespace Eagle._Components.Public
                 return ReturnCode.Error;
             }
 
+            int unsetError = 0;
+            ResultList errors = null;
+
             foreach (_ObjectPair pair in variables)
             {
                 string name = pair.Key;
@@ -74220,35 +74546,64 @@ namespace Eagle._Components.Public
                 if (name == null) /* IMPOSSIBLE? */
                     continue;
 
-                ReturnCode code;
-                Result localError = null;
-
-                code = UnsetVariable(flags, name, ref localError);
-
                 //
                 // NOTE: Non-strict mode allows us to unconditionally
                 //       delete a group of variables without worrying
                 //       that some of them may actually be read-only,
                 //       etc.
                 //
-                if (code == ReturnCode.Ok)
+                Result localError = null;
+
+                if (UnsetVariable(
+                        flags, name, ref localError) == ReturnCode.Ok)
                 {
                     //
                     // NOTE: Another variable was deleted.
                     //
                     unsetOk++;
                 }
-                else if (stopOnError)
+                else
                 {
                     //
-                    // NOTE: Failure, return error code to caller.
+                    // NOTE: Another unset error was encountered.
                     //
-                    error = localError;
-                    return code;
+                    unsetError++;
+
+                    //
+                    // NOTE: Save errors for optional diagnostics.
+                    //
+                    if (localError != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(localError);
+                    }
+
+                    //
+                    // NOTE: Failure, stop and return error code to
+                    //       the caller?
+                    //
+                    if (stopOnError)
+                        break;
                 }
             }
 
-            return ReturnCode.Ok;
+            //
+            // NOTE: If there were any errors, return overall failure,
+            //       even if some of the script variables were unset.
+            //
+            if (unsetError > 0)
+            {
+                if (errors != null)
+                    error = errors;
+
+                return ReturnCode.Error;
+            }
+            else
+            {
+                return ReturnCode.Ok;
+            }
         }
         #endregion
         #endregion
@@ -81060,6 +81415,15 @@ namespace Eagle._Components.Public
                     clientData, TraceFlags.None, plugin,
                     new TraceCallback[] { TestsTraceCallback });
             }
+
+#if DATA
+            if (force || (dbTraceList == null))
+            {
+                dbTraceList = new TraceList(
+                    clientData, TraceFlags.None, plugin,
+                    new TraceCallback[] { DbTraceCallback });
+            }
+#endif
 
             return ReturnCode.Ok;
         }
@@ -113714,6 +114078,14 @@ namespace Eagle._Components.Public
             {
                 return false;
             }
+
+#if DATA
+            if (!globalOnly && (dbTraceList != null) &&
+                !ScriptOps.HasTraceCallbacks(traces, dbTraceList))
+            {
+                return false;
+            }
+#endif
 
             return true;
         }

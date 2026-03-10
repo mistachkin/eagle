@@ -1160,6 +1160,7 @@ namespace Eagle._Commands
                                                     new Option(typeof(DbConnectionType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-type", null),
                                                     new Option(typeof(DbConnectionType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-type1", null),
                                                     new Option(typeof(DbConnectionType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-type2", null),
+                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-variable", null),
                                                     new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-assemblyfilename", null),
                                                     new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-typename", null),
                                                     new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-typefullname", null),
@@ -1215,6 +1216,11 @@ namespace Eagle._Commands
 
                                                         if (options.IsPresent("-type2", ref value))
                                                             dbConnectionType2 = (DbConnectionType)value.Value;
+
+                                                        string varName = null;
+
+                                                        if (options.IsPresent("-variable", ref value))
+                                                            varName = value.ToString();
 
                                                         string assemblyFileName = null;
 
@@ -1332,21 +1338,46 @@ namespace Eagle._Commands
 
                                                                         if (code == ReturnCode.Ok)
                                                                         {
-                                                                            if (connection != null)
-                                                                                connection.Open();
+                                                                            string connectionName;
 
-                                                                            result = FormatOps.DatabaseConnectionName(
-                                                                                connection, dbConnectionType, interpreter);
+                                                                            if (varName != null)
+                                                                            {
+                                                                                connectionName = FormatOps.DatabaseConnectionName(
+                                                                                    connection, dbConnectionType, interpreter);
 
-                                                                            interpreter.AddDbConnection(result, connection);
+                                                                                code = interpreter.SetDbVariableValue(
+                                                                                    varName, connectionName, ref result);
+
+                                                                                if ((code == ReturnCode.Ok) && (connection != null))
+                                                                                    connection.Open();
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                //
+                                                                                // HACK: Preserve legacy ordering of these operations.
+                                                                                //
+                                                                                if (connection != null)
+                                                                                    connection.Open();
+
+                                                                                connectionName = FormatOps.DatabaseConnectionName(
+                                                                                    connection, dbConnectionType, interpreter);
+                                                                            }
+
+                                                                            if (code == ReturnCode.Ok)
+                                                                            {
+                                                                                /* NO RESULT */
+                                                                                interpreter.AddDbConnection(connectionName, connection);
+
+                                                                                result = connectionName;
 
 #if NOTIFY
-                                                                            /* IGNORED */
-                                                                            interpreter.CheckNotification(
-                                                                                NotifyType.Connection, NotifyFlags.Added,
-                                                                                connection, interpreter, null, null, null,
-                                                                                ref result);
+                                                                                /* IGNORED */
+                                                                                interpreter.CheckNotification(
+                                                                                    NotifyType.Connection, NotifyFlags.Added,
+                                                                                    connection, interpreter, null, null, null,
+                                                                                    ref result);
 #endif
+                                                                            }
                                                                         }
                                                                     }
                                                                     catch (Exception e)
@@ -1400,6 +1431,7 @@ namespace Eagle._Commands
                                             OptionDictionary options = new OptionDictionary(
                                                 new IOption[] {
                                                 new Option(typeof(IsolationLevel), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-isolation", null),
+                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-variable", null),
                                                 Option.CreateEndOfOptions()
                                             });
 
@@ -1417,6 +1449,11 @@ namespace Eagle._Commands
 
                                                     if (options.IsPresent("-isolation", ref value))
                                                         isolationLevel = (IsolationLevel)value.Value;
+
+                                                    string varName = null;
+
+                                                    if (options.IsPresent("-variable", ref value))
+                                                        varName = value.ToString();
 
                                                     string subSubCommand = arguments[argumentIndex];
 
@@ -1454,21 +1491,50 @@ namespace Eagle._Commands
                                                                                 {
                                                                                     try
                                                                                     {
-                                                                                        IDbTransaction transaction =
-                                                                                            connection.BeginTransaction(isolationLevel);
+                                                                                        string transactionName;
+                                                                                        IDbTransaction transaction = null;
 
-                                                                                        result = FormatOps.DatabaseTransactionName(
-                                                                                            transaction, interpreter);
+                                                                                        if (varName != null)
+                                                                                        {
+                                                                                            transactionName = FormatOps.DatabaseTransactionName(
+                                                                                                typeof(IDbTransaction), interpreter);
 
-                                                                                        interpreter.AddDbTransaction(result, transaction);
+                                                                                            code = interpreter.SetDbVariableValue(
+                                                                                                varName, transactionName, ref result);
+
+                                                                                            if (code == ReturnCode.Ok)
+                                                                                            {
+                                                                                                transaction = connection.BeginTransaction(
+                                                                                                    isolationLevel);
+                                                                                            }
+                                                                                        }
+                                                                                        else
+                                                                                        {
+                                                                                            //
+                                                                                            // HACK: Preserve legacy ordering of these operations.
+                                                                                            //
+                                                                                            transaction = connection.BeginTransaction(
+                                                                                                isolationLevel);
+
+                                                                                            transactionName = FormatOps.DatabaseTransactionName(
+                                                                                                transaction, interpreter);
+                                                                                        }
+
+                                                                                        if (code == ReturnCode.Ok)
+                                                                                        {
+                                                                                            /* NO RESULT */
+                                                                                            interpreter.AddDbTransaction(transactionName, transaction);
+
+                                                                                            result = transactionName;
 
 #if NOTIFY
-                                                                                        /* IGNORED */
-                                                                                        interpreter.CheckNotification(
-                                                                                            NotifyType.Transaction, NotifyFlags.Added,
-                                                                                            transaction, interpreter, null, null, null,
-                                                                                            ref result);
+                                                                                            /* IGNORED */
+                                                                                            interpreter.CheckNotification(
+                                                                                                NotifyType.Transaction, NotifyFlags.Added,
+                                                                                                transaction, interpreter, null, null, null,
+                                                                                                ref result);
 #endif
+                                                                                        }
                                                                                     }
                                                                                     catch (Exception e)
                                                                                     {

@@ -8038,6 +8038,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode GetNullableInteger2(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref int? value,
+            ref Result error
+            )
+        {
+            if (String.IsNullOrEmpty(text))
+            {
+                value = null;
+                return ReturnCode.Ok;
+            }
+
+            int intValue = 0;
+
+            if (GetInteger2(
+                    text, flags, cultureInfo, ref intValue,
+                    ref error) == ReturnCode.Ok)
+            {
+                value = intValue;
+                return ReturnCode.Ok;
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode GetInteger2(
             IGetValue getValue,
             ValueFlags flags,

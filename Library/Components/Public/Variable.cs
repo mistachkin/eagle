@@ -250,7 +250,11 @@ namespace Eagle._Components.Public
                 //         to be present more than once?
                 //
                 if (!checkObjects &&
-                    Interpreter.IsObjectTraceCallback(callback))
+                    (Interpreter.IsObjectTraceCallback(callback)
+#if DATA
+                        || Interpreter.IsDbTraceCallback(callback)
+#endif
+                    ))
                 {
                     //
                     // NOTE: This variable may have traces with

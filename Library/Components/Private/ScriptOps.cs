@@ -6767,7 +6767,7 @@ namespace Eagle._Components.Private
 
                 //
                 // NOTE: If there are no more outstanding references to the
-                //       underlying object, dipose and remove it now.
+                //       underlying object, dispose and remove it now.
                 //
                 if (oldWrapper.RemoveReference() > 0)
                     continue;

@@ -12589,11 +12589,14 @@ namespace Eagle._Components.Public
                                                * a new (dummy) variable was returned. */
         NoUsable = 0x1000000000000000,        /* skip checking if the variable is actually usable
                                                * from the current thread. */
+        Success = 0x2000000000000000,         /* The caller is stating that the current (outer)
+                                               * logical operation that triggered the variable
+                                               * trace was completely successful. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Reserved1 = 0x2000000000000000,       /* Reserved value, do not use. */
-        Reserved2 = 0x4000000000000000,       /* Reserved value, do not use. */
+        Reserved1 = 0x4000000000000000,       /* Reserved value, do not use. */
+        Reserved2 = 0x8000000000000000,       /* Reserved value, do not use. */
         ReservedMask = Reserved1 | Reserved2,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -12632,7 +12635,7 @@ namespace Eagle._Components.Public
                           SkipNotify | SkipPostProcess | ResolveNull | NonVirtual |
                           WasVirtual | WasElement | NewTraceInfo | SkipToString |
                           ForceToString | FallbackToString | CreateMissing | WasMissing |
-                          NoUsable | ReservedMask,
+                          NoUsable | Success | ReservedMask,
 
         /* flags not allowed when adding variables */
 
