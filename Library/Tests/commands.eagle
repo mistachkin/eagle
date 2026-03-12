@@ -151,6 +151,8 @@ proc getCmdList84 {} {
                 {extra cmd try} {extra cmd unload} \
                 [expr {[llength [info commands unsetf]] > 0 ? \
                     {extra cmd unsetf} : ""}] \
+                [expr {[llength [info commands unsupported]] > 0 ? \
+                    {extra cmd unsupported} : ""}] \
                 {extra cmd uri} {extra cmd version} \
                 [expr {[llength [info commands xml]] > 0 ? \
                     {extra cmd xml} : ""}]] \
@@ -203,6 +205,8 @@ proc getCmdList85 {} {
                 {extra cmd try} \
                 [expr {[llength [info commands unsetf]] > 0 ? \
                     {extra cmd unsetf} : ""}] \
+                [expr {[llength [info commands unsupported]] > 0 ? \
+                    {extra cmd unsupported} : ""}] \
                 {extra cmd uri} {extra cmd version} \
                 [expr {[llength [info commands xml]] > 0 ? \
                     {extra cmd xml} : ""}]] \
@@ -277,6 +281,8 @@ proc getCmdList86 {} {
                 {extra cmd truncate} \
                 [expr {[llength [info commands unsetf]] > 0 ? \
                     {extra cmd unsetf} : ""}] \
+                [expr {[llength [info commands unsupported]] > 0 ? \
+                    {extra cmd unsupported} : ""}] \
                 {extra cmd uri} {extra cmd version} \
                 [expr {[llength [info commands xml]] > 0 ? \
                     {extra cmd xml} : ""}]] \
@@ -491,7 +497,8 @@ runTest {test commands-1.4 {command groups} -body {
     #
     # NOTE: Skip obsolete commands and the test plugin commands, if present.
     #
-    if {$name ni [list report [getNopCommandName] getf setf unsetf]} then {
+    if {$name ni [list \
+        report [getNopCommandName] getf setf unsetf unsupported]} then {
       set command null; set token 0; set error null
 
       set code [object invoke Interpreter.GetActive GetCommand \

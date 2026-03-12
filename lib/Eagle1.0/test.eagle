@@ -2873,6 +2873,23 @@ namespace eval ::Eagle {
       lappend result eagle_debugger
     }
 
+    #
+    # HACK: This (optional global) array variable is used extensively
+    #       by the script package used to compile C# at runtime.
+    #
+    lappend result compileCSharp
+
+    #
+    # HACK: This (optional global) array variable is used by the [exec]
+    #       support package in order for it to determine the (optional)
+    #       extra arguments to use for each runtime.
+    #
+    lappend result getRuntimeCommandLine
+
+    #
+    # NOTE: Return the full list of "other" well-known variables we are
+    #       aware of, in sorted order.
+    #
     return [lsort $result]
   }
 

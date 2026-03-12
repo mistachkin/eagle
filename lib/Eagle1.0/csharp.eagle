@@ -1334,8 +1334,35 @@ namespace eval ::Eagle {
           $path Roslyn bincore csc.dll]]
 
       if {[file exists $compilerFileName]} then {
-        return [list dotnet exec [appendArgs \
-            \" [file nativename $compilerFileName] \"]]; # EXEMPT
+        set result [list dotnet exec]; # EXEMPT
+        set varName ::compileCSharp(dotNetCoreExecArgs)
+
+        if {[info exists varName] && [info exists $varName]} then {
+          set execArgs [set $varName]
+
+          if {[string is list -strict $execArgs]} then {
+            eval lappend result $execArgs
+          } else {
+            lappend result $execArgs
+          }
+        }
+
+        lappend result \
+            [appendArgs \" [file nativename $compilerFileName] \"]
+
+        set varName ::compileCSharp(execFileArgs)
+
+        if {[info exists varName] && [info exists $varName]} then {
+          set execArgs [set $varName]
+
+          if {[string is list -strict $execArgs]} then {
+            eval lappend result $execArgs
+          } else {
+            lappend result $execArgs
+          }
+        }
+
+        return $result
       }
     }
 

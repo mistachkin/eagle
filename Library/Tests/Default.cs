@@ -31181,6 +31181,7 @@ namespace Eagle._Tests
             CommandFlags.NoPopulate | CommandFlags.NoAdd
         )]
         [ObjectId("4dce989d-fa4d-4458-b8b0-f0e78709549b")]
+        [ObjectGroup("test")]
         internal sealed class Unsupported : _Commands.Core
         {
             #region Private Data
@@ -31194,7 +31195,7 @@ namespace Eagle._Tests
 
             #region Public Constructors
             public Unsupported(
-                ICommandData commandData /**/
+                ICommandData commandData /* in */
                 )
                 : base(commandData)
             {
@@ -31302,8 +31303,8 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             private void ExitLock(
-                object syncRoot,
-                ref bool locked
+                object syncRoot, /* in */
+                ref bool locked  /* in, out */
                 )
             {
                 if (syncRoot == null)

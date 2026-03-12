@@ -64,33 +64,89 @@ namespace eval ::Eagle {
         #       "mono" command line argument followed by our entry assembly
         #       name.
         #
-        lappend result mono \
-            [appendArgs \" [file nativename $fileName] \"]
+        lappend result mono
+
+        #
+        # HACK: What is the name of the (optional) variable that will have
+        #       the extra arguments for the Mono runtime?
+        #
+        set varName ::getRuntimeCommandLine(monoExecArgs)
       } elseif {[isDotNetCore]} then {
         #
         # HACK: When running on .NET Core, we need to insert "dotnet exec"
         #       command line arguments followed by our entry assembly name.
         #
-        lappend result dotnet exec \
-            [appendArgs \" [file nativename $fileName] \"]
+        lappend result dotnet exec
+
+        #
+        # HACK: What is the name of the (optional) variable that will have
+        #       the extra arguments for the .NET (Core?) runtime?
+        #
+        set varName ::getRuntimeCommandLine(dotNetCoreExecArgs)
       } else {
         #
         # NOTE: When running on the .NET Framework, just use the executable
         #       name as this will be the same as the entry assembly name.
+        #       Nothing special is done here anymore (see below).
         #
-        lappend result \
-            [appendArgs \" [file nativename $fileName] \"]
+        # HACK: What is the name of the (optional) variable that will have
+        #       the extra arguments for the .NET Framework runtime?
+        #
+        set varName ::getRuntimeCommandLine(netFrameworkExecArgs)
       }
     } else {
       #
       # NOTE: Assumes the native Tcl shell executable (e.g. "tclsh", etc)
       #       is somewhere along the PATH -OR- the value returned is from
-      #       [info nameofexecutable] is fully qualified.
+      #       [info nameofexecutable] is fully qualified.  Nothing special
+      #       is done here anymore (see below).
       #
-      lappend result \
-          [appendArgs \" [file nativename $fileName] \"]
+      # HACK: What is the name of the (optional) variable that will have
+      #       the extra arguments for the native Tcl runtime (shell)?
+      #
+      set varName ::getRuntimeCommandLine(tclshExecArgs)
     }
 
+    #
+    # HACK: If there are any runtime-specific extra arguments to add, prior
+    #       to the entry assembly file name itself, do that now.
+    #
+    if {[info exists varName] && [info exists $varName]} then {
+      set execArgs [set $varName]
+
+      if {[isEagle] && [string is list -strict $execArgs]} then {
+        eval lappend result $execArgs
+      } else {
+        lappend result $execArgs
+      }
+    }
+
+    #
+    # NOTE: Always add the entry assembly file name at the end of the list
+    #       of arguments.  This is the same for all of the branches above;
+    #       therefore, it has been moved here.
+    #
+    lappend result [appendArgs \" [file nativename $fileName] \"]
+
+    #
+    # HACK: If there are any common extra arguments to add, after the entry
+    #       assembly file name itself, do that now.
+    #
+    set varName ::getRuntimeCommandLine(execFileArgs)
+
+    if {[info exists varName] && [info exists $varName]} then {
+      set execArgs [set $varName]
+
+      if {[isEagle] && [string is list -strict $execArgs]} then {
+        eval lappend result $execArgs
+      } else {
+        lappend result $execArgs
+      }
+    }
+
+    #
+    # NOTE: Return the final built (list of) command line arguments now.
+    #
     return $result
   }
 
