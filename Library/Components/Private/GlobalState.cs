@@ -2101,6 +2101,38 @@ namespace Eagle._Components.Private
                 allInterpretersCache[thread] = localInterpreters;
             }
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool RebuildInterpreterCache()
+        {
+            bool locked = false;
+
+            try
+            {
+                HardTryLock(ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    RebuildInterpreterCache(allInterpreters);
+                    return true;
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "RebuildInterpreterCache",
+                        typeof(GlobalState).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
+
+                    return false;
+                }
+            }
+            finally
+            {
+                ExitLock(ref locked); /* TRANSACTIONAL */
+            }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

@@ -119632,6 +119632,11 @@ namespace Eagle._Components.Public
             //
             DisposeNonThreadedContexts(dispose, disposing, isStoppingSoon);
 #endif
+
+            ///////////////////////////////////////////////////////////////////
+
+            /* IGNORED */
+            GlobalState.RebuildInterpreterCache();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -124106,327 +124111,330 @@ namespace Eagle._Components.Public
             {
                 if (Interlocked.Increment(ref disposeCount) == 1)
                 {
-                    //
-                    // NOTE: Fire the configured "Free" static callback, if any, with a null value
-                    //       for the IClientData.  This cannot throw an exception -AND- its return
-                    //       value will be ignored.  This will not be done if this interpreter has
-                    //       a token.
-                    //
-                    if (!HasToken())
-                        FireFreeInterpreterCallbackOrTrace(this, null);
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-#if NOTIFY || NOTIFY_OBJECT
-                    //
-                    // BUGFIX: Prevent notifications from firing and indirectly recreating anything
-                    //         we have disposed (especially thread specific data).
-                    //
-                    lock (syncRoot) /* TRANSACTIONAL */
-                    {
-                        notifyFlags |= NotifyFlags.NoNotify;
-                    }
-#endif
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-#if SHELL
-                    //
-                    // HACK: Next, make sure that all interactive loops are "unpaused" before doing
-                    //       anything else.
-                    //
-                    lock (syncRoot) /* TRANSACTIONAL */
-                    {
-                        ClearAndMaybeResetPausedInteractiveLoops(true);
-                    }
-
-                    //
-                    // HACK: Why are we resetting this value to zero here?  If the interactive loops
-                    //       are going to exit clean, they will decrement; otherwise, they are still
-                    //       running and this field will not be accurate.
-                    //
-                    /* IGNORED */
-                    Interlocked.Exchange(ref globalInteractiveLoops, 0);
-#endif
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-                    //
-                    // NOTE: Allow callbacks to figure out which interpreter is terminating them (even
-                    //       if they were not directly passed an Interpreter object).
-                    //
-                    GlobalState.PushActiveInterpreter(this);
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-                    //
-                    // HACK: Possibly permit script evaluation during the pre-disposal callbacks by
-                    //       temporarily resetting the exit flag?
-                    //
-                    bool? savedExit = null;
-
-                    /* EXEMPT */
-                    if (FlagOps.HasFlags(
-                            this.InterpreterFlags, InterpreterFlags.PreDisposeScripts, true))
-                    {
-                        lock (syncRoot) /* TRANSACTIONAL */
-                        {
-                            savedExit = this.PrivateExit;
-                            this.PrivateExit = false;
-                        }
-                    }
-
                     try
                     {
                         //
-                        // NOTE: Invoke (and then clear) the registered interpreter pre-disposal
-                        //       callbacks now, if any.  It should be noted that the pre-disposal
-                        //       callbacks will not be reset if they are not successfully invoked.
+                        // NOTE: Fire the configured "Free" static callback, if any, with a null value
+                        //       for the IClientData.  This cannot throw an exception -AND- its return
+                        //       value will be ignored.  This will not be done if this interpreter has
+                        //       a token.
                         //
-                        if (FirePreDisposeCallbacks()) ResetPreDisposeCallbacks();
-                    }
-                    finally
-                    {
-                        if (savedExit != null)
+                        if (!HasToken())
+                            FireFreeInterpreterCallbackOrTrace(this, null);
+
+                        ///////////////////////////////////////////////////////////////////////////////
+
+#if NOTIFY || NOTIFY_OBJECT
+                        //
+                        // BUGFIX: Prevent notifications from firing and indirectly recreating anything
+                        //         we have disposed (especially thread specific data).
+                        //
+                        lock (syncRoot) /* TRANSACTIONAL */
                         {
-                            lock (syncRoot) /* TRANSACTIONAL */
-                            {
-                                this.PrivateExit = (bool)savedExit;
-                            }
+                            notifyFlags |= NotifyFlags.NoNotify;
                         }
-                    }
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-                    //
-                    // NOTE: Dispose of any cached interpreters that were created and/or used
-                    //       by this interpreter.  This is not strictly required; however, it
-                    //       prevents spurious InterpreterDisposedException exceptions from
-                    //       being thrown.
-                    //
-                    /* IGNORED */
-                    ScriptOps.MaybeClearInterpreterCache(PrivateId);
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-                    //
-                    // NOTE: Grab the lock [temporarily] to set the deleted flag for the interpreter.
-                    //
-                    lock (syncRoot) /* TRANSACTIONAL */
-                    {
-                        //
-                        // NOTE: Mark this interpreter as "deleted" (i.e. "disposal pending") so
-                        //       any "user callbacks" do not attempt to get too clever with their
-                        //       shutdown/cleanup code (i.e. no script evaluation, etc).
-                        //
-                        if (!deleted)
-                            deleted = true;
-
-                        //
-                        // NOTE: Reset the global scope call frame now.  This is done before either
-                        //       the named scopes or call frames are disposed to make those jobs a
-                        //       bit easier.  This must be done while holding the lock because even
-                        //       though the call stack and global scope call frame are per-thread,
-                        //       the named scope itself is not.  This cannot be done successfully if
-                        //       the interpreter is already disposed and/or we are being called via
-                        //       the destructor.
-                        //
-                        if (disposing)
-                        {
-                            ReturnCode unsetCode;
-                            Result unsetError = null;
-
-                            unsetCode = UnsetGlobalScopeCallFrame(false, ref unsetError);
-
-                            if (unsetCode != ReturnCode.Ok)
-                                DebugOps.Complain(this, unsetCode, unsetError);
-                        }
-                    }
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-                    DisposePhase0(DisposalPhase.Phase0Mask | DisposalPhase.All);
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-#if CONSOLE
-                    //
-                    // BUGFIX: Wait a (little?) while for the pending console cancel event
-                    //         handler to exit.  This is needed due to the .NET Framework
-                    //         locking involved in modifying the Console.CancelKeyPress
-                    //         event handler, i.e. it apparently cannot be modified while
-                    //         any calls are pending.  This is strictly needed to prevent
-                    //         deadlocks that could occur when attempting to uninstall a
-                    //         console cancel event handler while holding the interpreter
-                    //         lock, i.e.:
-                    //
-                    //         THREAD #1: Dispose method, holds interpreter lock, wants
-                    //                    console lock.
-                    //
-                    //         THREAD #2: Console handler method, holds console lock,
-                    //                    wants interpreter lock.
-                    //
-                    // TODO: The maximum waiting time here is hard-coded to 10 seconds.
-                    //
-                    if (!WaitForNotCancelViaConsolePending(10))
-                    {
-                        TraceOps.DebugTrace(
-                            "Dispose: there may be pending console cancel event handlers",
-                            typeof(Interpreter).Name, TracePriority.CleanupWarning);
-                    }
 #endif
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-                    //
-                    // NOTE: We obtain and hold the lock on the Interpreter SyncRoot for almost the
-                    //       entire duration of the cleanup.
-                    //
-                    lock (syncRoot) /* TRANSACTIONAL */
-                    {
-                        //
-                        // NOTE: If the interpreter was read-only and/or immutable, we need to unset
-                        //       those flags before proceeding; otherwise, commands and plugins cannot
-                        //       be terminated gracefully.
-                        //
-                        if (readOnly)
-                            readOnly = false;
-
-                        if (immutable)
-                            immutable = false;
-
-                        ///////////////////////////////////////////////////////////////////////////////
-
-                        //
-                        // NOTE: Mark the host (and the isolated host, if applicable) as now being in
-                        //       "exit mode" for additional help in troubleshooting any host shutdown
-                        //       issues.  This does not need to be undone later because all hosts for
-                        //       this interpreter will also be disposed below.
-                        //
-                        HostOps.SetExiting(this, true);
-
-                        ///////////////////////////////////////////////////////////////////////////////
-
-                        //
-                        // NOTE: Are we disposing (or being called via the finalizer)?
-                        //
-                        if (disposing)
-                        {
-                            ////////////////////////////////////
-                            // dispose managed resources here...
-                            ////////////////////////////////////
-
-                            DisposePhase1(DisposalPhase.All, true);
-                        }
-
-                        //////////////////////////////////////
-                        // release unmanaged resources here...
-                        //////////////////////////////////////
-
-                        DisposePhase2(DisposalPhase.All, disposing, true);
 
                         ///////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
                         //
-                        // NOTE: Close the interactive loop event and cleanup its other
-                        //       data.
+                        // HACK: Next, make sure all interactive loops are "unpaused" before doing
+                        //       anything else.
                         //
-                        DisposeInteractiveLoopData();
+                        lock (syncRoot) /* TRANSACTIONAL */
+                        {
+                            ClearAndMaybeResetPausedInteractiveLoops(true);
+                        }
+
+                        //
+                        // HACK: Why are we resetting this value (to zero) here?  If the interactive
+                        //       loops are going to exit clean, they will decrement; otherwise, they
+                        //       are still running and this field will not be accurate.
+                        //
+                        /* IGNORED */
+                        Interlocked.Exchange(ref globalInteractiveLoops, 0);
 #endif
 
                         ///////////////////////////////////////////////////////////////////////////////
 
                         //
-                        // NOTE: Close the variable and setup events.
+                        // NOTE: Allow callbacks to figure out which interpreter is terminating them
+                        //       (even if they were not directly passed an Interpreter object).
                         //
-                        DisposeVariableEvent();
-                        DisposeSetupEvent();
+                        GlobalState.PushActiveInterpreter(this);
 
                         ///////////////////////////////////////////////////////////////////////////////
 
-                        DisposePhase3(DisposalPhase.All);
-                    }
+                        //
+                        // HACK: Possibly permit script evaluation during the pre-disposal callbacks
+                        //       by temporarily resetting the exit flag?
+                        //
+                        bool? savedExit = null;
 
-                    ///////////////////////////////////////////////////////////////////////////////////
-                    //     *WARNING* *WARNING* *WARNING* *WARNING* *WARNING* *WARNING* *WARNING*     //
-                    //                                                                               //
-                    //              The interpreter lock is not held after this point.               //
-                    //                                                                               //
-                    //     *WARNING* *WARNING* *WARNING* *WARNING* *WARNING* *WARNING* *WARNING*     //
-                    ///////////////////////////////////////////////////////////////////////////////////
+                        /* EXEMPT */
+                        if (FlagOps.HasFlags(
+                                this.InterpreterFlags, InterpreterFlags.PreDisposeScripts, true))
+                        {
+                            lock (syncRoot) /* TRANSACTIONAL */
+                            {
+                                savedExit = this.PrivateExit;
+                                this.PrivateExit = false;
+                            }
+                        }
+
+                        try
+                        {
+                            //
+                            // NOTE: Invoke (and then clear) the registered interpreter pre-disposal
+                            //       callbacks now, if any.  It should be noted that the pre-disposal
+                            //       callbacks will not be reset if they are not successfully invoked.
+                            //
+                            if (FirePreDisposeCallbacks()) ResetPreDisposeCallbacks();
+                        }
+                        finally
+                        {
+                            if (savedExit != null)
+                            {
+                                lock (syncRoot) /* TRANSACTIONAL */
+                                {
+                                    this.PrivateExit = (bool)savedExit;
+                                }
+                            }
+                        }
+
+                        ///////////////////////////////////////////////////////////////////////////////////
+
+                        //
+                        // NOTE: Dispose of any cached interpreters that were created and/or used
+                        //       by this interpreter.  This is not strictly required; however, it
+                        //       prevents spurious InterpreterDisposedException exceptions from
+                        //       being thrown.
+                        //
+                        /* IGNORED */
+                        ScriptOps.MaybeClearInterpreterCache(PrivateId);
+
+                        ///////////////////////////////////////////////////////////////////////////////////
+
+                        //
+                        // NOTE: Grab the lock [temporarily] to set the deleted flag for the interpreter.
+                        //
+                        lock (syncRoot) /* TRANSACTIONAL */
+                        {
+                            //
+                            // NOTE: Mark this interpreter as "deleted" (i.e. "disposal pending") so
+                            //       any "user callbacks" do not attempt to get too clever with their
+                            //       shutdown/cleanup code (i.e. no script evaluation, etc).
+                            //
+                            if (!deleted)
+                                deleted = true;
+
+                            //
+                            // NOTE: Reset the global scope call frame now.  This is done before either
+                            //       the named scopes or call frames are disposed to make those jobs a
+                            //       bit easier.  This must be done while holding the lock because even
+                            //       though the call stack and global scope call frame are per-thread,
+                            //       the named scope itself is not.  This cannot be done successfully if
+                            //       the interpreter is already disposed and/or we are being called via
+                            //       the destructor.
+                            //
+                            if (disposing)
+                            {
+                                ReturnCode unsetCode;
+                                Result unsetError = null;
+
+                                unsetCode = UnsetGlobalScopeCallFrame(false, ref unsetError);
+
+                                if (unsetCode != ReturnCode.Ok)
+                                    DebugOps.Complain(this, unsetCode, unsetError);
+                            }
+                        }
+
+                        ///////////////////////////////////////////////////////////////////////////////
+
+                        DisposePhase0(DisposalPhase.Phase0Mask | DisposalPhase.All);
+
+                        ///////////////////////////////////////////////////////////////////////////////
+
+#if CONSOLE
+                        //
+                        // BUGFIX: Wait a (little?) while for the pending console cancel event
+                        //         handler to exit.  This is needed due to the .NET Framework
+                        //         locking involved in modifying the Console.CancelKeyPress
+                        //         event handler, i.e. it apparently cannot be modified while
+                        //         any calls are pending.  This is strictly needed to prevent
+                        //         deadlocks that could occur when attempting to uninstall a
+                        //         console cancel event handler while holding the interpreter
+                        //         lock, i.e.:
+                        //
+                        //         THREAD #1: Dispose method, holds interpreter lock, wants
+                        //                    console lock.
+                        //
+                        //         THREAD #2: Console handler method, holds console lock,
+                        //                    wants interpreter lock.
+                        //
+                        // TODO: The maximum waiting time here is hard-coded to 10 seconds.
+                        //
+                        if (!WaitForNotCancelViaConsolePending(10))
+                        {
+                            TraceOps.DebugTrace(
+                                "Dispose: there may be pending console cancel event handlers",
+                                typeof(Interpreter).Name, TracePriority.CleanupWarning);
+                        }
+#endif
+
+                        ///////////////////////////////////////////////////////////////////////////////
+
+                        //
+                        // NOTE: We obtain and hold the lock on the Interpreter SyncRoot for almost
+                        //       the entire duration of the cleanup.
+                        //
+                        lock (syncRoot) /* TRANSACTIONAL */
+                        {
+                            //
+                            // NOTE: If the interpreter was read-only and/or immutable, we need to
+                            //       unset those flags before proceeding; otherwise, commands and
+                            //       plugins cannot be terminated gracefully.
+                            //
+                            if (readOnly)
+                                readOnly = false;
+
+                            if (immutable)
+                                immutable = false;
+
+                            ///////////////////////////////////////////////////////////////////////////
+
+                            //
+                            // NOTE: Mark the host (and isolated host, if applicable) as now being
+                            //       in "exit mode" for additional help in troubleshooting any host
+                            //       shutdown issues.  This does not need to be undone later because
+                            //       all hosts for this interpreter will also be disposed below.
+                            //
+                            HostOps.SetExiting(this, true);
+
+                            ///////////////////////////////////////////////////////////////////////////
+
+                            //
+                            // NOTE: Are we disposing (or being called via the finalizer)?
+                            //
+                            if (disposing)
+                            {
+                                ////////////////////////////////////
+                                // dispose managed resources here...
+                                ////////////////////////////////////
+
+                                DisposePhase1(DisposalPhase.All, true);
+                            }
+
+                            //////////////////////////////////////
+                            // release unmanaged resources here...
+                            //////////////////////////////////////
+
+                            DisposePhase2(DisposalPhase.All, disposing, true);
+
+                            ///////////////////////////////////////////////////////////////////////////
+
+#if SHELL
+                            //
+                            // NOTE: Close the interactive loop event and cleanup its other
+                            //       data.
+                            //
+                            DisposeInteractiveLoopData();
+#endif
+
+                            ///////////////////////////////////////////////////////////////////////////
+
+                            //
+                            // NOTE: Close the variable and setup events.
+                            //
+                            DisposeVariableEvent();
+                            DisposeSetupEvent();
+
+                            ///////////////////////////////////////////////////////////////////////////
+
+                            DisposePhase3(DisposalPhase.All);
+                        }
+
+                        ///////////////////////////////////////////////////////////////////////////////
+                        //   *WARNING* *WARNING* *WARNING* *WARNING* *WARNING* *WARNING* *WARNING*   //
+                        //                                                                           //
+                        //            The interpreter lock is not held after this point.             //
+                        //                                                                           //
+                        //   *WARNING* *WARNING* *WARNING* *WARNING* *WARNING* *WARNING* *WARNING*   //
+                        ///////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL
-                    DisposePhase4(DisposalPhase.All, disposing);
+                        DisposePhase4(DisposalPhase.All, disposing);
 #endif
 
-                    ///////////////////////////////////////////////////////////////////////////////////
+                        ///////////////////////////////////////////////////////////////////////////////
 
 #if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
-                    //
-                    // NOTE: Avoid potential deadlocks (with HelpOps, etc) by doing this outside
-                    //       of the interpreter lock.
-                    //
-                    ResetOrClearCaches(true);
+                        //
+                        // NOTE: Avoid potential deadlocks (with HelpOps, etc) by doing this outside
+                        //       of the interpreter lock.
+                        //
+                        ResetOrClearCaches(true);
 #endif
 
-                    ///////////////////////////////////////////////////////////////////////////////////
+                        ///////////////////////////////////////////////////////////////////////////////
 
-                    lock (syncRoot) /* TRANSACTIONAL */
-                    {
-                        DisposePhase5(disposing);
-                    }
+                        lock (syncRoot) /* TRANSACTIONAL */
+                        {
+                            DisposePhase5(disposing);
+                        }
 
-                    ///////////////////////////////////////////////////////////////////////////////////
+                        ///////////////////////////////////////////////////////////////////////////////
 
-                    //
-                    // NOTE: Invoke (and then clear) the registered interpreter post-disposal
-                    //       callbacks now, if any.  It should be noted that the post-disposal
-                    //       callbacks will not be reset if they are not successfully invoked.
-                    //
-                    if (FirePostDisposeCallbacks()) ResetPostDisposeCallbacks();
+                        //
+                        // NOTE: Invoke (and then clear) the registered interpreter post-disposal
+                        //       callbacks now, if any.  It should be noted that the post-disposal
+                        //       callbacks will not be reset if they are not successfully invoked.
+                        //
+                        if (FirePostDisposeCallbacks()) ResetPostDisposeCallbacks();
 
-                    ///////////////////////////////////////////////////////////////////////////////////
+                        ///////////////////////////////////////////////////////////////////////////////
 
-                    //
-                    // NOTE: Remove this interpreter from the active interpreter stack.
-                    //
-                    /* IGNORED */
-                    GlobalState.PopActiveInterpreter();
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-                    //
-                    // NOTE: Next, attempt to make sure that this interpreter is no longer on
-                    //       the active stack for *any* thread.
-                    //
-                    int threadActiveCount = GetActiveCount(false);
-                    int globalActiveCount = GetActiveCount(true);
-
-                    if ((threadActiveCount > 0) || (globalActiveCount > 0))
-                    {
-                        TraceOps.DebugTrace(String.Format(
-                            "Dispose: found {0} global active instances of " +
-                            "interpreter {1} with {2} active instances on " +
-                            "current thread while {3}", globalActiveCount,
-                            id, threadActiveCount, disposing ? "disposing" :
-                            "finalizing"), typeof(Interpreter).Name,
-                            TracePriority.CleanupWarning);
-                    }
-
-                    ///////////////////////////////////////////////////////////////////////////////////
-
-                    //
-                    // NOTE: Finally, (maybe) remove this interpreter from the global interpreter
-                    //       list.
-                    //
-                    if (IsGlobalTrackingEnabled())
-                    {
+                        //
+                        // NOTE: Remove this interpreter from the active interpreter stack.
+                        //
                         /* IGNORED */
-                        GlobalState.RemoveInterpreter(this);
+                        GlobalState.PopActiveInterpreter();
 
-                        /* IGNORED */
-                        GlobalState.RemoveTokenInterpreter(this);
+                        ///////////////////////////////////////////////////////////////////////////////
+
+                        //
+                        // NOTE: Next, attempt to make sure that this interpreter is no longer on
+                        //       the active stack for *any* thread.
+                        //
+                        int threadActiveCount = GetActiveCount(false);
+                        int globalActiveCount = GetActiveCount(true);
+
+                        if ((threadActiveCount > 0) || (globalActiveCount > 0))
+                        {
+                            TraceOps.DebugTrace(String.Format(
+                                "Dispose: found {0} global active instances of " +
+                                "interpreter {1} with {2} active instances on " +
+                                "current thread while {3}", globalActiveCount,
+                                id, threadActiveCount, disposing ? "disposing" :
+                                "finalizing"), typeof(Interpreter).Name,
+                                TracePriority.CleanupWarning);
+                        }
+                    }
+                    finally
+                    {
+                        //
+                        // NOTE: Finally, (maybe) remove interpreter from the global interpreter
+                        //       list(s).
+                        //
+                        if (IsGlobalTrackingEnabled())
+                        {
+                            /* IGNORED */
+                            GlobalState.RemoveInterpreter(this);
+
+                            /* IGNORED */
+                            GlobalState.RemoveTokenInterpreter(this);
+                        }
                     }
 
                     ///////////////////////////////////////////////////////////////////////////////////

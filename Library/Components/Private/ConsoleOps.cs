@@ -782,13 +782,39 @@ namespace Eagle._Components.Private
                         return ReturnCode.Error;
                     }
 
-                    Stream stream = Console.OpenStandardInput(bufferSize);
+                    bool success = false;
+                    Stream stream = null;
+                    StreamReader streamReader = null;
 
-                    StreamReader streamReader = new StreamReader(
-                        stream, Console.InputEncoding, false, bufferSize);
+                    try
+                    {
+                        stream = Console.OpenStandardInput(bufferSize);
 
-                    fieldInfo.SetValue(streamReader, false); /* throw */
-                    Console.SetIn(streamReader);
+                        streamReader = new StreamReader(
+                            stream, Console.InputEncoding, false, bufferSize);
+
+                        fieldInfo.SetValue(streamReader, false); /* throw */
+                        Console.SetIn(streamReader);
+
+                        success = true;
+                    }
+                    finally
+                    {
+                        if (!success)
+                        {
+                            if (streamReader != null)
+                            {
+                                streamReader.Close();
+                                streamReader = null;
+                            }
+
+                            if (stream != null)
+                            {
+                                stream.Close();
+                                stream = null;
+                            }
+                        }
+                    }
 
                     return ReturnCode.Ok;
                 }

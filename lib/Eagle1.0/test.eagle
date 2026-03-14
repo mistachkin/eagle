@@ -28,6 +28,31 @@
 #       theme or piece of functionality.
 #
 namespace eval ::Eagle {
+  proc visibleCharsOnly { value } {
+    set result ""
+    set length [string length $value]
+
+    for {set index 0} {$index < $length} {incr index} {
+      if {[isEagle]} then {
+        set ordinal [string ordinal $value $index]
+      } else {
+        scan [string index $value $index] %c ordinal
+      }
+
+      if {$ordinal > 0x7E} then {
+        set ordinal [expr {$ordinal & 0x7E}]
+      }
+
+      if {$ordinal < 0x20} then {
+        set ordinal [expr {$ordinal + 0x20}]
+      }
+
+      append result [format %c $ordinal]
+    }
+
+    return $result
+  }
+
   proc s_proc { name {args ""} {command ""} } {; # NOTE: "args" not last.
     # stub_procedure
     if {[string length $command] == 0} then {
@@ -2875,16 +2900,17 @@ namespace eval ::Eagle {
 
     #
     # HACK: This (optional global) array variable is used extensively
-    #       by the script package used to compile C# at runtime.
+    #       by the script package used to compile arbitrary C# code at
+    #       runtime.
     #
-    lappend result compileCSharp
+    lappend result compileCSharp; # EXEMPT
 
     #
     # HACK: This (optional global) array variable is used by the [exec]
     #       support package in order for it to determine the (optional)
     #       extra arguments to use for each runtime.
     #
-    lappend result getRuntimeCommandLine
+    lappend result getRuntimeCommandLine; # EXEMPT
 
     #
     # NOTE: Return the full list of "other" well-known variables we are
@@ -14730,7 +14756,7 @@ namespace eval ::Eagle {
     #       namespace as well.
     #
     exportAndImportPackageCommands [namespace current] [list \
-        s_proc f_proc \
+        visibleCharsOnly s_proc f_proc \
         promptForAndGetTextInput addTestScripts evaluateTestScripts \
         combineTestScriptResults newPackageId getParameterFromAny \
         getIndexForDirectory maybeAddToAutoPath maybeScanAutoPath \
@@ -14818,8 +14844,7 @@ namespace eval ::Eagle {
         logRemoteMessageQueue logRemoteMessageWrapper getRemoteMessageHeader \
         getRemoteTestResults logRemoteTestResults logRemoteTestRunMessage \
         compileCanaryDyLib getPassedPercentage getSkippedPercentage \
-        testCheckOverallResult reportTestResultCounts getTestSnippets \
-        lmissing getTestAppDomains] false false
+        testCheckOverallResult reportTestResultCounts] false false
 
     ###########################################################################
     ############################## END Tcl ONLY ###############################
