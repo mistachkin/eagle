@@ -40,7 +40,11 @@ namespace eval ::Eagle {
       }
 
       if {$ordinal > 0x7E} then {
-        set ordinal [expr {$ordinal & 0x7E}]
+        set ordinal [expr {$ordinal & 0x7F}]
+      }
+
+      if {$ordinal > 0x7E} then {
+        set ordinal 0x7E
       }
 
       if {$ordinal < 0x20} then {

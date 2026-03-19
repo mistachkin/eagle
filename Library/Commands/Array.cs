@@ -784,15 +784,12 @@ namespace Eagle._Commands
                                                 }
                                                 else
                                                 {
-                                                    if (FlagOps.HasFlags(flags, VariableFlags.ArrayErrorMask, false))
-                                                    {
-                                                        result = false; // variable does not exist.
-                                                    }
-                                                    else
-                                                    {
-                                                        result = localError;
-                                                        code = ReturnCode.Error;
-                                                    }
+                                                    //
+                                                    // BUGFIX: Either the array "variable" does not exist
+                                                    //         OR it refers an array element, etc; either
+                                                    //         way, we cannot raise a script error here.
+                                                    //
+                                                    result = false; // COMPAT: Tcl
                                                 }
                                             }
                                         }

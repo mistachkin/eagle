@@ -1,6 +1,6 @@
 #!/bin/bash
 
-scriptdir=`dirname "$BASH_SOURCE"`
+scriptdir=$(cd "$(dirname "$0")" && pwd -P)
 extradefs="$@"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
