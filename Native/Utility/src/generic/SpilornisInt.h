@@ -38,11 +38,15 @@
 
 /*****************************************************************************/
 
-#define STRINGIFY(x)				STRINGIFY1(x)
-#define STRINGIFY1(x)				#x
+#ifndef STRINGIFY
+#  define STRINGIFY(x)				STRINGIFY1(x)
+#  define STRINGIFY1(x)				#x
+#endif
 
-#define UNICODIFY(x)				UNICODIFY1(x)
-#define UNICODIFY1(x)				L##x
+#ifndef UNICODIFY
+#  define UNICODIFY(x)				UNICODIFY1(x)
+#  define UNICODIFY1(x)				L##x
+#endif
 
 /*****************************************************************************/
 
@@ -77,6 +81,14 @@
 
 /*****************************************************************************/
 
+#if defined(USE_NARROW_CHAR_T)
+#  define ERRONEOUS_STRING_FORMAT		UNICODIFY("\"%.*s\" %s")
+#else
+#  define ERRONEOUS_STRING_FORMAT		UNICODIFY("\"%.*ls\" %ls")
+#endif
+
+/*****************************************************************************/
+
 #ifndef FALSE
 #  define FALSE					(0)
 #endif
@@ -87,21 +99,26 @@
 
 /*****************************************************************************/
 
-#define AllocateMemoryWrapper(size)		calloc((size), sizeof(BYTE))
-#define FreeMemoryWrapper(pMemory)		free((pMemory))
-
-#if defined(HAVE_MALLOC_H)
-#  if defined(__APPLE__)
-#    define MemorySizeWrapper(pMemory)          malloc_size((pMemory))
-#  elif defined(HAVE_MALLOC_USABLE_SIZE)
-#    define MemorySizeWrapper(pMemory)		malloc_usable_size((pMemory))
-#  elif defined(_MSC_VER)
-#    define MemorySizeWrapper(pMemory)		_msize((pMemory))
+#if !defined(AllocateMemoryWrapper)
+#  define AllocateMemoryWrapper(size)		calloc((size), sizeof(BYTE))
+#endif
+#if !defined(FreeMemoryWrapper)
+#  define FreeMemoryWrapper(pMemory)		free((pMemory))
+#endif
+#if !defined(MemorySizeWrapper)
+#  if defined(HAVE_MALLOC_H)
+#    if defined(__APPLE__)
+#      define MemorySizeWrapper(pMemory)	malloc_size((pMemory))
+#    elif defined(HAVE_MALLOC_USABLE_SIZE)
+#      define MemorySizeWrapper(pMemory)	malloc_usable_size((pMemory))
+#    elif defined(_MSC_VER)
+#      define MemorySizeWrapper(pMemory)	_msize((pMemory))
+#    else
+#      define MemorySizeWrapper(pMemory)	(0)
+#    endif
 #  else
 #    define MemorySizeWrapper(pMemory)		(0)
 #  endif
-#else
-#  define MemorySizeWrapper(pMemory)		(0)
 #endif
 
 /*****************************************************************************/

@@ -31182,7 +31182,7 @@ namespace Eagle._Tests
         )]
         [ObjectId("4dce989d-fa4d-4458-b8b0-f0e78709549b")]
         [ObjectGroup("test")]
-        internal sealed class Unsupported : _Commands.Core
+        private sealed class Unsupported : _Commands.Core
         {
             #region Private Data
             //

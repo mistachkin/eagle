@@ -10815,6 +10815,26 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private
+        internal Result BooleanToResult(
+            bool value
+            )
+        {
+            return HasBooleanToInteger() ?
+                (Result)ConversionOps.ToInt(value) : value;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool HasBooleanToInteger()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                return ExpressionEvaluator.HasBooleanToInteger(expressionFlags);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static bool HasTraceResult(
             InterpreterFlags interpreterFlags
             )

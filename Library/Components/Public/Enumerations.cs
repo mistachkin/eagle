@@ -13667,6 +13667,7 @@ namespace Eagle._Components.Public
 #endif
 
         BooleanToInteger = 0x40,
+        StringToInteger = 0x80,
 
 #if EXPRESSION_FLAGS
         Substitutions = Backslashes | Variables | Commands,

@@ -734,6 +734,8 @@ namespace Eagle._Commands
                                             {
                                                 try
                                                 {
+                                                    path = PathOps.MaybeTrimEnd(path);
+
                                                     if (!PathOps.IsRootPath(path))
                                                     {
                                                         if (!PathOps.IsJustTilde(path))
@@ -746,7 +748,8 @@ namespace Eagle._Commands
                                                         }
                                                         else
                                                         {
-                                                            path = PathOps.ResolveFullPath(interpreter, path);
+                                                            path = PathOps.ResolveFullPath(
+                                                                interpreter, path);
 
                                                             if (!String.IsNullOrEmpty(path))
                                                             {
@@ -766,9 +769,9 @@ namespace Eagle._Commands
                                                     else
                                                     {
                                                         //
-                                                        // BUGFIX: They passed the root of that particular drive,
-                                                        //         just return the normalized form of what they
-                                                        //         originally passed us.
+                                                        // BUGFIX: They passed the root of that particular
+                                                        //         drive, just return the normalized form
+                                                        //         of what they originally passed us.
                                                         //
                                                         result = PathOps.GetUnixPath(path); // COMPAT: Tcl.
                                                     }
@@ -776,8 +779,9 @@ namespace Eagle._Commands
                                                 catch
                                                 {
                                                     //
-                                                    // BUGFIX: They passed some kind of invalid path, return
-                                                    //         the path that represents the current directory.
+                                                    // BUGFIX: They passed some kind of invalid path,
+                                                    //         return the path that represents the
+                                                    //         current directory.
                                                     //
                                                     result = PathOps.CurrentDirectory; // COMPAT: Tcl.
                                                 }
@@ -904,7 +908,8 @@ namespace Eagle._Commands
                                         {
                                             try
                                             {
-                                                result = PathOps.PathExists(arguments[2]);
+                                                result = interpreter.BooleanToResult(
+                                                    PathOps.PathExists(arguments[2]));
                                             }
                                             catch
                                             {
@@ -927,7 +932,7 @@ namespace Eagle._Commands
                                             FileOps.VerifyExecutable(
                                                 interpreter, arguments[2], out accessStatus);
 
-                                            result = accessStatus;
+                                            result = interpreter.BooleanToResult(accessStatus);
                                         }
                                         else
                                         {
@@ -1207,8 +1212,9 @@ namespace Eagle._Commands
                                         {
                                             try
                                             {
-                                                result = PathOps.ValidatePathAsDirectory(
-                                                    arguments[2], null, true);
+                                                result = interpreter.BooleanToResult(
+                                                    PathOps.ValidatePathAsDirectory(
+                                                        arguments[2], null, true));
                                             }
                                             catch
                                             {
@@ -1228,8 +1234,9 @@ namespace Eagle._Commands
                                         {
                                             try
                                             {
-                                                result = PathOps.ValidatePathAsFile(
-                                                    arguments[2], null, true);
+                                                result = interpreter.BooleanToResult(
+                                                    PathOps.ValidatePathAsFile(
+                                                        arguments[2], null, true));
                                             }
                                             catch
                                             {
@@ -1621,7 +1628,8 @@ namespace Eagle._Commands
                                                             }
                                                             else
                                                             {
-                                                                result = ownerStatus;
+                                                                result = interpreter.BooleanToResult(
+                                                                    ownerStatus);
                                                             }
                                                         }
                                                     }
@@ -1671,7 +1679,7 @@ namespace Eagle._Commands
                                             FileOps.VerifyReadable(
                                                 interpreter, arguments[2], out accessStatus);
 
-                                            result = accessStatus;
+                                            result = interpreter.BooleanToResult(accessStatus);
                                         }
                                         else
                                         {
@@ -2389,8 +2397,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 3)
                                         {
-                                            result = RuntimeOps.IsFileTrusted(
-                                                interpreter, null, arguments[2], IntPtr.Zero);
+                                            result = interpreter.BooleanToResult(
+                                                RuntimeOps.IsFileTrusted(
+                                                    interpreter, null, arguments[2], IntPtr.Zero));
                                         }
                                         else
                                         {
@@ -2526,8 +2535,8 @@ namespace Eagle._Commands
                                                     }
                                                     else
                                                     {
-                                                        result = PathOps.IsUnderPath(
-                                                            interpreter, path1, path2);
+                                                        result = interpreter.BooleanToResult(
+                                                            PathOps.IsUnderPath(interpreter, path1, path2));
                                                     }
                                                 }
                                                 else
@@ -2638,10 +2647,11 @@ namespace Eagle._Commands
                                                 if (allowDrive == null)
                                                     allowDrive = isWindows;
 
-                                                result = PathOps.CheckForValid(
-                                                    unix, arguments[2], fileNameOnly,
-                                                    (bool)allowExtended, useComponents,
-                                                    (bool)allowDrive);
+                                                result = interpreter.BooleanToResult(
+                                                    PathOps.CheckForValid(
+                                                        unix, arguments[2], fileNameOnly,
+                                                        (bool)allowExtended, useComponents,
+                                                        (bool)allowDrive));
                                             }
                                         }
                                         else
@@ -2655,7 +2665,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 3)
                                         {
-                                            result = RuntimeOps.IsStrongNameVerified(arguments[2], true);
+                                            result = interpreter.BooleanToResult(
+                                                RuntimeOps.IsStrongNameVerified(
+                                                    arguments[2], true));
                                         }
                                         else
                                         {
@@ -2782,7 +2794,7 @@ namespace Eagle._Commands
                                             FileOps.VerifyWritable(
                                                 interpreter, arguments[2], out accessStatus);
 
-                                            result = accessStatus;
+                                            result = interpreter.BooleanToResult(accessStatus);
                                         }
                                         else
                                         {

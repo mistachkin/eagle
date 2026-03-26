@@ -541,7 +541,9 @@ namespace Eagle._Commands
                                                                         {
                                                                             if (arguments.Count == 4)
                                                                             {
-                                                                                result = (arrayValue.DefaultValue != null);
+                                                                                result = interpreter.BooleanToResult(
+                                                                                    arrayValue.DefaultValue != null);
+
                                                                                 code = ReturnCode.Ok;
                                                                             }
                                                                             else
@@ -778,9 +780,11 @@ namespace Eagle._Commands
                                                     if (EntityOps.IsLink(variable))
                                                         variable = EntityOps.FollowLinks(variable, flags);
 
-                                                    result = (variable != null) &&
+                                                    bool exists = (variable != null) &&
                                                         !EntityOps.IsUndefined(variable) &&
                                                         EntityOps.IsArray(variable);
+
+                                                    result = interpreter.BooleanToResult(exists);
                                                 }
                                                 else
                                                 {
@@ -789,7 +793,8 @@ namespace Eagle._Commands
                                                     //         OR it refers an array element, etc; either
                                                     //         way, we cannot raise a script error here.
                                                     //
-                                                    result = false; // COMPAT: Tcl
+                                                    result = result = interpreter.BooleanToResult(
+                                                        false); // COMPAT: Tcl
                                                 }
                                             }
                                         }

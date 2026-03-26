@@ -3886,11 +3886,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
-        private static bool HasBooleanToInteger(
+        public static bool HasBooleanToInteger(
             ExpressionFlags flags
             )
         {
             return ((flags & ExpressionFlags.BooleanToInteger) == ExpressionFlags.BooleanToInteger);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool HasStringToInteger(
+            ExpressionFlags flags
+            )
+        {
+            return ((flags & ExpressionFlags.StringToInteger) == ExpressionFlags.StringToInteger);
         }
         #endregion
 
@@ -4911,6 +4920,21 @@ namespace Eagle._Components.Public
                                 {
                                     value = ConversionOps.ToInt(
                                         (bool)innerValue);
+                                }
+                            }
+                            else if (innerValue is string)
+                            {
+                                if (HasStringToInteger(expressionFlags))
+                                {
+                                    long longValue = 0;
+
+                                    if (Value.GetWideInteger2(
+                                            (string)innerValue,
+                                            ValueFlags.AnyWideInteger,
+                                            null, ref longValue) == ReturnCode.Ok)
+                                    {
+                                        value = longValue;
+                                    }
                                 }
                             }
 #if DEBUG && VERBOSE

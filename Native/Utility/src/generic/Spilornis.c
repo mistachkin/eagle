@@ -159,9 +159,15 @@ static LPVOID EagleAllocateMemory(SIZE_T size);
 static SIZE_T EagleMemorySize(LPVOID pMemory);
 static VOID EagleFreeMemory(LPVOID pMemory);
 #else
-#define EagleAllocateMemory(size)	AllocateMemoryWrapper((size))
-#define EagleMemorySize(pMemory)	MemorySizeWrapper((pMemory))
-#define EagleFreeMemory(pMemory)	FreeMemoryWrapper((pMemory))
+#  if !defined(EagleAllocateMemory)
+#    define EagleAllocateMemory(size)	AllocateMemoryWrapper((size))
+#  endif
+#  if !defined(EagleMemorySize)
+#    define EagleMemorySize(pMemory)	MemorySizeWrapper((pMemory))
+#  endif
+#  if !defined(EagleFreeMemory)
+#    define EagleFreeMemory(pMemory)	FreeMemoryWrapper((pMemory))
+#  endif
 #endif
 
 /*
@@ -363,8 +369,10 @@ EagleWcharStrToUshortStr(
 	SIZE_T i = 0;
 	LPUSHORT sstr = (LPUSHORT)wstr;
 
+#if !defined(NO_SIZEOF_ASSERTS)
 	assert(sizeof(WCHAR) == 4);
 	assert(sizeof(USHORT) == 2);
+#endif
 
 	while (1) {
 	    assert(wstr[i] >= 0);
@@ -410,7 +418,7 @@ EagleTracePrintf(
     CHAR buffer[LIBRARY_TRACE_BUFFER_LENGTH + 1];
     INT result;
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(USE_NARROW_CHAR_T)
     {
 	WCHAR envBuffer[LIBRARY_VAR_BUFFER_LENGTH + 1];
 	memset(envBuffer, 0, sizeof(envBuffer));
@@ -892,8 +900,11 @@ EagleParseBackslash(
     SIZE_T count;
     BYTE buf[sizeof(UCSCHAR)];
 
+#if !defined(NO_SIZEOF_ASSERTS)
     assert(sizeof(WCHAR) == sizeof(unsigned short));
     assert(sizeof(UCSCHAR) >= (2 * sizeof(WCHAR)));
+#endif
+
     assert(src != NULL);
     assert(numChars >= 0);
 
@@ -1052,12 +1063,47 @@ done:
     if (readPtr != NULL) {
 	*readPtr = count;
     }
+
+#if defined(USE_NARROW_CHAR_T)
+    /*
+     * Narrow character type (UTF-8): Encode the code point as a UTF-8
+     * compliant byte sequence.  The destination must have room for up
+     * to 4 bytes.
+     */
+
+    if (result < 0x80) {
+	dst[0] = (WCHAR)result;
+	return 1;
+    } else if (result < 0x800) {
+	dst[0] = (WCHAR)(0xC0 | (result >> 6));
+	dst[1] = (WCHAR)(0x80 | (result & 0x3F));
+	return 2;
+    } else if (result < 0x10000) {
+	dst[0] = (WCHAR)(0xE0 | (result >> 12));
+	dst[1] = (WCHAR)(0x80 | ((result >> 6) & 0x3F));
+	dst[2] = (WCHAR)(0x80 | (result & 0x3F));
+	return 3;
+    } else if (result <= 0x10FFFF) {
+	dst[0] = (WCHAR)(0xF0 | (result >> 18));
+	dst[1] = (WCHAR)(0x80 | ((result >> 12) & 0x3F));
+	dst[2] = (WCHAR)(0x80 | ((result >> 6) & 0x3F));
+	dst[3] = (WCHAR)(0x80 | (result & 0x3F));
+	return 4;
+    } else {
+	/* Invalid code point: U+FFFD replacement character */
+	dst[0] = (WCHAR)0xEF;
+	dst[1] = (WCHAR)0xBF;
+	dst[2] = (WCHAR)0xBD;
+	return 3;
+    }
+#else
     dst[0] = (WCHAR)result;
     if ((result & ~USHRT_MAX) != 0) {
 	dst[1] = *(((LPCWSTR)&result) + 1);
 	return 2;
     }
     return 1;
+#endif
 }
 
 /*
@@ -1561,7 +1607,7 @@ EagleFindElement(
 			}
 			*errorPtr = EaglePrintf(0,
 				UNICODIFY("list element in braces followed by ")
-				UNICODIFY("\"%.*ls\" %ls"), (int)(p2 - p), p,
+				ERRONEOUS_STRING_FORMAT, (int)(p2 - p), p,
 				UNICODIFY("instead of space"));
 		    }
 		    return EAGLE_ERROR;
@@ -1622,7 +1668,7 @@ EagleFindElement(
 			}
 			*errorPtr = EaglePrintf(0,
 				UNICODIFY("list element in quotes followed by ")
-				UNICODIFY("\"%.*ls\" %ls"), (int)(p2 - p), p,
+				ERRONEOUS_STRING_FORMAT, (int)(p2 - p), p,
 				UNICODIFY("instead of space"));
 		    }
 		    return EAGLE_ERROR;
@@ -1824,7 +1870,10 @@ Eagle_AllocateMemory(
     LPVOID pMemory = NULL;
     SIZE_T memorySize;
 
+#if !defined(NO_SIZEOF_ASSERTS)
     assert(sizeof(BYTE) >= 1);
+#endif
+
     assert(size >= 0);
 
     if (size > 0) {
@@ -1990,6 +2039,19 @@ Eagle_SplitList(
 	}
     }
     listLength = length;
+
+    /*
+     * Integer overflow check: Verify calculated size does not wrap.
+     */
+
+    if (size > (LIBRARY_MAXIMUM_SIZE_T / sizeof(SIZE_T))) {
+	if (ppError != NULL) {
+	    *ppError = EaglePrintf(0,
+		UNICODIFY("list too large for element lengths (%d)"),
+		(int)size);
+	}
+	return EAGLE_ERROR;
+    }
     allocSize = size * sizeof(SIZE_T);
     assert(allocSize > 0);
     assert(allocSize <= LIBRARY_MAXIMUM_SIZE_T);
@@ -2000,6 +2062,21 @@ Eagle_SplitList(
 		UNICODIFY("out of memory for list element lengths (%d)"),
 		(int)allocSize);
 	}
+	return EAGLE_ERROR;
+    }
+
+    /*
+     * Integer overflow check: Verify calculated size does not wrap.
+     */
+
+    if (size > (LIBRARY_MAXIMUM_SIZE_T / sizeof(LPWSTR)) || (listLength + 1) >
+	    (LIBRARY_MAXIMUM_SIZE_T - size * sizeof(LPWSTR)) / sizeof(WCHAR)) {
+	if (ppError != NULL) {
+	    *ppError = EaglePrintf(0,
+		UNICODIFY("list too large for element data (%d)"),
+		(int)size);
+	}
+	Eagle_FreeMemory(argc);
 	return EAGLE_ERROR;
     }
     allocSize = (size * sizeof(LPWSTR)) + ((listLength + 1) * sizeof(WCHAR));
@@ -2113,6 +2190,14 @@ Eagle_JoinList(
 	flagPtr = localFlags;
     } else {
 	assert(elementCount > 0);
+	if (elementCount > LIBRARY_MAXIMUM_SIZE_T / sizeof(FLAGS)) {
+	    if (ppError != NULL) {
+		*ppError = EaglePrintf(0,
+		    UNICODIFY("list too large for element flags (%d)"),
+		    (int)elementCount);
+	    }
+	    return EAGLE_ERROR;
+	}
 	allocSize = elementCount * sizeof(FLAGS);
 	assert(allocSize > 0);
 	assert(allocSize <= LIBRARY_MAXIMUM_SIZE_T);

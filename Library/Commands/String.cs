@@ -1837,7 +1837,7 @@ namespace Eagle._Commands
                                                                 }
 
                                                                 if (code == ReturnCode.Ok)
-                                                                    result = valid;
+                                                                    result = interpreter.BooleanToResult(valid);
                                                             }
                                                             else
                                                             {
@@ -2179,9 +2179,11 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-nocase"))
                                                             noCase = true;
 
-                                                        result = StringOps.Match(
+                                                        bool match = StringOps.Match(
                                                             interpreter, mode, arguments[argumentIndex + 1],
                                                             arguments[argumentIndex], noCase);
+
+                                                        result = interpreter.BooleanToResult(match);
                                                     }
                                                     else
                                                     {

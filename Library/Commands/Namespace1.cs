@@ -330,9 +330,9 @@ namespace Eagle._Commands
                                         if (arguments.Count == 3)
                                         {
                                             if (NamespaceOps.IsGlobalName(arguments[2]))
-                                                result = true;
+                                                result = interpreter.BooleanToResult(true);
                                             else
-                                                result = false;
+                                                result = interpreter.BooleanToResult(false);
 
                                             code = ReturnCode.Ok;
                                         }
