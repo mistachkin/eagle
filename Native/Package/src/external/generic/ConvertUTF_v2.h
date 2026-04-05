@@ -96,10 +96,25 @@
 #ifndef CONVERT_UTF_H_
 #define CONVERT_UTF_H_
 
+#ifndef CONVERT_TYPEDEF_UTF32
+#define CONVERT_TYPEDEF_UTF32
 typedef unsigned int	UTF32;	    /* at least 32 bits */
+#endif
+
+#ifndef CONVERT_TYPEDEF_UTF16
+#define CONVERT_TYPEDEF_UTF16
 typedef unsigned short	UTF16;	    /* at least 16 bits */
+#endif
+
+#ifndef CONVERT_TYPEDEF_UTF8
+#define CONVERT_TYPEDEF_UTF8
 typedef unsigned char	UTF8;	    /* typically 8 bits */
+#endif
+
+#ifndef CONVERT_TYPEDEF_UTFXBOOL
+#define CONVERT_TYPEDEF_UTFXBOOL
 typedef unsigned char	UTFXBOOL;   /* 0 or 1 */
+#endif
 
 /* Compile-time size checks (C89-friendly): */
 

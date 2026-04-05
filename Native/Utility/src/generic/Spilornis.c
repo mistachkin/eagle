@@ -2026,10 +2026,11 @@ Eagle_SplitList(
 	    size++;
 	    /* Consecutive space can only count as a single list delimiter */
 	    while (1) {
-		WCHAR next = *(l + 1);
+		WCHAR next;
 		if ((j + 1) >= length) {
 		    break;
 		}
+		next = *(l + 1);
 		j++; l++;
 		if (iswspace(next)) {
 		    continue;
@@ -2118,7 +2119,7 @@ Eagle_SplitList(
 	    return EAGLE_ERROR;
 	}
 	if (brace) {
-	    wcsncpy(p, element, elSize);
+	    wmemcpy(p, element, elSize);
 	} else {
 	    elSize = EagleCopyAndCollapse(elSize, element, p);
 	}

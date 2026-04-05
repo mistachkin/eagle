@@ -335,8 +335,8 @@ namespace Eagle._Components.Private
             //       value.
             //
             //       The hash algorithm name SHOULD (almost always) be
-            //       SHA256; however, other valid hash algorithm names
-            //       MAY be accepted.
+            //       SHA512 -OR- (maybe?) SHA256; however, other valid
+            //       hash algorithm names MAY be accepted.
             //
             //       The hash value MUST be a string representation of
             //       a Base16 number with an optional "0x" prefix -OR-
