@@ -3,6 +3,9 @@
 
 BUGFIX: fix and/or address Coverity issues from #434153 to #556387.
 
+BUGFIX: fix incorrect command resolution due to non-global IExecute caching in
+        Argument instances.
+
 BUGFIX: do not allow an ICallback that is in use by the current interpreter to
         be disposed via an opaque object handle.
 

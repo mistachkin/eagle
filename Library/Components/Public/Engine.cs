@@ -11159,13 +11159,15 @@ namespace Eagle._Components.Public
         {
             if (viaArgument && (argument != null))
             {
-                return argument.SetCacheValue(
-                    interpreter, execute, false);
+                if (NamespaceOps.IsAbsoluteName(argument) ||
+                    NamespaceOps.IsGlobal(execute))
+                {
+                    return argument.SetCacheValue(
+                        interpreter, execute, false);
+                }
             }
-            else
-            {
-                return false;
-            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////

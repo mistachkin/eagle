@@ -2108,11 +2108,18 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 3))
                                         {
-                                            //
-                                            // NOTE: We have no VFS support; hence our path separator is
-                                            //       always the same.
-                                            //
-                                            result = PathOps.NativeDirectorySeparatorChar;
+                                            if (arguments.Count == 3)
+                                            {
+                                                result = PathOps.GetFirstDirectorySeparator(arguments[2]);
+                                            }
+                                            else
+                                            {
+                                                //
+                                                // NOTE: We have no VFS support; hence our path separator is
+                                                //       always the same.
+                                                //
+                                                result = PathOps.NativeDirectorySeparatorChar;
+                                            }
                                         }
                                         else
                                         {

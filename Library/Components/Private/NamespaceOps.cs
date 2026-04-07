@@ -434,6 +434,20 @@ namespace Eagle._Components.Private
 
         #region Instance Matching Support Methods
         public static bool IsGlobal(
+            IExecute execute
+            )
+        {
+            IIdentifierName identifierName = execute as IIdentifierName;
+
+            if (identifierName == null)
+                return false;
+
+            return NamespaceOps.IsGlobalName(identifierName.Name);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsGlobal(
             Interpreter interpreter,
             INamespace @namespace
             )

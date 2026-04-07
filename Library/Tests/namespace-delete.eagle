@@ -906,4 +906,34 @@ runTest {test namespace-99.2026 {upvar to global namspace var} -setup {
 
 ###############################################################################
 
+runTest {test namespace-101.1.cc1 {incorrect resolution due to cache} -setup {
+  if {[isEagle]} then {
+    set i [interp create -namespaces]
+  } else {
+    set i [interp create]
+  }
+
+  interp eval $i {
+    namespace eval ::A {
+      proc foo {} {return A}
+      proc test {} {return [foo]}
+    }
+
+    namespace eval ::B {
+      proc foo {} {return B}
+      proc test {} {return [foo]}
+    }
+  }
+} -body {
+  interp eval $i {
+    list [::A::test] [::B::test]
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {namespaces.available} -result {A B}}
+
+###############################################################################
+
 source [file join [file normalize [file dirname [info script]]] epilogue.eagle]
