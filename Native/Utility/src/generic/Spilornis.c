@@ -1064,46 +1064,12 @@ done:
 	*readPtr = count;
     }
 
-#if defined(USE_NARROW_CHAR_T)
-    /*
-     * Narrow character type (UTF-8): Encode the code point as a UTF-8
-     * compliant byte sequence.  The destination must have room for up
-     * to 4 bytes.
-     */
-
-    if (result < 0x80) {
-	dst[0] = (WCHAR)result;
-	return 1;
-    } else if (result < 0x800) {
-	dst[0] = (WCHAR)(0xC0 | (result >> 6));
-	dst[1] = (WCHAR)(0x80 | (result & 0x3F));
-	return 2;
-    } else if (result < 0x10000) {
-	dst[0] = (WCHAR)(0xE0 | (result >> 12));
-	dst[1] = (WCHAR)(0x80 | ((result >> 6) & 0x3F));
-	dst[2] = (WCHAR)(0x80 | (result & 0x3F));
-	return 3;
-    } else if (result <= 0x10FFFF) {
-	dst[0] = (WCHAR)(0xF0 | (result >> 18));
-	dst[1] = (WCHAR)(0x80 | ((result >> 12) & 0x3F));
-	dst[2] = (WCHAR)(0x80 | ((result >> 6) & 0x3F));
-	dst[3] = (WCHAR)(0x80 | (result & 0x3F));
-	return 4;
-    } else {
-	/* Invalid code point: U+FFFD replacement character */
-	dst[0] = (WCHAR)0xEF;
-	dst[1] = (WCHAR)0xBF;
-	dst[2] = (WCHAR)0xBD;
-	return 3;
-    }
-#else
     dst[0] = (WCHAR)result;
     if ((result & ~USHRT_MAX) != 0) {
 	dst[1] = *(((LPCWSTR)&result) + 1);
 	return 2;
     }
     return 1;
-#endif
 }
 
 /*

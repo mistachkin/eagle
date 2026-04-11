@@ -1442,6 +1442,7 @@ set eagle_manifests(source) {
   Eagle/Library/Wrappers/SubCommand.cs
   Eagle/Library/Wrappers/Trace.cs
   Eagle/license.terms
+  Eagle/Makefile
   Eagle/Management/Cmdlets/EvaluateExpression.cs
   Eagle/Management/Cmdlets/EvaluateFile.cs
   Eagle/Management/Cmdlets/EvaluateScript.cs
