@@ -4325,7 +4325,7 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////
 
             #region Private Methods
-            private StringList RowsToList(
+            private IStringList RowsToList(
                 DataRow[] rows, /* in */
                 bool names,     /* in */
                 int limit       /* in */
@@ -4373,7 +4373,7 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////
 
             #region Public Methods
-            public StringList ToList()
+            public IStringList ToList()
             {
                 return ToList(Limits.Unlimited);
             }
@@ -4386,7 +4386,7 @@ namespace Eagle._Components.Private
             //       result formats.  This replaces the manual
             //       getRowsFromDataTable pattern.
             //
-            public StringList ToList(
+            public IStringList ToList(
                 int limit /* in */
                 )
             {
@@ -4395,7 +4395,7 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////
 
-            public StringList ToList(
+            public IStringList ToList(
                 string filter, /* in */
                 string sort    /* in */
                 )
@@ -4410,7 +4410,7 @@ namespace Eagle._Components.Private
             // NOTE: Like ToList but operates on a filtered and/or
             //       sorted subset of rows via DataTable.Select.
             //
-            public StringList ToList(
+            public IStringList ToList(
                 string filter, /* in */
                 string sort,   /* in */
                 int limit      /* in */
@@ -4422,7 +4422,7 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////
 
-            public StringList ToDictionary()
+            public IStringList ToDictionary()
             {
                 return ToDictionary(Limits.Unlimited);
             }
@@ -4434,7 +4434,7 @@ namespace Eagle._Components.Private
             //       producing {colName value colName value ...} per
             //       row.
             //
-            public StringList ToDictionary(
+            public IStringList ToDictionary(
                 int limit /* in */
                 )
             {
@@ -4443,7 +4443,7 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////
 
-            public StringList ToDictionary(
+            public IStringList ToDictionary(
                 string filter, /* in */
                 string sort    /* in */
                 )
@@ -4458,7 +4458,7 @@ namespace Eagle._Components.Private
             // NOTE: Like ToDictionary but operates on a filtered
             //       and/or sorted subset of rows.
             //
-            public StringList ToDictionary(
+            public IStringList ToDictionary(
                 string filter, /* in */
                 string sort,   /* in */
                 int limit      /* in */
@@ -4473,7 +4473,7 @@ namespace Eagle._Components.Private
             //
             // NOTE: Returns column names as a StringList.
             //
-            public StringList GetColumnNames()
+            public IStringList GetColumnNames()
             {
                 StringList result = new StringList();
 

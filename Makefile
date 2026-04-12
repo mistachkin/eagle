@@ -69,7 +69,8 @@ BUILD_MANAGED_CONFIGURATION = Debug
 BUILD_NATIVE_CONFIGURATION = debug
 BUILD_TYPE = NetStandard21
 BUILD_NET_DIRECTORY = netcoreapp3.0
-BUILD_SOLUTION = EagleNetStandard2X.sln
+BUILD_SOLUTION_1 = EagleEnterpriseNetStandard2X.sln
+BUILD_SOLUTION_2 = EagleNetStandard2X.sln
 
 # -----------------------------------------------------------------------------
 
@@ -156,14 +157,16 @@ validate-dirs: FORCE
 # =============================================================================
 
 restore: validate-dotnet
-	$(DOTNET_ENV) $(DOTNET) restore "$(BUILD_SOLUTION)"
+	$(DOTNET_ENV) $(DOTNET) restore "$(BUILD_SOLUTION_1)" || \
+	$(DOTNET_ENV) $(DOTNET) restore "$(BUILD_SOLUTION_2)"
 
 # =============================================================================
 #                                Build Targets
 # =============================================================================
 
 build-managed: validate-dotnet
-	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION)" $(BUILD_ARGS)
+	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
+	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
 
 # -----------------------------------------------------------------------------
 
@@ -184,7 +187,8 @@ rebuild-native: force-clean build-native
 # -----------------------------------------------------------------------------
 
 rebuild-managed: validate-dotnet
-	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION)" $(BUILD_ARGS)
+	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
+	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
 
 # -----------------------------------------------------------------------------
 
@@ -202,7 +206,8 @@ fresh: force-clean build
 # =============================================================================
 
 clean: validate-dotnet
-	$(DOTNET_ENV) $(DOTNET) build /target:Clean "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION)" $(BUILD_ARGS)
+	$(DOTNET_ENV) $(DOTNET) build /target:Clean "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
+	$(DOTNET_ENV) $(DOTNET) build /target:Clean "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
 
 # -----------------------------------------------------------------------------
 
@@ -282,6 +287,7 @@ install-dirs: validate-dirs
 	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/lib/Test1.0"
 	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/Tests"
 
+# HACK: Creating these directories will break the "git clone" targets.
 install-all-dirs: install-dirs
 	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/docs"
 	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/lib/Extra1.0"

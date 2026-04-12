@@ -10,30 +10,26 @@
  */
 
 using Eagle._Attributes;
-using Eagle._Containers.Public;
 
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("438264c5-9362-4cd1-8149-61deaeac4e44")]
     public interface IDataTable
     {
-        StringList ToList();
-        StringList ToList(int limit);
-        StringList ToList(string filterExpression, string sort);
-        StringList ToList(string filterExpression, string sort,
-            int limit);
+        IStringList ToList();
+        IStringList ToList(int limit);
+        IStringList ToList(string filter, string sort);
+        IStringList ToList(string filter, string sort, int limit);
 
         ///////////////////////////////////////////////////////////////////////
 
-        StringList ToDictionary();
-        StringList ToDictionary(int limit);
-        StringList ToDictionary(string filterExpression,
-            string sort);
-        StringList ToDictionary(string filterExpression,
-            string sort, int limit);
+        IStringList ToDictionary();
+        IStringList ToDictionary(int limit);
+        IStringList ToDictionary(string filter, string sort);
+        IStringList ToDictionary(string filter, string sort, int limit);
 
         ///////////////////////////////////////////////////////////////////////
 
-        StringList GetColumnNames();
+        IStringList GetColumnNames();
     }
 }
