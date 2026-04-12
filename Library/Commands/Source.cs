@@ -72,36 +72,9 @@ namespace Eagle._Commands
 
             ReturnCode code = ReturnCode.Ok;
 
-            OptionDictionary options = new OptionDictionary(
-                new IOption[] {
-                new Option(null, OptionFlags.MustHaveEncodingValue,
-                    Index.Invalid, Index.Invalid, "-encoding", null),
-                new Option(null, OptionFlags.MustHaveBooleanValue,
-                    Index.Invalid, Index.Invalid, "-withinfo", null),
-                new Option(null, OptionFlags.MustHaveBooleanValue,
-                    Index.Invalid, Index.Invalid, "-time", null),
-                new Option(null, OptionFlags.MustHaveByteArrayValue,
-                    Index.Invalid, Index.Invalid, "-password", null),
-                new Option(null, OptionFlags.MustHaveBooleanValue,
-                    Index.Invalid, Index.Invalid, "-library", null),
-#if DATA
-                new Option(null, OptionFlags.MustHaveBooleanValue |
-                    OptionFlags.Nullable, Index.Invalid, Index.Invalid,
-                    "-bundle", null),
-                new Option(typeof(BundleFlags),
-                    OptionFlags.MustHaveEnumValue, Index.Invalid,
-                    Index.Invalid, "-bundleflags",
-                    new Variant(BundleFlags.Default)),
-#else
-                new Option(null, OptionFlags.MustHaveBooleanValue |
-                    OptionFlags.Nullable | OptionFlags.Unsupported,
-                    Index.Invalid, Index.Invalid, "-bundle", null),
-                new Option(null, OptionFlags.MustHaveEnumValue |
-                    OptionFlags.Unsupported, Index.Invalid,
-                    Index.Invalid, "-bundleflags", null),
-#endif
-                Option.CreateEndOfOptions()
-            });
+            OptionDictionary options =
+                CommandOptions.GetCommandOptions(
+                    CommandOptionType.Source);
 
             int argumentIndex = Index.Invalid;
 

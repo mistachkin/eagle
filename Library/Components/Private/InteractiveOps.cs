@@ -7527,16 +7527,9 @@ namespace Eagle._Components.Private
                     if (Engine.CheckDebuggerInterpreter(interpreter, false,
                             ref debugInterpreter, ref localResult))
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                    Index.Invalid, "-nobackslashes", null),
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                    Index.Invalid, "-nocommands", null),
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                    Index.Invalid, "-novariables", null),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Debugger_Dsubst);
 
                         int argumentIndex = Index.Invalid;
 
@@ -10164,14 +10157,9 @@ namespace Eagle._Components.Private
                 ReturnCode localCommandCode = ReturnCode.Ok;
                 Result localCommandResult = null;
 
-                OptionDictionary options = new OptionDictionary(
-                    new IOption[] {
-                    new Option(null, OptionFlags.MustHaveReturnCodeValue,
-                            Index.Invalid, Index.Invalid, "-code", null),
-                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                            Index.Invalid, "-result", null),
-                    Option.CreateEndOfOptions()
-                });
+                OptionDictionary options =
+                    CommandOptions.GetCommandOptions(
+                        CommandOptionType.Debugger_Overr);
 
                 int argumentIndex = Index.Invalid;
 

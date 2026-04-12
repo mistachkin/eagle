@@ -58,7 +58,9 @@ namespace Eagle._Commands
 
                     if (argumentCount >= 2)
                     {
-                        OptionDictionary options = ObjectOps.GetExecOptions(interpreter);
+                        OptionDictionary options = CommandOptions.GetCommandOptions(
+                            CommandOptionType.Exec);
+
                         int argumentIndex = Index.Invalid;
 
                         code = interpreter.GetOptions(options, arguments, 0, 1,

@@ -117,7 +117,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = ObjectOps.GetDequeueOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Callback_Dequeue);
 
                                             int argumentIndex = Index.Invalid;
 

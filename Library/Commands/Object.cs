@@ -359,7 +359,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetCertificateOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Certificate);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
@@ -456,7 +458,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = ObjectOps.GetCleanupOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Cleanup);
+
                                             int argumentIndex = Index.Invalid;
 
                                             if (arguments.Count > 2)
@@ -545,7 +549,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetCreateOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Create);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
@@ -1029,7 +1035,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = ObjectOps.GetDeclareOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Declare);
+
                                             int argumentIndex = Index.Invalid;
 
                                             if (arguments.Count > 2)
@@ -1107,7 +1115,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetDisposeOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Dispose);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
@@ -1277,7 +1287,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 5)
                                         {
-                                            OptionDictionary options = ObjectOps.GetForEachOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_ForEach);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
@@ -1570,7 +1582,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetCreateOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Create);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(
@@ -1664,7 +1678,9 @@ namespace Eagle._Commands
                                         if (arguments.Count >= 4)
                                         {
 #if !NET_STANDARD_20
-                                            OptionDictionary options = ObjectOps.GetGetOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Get);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, false, ref argumentIndex, ref result);
@@ -1850,7 +1866,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = ObjectOps.GetImportOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Import);
+
                                             int argumentIndex = Index.Invalid;
 
                                             if (arguments.Count > 2)
@@ -1969,7 +1987,9 @@ namespace Eagle._Commands
                                         //
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = ObjectOps.GetInvokeOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Invoke);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, false,
@@ -3062,7 +3082,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = ObjectOps.GetInvokeAllOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_InvokeAll);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, false,
@@ -3408,7 +3430,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = ObjectOps.GetInvokeRawOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_InvokeRaw);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(
@@ -3737,7 +3761,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetIsDisposedOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_IsDisposed);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(
@@ -3810,7 +3836,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetIsNullOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_IsNull);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(
@@ -3915,7 +3943,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = ObjectOps.GetIsOfTypeOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_IsOfType);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(
@@ -4044,7 +4074,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetLoadOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Load);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
@@ -4369,7 +4401,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetMembersOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Members);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, false, ref argumentIndex, ref result);
@@ -4763,7 +4797,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetSearchOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Search);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
@@ -4877,7 +4913,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = ObjectOps.GetTypeOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Type);
+
                                             int argumentIndex = Index.Invalid;
 
                                             if (arguments.Count > 2)
@@ -4999,7 +5037,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = ObjectOps.GetUnaliasNamespaceOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_UnaliasNamespace);
+
                                             int argumentIndex = Index.Invalid;
 
                                             if (arguments.Count > 2)
@@ -5054,7 +5094,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = ObjectOps.GetUndeclareOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Undeclare);
+
                                             int argumentIndex = Index.Invalid;
 
                                             if (arguments.Count > 2)
@@ -5109,7 +5151,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = ObjectOps.GetUnimportOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Unimport);
+
                                             int argumentIndex = Index.Invalid;
 
                                             if (arguments.Count > 2)
@@ -5164,7 +5208,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = ObjectOps.GetTypeOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Type);
+
                                             int argumentIndex = Index.Invalid;
 
                                             if (arguments.Count > 2)
@@ -5217,13 +5263,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(VerifyFlags),
-                                                    OptionFlags.MustHaveEnumValue, Index.Invalid,
-                                                    Index.Invalid, "-verifyflags",
-                                                    new Variant(VerifyFlags.Default)),
-                                            }, ObjectOps.GetCertificateOptions());
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_VerifyAll);
 
                                             int argumentIndex = Index.Invalid;
 

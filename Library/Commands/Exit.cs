@@ -81,28 +81,9 @@ namespace Eagle._Commands
 
             ReturnCode code;
 
-            OptionDictionary options = new OptionDictionary(
-                new IOption[] {
-                new Option(null, OptionFlags.MustHaveValue |
-                    OptionFlags.Unsafe, Index.Invalid,
-                    Index.Invalid, "-message", null),
-                new Option(
-                    null, OptionFlags.Unsafe, Index.Invalid,
-                     Index.Invalid, "-force", null),
-                new Option(
-                    null, OptionFlags.Unsafe, Index.Invalid,
-                     Index.Invalid, "-fail", null),
-                new Option(
-                    null, OptionFlags.Unsafe, Index.Invalid,
-                     Index.Invalid, "-nodispose", null),
-                new Option(
-                    null, OptionFlags.Unsafe, Index.Invalid,
-                     Index.Invalid, "-nocomplain", null),
-                new Option(null, OptionFlags.Unsafe,
-                    Index.Invalid, Index.Invalid, "-current",
-                    null),
-                Option.CreateEndOfOptions()
-            });
+            OptionDictionary options =
+                CommandOptions.GetCommandOptions(
+                    CommandOptionType.Exit);
 
             int argumentIndex = Index.Invalid;
 

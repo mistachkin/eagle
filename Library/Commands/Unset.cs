@@ -52,31 +52,9 @@ namespace Eagle._Commands
                     {
                         if (arguments.Count > 1)
                         {
-                            OptionDictionary options = new OptionDictionary(
-                                new IOption[] {
-                                new Option(null, OptionFlags.None, Index.Invalid,
-                                    Index.Invalid, "-nocomplain", null),
-                                new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                    Index.Invalid, "-unlinkonly", null),
-                                new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                    Index.Invalid, "-remove", null),
-                                new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                    Index.Invalid, "-notrace", null),
-                                new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                    Index.Invalid, "-purge", null),
-#if !MONO && NATIVE && WINDOWS
-                                new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                    Index.Invalid, "-zerostring", null),
-                                new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                    Index.Invalid, "-maybezerostring", null),
-#else
-                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported,
-                                    Index.Invalid, Index.Invalid, "-zerostring", null),
-                                new Option(null, OptionFlags.Unsafe | OptionFlags.Ignored,
-                                    Index.Invalid, Index.Invalid, "-maybezerostring", null),
-#endif
-                                Option.CreateEndOfOptions()
-                            });
+                            OptionDictionary options =
+                                CommandOptions.GetCommandOptions(
+                                    CommandOptionType.Unset);
 
                             int argumentIndex = Index.Invalid;
 

@@ -9649,9 +9649,9 @@ namespace Eagle._Components.Private
             )
         {
             return ConvertValueToString(
-                scriptBinder, cultureInfo, AppDomainOps.MaybeGetType(
-                value), ObjectOps.GetInvokeOptions(), value, false,
-                ref result);
+                scriptBinder, cultureInfo, AppDomainOps.MaybeGetType(value),
+                CommandOptions.GetCommandOptions(CommandOptionType.Object_Invoke),
+                value, false, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -10405,7 +10405,9 @@ namespace Eagle._Components.Private
                     delegateFlags, DelegateFlags.UseReturnOptions,
                     true))
             {
-                aliasOptions = ObjectOps.GetInvokeOptions();
+                aliasOptions = CommandOptions.GetCommandOptions(
+                    CommandOptionType.Object_Invoke);
+
                 objectOptionType = ObjectOptionType.Invoke;
             }
 

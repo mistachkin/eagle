@@ -55,17 +55,9 @@ namespace Eagle._Commands
             {
                 if (arguments != null)
                 {
-                    OptionDictionary options = new OptionDictionary(
-                        new IOption[] {
-                        new Option(null, OptionFlags.None, 1, Index.Invalid, "-exact", null),
-                        new Option(null, OptionFlags.None, 3, Index.Invalid, "-integer", null),
-                        new Option(null, OptionFlags.None, 3, Index.Invalid, "-substring", null),
-                        new Option(null, OptionFlags.None, 1, Index.Invalid, "-glob", null),
-                        new Option(null, OptionFlags.None, 1, Index.Invalid, "-regexp", null),
-                        new Option(null, OptionFlags.None, 2, Index.Invalid, "-subst", null),
-                        new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                        Option.CreateEndOfOptions()
-                    });
+                    OptionDictionary options =
+                        CommandOptions.GetCommandOptions(
+                            CommandOptionType.Switch);
 
                     int argumentIndex = Index.Invalid;
 

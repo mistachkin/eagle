@@ -3094,6 +3094,35 @@ namespace Eagle._Components.Private
                         }
                         break;
                     }
+                case DbResultFormat.DataTable:
+                    {
+                        IDataTable dataTable = CreateDataTable(
+                            reader, interpreter, cultureInfo,
+                            blobBehavior, dateTimeBehavior,
+                            dateTimeKind, dateTimeFormat,
+                            numberFormat, nullValue, dbNullValue,
+                            errorValue, ref result);
+
+                        if (dataTable == null)
+                            return ReturnCode.Error;
+
+                        ObjectOptionType objectOptionType =
+                            ObjectOptionType.SqlExecute |
+                            ObjectOps.GetOptionType(aliasRaw, aliasAll);
+
+                        if (MarshalOps.FixupReturnValue(
+                                interpreter, binder, cultureInfo,
+                                returnType, objectFlags, options,
+                                ObjectOps.GetInvokeOptions(objectOptionType),
+                                objectOptionType, objectName, interpName,
+                                dataTable, create, dispose, alias,
+                                aliasReference, toString,
+                                ref result) == ReturnCode.Ok)
+                        {
+                            return ReturnCode.Ok;
+                        }
+                        break;
+                    }
                 default:
                     {
                         result = String.Format(
@@ -3491,6 +3520,40 @@ namespace Eagle._Components.Private
 
             return new DataRecord(
                 names, values, typeNames, types);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static IDataTable CreateDataTable(
+            IDataReader reader,        /* in */
+            Interpreter interpreter,   /* in */
+            CultureInfo cultureInfo,   /* in */
+            BlobBehavior blobBehavior, /* in */
+            DateTimeBehavior dateTimeBehavior, /* in */
+            DateTimeKind dateTimeKind, /* in */
+            string dateTimeFormat,     /* in */
+            string numberFormat,       /* in */
+            string nullValue,          /* in */
+            string dbNullValue,        /* in */
+            string errorValue,         /* in */
+            ref Result result          /* out */
+            )
+        {
+            if (reader == null)
+            {
+                result = "invalid data reader";
+                return null;
+            }
+
+            _DataTable dataTable = new _DataTable(
+                interpreter, cultureInfo, blobBehavior,
+                dateTimeBehavior, dateTimeKind, dateTimeFormat,
+                numberFormat, nullValue, dbNullValue,
+                errorValue);
+
+            dataTable.Load(reader);
+
+            return dataTable;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4208,6 +4271,223 @@ namespace Eagle._Components.Private
                     reader = null;
                 }
             }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region DataTable Helper Class
+        [ObjectId("2199651c-fd55-4319-bb47-9ea05ea7995d")]
+        private sealed class _DataTable : DataTable, IDataTable
+        {
+            #region Private Data
+            private Interpreter interpreter;
+            private CultureInfo cultureInfo;
+            private BlobBehavior blobBehavior;
+            private DateTimeBehavior dateTimeBehavior;
+            private DateTimeKind dateTimeKind;
+            private string dateTimeFormat;
+            private string numberFormat;
+            private string nullValue;
+            private string dbNullValue;
+            private string errorValue;
+            #endregion
+
+            ///////////////////////////////////////////////////////////
+
+            #region Public Constructors
+            public _DataTable(
+                Interpreter interpreter,           /* in */
+                CultureInfo cultureInfo,           /* in */
+                BlobBehavior blobBehavior,         /* in */
+                DateTimeBehavior dateTimeBehavior, /* in */
+                DateTimeKind dateTimeKind,         /* in */
+                string dateTimeFormat,             /* in */
+                string numberFormat,               /* in */
+                string nullValue,                  /* in */
+                string dbNullValue,                /* in */
+                string errorValue                  /* in */
+                )
+            {
+                this.interpreter = interpreter;
+                this.cultureInfo = cultureInfo;
+                this.blobBehavior = blobBehavior;
+                this.dateTimeBehavior = dateTimeBehavior;
+                this.dateTimeKind = dateTimeKind;
+                this.dateTimeFormat = dateTimeFormat;
+                this.numberFormat = numberFormat;
+                this.nullValue = nullValue;
+                this.dbNullValue = dbNullValue;
+                this.errorValue = errorValue;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////
+
+            #region Private Methods
+            private StringList RowsToList(
+                DataRow[] rows, /* in */
+                bool names,     /* in */
+                int limit       /* in */
+                )
+            {
+                StringList result = new StringList();
+                int count = 0;
+
+                foreach (DataRow row in rows)
+                {
+                    if (row == null)
+                        continue;
+
+                    if ((limit > 0) && (count >= limit))
+                        break;
+
+                    StringList rowList = new StringList();
+
+                    foreach (DataColumn column in Columns)
+                    {
+                        if (column == null)
+                            continue;
+
+                        object value = row[column];
+
+                        if (names)
+                            rowList.Add(column.ColumnName);
+
+                        rowList.Add(MarshalOps.FixupDataValue(
+                            interpreter, value, cultureInfo,
+                            blobBehavior, dateTimeBehavior,
+                            dateTimeKind, dateTimeFormat,
+                            numberFormat, nullValue,
+                            dbNullValue, errorValue, false));
+                    }
+
+                    result.Add(rowList.ToString());
+                    count++;
+                }
+
+                return result;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////
+
+            #region Public Methods
+            public StringList ToList()
+            {
+                return ToList(Limits.Unlimited);
+            }
+
+            ///////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Converts rows to a StringList, applying the
+            //       same value formatting as other [sql execute]
+            //       result formats.  This replaces the manual
+            //       getRowsFromDataTable pattern.
+            //
+            public StringList ToList(
+                int limit /* in */
+                )
+            {
+                return RowsToList(Select(null, null), false, limit);
+            }
+
+            ///////////////////////////////////////////////////////////
+
+            public StringList ToList(
+                string filter, /* in */
+                string sort    /* in */
+                )
+            {
+                return ToList(
+                    filter, sort, Limits.Unlimited);
+            }
+
+            ///////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Like ToList but operates on a filtered and/or
+            //       sorted subset of rows via DataTable.Select.
+            //
+            public StringList ToList(
+                string filter, /* in */
+                string sort,   /* in */
+                int limit      /* in */
+                )
+            {
+                return RowsToList(
+                    Select(filter, sort), false, limit);
+            }
+
+            ///////////////////////////////////////////////////////////
+
+            public StringList ToDictionary()
+            {
+                return ToDictionary(Limits.Unlimited);
+            }
+
+            ///////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Like ToList but includes column names as keys,
+            //       producing {colName value colName value ...} per
+            //       row.
+            //
+            public StringList ToDictionary(
+                int limit /* in */
+                )
+            {
+                return RowsToList(Select(null, null), true, limit);
+            }
+
+            ///////////////////////////////////////////////////////////
+
+            public StringList ToDictionary(
+                string filter, /* in */
+                string sort    /* in */
+                )
+            {
+                return ToDictionary(
+                    filter, sort, Limits.Unlimited);
+            }
+
+            ///////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Like ToDictionary but operates on a filtered
+            //       and/or sorted subset of rows.
+            //
+            public StringList ToDictionary(
+                string filter, /* in */
+                string sort,   /* in */
+                int limit      /* in */
+                )
+            {
+                return RowsToList(
+                    Select(filter, sort), true, limit);
+            }
+
+            ///////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Returns column names as a StringList.
+            //
+            public StringList GetColumnNames()
+            {
+                StringList result = new StringList();
+
+                foreach (DataColumn column in Columns)
+                {
+                    if (column == null)
+                        continue;
+
+                    result.Add(column.ColumnName);
+                }
+
+                return result;
+            }
+            #endregion
         }
         #endregion
     }

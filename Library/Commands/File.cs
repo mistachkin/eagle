@@ -456,18 +456,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(PathType), OptionFlags.MustHaveEnumValue, Index.Invalid,
-                                                    Index.Invalid, "-type", new Variant(PathType.Cleanup)),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-pattern", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-recursive", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-force", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-now", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_Cleanup);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -618,11 +608,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-force", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_Copy);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -672,13 +659,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-recursive", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-force", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_Delete);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -968,18 +950,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noresolve", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-novalidate", null),
-                                                new Option(null, OptionFlags.MustHaveMatchModeValue, Index.Invalid, Index.Invalid, "-match",
-                                                    new Variant(StringOps.DefaultMatchMode)),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-directory", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-searchpattern", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_Glob);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1140,12 +1112,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-directory", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-reparse", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_Information);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1441,11 +1409,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-legacy", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_Normalize);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1513,12 +1478,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-directory", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-create", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_ObjectId);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1692,11 +1653,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-force", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_Rename);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1935,13 +1893,8 @@ namespace Eagle._Commands
                                         if (arguments.Count >= 3)
                                         {
 #if !NET_STANDARD_20 && !MONO
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(SddlFlags),
-                                                    OptionFlags.MustHaveEnumValue, Index.Invalid,
-                                                    Index.Invalid, "-flags", new Variant(SddlFlags.Default)),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_Sddl);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -2458,18 +2411,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(MatchMode), OptionFlags.MustHaveEnumValue, Index.Invalid,
-                                                    Index.Invalid, "-mode", new Variant(MatchMode.None)),
-                                                new Option(typeof(SearchOption), OptionFlags.MustHaveEnumValue, Index.Invalid,
-                                                    Index.Invalid, "-searchoption", new Variant(SearchOption.AllDirectories)),
-                                                new Option(typeof(PathType), OptionFlags.MustHaveEnumValue, Index.Invalid,
-                                                    Index.Invalid, "-pathtype", new Variant(PathType.Under)),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-contains", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-failonerror", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_Under);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -2687,12 +2630,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-full", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-fixed", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.File_Version);
 
                                             int argumentIndex = Index.Invalid;
 

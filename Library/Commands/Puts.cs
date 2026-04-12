@@ -57,18 +57,9 @@ namespace Eagle._Commands
 
                     if (argumentCount >= 2)
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.MustHaveEncodingValue |
-                                OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                                "-encoding", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                Index.Invalid, "-usecount", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                Index.Invalid, "-useobject", null),
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nonewline", null)
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Puts);
 
                         int argumentIndex = Index.Invalid;
 

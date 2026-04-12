@@ -55,21 +55,9 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 2)
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.None, 1, Index.Invalid, "-ascii", null),
-                            new Option(null, OptionFlags.None, 1, Index.Invalid, "-dictionary", null),
-                            new Option(null, OptionFlags.None, 1, Index.Invalid, "-integer", null),
-                            new Option(null, OptionFlags.None, 1, Index.Invalid, "-random", null),
-                            new Option(null, OptionFlags.None, 1, Index.Invalid, "-real", null),
-                            new Option(null, OptionFlags.None, 2, Index.Invalid, "-increasing", null),
-                            new Option(null, OptionFlags.None, 2, Index.Invalid, "-decreasing", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-unique", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-command", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-index", null), // NOTE: Of sub-lists, not list.
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Lsort);
 
                         int argumentIndex = Index.Invalid;
 

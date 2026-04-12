@@ -347,11 +347,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-clear", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Namespace1_Export);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -398,11 +395,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-force", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Namespace1_Import);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -738,12 +732,8 @@ namespace Eagle._Commands
                                         //
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-command", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-variable", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Namespace1_Which);
 
                                             int argumentIndex = Index.Invalid;
 

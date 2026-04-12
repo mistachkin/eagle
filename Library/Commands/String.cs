@@ -339,22 +339,8 @@ namespace Eagle._Commands
                                         {
                                             if (arguments.Count >= 4)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-#if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
-                                                    new Option(null, OptionFlags.MustHaveCultureInfoValue, Index.Invalid, Index.Invalid, "-culture", null),
-                                                    new Option(typeof(CompareOptions), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-options",
-                                                        new Variant(CompareOptions.None)),
-#else
-                                                    new Option(null, OptionFlags.MustHaveCultureInfoValue | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-culture", null),
-                                                    new Option(typeof(CompareOptions), OptionFlags.MustHaveEnumValue | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-options",
-                                                        new Variant(CompareOptions.None)),
-#endif
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                                                    new Option(typeof(StringComparison), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-comparison", null),
-                                                    new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-length", null),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.String_Equal);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -494,17 +480,8 @@ namespace Eagle._Commands
                                         {
                                             if (arguments.Count >= 4)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-#if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
-                                                    new Option(null, OptionFlags.MustHaveCultureInfoValue, Index.Invalid, Index.Invalid, "-culture", null),
-#else
-                                                    new Option(null, OptionFlags.MustHaveCultureInfoValue | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-culture", null),
-#endif
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                                                    new Option(typeof(StringComparison), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-comparison", null),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.String_Ends);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -584,12 +561,8 @@ namespace Eagle._Commands
                                         {
                                             if (arguments.Count >= 4)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                                                    new Option(typeof(StringComparison), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-comparison", null),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.String_First);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -688,19 +661,8 @@ namespace Eagle._Commands
                                         {
                                             if (arguments.Count >= 3)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-valueformat", null),
-                                                    new Option(typeof(DateTimeKind), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-datetimekind",
-                                                        new Variant(interpreter.DateTimeKind)),
-                                                    new Option(typeof(DateTimeStyles), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-datetimestyles",
-                                                        new Variant(ObjectOps.GetDefaultDateTimeStyles())),
-                                                    new Option(null, OptionFlags.MustHaveCultureInfoValue, Index.Invalid, Index.Invalid, "-culture", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-verbatim", null),
-                                                    new Option(typeof(ValueFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-valueflags",
-                                                        new Variant(ValueFlags.AnyNonCharacter)),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.String_Format, interpreter);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -856,19 +818,9 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Ok)
                                                     {
-                                                        OptionDictionary options = new OptionDictionary(
-                                                            new IOption[] {
-                                                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-strict", null),
-                                                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
-                                                            new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-not", new Variant(not)),
-                                                            new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-any", null),
-                                                            new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-via", null),
-                                                            new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-count", null),
-                                                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-good", null),
-                                                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-bad", null),
-                                                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-failindex", null),
-                                                            Option.CreateEndOfOptions()
-                                                        });
+                                                        OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                            CommandOptionType.String_Is, interpreter, null, null,
+                                                            null, null, null, not);
 
                                                         int argumentIndex = Index.Invalid;
 
@@ -1872,12 +1824,8 @@ namespace Eagle._Commands
                                         {
                                             if (arguments.Count >= 4)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                                                    new Option(typeof(StringComparison), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-comparison", null),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.String_Last);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -1990,20 +1938,8 @@ namespace Eagle._Commands
                                         {
                                             if (arguments.Count >= 4)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-multipass", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-regexp", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-subspec", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-eval", null),
-                                                    new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-maximum", null),
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-countvar", null),
-                                                    new Option(typeof(StringComparison), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-comparison", null),
-                                                    new Option(typeof(RegexOptions), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-regexpoptions",
-                                                        new Variant(StringOps.DefaultRegExOptions)),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.String_Map);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -2143,15 +2079,8 @@ namespace Eagle._Commands
                                         {
                                             if (arguments.Count >= 4)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    new Option(null, OptionFlags.MustHaveMatchModeValue,
-                                                        Index.Invalid, Index.Invalid, "-mode",
-                                                        new Variant(StringOps.DefaultMatchMode)),
-                                                    new Option(null, OptionFlags.None, Index.Invalid,
-                                                        Index.Invalid, "-nocase", null),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.String_Match);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -2379,17 +2308,8 @@ namespace Eagle._Commands
                                         {
                                             if (arguments.Count >= 4)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-#if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
-                                                    new Option(null, OptionFlags.MustHaveCultureInfoValue, Index.Invalid, Index.Invalid, "-culture", null),
-#else
-                                                    new Option(null, OptionFlags.MustHaveCultureInfoValue | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-culture", null),
-#endif
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                                                    new Option(typeof(StringComparison), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-comparison", null),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.String_Starts);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -2471,15 +2391,8 @@ namespace Eagle._Commands
                                         {
                                             if (arguments.Count >= 3)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-#if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
-                                                    new Option(null, OptionFlags.MustHaveCultureInfoValue, Index.Invalid, Index.Invalid, "-culture", null),
-#else
-                                                    new Option(null, OptionFlags.MustHaveCultureInfoValue | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-culture", null),
-#endif
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.String_ToUpper);
 
                                                 int argumentIndex = Index.Invalid;
 

@@ -11,6 +11,7 @@
 
 using System;
 using Eagle._Attributes;
+using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
@@ -53,13 +54,9 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 1)
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] { 
-                            new Option(null, OptionFlags.MustHaveReturnCodeValue, Index.Invalid, Index.Invalid, "-code", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-errorinfo", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-errorcode", null),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Return);
 
                         int argumentIndex = Index.Invalid;
 

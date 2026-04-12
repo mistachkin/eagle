@@ -55,29 +55,9 @@ namespace Eagle._Commands
                     {
                         if (interpreter.HasChannels(ref result))
                         {
-                            OptionDictionary options = new OptionDictionary(
-                                new IOption[] {
-                                new Option(typeof(TimeoutType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-timeouttype", null),
-                                new Option(typeof(AddressFamily), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-addressfamily", null),
-                                new Option(null, OptionFlags.MustHaveBooleanValue | OptionFlags.Nullable, Index.Invalid, Index.Invalid, "-keepalive", null), // client & server
-                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-server", null), // server only
-                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-buffer", null),  // client & server
-                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null), // client & server
-                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-sendtimeout", null), // client & server
-                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-receivetimeout", null), // client & server
-                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-availabletimeout", null), // client & server
-                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-readtimeout", null), // client & server
-                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-writetimeout", null), // client & server
-                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-myaddr", null), // client & server
-                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-myport", null), // client only
-                                new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-async", null), // client only
-                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-channelid", null), // client & server
-                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nodelay", null), // client only
-                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nobuffer", null), // client only
-                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noexclusive", null), // server only
-                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trace", null), // client & server
-                                Option.CreateEndOfOptions()
-                            });
+                            OptionDictionary options =
+                                CommandOptions.GetCommandOptions(
+                                    CommandOptionType.Socket);
 
                             int argumentIndex = Index.Invalid;
 

@@ -364,6 +364,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/CleanupPathClientData.cs
   Eagle/Library/Components/Private/CommandBuilder.cs
   Eagle/Library/Components/Private/CommandCallback.cs
+  Eagle/Library/Components/Private/CommandOptions.cs
   Eagle/Library/Components/Private/CommonOps.cs
   Eagle/Library/Components/Private/ConfigurationOps.cs
   Eagle/Library/Components/Private/ConsoleOps.cs
@@ -900,6 +901,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/Convert.cs
   Eagle/Library/Interfaces/Public/CoreClientData.cs
   Eagle/Library/Interfaces/Public/CryptographyData.cs
+  Eagle/Library/Interfaces/Public/DataTable.cs
   Eagle/Library/Interfaces/Public/DbConnectionParameters.cs
   Eagle/Library/Interfaces/Public/DebugHost.cs
   Eagle/Library/Interfaces/Public/DebugManager.cs
@@ -3267,6 +3269,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/CleanupPathClientData.cs
   src/Library/Components/Private/CommandBuilder.cs
   src/Library/Components/Private/CommandCallback.cs
+  src/Library/Components/Private/CommandOptions.cs
   src/Library/Components/Private/CommonOps.cs
   src/Library/Components/Private/ConfigurationOps.cs
   src/Library/Components/Private/ConsoleOps.cs
@@ -3789,6 +3792,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/Convert.cs
   src/Library/Interfaces/Public/CoreClientData.cs
   src/Library/Interfaces/Public/CryptographyData.cs
+  src/Library/Interfaces/Public/DataTable.cs
   src/Library/Interfaces/Public/DbConnectionParameters.cs
   src/Library/Interfaces/Public/DebugHost.cs
   src/Library/Interfaces/Public/DebugManager.cs

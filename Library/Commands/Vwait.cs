@@ -63,43 +63,8 @@ namespace Eagle._Commands
                         EventWaitFlags eventWaitFlags = interpreter.EventWaitFlags;
                         VariableFlags variableFlags = interpreter.EventVariableFlags;
 
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null,
-                                OptionFlags.MustHaveObjectValue | OptionFlags.Unsafe,
-                                Index.Invalid, Index.Invalid, "-handle", null),
-                            new Option(typeof(EventWaitFlags),
-                                OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
-                                Index.Invalid, Index.Invalid, "-eventwaitflags",
-                                new Variant(eventWaitFlags)),
-                            new Option(typeof(VariableFlags),
-                                OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
-                                Index.Invalid, Index.Invalid, "-variableflags",
-                                new Variant(variableFlags)),
-                            new Option(null,
-                                OptionFlags.MustHaveWideIntegerValue | OptionFlags.Unsafe,
-                                Index.Invalid, Index.Invalid, "-thread", null),
-                            new Option(null,
-                                OptionFlags.MustHaveIntegerValue | OptionFlags.Unsafe,
-                                Index.Invalid, Index.Invalid, "-limit", null),
-                            new Option(null,
-                                OptionFlags.MustHaveIntegerValue | OptionFlags.Unsafe,
-                                Index.Invalid, Index.Invalid, "-timeout", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                Index.Invalid, "-clear", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                Index.Invalid, "-force", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                Index.Invalid, "-nocomplain", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                                Index.Invalid, "-leaveresult", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.Restricted,
-                                Index.Invalid, Index.Invalid, "-resetcancel", null),
-                            new Option(null,
-                                OptionFlags.MustHaveValue | OptionFlags.Unsafe,
-                                Index.Invalid, Index.Invalid, "-locked", null),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options = CommandOptions.GetCommandOptions(
+                            CommandOptionType.Vwait, interpreter);
 
                         int argumentIndex = Index.Invalid;
 

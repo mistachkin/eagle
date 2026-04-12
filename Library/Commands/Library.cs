@@ -109,7 +109,9 @@ namespace Eagle._Commands
                                         //
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetCallOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Library_Call);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
@@ -482,7 +484,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = ObjectOps.GetCertificateOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Object_Certificate);
+
                                             int argumentIndex = Index.Invalid;
 
                                             code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
@@ -565,25 +569,8 @@ namespace Eagle._Commands
                                         //
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-alias", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-module", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-functionname", null),
-                                                new Option(null, OptionFlags.MustHaveWideIntegerValue, Index.Invalid, Index.Invalid, "-address", null),
-                                                new Option(null, OptionFlags.MustHaveTypeValue, Index.Invalid, Index.Invalid, "-returntype", null),
-                                                new Option(null, OptionFlags.MustHaveTypeListValue, Index.Invalid, Index.Invalid, "-parametertypes", null),
-                                                new Option(typeof(CallingConvention), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-callingconvention", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-assemblyname", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-modulename", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-typename", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-bestfitmapping", null),
-                                                new Option(typeof(CharSet), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-charset", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-setlasterror", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-throwonunmappablechar", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-delegatename", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Library_Declare);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -706,8 +693,9 @@ namespace Eagle._Commands
                                                                 if ((code == ReturnCode.Ok) && alias)
                                                                 {
                                                                     code = interpreter.AddLibraryAlias(
-                                                                        newDelegateName, ObjectOps.GetCallOptions(),
-                                                                        ObjectOptionType.Call, ref result);
+                                                                        newDelegateName, CommandOptions.GetCommandOptions(
+                                                                        CommandOptionType.Library_Call), ObjectOptionType.Call,
+                                                                        ref result);
                                                                 }
 
                                                                 //
@@ -858,16 +846,8 @@ namespace Eagle._Commands
                                         {
                                             bool check = SharedStringOps.SystemEquals(subCommand, "checkload");
 
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-modulename", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-locked", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
-                                                new Option(typeof(ModuleFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-flags",
-                                                    new Variant(ModuleFlags.None)),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Library_Load);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1067,12 +1047,8 @@ namespace Eagle._Commands
                                         //
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-module", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-functionname", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Library_Resolve);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1253,10 +1229,8 @@ namespace Eagle._Commands
                                         //
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Library_Unresolve);
 
                                             int argumentIndex = Index.Invalid;
 

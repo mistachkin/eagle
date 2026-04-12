@@ -91,7 +91,8 @@ namespace Eagle._Commands
                                         if (arguments.Count >= 4)
                                         {
 #if SERIALIZATION
-                                            OptionDictionary options = ObjectOps.GetDeserializeOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Xml_Deserialize);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -223,12 +224,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 5)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-file", null),
-                                                new Option(null, OptionFlags.MustHaveDictionaryValue, Index.Invalid, Index.Invalid, "-namespaces", null),
-                                                new Option(null, OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-xpaths", null)
-                                            }, ObjectOps.GetFixupReturnValueOptions());
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Xml_ForEach);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -447,7 +444,8 @@ namespace Eagle._Commands
                                         if (arguments.Count >= 4)
                                         {
 #if SERIALIZATION
-                                            OptionDictionary options = ObjectOps.GetSerializeOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Xml_Serialize);
 
                                             int argumentIndex = Index.Invalid;
 

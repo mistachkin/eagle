@@ -178,12 +178,8 @@ namespace Eagle._Commands
                                         {
                                             if (interpreter.InternalHasTclInterpreters(ref result))
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-time", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-unwind", null),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Tcl_Cancel);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -350,12 +346,8 @@ namespace Eagle._Commands
                                                         {
                                                             if (arguments.Count >= 6)
                                                             {
-                                                                OptionDictionary options = new OptionDictionary(
-                                                                    new IOption[] {
-                                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noforcedelete", null),
-                                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
-                                                                    Option.CreateEndOfOptions()
-                                                                });
+                                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                                    CommandOptionType.Tcl_InterpCreate);
 
                                                                 int argumentIndex = Index.Invalid;
 
@@ -577,17 +569,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-alias", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noinitialize", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-memory", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-safe", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nobridge", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noforcedelete", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_Create);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -665,7 +648,8 @@ namespace Eagle._Commands
                                                             if ((code == ReturnCode.Ok) && alias)
                                                             {
                                                                 code = interpreter.AddTclAlias(
-                                                                    interpName, ObjectOps.GetEvaluateOptions(),
+                                                                    interpName, CommandOptions.GetCommandOptions(
+                                                                    CommandOptionType.Tcl_Evaluate),
                                                                     ObjectOptionType.Evaluate, ref result);
                                                             }
 
@@ -808,7 +792,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = ObjectOps.GetEvaluateOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_Evaluate);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -937,12 +922,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-time", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-exceptions", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_Expr);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1015,23 +996,8 @@ namespace Eagle._Commands
                                         {
                                             bool available = SharedStringOps.SystemEquals(subCommand, "available");
 
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(FindFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-flags",
-                                                    new Variant(interpreter.TclFindFlags)),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-robustify", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-architecture", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
-                                                new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-minimumversion", null),
-                                                new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-maximumversion", null),
-                                                new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-unknownversion", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-verbose", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-eval", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-full", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-errorsvar", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_Find, interpreter);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1328,24 +1294,8 @@ namespace Eagle._Commands
                                         {
                                             if (interpreter.InternalHasTclInterpreters(ref result))
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    new Option(typeof(FindFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-findflags",
-                                                        new Variant(interpreter.TclFindFlags)),
-                                                    new Option(typeof(LoadFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-loadflags",
-                                                        new Variant(interpreter.TclLoadFlags)),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-robustify", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-eval", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-bridge", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noforcedelete", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
-                                                    new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-minimumversion", null),
-                                                    new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-maximumversion", null),
-                                                    new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-unknownversion", null),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Tcl_Load, interpreter);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -1658,17 +1608,8 @@ namespace Eagle._Commands
                                         if (arguments.Count >= 4)
                                         {
 #if TCL_THREADS
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(EventType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-eventtype",
-                                                    new Variant(EventType.Evaluate)),
-                                                new Option(typeof(EventFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-eventflags",
-                                                    new Variant(EventFlags.None)),
-                                                new Option(null, OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-data", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-exceptions", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-synchronous", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_Queue);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1804,12 +1745,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-time", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-exceptions", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_RecordAndEval);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1912,12 +1849,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-children", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-force", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_ResetCancel);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -2024,23 +1957,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(FindFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-flags",
-                                                    new Variant(interpreter.TclFindFlags)),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-robustify", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-architecture", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-verbose", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-eval", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-allerrors", null),
-                                                new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-minimumversion", null),
-                                                new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-maximumversion", null),
-                                                new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-unknownversion", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-errorsvar", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_Select, interpreter);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -2304,12 +2222,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-time", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-exceptions", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_Source);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -2367,15 +2281,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nobackslashes", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocommands", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-novariables", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-time", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-exceptions", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_Subst);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -2548,14 +2455,8 @@ namespace Eagle._Commands
                                     }
                                 case "update":
                                     {
-                                        OptionDictionary options = new OptionDictionary(
-                                            new IOption[] {
-                                            new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null),
-                                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-wait", null),
-                                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-all", null),
-                                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
-                                            Option.CreateEndOfOptions()
-                                        });
+                                        OptionDictionary options = CommandOptions.GetCommandOptions(
+                                            CommandOptionType.Tcl_Update);
 
                                         int argumentIndex = Index.Invalid;
 
@@ -2620,21 +2521,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(FindFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-flags",
-                                                    new Variant(interpreter.TclFindFlags)),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-robustify", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
-                                                new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-minimumversion", null),
-                                                new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-maximumversion", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-majorincrement", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-minorincrement", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-intermediateminimum", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-intermediatemaximum", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Tcl_VersionRange, interpreter);
 
                                             int argumentIndex = Index.Invalid;
 

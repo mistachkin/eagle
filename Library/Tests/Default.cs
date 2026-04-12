@@ -11191,25 +11191,9 @@ namespace Eagle._Tests
                 return ReturnCode.Error;
             }
 
-            OptionDictionary options = new OptionDictionary(
-                new IOption[] {
-                new Option(null, OptionFlags.MustHaveUnsignedWideIntegerValue |
-                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                    "-token", null),
-                new Option(null, OptionFlags.MustHaveBooleanValue |
-                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                    "-namespaces", null),
-                new Option(null, OptionFlags.MustHaveBooleanValue |
-                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                    "-safe", null),
-                new Option(null, OptionFlags.MustHaveBooleanValue |
-                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                    "-isolated", null),
-                new Option(null, OptionFlags.MustHaveBooleanValue |
-                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                    "-security", null),
-                Option.CreateEndOfOptions()
-            });
+            OptionDictionary options =
+                CommandOptions.GetCommandOptions(
+                    CommandOptionType.Test_CreateWithRules);
 
             int argumentIndex = Index.Invalid;
 
@@ -15847,7 +15831,9 @@ namespace Eagle._Tests
                     return code;
                 }
 
-                OptionDictionary options = ObjectOps.GetInvokeOptions();
+                OptionDictionary options = CommandOptions.GetCommandOptions(
+                    CommandOptionType.Object_Invoke);
+
                 int argumentIndex = Index.Invalid;
                 Result localError = null; /* REUSED */
 

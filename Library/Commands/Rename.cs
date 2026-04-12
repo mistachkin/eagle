@@ -11,6 +11,7 @@
 
 using System;
 using Eagle._Attributes;
+using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
@@ -76,21 +77,9 @@ namespace Eagle._Commands
 
             ///////////////////////////////////////////////////////////////////
 
-            OptionDictionary options = new OptionDictionary(new IOption[] {
-                new Option(null, OptionFlags.None, Index.Invalid,
-                    Index.Invalid, "-nodelete", null),
-                new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                    Index.Invalid, "-hidden", null),
-                new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                    Index.Invalid, "-hiddenonly", null),
-                new Option(typeof(IdentifierKind),
-                    OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
-                    Index.Invalid, Index.Invalid, "-kind",
-                    new Variant(IdentifierKind.None)),
-                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                    Index.Invalid, "-newnamevar", null),
-                Option.CreateEndOfOptions()
-            });
+            OptionDictionary options =
+                CommandOptions.GetCommandOptions(
+                    CommandOptionType.Rename);
 
             int argumentIndex = Index.Invalid;
 

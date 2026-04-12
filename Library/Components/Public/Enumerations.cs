@@ -9006,11 +9006,12 @@ namespace Eagle._Components.Public
         NestedDictionary = 0x100,
         DataRecord = 0x200,
         DataReader = 0x400,
+        DataTable = 0x800,
 
         FormatMask = RawArray | RawList | Array |
                      List | Dictionary | NestedList |
                      NestedDictionary | DataReader |
-                     DataRecord,
+                     DataRecord | DataTable,
 
         Default = Reserved | Array /* TODO: Good default? */
     }
@@ -9090,9 +9091,10 @@ namespace Eagle._Components.Public
         Scalar = 0x8,
         Reader = 0x10,
         ReaderAndCount = 0x20,
+        DataTable = 0x40,
 
         TypeMask = NonQuery | Scalar | Reader |
-                   ReaderAndCount,
+                   ReaderAndCount | DataTable,
 
         Default = Reserved | NonQuery /* TODO: Good default? */
     }

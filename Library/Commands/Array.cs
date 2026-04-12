@@ -229,12 +229,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-deep", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nosignal", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Array_Copy);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1339,15 +1336,9 @@ namespace Eagle._Commands
                                         //
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-strict", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-pair", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-valueonly", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-matchname", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-matchvalue", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Array_Random);
 
                                             int argumentIndex = Index.Invalid;
 

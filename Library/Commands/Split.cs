@@ -11,6 +11,7 @@
 
 using System;
 using Eagle._Attributes;
+using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
@@ -66,12 +67,9 @@ namespace Eagle._Commands
                                 Characters.Space);
                         }
 
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-string", null),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Split);
 
                         int argumentIndex = Index.Invalid;
 

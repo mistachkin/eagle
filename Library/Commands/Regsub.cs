@@ -53,32 +53,9 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 4)
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(typeof(RegexOptions), OptionFlags.MustHaveEnumValue, Index.Invalid,
-                                Index.Invalid, "-options", new Variant(StringOps.DefaultRegExSyntaxOptions)),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-all", null),
-                            new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-count", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-ecma", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-compiled", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-explicit", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-quote", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nostrict", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-reverse", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-eval", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-command", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-literal", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-verbatim", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-extra", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-expanded", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-line", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-lineanchor", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-linestop", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noculture", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-start", null),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Regsub);
 
                         int argumentIndex = Index.Invalid;
 

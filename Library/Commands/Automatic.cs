@@ -751,7 +751,8 @@ namespace Eagle._Commands
 
             if (argumentCount > nameCount)
             {
-                OptionDictionary options = ObjectOps.GetCallOptions();
+                OptionDictionary options = CommandOptions.GetCommandOptions(
+                    CommandOptionType.Library_Call);
 
                 argumentIndex = Index.Invalid;
 

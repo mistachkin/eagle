@@ -76,7 +76,8 @@ namespace Eagle._Commands
                 return ReturnCode.Error;
             }
 
-            OptionDictionary options = ObjectOps.GetReadOptions();
+            OptionDictionary options = CommandOptions.GetCommandOptions(
+                CommandOptionType.Read);
 
             int argumentIndex = Index.Invalid;
 

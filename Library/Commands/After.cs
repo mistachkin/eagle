@@ -296,20 +296,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveWideIntegerValue |
-                                                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                                                    "-thread", null),
-                                                new Option(typeof(EventPriority),
-                                                    OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
-                                                    Index.Invalid, Index.Invalid, "-priority",
-                                                    new Variant(EventPriority.Idle)),
-                                                new Option(typeof(EventFlags),
-                                                    OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
-                                                    Index.Invalid, Index.Invalid, "-flags",
-                                                    new Variant(EventFlags.None)),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.After_Idle);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -504,20 +493,9 @@ namespace Eagle._Commands
                                             }
                                             else if (arguments.Count >= 3)
                                             {
-                                                OptionDictionary options = new OptionDictionary(new IOption[] {
-                                                    new Option(null, OptionFlags.MustHaveWideIntegerValue |
-                                                        OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                                                        "-thread", null),
-                                                    new Option(typeof(EventPriority),
-                                                        OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
-                                                        Index.Invalid, Index.Invalid, "-priority",
-                                                        new Variant(EventPriority.After)),
-                                                    new Option(typeof(EventFlags),
-                                                        OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
-                                                        Index.Invalid, Index.Invalid, "-flags",
-                                                        new Variant(EventFlags.None)),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options =
+                                                    CommandOptions.GetCommandOptions(
+                                                        CommandOptionType.After_Info);
 
                                                 int argumentIndex = Index.Invalid;
 

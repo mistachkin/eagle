@@ -61,63 +61,9 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 2)
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.MustHaveRuleSetValue | OptionFlags.CouldBePath |
-                                OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-ruleset", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-needclientdata", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-anythread", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nocommands", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nofunctions", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nopolicies", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-notraces", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noprovide", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noresources", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-verifiedonly", null),
-                            //
-                            // HACK: The "-maybeverifiedonly" option is allowed in "safe" interpreters due
-                            //       to its lack of a value, its relative harmlessness, and because the
-                            //       core library binary plugin loader uses it, e.g. for HotKey, et al.
-                            //
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybeverifiedonly", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-trustedonly", null),
-                            //
-                            // HACK: The "-maybetrustedonly" option is allowed in "safe" interpreters due
-                            //       to its lack of a value, its relative harmlessness, and because the
-                            //       core library binary plugin loader uses it, e.g. for HotKey, et al.
-                            //
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveValue, Index.Invalid,
-                                Index.Invalid, "-publickeytoken", null),
-#if ISOLATED_PLUGINS
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-isolated", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noisolated", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-preview", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nopreview", null),
-#else
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid,
-                                "-isolated", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid,
-                                "-noisolated", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid,
-                                "-preview", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid,
-                                "-nopreview", null),
-#endif
-#if ISOLATED_PLUGINS && SHELL
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-update", null),
-                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noupdate", null),
-#else
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid,
-                                "-update", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid,
-                                "-noupdate", null),
-#endif
-                            new Option(null, OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-clientdata", null),
-                            new Option(null, OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-data", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-viaresource", null),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Load);
 
                         int argumentIndex = Index.Invalid;
 

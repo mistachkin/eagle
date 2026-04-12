@@ -79,11 +79,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Base64_Decode);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -150,11 +148,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Base64_Encode);
 
                                             int argumentIndex = Index.Invalid;
 

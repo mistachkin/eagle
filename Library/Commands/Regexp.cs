@@ -53,34 +53,9 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 3)
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-about", null),
-                            new Option(typeof(RegexOptions), OptionFlags.MustHaveEnumValue, Index.Invalid,
-                                Index.Invalid, "-options", new Variant(StringOps.DefaultRegExSyntaxOptions)),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-all", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-debug", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-ecma", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-compiled", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-explicit", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-reverse", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-expanded", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-indexes", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-indices", null), /* COMPAT: Tcl. */
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-global", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-inline", null),
-                            new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-skip", null),
-                            new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-limit", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-line", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-lineanchor", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-linestop", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noempty", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noculture", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-start", null),
-                            new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-length", null),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Regexp);
 
                         int argumentIndex = Index.Invalid;
 

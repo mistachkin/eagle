@@ -112,16 +112,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(UriKind), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-kind", null),
-                                                new Option(typeof(UriComponents), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-components",
-                                                    new Variant(UriComponents.AbsoluteUri)),
-                                                new Option(typeof(UriFormat), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-format", null),
-                                                new Option(typeof(StringComparison), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-comparison", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Uri_Compare);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -210,16 +203,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-username", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-password", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-port", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-path", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-query", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-fragment", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Uri_Create);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -318,31 +304,9 @@ namespace Eagle._Commands
                                             bool isMethod = SharedStringOps.SystemEquals(subCommand, "get");
 
 #if NETWORK
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(TimeoutType), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-timeouttype", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-retries", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-callback", null),
-                                                new Option(typeof(CallbackFlags), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid,
-                                                    "-callbackflags", new Variant(CallbackFlags.Default)),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-inline", null),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noinline", null),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-trusted", null),
-#if TEST
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-yesprotocol", null),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noprotocol", null),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-obsolete", null),
-#else
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-yesprotocol", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noprotocol", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-obsolete", null),
-#endif
-                                                new Option(typeof(EncodingType), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-encodingtype", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-webclientdata", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Uri_Get);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1128,34 +1092,9 @@ namespace Eagle._Commands
                                             bool isMethod = SharedStringOps.SystemEquals(subCommand, "post");
 
 #if NETWORK
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(TimeoutType), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-timeouttype", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-retries", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-method", null),
-                                                new Option(null, OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-data", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-callback", null),
-                                                new Option(typeof(CallbackFlags), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid,
-                                                    "-callbackflags", new Variant(CallbackFlags.Default)),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-inline", null),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noinline", null),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-raw", null),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-trusted", null),
-#if TEST
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-yesprotocol", null),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noprotocol", null),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-obsolete", null),
-#else
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-yesprotocol", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noprotocol", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-obsolete", null),
-#endif
-                                                new Option(typeof(EncodingType), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-encodingtype", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
-                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-webclientdata", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Uri_Post);
 
                                             int argumentIndex = Index.Invalid;
 

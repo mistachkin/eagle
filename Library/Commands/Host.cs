@@ -114,12 +114,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-frequency", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-duration", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Host_Beep);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -356,14 +352,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-bg", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-background", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-fg", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-foreground", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Host_Color);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -604,18 +594,8 @@ namespace Eagle._Commands
                                         if (arguments.Count >= 2)
                                         {
 #if CONSOLE && NATIVE && WINDOWS
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveValue,
-                                                    Index.Invalid, Index.Invalid, "-facename", null),
-                                                new Option(null, OptionFlags.MustHaveNarrowIntegerValue,
-                                                    Index.Invalid, Index.Invalid, "-fontsize", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue,
-                                                    Index.Invalid, Index.Invalid, "-save", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue,
-                                                    Index.Invalid, Index.Invalid, "-restore", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Host_Font);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -832,16 +812,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-theme", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-name", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-bg", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-background", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-fg", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-foreground", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Host_NamedColor);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1094,14 +1066,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-x", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-relx", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-y", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-rely", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Host_Position);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1488,22 +1454,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(HostSizeType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-sizetype", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-all", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-channels", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-flags", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-history", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-interface", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-input", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-output", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-error", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-size", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-position", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-colors", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Host_Reset);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -2058,16 +2010,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(HostSizeType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-sizetype", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-norestore", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-width", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-relwidth", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-height", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-relheight", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Host_Size);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -2316,33 +2260,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-theme", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-name", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-x", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-relx", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-y", null),
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-rely", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-bg", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-background", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-fg", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-foreground", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-boxbg", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-boxbackground", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-boxfg", null),
-                                                new Option(typeof(ConsoleColor), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-boxforeground", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nohandle", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-multiple", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noposition", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noboxcolors", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocolors", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-pairs", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-newline", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-separator", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-norestore", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Host_WriteBox);
 
                                             int argumentIndex = Index.Invalid;
 

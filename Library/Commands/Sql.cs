@@ -251,7 +251,8 @@ namespace Eagle._Commands
 
                                         if (argumentCount >= 4)
                                         {
-                                            OptionDictionary options = ObjectOps.GetSqlExecuteOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Sql_Execute);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -631,7 +632,8 @@ namespace Eagle._Commands
 
                                         if (argumentCount >= 4)
                                         {
-                                            OptionDictionary options = ObjectOps.GetSqlExecuteOptions();
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Sql_Execute);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1086,25 +1088,8 @@ namespace Eagle._Commands
                                         {
                                             int argumentIndex; /* REUSED */
 
-                                            IOption strictTypeOption = new Option(
-                                                null, OptionFlags.None, Index.Invalid,
-                                                Index.Invalid, "-stricttype", null);
-
-                                            IOption verboseOption = new Option(
-                                                null, OptionFlags.None, Index.Invalid,
-                                                Index.Invalid, "-verbose", null);
-
-                                            IOption noCaseOption = new Option(
-                                                null, OptionFlags.None, Index.Invalid,
-                                                Index.Invalid, "-nocase", null);
-
-                                            OptionDictionary preOptions = new OptionDictionary(
-                                                new IOption[] {
-                                                strictTypeOption,
-                                                verboseOption,
-                                                noCaseOption,
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary preOptions = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Sql_OpenPreOptions);
 
                                             argumentIndex = Index.Invalid; /* IGNORED */
 
@@ -1141,44 +1126,12 @@ namespace Eagle._Commands
                                                 if (preOptions.IsPresent("-verbose"))
                                                     verbose = true;
 
-                                                //
-                                                // HACK: The "-stricttype", "-nocase", and "-verbose"
-                                                //       options have now been processed; therefore,
-                                                //       permit it to be present (because they will
-                                                //       __still__ be present in the "arguments" list
-                                                //       if they were before) but just ignore them.
-                                                //
-                                                strictTypeOption.Flags |= OptionFlags.Ignored;
-                                                verboseOption.Flags |= OptionFlags.Ignored;
-                                                noCaseOption.Flags |= OptionFlags.Ignored;
-
                                                 ValueFlags valueFlags = Value.GetTypeValueFlags(
                                                     strictType, verbose, noCase);
 
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    new Option(typeof(DbConnectionType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-type", null),
-                                                    new Option(typeof(DbConnectionType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-type1", null),
-                                                    new Option(typeof(DbConnectionType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-type2", null),
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-variable", null),
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-assemblyfilename", null),
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-typename", null),
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-typefullname", null),
-                                                    new Option(typeof(ValueFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-valueflags", new Variant(valueFlags)),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
-                                                    //
-                                                    // HACK: The "-maybetrustedonly" option is allowed in "safe" interpreters due
-                                                    //       to its lack of a value, its relative harmlessness, and because the
-                                                    //       core library binary plugin loader uses it, e.g. for HotKey, et al.
-                                                    //
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-publickeytoken1", null),
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-publickeytoken2", null),
-                                                    strictTypeOption,
-                                                    verboseOption,
-                                                    noCaseOption,
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Sql_Open, interpreter, null, null,
+                                                    valueFlags, null, null, null);
 
                                                 argumentIndex = Index.Invalid;
 
@@ -1428,12 +1381,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(IsolationLevel), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-isolation", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-variable", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Sql_Transaction);
 
                                             int argumentIndex = Index.Invalid;
 

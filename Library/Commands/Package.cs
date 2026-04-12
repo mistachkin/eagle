@@ -111,12 +111,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] { 
-                                                new Option(null, OptionFlags.None, Index.Invalid,
-                                                    Index.Invalid, "-exact", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Package_Absent);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -180,13 +177,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-overwrite", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-disabled", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-exact", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Package_Alias);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -531,11 +524,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] { 
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-exact", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Package_Present);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -669,12 +660,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] { 
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-exact", null), // COMPAT: Tcl (no value).
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-autoscan", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Package_Require);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -891,20 +879,14 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            IOption interpreterOption = new Option(
-                                                null, OptionFlags.None, Index.Invalid, Index.Invalid,
-                                                "-interpreter", null);
-
                                             PackageIndexFlags oldFlags = Defaults.PackageIndexFlags;
                                             int argumentIndex; /* REUSED */
 
                                             if (arguments.Count > 2)
                                             {
-                                                OptionDictionary preOptions = new OptionDictionary(
-                                                    new IOption[] {
-                                                    interpreterOption,
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary preOptions =
+                                                    CommandOptions.GetCommandOptions(
+                                                        CommandOptionType.Package_ScanPreOptions);
 
                                                 argumentIndex = Index.Invalid; /* IGNORED */
 
@@ -921,54 +903,9 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                //
-                                                // HACK: The "-interpreter" option has now already been processed;
-                                                //       therefore, permit it to be present (because it will __still__
-                                                //       be present in the "arguments" list if it was before) but
-                                                //       just ignore it.
-                                                //
-                                                interpreterOption.Flags |= OptionFlags.Ignored;
-
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    interpreterOption,
-                                                    new Option(typeof(PackageIndexFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-flags", new Variant(oldFlags)),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-preferfilesystem", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-preferhost", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-host", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nohost", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-bundle", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nobundle", null),
-#if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-plugin", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noplugin", null),
-#else
-                                                    new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-plugin", null),
-                                                    new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noplugin", null),
-#endif
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-dump", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nodump", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-normal", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nonormal", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-recursive", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-resolve", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-refresh", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-autopath", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-primary", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noprimary", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-tagged", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-notagged", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-temporary", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trace", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-verbose", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-reset", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-whatif", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-notrusted", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noverified", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-fileerror", null),
-                                                    Option.CreateEndOfOptions()
-                                                });
+                                                OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Package_Scan, interpreter, null, null,
+                                                    null, oldFlags, null, null);
 
                                                 argumentIndex = Index.Invalid;
 

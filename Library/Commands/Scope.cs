@@ -163,11 +163,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-all", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Scope_Close);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -259,19 +256,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-args", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-clone", null),
-                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-byref", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-global", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-open", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-procedure", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-shared", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-strict", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-fast", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Scope_Create);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -630,20 +616,8 @@ namespace Eagle._Commands
                                         {
                                             EventWaitFlags eventWaitFlags = interpreter.EventWaitFlags;
 
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(EventWaitFlags),
-                                                    OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
-                                                    Index.Invalid, Index.Invalid, "-eventwaitflags",
-                                                    new Variant(eventWaitFlags)),
-                                                new Option(null,
-                                                    OptionFlags.MustHaveBooleanValue,
-                                                    Index.Invalid, Index.Invalid, "-lock", null),
-                                                new Option(null,
-                                                    OptionFlags.MustHaveIntegerValue | OptionFlags.Unsafe,
-                                                    Index.Invalid, Index.Invalid, "-timeout", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Scope_Eval, interpreter);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -927,14 +901,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid,
-                                                    Index.Invalid, "-unset", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid,
-                                                    Index.Invalid, "-force", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Scope_Global);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1063,12 +1031,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid,
-                                                    Index.Invalid, "-nocomplain", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Scope_Lock);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1155,13 +1119,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-procedure", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-shared", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-args", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Scope_Open);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1347,12 +1306,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid,
-                                                    Index.Invalid, "-nocomplain", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Scope_Unlock);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -1482,12 +1437,8 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid,
-                                                    Index.Invalid, "-global", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options = CommandOptions.GetCommandOptions(
+                                                CommandOptionType.Scope_Update);
 
                                             int argumentIndex = Index.Invalid;
 

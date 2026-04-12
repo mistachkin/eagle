@@ -58,28 +58,9 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 2)
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue,
-                                Index.Invalid, Index.Invalid, "-timeout", null),
-                            new Option(null, OptionFlags.MustHaveBooleanValue,
-                                Index.Invalid, Index.Invalid, "-statistics", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue,
-                                Index.Invalid, Index.Invalid, "-breakOk", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue,
-                                Index.Invalid, Index.Invalid, "-errorOk", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue,
-                                Index.Invalid, Index.Invalid, "-noCancel", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue,
-                                Index.Invalid, Index.Invalid, "-globalCancel", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue,
-                                Index.Invalid, Index.Invalid, "-noHalt", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue,
-                                Index.Invalid, Index.Invalid, "-noEvent", null),
-                            new Option(null, OptionFlags.Unsafe | OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue,
-                                Index.Invalid, Index.Invalid, "-noExit", null),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Time);
 
                         int argumentIndex = Index.Invalid;
 

@@ -8138,6 +8138,11 @@ namespace eval ::Eagle {
 
             if {![info exists ::no(runEndFile)]} then {
               tputs $channel [appendArgs "==== \"" $fileName "\" END\n"]
+
+              tputs $channel [appendArgs \
+                  "==== logging to: " [expr {[info exists ::test_log] && \
+                  [string length $::test_log] > 0 ? [appendArgs \" \
+                  $::test_log \"] : "<none>"}] \n]
             }
 
             #
@@ -8208,6 +8213,11 @@ namespace eval ::Eagle {
             if {![info exists ::no(runErrorFile)]} then {
               tputs $channel [appendArgs "==== \"" $fileName "\" ERROR \"" \
                   $error \"\n]
+
+              tputs $channel [appendArgs \
+                  "==== logging to: " [expr {[info exists ::test_log] && \
+                  [string length $::test_log] > 0 ? [appendArgs \" \
+                  $::test_log \"] : "<none>"}] \n]
             }
 
             #
@@ -8312,6 +8322,11 @@ namespace eval ::Eagle {
           if {![info exists ::no(runNonTestFile)]} then {
             tputs $channel [appendArgs \
                 "==== \"" $fileName "\" NON_TEST_FILE\n"]
+
+            tputs $channel [appendArgs \
+                "==== logging to: " [expr {[info exists ::test_log] && \
+                [string length $::test_log] > 0 ? [appendArgs \" \
+                $::test_log \"] : "<none>"}] \n]
           }
         }
 
@@ -8351,6 +8366,11 @@ namespace eval ::Eagle {
         #
         if {![info exists ::no(runSkippedFile)]} then {
           tputs $channel [appendArgs "==== \"" $fileName "\" SKIPPED\n"]
+
+          tputs $channel [appendArgs \
+              "==== logging to: " [expr {[info exists ::test_log] && \
+              [string length $::test_log] > 0 ? [appendArgs \" \
+              $::test_log \"] : "<none>"}] \n]
         }
 
         #

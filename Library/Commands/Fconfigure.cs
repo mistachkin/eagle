@@ -64,13 +64,9 @@ namespace Eagle._Commands
                             {
                                 if (arguments.Count >= 4)
                                 {
-                                    OptionDictionary options = new OptionDictionary(
-                                        new IOption[] {
-                                        new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-blocking", null),
-                                        new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-buffer", null),
-                                        new Option(null, OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
-                                        new Option(null, OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-translation", null)
-                                    });
+                                    OptionDictionary options =
+                                        CommandOptions.GetCommandOptions(
+                                            CommandOptionType.Fconfigure_Set);
 
                                     int argumentIndex = Index.Invalid;
 
@@ -175,12 +171,9 @@ namespace Eagle._Commands
                                 }
                                 else if (arguments.Count == 3)
                                 {
-                                    OptionDictionary options = new OptionDictionary(
-                                        new IOption[] {
-                                        new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-blocking", null),
-                                        new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-encoding", null),
-                                        new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-translation", null)
-                                    });
+                                    OptionDictionary options =
+                                        CommandOptions.GetCommandOptions(
+                                            CommandOptionType.Fconfigure_Query);
 
                                     int argumentIndex = Index.Invalid;
 

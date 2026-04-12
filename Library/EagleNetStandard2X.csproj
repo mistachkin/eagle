@@ -717,6 +717,7 @@
     <Compile Include="Components\Private\NamespaceOps.cs" />
     <Compile Include="Components\Private\NullEnumerator.cs" />
     <Compile Include="Components\Private\NumberOps.cs" />
+    <Compile Include="Components\Private\CommandOptions.cs" />
     <Compile Include="Components\Private\ObjectOps.cs" />
     <Compile Include="Components\Private\OperatorData.cs" />
     <Compile Include="Components\Private\Operators.cs" />
@@ -1069,6 +1070,7 @@
     <Compile Include="Interfaces\Public\Convert.cs" />
     <Compile Include="Interfaces\Public\CoreClientData.cs" />
     <Compile Include="Interfaces\Public\CryptographyData.cs" />
+    <Compile Include="Interfaces\Public\DataTable.cs" />
     <Compile Include="Interfaces\Public\DebugHost.cs" />
     <Compile Include="Interfaces\Public\DebugManager.cs" />
     <Compile Include="Interfaces\Public\DelegateData.cs" />

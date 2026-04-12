@@ -113,13 +113,9 @@ namespace Eagle._Commands
                                         {
                                             bool build = SharedStringOps.SystemEquals(subCommand, "buildnumber");
 
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-format", null),
-                                                new Option(null, OptionFlags.MustHaveDateTimeValue, Index.Invalid, Index.Invalid, "-epoch", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-gmt", null),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Clock_Days);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -245,11 +241,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 2)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-milliseconds", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-microseconds", null)
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Clock_Clicks);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -297,14 +291,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 4)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(typeof(DurationFlags),
-                                                    OptionFlags.MustHaveEnumValue,
-                                                    Index.Invalid, Index.Invalid, "-flags",
-                                                    new Variant(DurationFlags.Default)),
-                                                Option.CreateEndOfOptions()
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Clock_Duration);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -400,12 +389,9 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-format", null),
-                                                    new Option(null, OptionFlags.MustHaveDateTimeValue, Index.Invalid, Index.Invalid, "-epoch", null),
-                                                    new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-gmt", null)
-                                                });
+                                                OptionDictionary options =
+                                                    CommandOptions.GetCommandOptions(
+                                                        CommandOptionType.Clock_FileTime);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -475,17 +461,9 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                OptionDictionary options = new OptionDictionary(
-                                                    new IOption[] {
-                                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-format", null),
-                                                    new Option(typeof(DateTimeKind), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-kind", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-ticks", null),
-                                                    new Option(null, OptionFlags.MustHaveDateTimeValue, Index.Invalid, Index.Invalid, "-epoch", null),
-                                                    new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-gmt", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-iso", null), // COMPAT: Eagle (Legacy).
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-full", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-isotimezone", null)
-                                                });
+                                                OptionDictionary options =
+                                                    CommandOptions.GetCommandOptions(
+                                                        CommandOptionType.Clock_Format);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -778,10 +756,9 @@ namespace Eagle._Commands
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 4))
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-gmt", null)
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Clock_Now);
 
                                             int argumentIndex = Index.Invalid;
 
@@ -823,13 +800,9 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-                                            OptionDictionary options = new OptionDictionary(
-                                                new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-format", null),
-                                                new Option(null, OptionFlags.MustHaveWideIntegerValue, Index.Invalid, Index.Invalid, "-base", null),
-                                                new Option(null, OptionFlags.MustHaveDateTimeValue, Index.Invalid, Index.Invalid, "-epoch", null),
-                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-gmt", null)
-                                            });
+                                            OptionDictionary options =
+                                                CommandOptions.GetCommandOptions(
+                                                    CommandOptionType.Clock_Scan);
 
                                             int argumentIndex = Index.Invalid;
 

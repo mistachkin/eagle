@@ -1598,7 +1598,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is primarily for the [library call] sub-command.
         //
-        public static OptionDictionary GetCallOptions()
+        private static OptionDictionary GetCallOptions()
         {
             //
             // NOTE: These options are used by both the InvokeDelegate method
@@ -1721,7 +1721,7 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
-        public static OptionDictionary GetCallbackOptions()
+        private static OptionDictionary GetCallbackOptions()
         {
             //
             // HACK: The "-identifier" option here is special.  It is NOT
@@ -1773,7 +1773,7 @@ namespace Eagle._Components.Private
         // NOTE: This is for the [library certificate] and
         //       [object certificate] sub-commands.
         //
-        public static OptionDictionary GetCertificateOptions()
+        private static OptionDictionary GetCertificateOptions()
         {
             X509VerificationFlags localX509VerificationFlags;
             X509RevocationMode localX509RevocationMode;
@@ -1811,7 +1811,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object cleanup] sub-command.
         //
-        public static OptionDictionary GetCleanupOptions()
+        private static OptionDictionary GetCleanupOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -1838,7 +1838,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object create] sub-command.
         //
-        public static OptionDictionary GetCreateOptions()
+        private static OptionDictionary GetCreateOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -1949,7 +1949,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object declare] sub-command.
         //
-        public static OptionDictionary GetDeclareOptions()
+        private static OptionDictionary GetDeclareOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -1976,7 +1976,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [callback dequeue] sub-command.
         //
-        public static OptionDictionary GetDequeueOptions()
+        private static OptionDictionary GetDequeueOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2022,7 +2022,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [xml deserialize] sub-command.
         //
-        public static OptionDictionary GetDeserializeOptions()
+        private static OptionDictionary GetDeserializeOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2078,7 +2078,7 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
-        public static OptionDictionary GetDisposeOptions()
+        private static OptionDictionary GetDisposeOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2100,7 +2100,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl eval] sub-command.
         //
-        public static OptionDictionary GetEvaluateOptions()
+        private static OptionDictionary GetEvaluateOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2119,7 +2119,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [debug exception] sub-command.
         //
-        public static OptionDictionary GetExceptionOptions()
+        private static OptionDictionary GetExceptionOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2165,7 +2165,7 @@ namespace Eagle._Components.Private
         // NOTE: This is for the [exec] command using the currently active
         //       interpreter.
         //
-        public static OptionDictionary GetExecOptions()
+        private static OptionDictionary GetExecOptions()
         {
             return GetExecOptions(Interpreter.GetActive());
         }
@@ -2175,7 +2175,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [exec] command.
         //
-        public static OptionDictionary GetExecOptions(
+        private static OptionDictionary GetExecOptions(
             Interpreter interpreter
             )
         {
@@ -2413,7 +2413,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [sql execute] sub-command.
         //
-        public static OptionDictionary GetSqlExecuteOptions()
+        private static OptionDictionary GetSqlExecuteOptions()
         {
             return new OptionDictionary(
                 GetSqlExecuteOnlyOptions(), GetFixupReturnValueOptions());
@@ -2429,7 +2429,7 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
-        public static OptionDictionary GetFixupReturnValueOptions()
+        private static OptionDictionary GetFixupReturnValueOptions()
         {
             //
             // NOTE: The reason these are defined here is because they must
@@ -2488,7 +2488,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object foreach] sub-command.
         //
-        public static OptionDictionary GetForEachOptions()
+        private static OptionDictionary GetForEachOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2538,7 +2538,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object get] sub-command.
         //
-        public static OptionDictionary GetGetOptions()
+        private static OptionDictionary GetGetOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2590,7 +2590,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object import] sub-command.
         //
-        public static OptionDictionary GetImportOptions()
+        private static OptionDictionary GetImportOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2740,7 +2740,7 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent
         //       a "safe" interpreter from potentially using an option.
         //
-        public static OptionDictionary GetInvokeOnlyOptions()
+        private static OptionDictionary GetInvokeOnlyOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2785,7 +2785,7 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent
         //       a "safe" interpreter from potentially using an option.
         //
-        public static OptionDictionary GetInvokeOptions()
+        private static OptionDictionary GetInvokeOptions()
         {
             return new OptionDictionary(
                 GetInvokeOnlyOptions(), GetInvokeSharedOptions());
@@ -2796,7 +2796,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object invokeall] sub-command.
         //
-        public static OptionDictionary GetInvokeAllOptions()
+        private static OptionDictionary GetInvokeAllOptions()
         {
             OptionDictionary options = GetInvokeOptions();
 
@@ -2820,7 +2820,7 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
-        public static OptionDictionary GetInvokeRawOnlyOptions()
+        private static OptionDictionary GetInvokeRawOnlyOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2839,7 +2839,7 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
-        public static OptionDictionary GetInvokeRawOptions()
+        private static OptionDictionary GetInvokeRawOptions()
         {
             return new OptionDictionary(
                 GetInvokeRawOnlyOptions(), GetInvokeSharedOptions());
@@ -2850,7 +2850,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object isdisposed] sub-command.
         //
-        public static OptionDictionary GetIsDisposedOptions()
+        private static OptionDictionary GetIsDisposedOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2874,7 +2874,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object isnull] sub-command.
         //
-        public static OptionDictionary GetIsNullOptions()
+        private static OptionDictionary GetIsNullOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2897,7 +2897,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object isoftype] sub-command.
         //
-        public static OptionDictionary GetIsOfTypeOptions()
+        private static OptionDictionary GetIsOfTypeOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2931,7 +2931,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object load] sub-command.
         //
-        public static OptionDictionary GetLoadOptions()
+        private static OptionDictionary GetLoadOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -3014,7 +3014,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object members] sub-command.
         //
-        public static OptionDictionary GetMembersOptions()
+        private static OptionDictionary GetMembersOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -3069,7 +3069,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object search] sub-command.
         //
-        public static OptionDictionary GetSearchOptions()
+        private static OptionDictionary GetSearchOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -3109,7 +3109,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [xml serialize] sub-command.
         //
-        public static OptionDictionary GetSerializeOptions()
+        private static OptionDictionary GetSerializeOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -3131,7 +3131,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [read] command.
         //
-        public static OptionDictionary GetReadOnlyOptions()
+        private static OptionDictionary GetReadOnlyOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -3153,7 +3153,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [read] command.
         //
-        public static OptionDictionary GetReadOptions()
+        private static OptionDictionary GetReadOptions()
         {
             return new OptionDictionary(
                 GetReadOnlyOptions(), GetFixupReturnValueOptions());
@@ -3167,7 +3167,7 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent
         //       a "safe" interpreter from potentially using an option.
         //
-        public static OptionDictionary GetSimpleCallbackOptions()
+        private static OptionDictionary GetSimpleCallbackOptions()
         {
             //
             // HACK: The "-identifier" option here is special.  It is NOT
@@ -3206,7 +3206,7 @@ namespace Eagle._Components.Private
         // NOTE: This is for the [object type] and [object untype]
         //       sub-commands.
         //
-        public static OptionDictionary GetTypeOptions()
+        private static OptionDictionary GetTypeOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -3226,7 +3226,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object unaliasnamespace] sub-command.
         //
-        public static OptionDictionary GetUnaliasNamespaceOptions()
+        private static OptionDictionary GetUnaliasNamespaceOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -3248,7 +3248,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object undeclare] sub-command.
         //
-        public static OptionDictionary GetUndeclareOptions()
+        private static OptionDictionary GetUndeclareOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -3270,7 +3270,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object unimport] sub-command.
         //
-        public static OptionDictionary GetUnimportOptions()
+        private static OptionDictionary GetUnimportOptions()
         {
             return new OptionDictionary(
                 new IOption[] {

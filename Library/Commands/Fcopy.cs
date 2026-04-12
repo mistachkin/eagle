@@ -61,14 +61,10 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 3)
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-size", null),
-                            new Option(null, OptionFlags.MustHaveValue | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-command", null),
-                            new Option(typeof(EventFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-eventflags",
-                                new Variant(interpreter.EngineEventFlags)),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Fcopy,
+                                interpreter);
 
                         int argumentIndex = Index.Invalid;
 

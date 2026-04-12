@@ -51,24 +51,9 @@ namespace Eagle._Commands
 
             if (arguments.Count >= 2)
             {
-                OptionDictionary options = new OptionDictionary(
-                    new IOption[] {
-                    new Option(null, OptionFlags.MustHaveValue,
-                        Index.Invalid, Index.Invalid, "-path", null),
-                    new Option(null, OptionFlags.MustHaveValue,
-                        Index.Invalid, Index.Invalid, "-directory", null),
-                    new Option(null, OptionFlags.MustHaveListValue,
-                        Index.Invalid, Index.Invalid, "-types", null),
-                    new Option(null, OptionFlags.None, Index.Invalid,
-                        Index.Invalid, "-join", null),
-                    new Option(null, OptionFlags.None, Index.Invalid,
-                        Index.Invalid, "-tails", null),
-                    new Option(null, OptionFlags.None, Index.Invalid,
-                        Index.Invalid, "-nocomplain", null),
-                    new Option(null, OptionFlags.None, Index.Invalid,
-                        Index.Invalid, "-noerror", null),
-                    Option.CreateEndOfOptions()
-                });
+                OptionDictionary options =
+                    CommandOptions.GetCommandOptions(
+                        CommandOptionType.Glob);
 
                 int argumentIndex = Index.Invalid;
 

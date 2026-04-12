@@ -111,6 +111,15 @@ namespace Eagle._Components.Public
     public static class Utility /* FOR EXTERNAL USE ONLY */
     {
         #region External Use Only Helper Methods
+        public static OptionDictionary GetCommandOptions(
+            ArgumentList arguments /* in */
+            )
+        {
+            return CommandOptions.GetCommandOptions(arguments);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if DATA
         public static string FormatDatabaseConnectionName(
             object @object,                    /* in */
@@ -3693,7 +3702,8 @@ namespace Eagle._Components.Public
         //
         public static OptionDictionary GetFixupReturnValueOptions()
         {
-            return ObjectOps.GetFixupReturnValueOptions();
+            return CommandOptions.GetCommandOptions(
+                CommandOptionType.Object_FixupReturnValue);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6431,6 +6441,46 @@ namespace Eagle._Components.Public
                 formatDataValue.NoFixup,
                 formatDataValue.Alias,
                 ref list, ref count, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode DataReaderToDataTable(
+            Interpreter interpreter,
+            IDataReader reader,
+            IFormatDataValue formatDataValue,
+            ref IDataTable dataTable,
+            ref Result error
+            )
+        {
+            if (formatDataValue == null)
+            {
+                error = "invalid data value format parameters";
+                return ReturnCode.Error;
+            }
+
+            Result localResult = null;
+
+            dataTable = DataOps.CreateDataTable(
+                reader, interpreter,
+                formatDataValue.CultureInfo,
+                formatDataValue.BlobBehavior,
+                formatDataValue.DateTimeBehavior,
+                formatDataValue.DateTimeKind,
+                formatDataValue.DateTimeFormat,
+                formatDataValue.NumberFormat,
+                formatDataValue.NullValue,
+                formatDataValue.DbNullValue,
+                formatDataValue.ErrorValue,
+                ref localResult);
+
+            if (dataTable == null)
+            {
+                error = localResult;
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////

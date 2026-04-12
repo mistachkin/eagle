@@ -121,29 +121,9 @@ namespace Eagle._Commands
                                 if (arguments.Count >= 5)
                                     type = arguments[4];
 
-                                OptionDictionary options = new OptionDictionary(
-                                    new IOption[] {
-#if CONSOLE
-                                    new Option(null, OptionFlags.None, 1, Index.Invalid, "-stdin", null),
-                                    new Option(null, OptionFlags.None, 1, Index.Invalid, "-stdout", null),
-                                    new Option(null, OptionFlags.None, 1, Index.Invalid, "-stderr", null),
-#else
-                                    new Option(null, OptionFlags.Unsupported, 1, Index.Invalid, "-stdin", null),
-                                    new Option(null, OptionFlags.Unsupported, 1, Index.Invalid, "-stdout", null),
-                                    new Option(null, OptionFlags.Unsupported, 1, Index.Invalid, "-stderr", null),
-#endif
-                                    new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-channelid", null),
-                                    new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-buffersize", null),
-                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nullencoding", null),
-                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-autoflush", null),
-                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-rawendofstream", null),
-                                    new Option(typeof(HostStreamFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-streamflags",
-                                        new Variant(HostStreamFlags.Default)),
-                                    new Option(typeof(FileOptions), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-options",
-                                        new Variant(FileOptions.None)),
-                                    new Option(typeof(FileShare), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-share",
-                                        new Variant(FileShare.Read))
-                                });
+                                OptionDictionary options =
+                                    CommandOptions.GetCommandOptions(
+                                        CommandOptionType.Open);
 
                                 int argumentIndex = Index.Invalid;
 

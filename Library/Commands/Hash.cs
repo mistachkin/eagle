@@ -114,22 +114,9 @@ namespace Eagle._Commands
                     {
                         if (arguments.Count >= 4)
                         {
-                            OptionDictionary options = new OptionDictionary(
-                                new IOption[] {
-                                new Option(null, OptionFlags.None,
-                                    Index.Invalid, Index.Invalid, "-object",
-                                    null),
-                                new Option(null, OptionFlags.None,
-                                    Index.Invalid, Index.Invalid, "-raw",
-                                    null),
-                                new Option(null, OptionFlags.Unsafe,
-                                    Index.Invalid, Index.Invalid, "-filename",
-                                    null), /* COMPAT: Tcllib. */
-                                new Option(null, OptionFlags.MustHaveEncodingValue,
-                                    Index.Invalid, Index.Invalid, "-encoding",
-                                    null),
-                                Option.CreateEndOfOptions()
-                            });
+                            OptionDictionary options =
+                                CommandOptions.GetCommandOptions(
+                                    CommandOptionType.Hash_Keyed);
 
                             int argumentIndex = Index.Invalid;
 
@@ -364,22 +351,9 @@ namespace Eagle._Commands
                     {
                         if (arguments.Count >= 4)
                         {
-                            OptionDictionary options = new OptionDictionary(
-                                new IOption[] {
-                                new Option(null, OptionFlags.None,
-                                    Index.Invalid, Index.Invalid, "-object",
-                                    null),
-                                new Option(null, OptionFlags.None,
-                                    Index.Invalid, Index.Invalid, "-raw",
-                                    null),
-                                new Option(null, OptionFlags.Unsafe,
-                                    Index.Invalid, Index.Invalid, "-filename",
-                                    null), /* COMPAT: Tcllib. */
-                                new Option(null, OptionFlags.MustHaveEncodingValue,
-                                    Index.Invalid, Index.Invalid, "-encoding",
-                                    null),
-                                Option.CreateEndOfOptions()
-                            });
+                            OptionDictionary options =
+                                CommandOptions.GetCommandOptions(
+                                    CommandOptionType.Hash_Mac);
 
                             int argumentIndex = Index.Invalid;
 
@@ -539,22 +513,9 @@ namespace Eagle._Commands
                     {
                         if (arguments.Count >= 4)
                         {
-                            OptionDictionary options = new OptionDictionary(
-                                new IOption[] {
-                                new Option(null, OptionFlags.None,
-                                    Index.Invalid, Index.Invalid, "-object",
-                                    null),
-                                new Option(null, OptionFlags.None,
-                                    Index.Invalid, Index.Invalid, "-raw",
-                                    null),
-                                new Option(null, OptionFlags.Unsafe,
-                                    Index.Invalid, Index.Invalid, "-filename",
-                                    null), /* COMPAT: Tcllib. */
-                                new Option(null, OptionFlags.MustHaveEncodingValue,
-                                    Index.Invalid, Index.Invalid, "-encoding",
-                                    null),
-                                Option.CreateEndOfOptions()
-                            });
+                            OptionDictionary options =
+                                CommandOptions.GetCommandOptions(
+                                    CommandOptionType.Hash_Normal);
 
                             int argumentIndex = Index.Invalid;
 

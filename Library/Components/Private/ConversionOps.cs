@@ -3027,9 +3027,10 @@ namespace Eagle._Components.Private
 
                                     if (!noCallbackOptions)
                                     {
-                                        localOptions = useSimpleCallback ?
-                                            ObjectOps.GetSimpleCallbackOptions() :
-                                            ObjectOps.GetCallbackOptions();
+                                        localOptions = CommandOptions.GetCommandOptions(
+                                            useSimpleCallback ?
+                                                CommandOptionType.Object_SimpleCallback :
+                                                CommandOptionType.Object_Callback);
                                     }
 
                                     if (!noCallbackOptions)

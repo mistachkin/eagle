@@ -54,30 +54,9 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 2)
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.None, 1, Index.Invalid, "-ascii", null),
-                            new Option(null, OptionFlags.None, 1, Index.Invalid, "-dictionary", null),
-                            new Option(null, OptionFlags.None, 1, Index.Invalid, "-integer", null),
-                            new Option(null, OptionFlags.None, 1, Index.Invalid, "-real", null),
-                            new Option(null, OptionFlags.None, 2, Index.Invalid, "-decreasing", null),
-                            new Option(null, OptionFlags.None, 2, Index.Invalid, "-increasing", null),
-                            new Option(null, OptionFlags.None, 3, Index.Invalid, "-exact", null),
-                            new Option(null, OptionFlags.None, 3, Index.Invalid, "-substring", null),
-                            new Option(null, OptionFlags.None, 3, Index.Invalid, "-glob", null),
-                            new Option(null, OptionFlags.None, 3, Index.Invalid, "-regexp", null),
-                            new Option(null, OptionFlags.None, 3, Index.Invalid, "-sorted", null), // NOTE: Implies "-exact"
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-variable", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-inverse", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-subindices", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-all", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-inline", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-not", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-start", null),
-                            new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-index", null),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Lsearch);
 
                         int argumentIndex = Index.Invalid;
 

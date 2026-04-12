@@ -54,17 +54,9 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 2)
                     {
-                        OptionDictionary options = new OptionDictionary(
-                            new IOption[] {
-                            new Option(null, OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-clientdata", null),
-                            new Option(null, OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-data", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocase", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-keeplibrary", null),
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
-                            new Option(null, OptionFlags.MustHaveMatchModeValue, Index.Invalid, Index.Invalid, "-match",
-                                new Variant(StringOps.DefaultUnloadMatchMode)),
-                            Option.CreateEndOfOptions()
-                        });
+                        OptionDictionary options =
+                            CommandOptions.GetCommandOptions(
+                                CommandOptionType.Unload);
 
                         int argumentIndex = Index.Invalid;
 

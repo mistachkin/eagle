@@ -76,23 +76,9 @@ namespace Eagle._Commands
                 return ReturnCode.Error;
             }
 
-            OptionDictionary options = new OptionDictionary(
-                new IOption[] {
-                new Option(null, OptionFlags.MustHaveEncodingValue |
-                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
-                    "-encoding", null),
-                new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                    Index.Invalid, "-usecount", null),
-                new Option(null, OptionFlags.None, Index.Invalid,
-                    Index.Invalid, "-noblock", null),
-                new Option(null, OptionFlags.None |
-                    OptionFlags.MustHaveBooleanValue, Index.Invalid,
-                    Index.Invalid, "-keepeol", null),
-                new Option(null, OptionFlags.None |
-                    OptionFlags.MustHaveIntegerValue, Index.Invalid,
-                    Index.Invalid, "-count", null),
-                Option.CreateEndOfOptions()
-            });
+            OptionDictionary options =
+                CommandOptions.GetCommandOptions(
+                    CommandOptionType.Gets);
 
             int argumentIndex = Index.Invalid;
 
