@@ -17,91 +17,309 @@
 .POSIX:
 .SUFFIXES:
 
+# -----------------------------------------------------------------------------
+#                      Latest Installed .NET SDK Version
+# -----------------------------------------------------------------------------
+
 #
-# Build configuration variables.
-# Override via the command line or environment, e.g.:
+# The DOTNET_SDK_VERSION environment variable is intentionally not set here.
 #
-#     make BUILD_MANAGED_CONFIGURATION=Release build
+# Please uncomment the following line, set it in your environment, or pass
+# it via the make command line.  Without the DOTNET_SDK_VERSION environment
+# variable set to the correct version, the native .NET libraries cannot be
+# successfully built and will be always be skipped.
 #
+# DOTNET_SDK_VERSION = 10.0.5
+
+# -----------------------------------------------------------------------------
+#                         Build Configuration Variables
+# -----------------------------------------------------------------------------
+
+DESTDIR =
+PREFIX = /opt/eagle
+
+GIT = git
+GIT_DOCS_URI = https://github.com/mistachkin/docs
+GIT_EXTRA_URI = https://github.com/mistachkin/extra
+
+INSTALL = install
+INSTALL_BIN = $(INSTALL) -m 755
+INSTALL_DATA = $(INSTALL) -m 644
+
+MKDIR_P = mkdir -p
+CP_R = cp -R
+
+CHMOD = chmod
+CHMOD_R = $(CHMOD) -R
+CHMOD_PERMS = a+rX,og-w
 
 DOTNET = dotnet
 
 BUILD_TYPE = NetStandard21
 BUILD_MANAGED_CONFIGURATION = Debug
 BUILD_NATIVE_CONFIGURATION = debug
-BUILD_DIRECTORY = bin/$(BUILD_MANAGED_CONFIGURATION)$(BUILD_TYPE)/bin/netcoreapp3.0
+BUILD_SUB_DIRECTORY = $(BUILD_MANAGED_CONFIGURATION)$(BUILD_TYPE)
+BUILD_NET_DIRECTORY = netcoreapp3.0
+BUILD_DIRECTORY = bin/$(BUILD_SUB_DIRECTORY)/bin/$(BUILD_NET_DIRECTORY)
 BUILD_SOLUTION = EagleNetStandard2X.sln
 
-BUILD_ARGS = /maxcpucount:1 \
-		   /property:EagleBuildType=$(BUILD_TYPE) \
-		   /property:EaglePatchLevel=false
+BUILD_ARGS = \
+    /maxcpucount:1 \
+    /property:EagleBuildType=$(BUILD_TYPE) \
+    /property:EaglePatchLevel=false
 
-SHELL_DLL = $(BUILD_DIRECTORY)/EagleShell.dll
-LIBRARY_DLL = $(BUILD_DIRECTORY)/Eagle.dll
+RUNTIMECONFIG_JSON_NAME = EagleShell.runtimeconfig.json
+SHELL_DLL_NAME = EagleShell.dll
+SHELL_SH_NAME = eagle.sh
+LIBRARY_DLL_NAME = Eagle.dll
+
+RUNTIMECONFIG_JSON_PATH = $(BUILD_DIRECTORY)/$(RUNTIMECONFIG_JSON_NAME)
+SHELL_DLL_PATH = $(BUILD_DIRECTORY)/$(SHELL_DLL_NAME)
+SHELL_SH_PATH = Shell/Tools/$(SHELL_SH_NAME)
+LIBRARY_DLL_PATH = $(BUILD_DIRECTORY)/$(LIBRARY_DLL_NAME)
 
 # -----------------------------------------------------------------------------
-#
-# NOTE: All action targets depend on FORCE to ensure they always run, even on
-#       case-insensitive file systems where directory names like "Build" and
-#       "Test" would otherwise shadow the corresponding make targets.
-#
+#                          Disable Microsoft Telemetry
+#                                     and
+#                           Provide .NET SDK Version
 # -----------------------------------------------------------------------------
 
-all: build
+VSCMD_SKIP_SENDTELEMETRY = 1
+VCPKG_KEEP_ENV_VARS = VSCMD_SKIP_SENDTELEMETRY
+VCPKG_DISABLE_METRICS = 1
+DOTNET_CLI_TELEMETRY_OPTOUT = 1
+DOTNET_SCAFFOLD_TELEMETRY_OPTOUT = 1
 
-build: build-managed build-native
+DOTNET_ENV = \
+    DOTNET_SDK_VERSION=$(DOTNET_SDK_VERSION) \
+    VSCMD_SKIP_SENDTELEMETRY=$(VSCMD_SKIP_SENDTELEMETRY) \
+    VCPKG_KEEP_ENV_VARS=$(VCPKG_KEEP_ENV_VARS) \
+    VCPKG_DISABLE_METRICS=$(VCPKG_DISABLE_METRICS) \
+    DOTNET_CLI_TELEMETRY_OPTOUT=$(DOTNET_CLI_TELEMETRY_OPTOUT) \
+    DOTNET_SCAFFOLD_TELEMETRY_OPTOUT=$(DOTNET_SCAFFOLD_TELEMETRY_OPTOUT)
 
-build-managed: FORCE
-	$(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION)" $(BUILD_ARGS)
+# -----------------------------------------------------------------------------
+#                                Shared Targets
+# -----------------------------------------------------------------------------
+
+validate-git: FORCE
+	@if ! $(GIT) --version > /dev/null 2>&1; then \
+	    echo "ERROR: $(GIT) is not installed or not working properly."; \
+	    exit 1; \
+	fi
+
+validate-dotnet: FORCE
+	@if ! $(DOTNET_ENV) $(DOTNET) --info > /dev/null 2>&1; then \
+	    echo "ERROR: $(DOTNET) is not installed or not working properly."; \
+	    exit 1; \
+	fi
+
+validate-dirs: FORCE
+	@if [ -z "$(PREFIX)" ]; then \
+	    echo "ERROR: PREFIX must not be empty."; \
+	    exit 1; \
+	fi
+	@case "$(PREFIX)" in \
+	    /*) ;; \
+	    *) echo "ERROR: PREFIX must be an absolute path: $(PREFIX)"; exit 1 ;; \
+	esac
+	@if [ -n "$(DESTDIR)" ]; then \
+	    case "$(DESTDIR)" in \
+	        /*) ;; \
+	        *) echo "ERROR: DESTDIR must be empty or an absolute path: $(DESTDIR)"; exit 1 ;; \
+	    esac \
+	fi
+
+# -----------------------------------------------------------------------------
+#                                 NuGet Targets
+# -----------------------------------------------------------------------------
+
+restore: validate-dotnet
+	$(DOTNET_ENV) $(DOTNET) restore "$(BUILD_SOLUTION)"
+
+# -----------------------------------------------------------------------------
+#                                Build Targets
+# -----------------------------------------------------------------------------
+
+build-managed: validate-dotnet
+	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION)" $(BUILD_ARGS)
 
 build-native: FORCE
-	cd Native/Utility/Tools && CONFIGURATION_SUFFIX=NetStandard21 ./compile-$(BUILD_NATIVE_CONFIGURATION).sh
-	cd Native/Package/Tools && CONFIGURATION_SUFFIX=NetStandard21 ./compile-$(BUILD_NATIVE_CONFIGURATION).sh
-
-rebuild: rebuild-native rebuild-managed
-
-rebuild-managed: FORCE
-	$(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION)" $(BUILD_ARGS)
+	@if [ -z "$$DOTNET_SDK_VERSION" ]; then \
+	    echo "Skipping build-native: DOTNET_SDK_VERSION is not set."; \
+	else \
+	    _BUILD_NATIVE_PWD="$$PWD" && cd Native/Utility/Tools && \
+	    $(DOTNET_ENV) CONFIGURATION_SUFFIX=NetStandard21 ./compile-$(BUILD_NATIVE_CONFIGURATION).sh && \
+	    cd "$$_BUILD_NATIVE_PWD" && cd Native/Package/Tools && \
+	    $(DOTNET_ENV) CONFIGURATION_SUFFIX=NetStandard21 ./compile-$(BUILD_NATIVE_CONFIGURATION).sh; \
+	fi
 
 rebuild-native: force-clean build-native
 
-clean: FORCE
-	$(DOTNET) build /target:Clean "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION)" $(BUILD_ARGS)
+rebuild-managed: validate-dotnet
+	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION)" $(BUILD_ARGS)
+
+# HACK: Rebuild native libraries first, to force-clean.
+rebuild: rebuild-native rebuild-managed
+
+build: build-native build-managed
+
+all: build
+
+fresh: force-clean build
+
+# -----------------------------------------------------------------------------
+#                                Clean Targets
+# -----------------------------------------------------------------------------
+
+clean: validate-dotnet
+	$(DOTNET_ENV) $(DOTNET) build /target:Clean "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION)" $(BUILD_ARGS)
 
 force-clean: FORCE
-	rm -rf Library/obj
-	rm -rf Sample/obj
-	rm -rf Shell/obj
-	rm -rf bin
-	rm -rf obj
+	-rm -rf Library/obj
+	-rm -rf Native/Package/src/generic/libGarudaCore.dylib.dSYM
+	-rm -rf Native/Utility/src/generic/libSpilornis.dylib.dSYM
+	-rm -rf Sample/obj
+	-rm -rf Service/bin
+	-rm -rf Service/obj
+	-rm -f Service/Web.config
+	-rm -rf Shell/obj
+	-rm -rf bin
+	-rm -rf obj
 
-fresh: force-clean rebuild
+dist-clean: force-clean
 
-restore: FORCE
-	$(DOTNET) restore "$(BUILD_SOLUTION)"
+distclean: dist-clean
 
-run: FORCE
-	$(DOTNET) exec --roll-forward Major "$(SHELL_DLL)"
+# -----------------------------------------------------------------------------
+#                                 Test Targets
+# -----------------------------------------------------------------------------
 
-test: FORCE
-	$(DOTNET) exec --roll-forward Major "$(SHELL_DLL)" -file "Library/Tests/all.eagle"
+run: validate-dotnet
+	$(DOTNET_ENV) $(DOTNET) exec --roll-forward Major "$(SHELL_DLL_PATH)"
+
+test: validate-dotnet
+	$(DOTNET_ENV) $(DOTNET) exec --roll-forward Major "$(SHELL_DLL_PATH)" -file "Library/Tests/all.eagle"
+
+check: test
+
+# -----------------------------------------------------------------------------
+#                               Git Fetch Targets
+# -----------------------------------------------------------------------------
+
+fetch-docs: validate-git validate-dirs
+	$(GIT) clone "$(GIT_DOCS_URI)" "$(DESTDIR)$(PREFIX)/docs/"
+
+fetch-extra: validate-git validate-dirs
+	$(GIT) clone "$(GIT_EXTRA_URI)" "$(DESTDIR)$(PREFIX)/lib/Extra1.0"
+
+fetch: fetch-docs fetch-extra
+
+unfetch-docs: validate-dirs
+	-rm -rf "$(DESTDIR)$(PREFIX)/docs/"
+	-rmdir "$(DESTDIR)$(PREFIX)"
+
+unfetch-extra: validate-dirs
+	-rm -rf "$(DESTDIR)$(PREFIX)/lib/Extra1.0/"
+	-rmdir "$(DESTDIR)$(PREFIX)/lib"
+
+unfetch: unfetch-docs unfetch-extra
+
+# -----------------------------------------------------------------------------
+#                                Install Targets
+# -----------------------------------------------------------------------------
+
+install-dirs: validate-dirs
+	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/bin"
+	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/lib/Eagle1.0"
+	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/lib/Test1.0"
+	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/Tests"
+
+installdirs: install-dirs
+
+install-bin: validate-dirs
+	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/bin"
+	$(INSTALL_DATA) "$(RUNTIMECONFIG_JSON_PATH)" "$(DESTDIR)$(PREFIX)/bin/"
+	$(INSTALL_DATA) "$(SHELL_DLL_PATH)" "$(DESTDIR)$(PREFIX)/bin/"
+	$(INSTALL_DATA) "$(LIBRARY_DLL_PATH)" "$(DESTDIR)$(PREFIX)/bin/"
+	$(INSTALL_BIN) "$(SHELL_SH_PATH)" "$(DESTDIR)$(PREFIX)/bin/"
+
+install-lib: validate-dirs
+	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/lib/Eagle1.0"
+	$(CP_R) lib/Eagle1.0/. "$(DESTDIR)$(PREFIX)/lib/Eagle1.0/"
+	$(CHMOD_R) $(CHMOD_PERMS) "$(DESTDIR)$(PREFIX)/lib/Eagle1.0/"
+	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/lib/Test1.0"
+	$(CP_R) lib/Test1.0/. "$(DESTDIR)$(PREFIX)/lib/Test1.0/"
+	$(CHMOD_R) $(CHMOD_PERMS) "$(DESTDIR)$(PREFIX)/lib/Test1.0/"
+
+install-tests: validate-dirs
+	$(MKDIR_P) "$(DESTDIR)$(PREFIX)/Tests"
+	$(CP_R) Library/Tests/. "$(DESTDIR)$(PREFIX)/Tests/"
+	-rm -f "$(DESTDIR)$(PREFIX)/Tests/Default.cs"
+	$(CHMOD_R) $(CHMOD_PERMS) "$(DESTDIR)$(PREFIX)/Tests/"
+
+install: build install-bin install-lib install-tests
+
+install-all: fetch install
+
+uninstall-bin: validate-dirs
+	-rm -f "$(DESTDIR)$(PREFIX)/bin/$(RUNTIMECONFIG_JSON_NAME)"
+	-rm -f "$(DESTDIR)$(PREFIX)/bin/$(SHELL_DLL_NAME)"
+	-rm -f "$(DESTDIR)$(PREFIX)/bin/$(LIBRARY_DLL_NAME)"
+	-rm -f "$(DESTDIR)$(PREFIX)/bin/$(SHELL_SH_NAME)"
+	-rmdir "$(DESTDIR)$(PREFIX)/bin"
+
+uninstall-lib: validate-dirs
+	-rm -rf "$(DESTDIR)$(PREFIX)/lib/Eagle1.0/"
+	-rm -rf "$(DESTDIR)$(PREFIX)/lib/Test1.0/"
+	-rmdir "$(DESTDIR)$(PREFIX)/lib"
+
+uninstall-tests: validate-dirs
+	-rm -rf "$(DESTDIR)$(PREFIX)/Tests/"
+
+uninstall: validate-dirs uninstall-bin uninstall-lib uninstall-tests
+	-rmdir "$(DESTDIR)$(PREFIX)"
+
+uninstall-all: unfetch uninstall
+
+# -----------------------------------------------------------------------------
+#                                 Help Targets
+# -----------------------------------------------------------------------------
 
 help: FORCE
-	@echo "Available targets:"
+	@echo "Available and fully supported targets (others may exist):"
 	@echo ""
 	@echo "  all             - Build all projects (default)."
+	@echo ""
+	@echo "  validate-dirs   - REQUIRED: Validate path(s) \"$(DESTDIR)$(PREFIX)\"."
+	@echo "  validate-dotnet - REQUIRED: Does the .NET runtime appear to be working?"
+	@echo "  validate-git    - OPTIONAL: Does Git appear to be working?"
+	@echo ""
 	@echo "  build           - Build all projects."
 	@echo "  build-managed   - Build managed projects only."
 	@echo "  build-native    - Build native projects only."
+	@echo "  fresh           - Forcibly clean and then rebuild."
 	@echo "  clean           - Clean via the .NET build system."
-	@echo "  force-clean     - Forcibly remove all output directories."
-	@echo "  fresh           - Clean then rebuild."
+	@echo "  force-clean     - Forcibly remove output directories."
+	@echo "  dist-clean      - Also forcibly remove output directories."
+	@echo "  distclean       - Alias for \"dist-clean\"."
 	@echo "  rebuild         - Forcibly rebuild all projects."
 	@echo "  rebuild-managed - Rebuild managed projects only."
 	@echo "  rebuild-native  - Rebuild native projects only."
 	@echo "  restore         - Restore NuGet packages."
 	@echo "  run             - Launch the interactive shell."
 	@echo "  test            - Run the test suite."
+	@echo "  check           - Run the test suite."
+	@echo "  install-dirs    - Create directories in \"$(DESTDIR)$(PREFIX)\"."
+	@echo "  installdirs     - Alias for \"install-dirs\"."
+	@echo "  install         - Install files to \"$(DESTDIR)$(PREFIX)\"."
+	@echo "  install-all     - Install everything, including remote extras."
+	@echo "  uninstall       - Uninstall files from \"$(DESTDIR)$(PREFIX)\"."
+	@echo "  uninstall-all   - Uninstall everything, including remote extras."
+	@echo "  fetch           - Install docs and extras."
+	@echo "  unfetch         - Uninstall docs and extras."
+	@echo "  fetch-docs      - Install docs from \"$(GIT_DOCS_URI)\"."
+	@echo "  fetch-extra     - Install extras from \"$(GIT_EXTRA_URI)\"."
 	@echo "  help            - Show this message."
 	@echo ""
 

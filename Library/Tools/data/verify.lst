@@ -1720,6 +1720,7 @@ set eagle_manifests(source) {
   Eagle/Shell/Properties/AssemblyInfo.cs
   Eagle/Shell/Resources/Eagle32.png
   Eagle/Shell/Resources/manifest.xml
+  Eagle/Shell/Tools/eagle.sh
   Eagle/Targets/Eagle.Builds.targets
   Eagle/Targets/Eagle.Presets.targets
   Eagle/Targets/Eagle.Sample.targets
