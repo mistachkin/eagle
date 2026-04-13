@@ -122,6 +122,9 @@ if {[isEagle] && [llength [info commands object]] > 0} then {
 ###############################################################################
 
 runTest {test error-1.5 {errorInfo and errorLine} -setup {
+  set savedShellUnknown [eagle_enableShellUnknown]
+  eagle_enableShellUnknown false
+
   #
   # HACK: This string is the first "word" in the garbage file; therefore,
   #       create a procedure by this name to avoid simply raising an error
@@ -139,6 +142,11 @@ runTest {test error-1.5 {errorInfo and errorLine} -setup {
 
   set ::errorInfo
 } -cleanup {
+  if {[info exists savedShellUnknown]} then {
+    eagle_enableShellUnknown $savedShellUnknown
+    unset -nocomplain savedShellUnknown
+  }
+
   rename asdf ""
 } -constraints {eagle command.object file_garbage.txt} -result \
 [string map [list \n $newLine] \

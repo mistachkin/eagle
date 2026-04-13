@@ -49,6 +49,10 @@ proc getVars { after } {
                    tcl_interactiveLoops tcl_library \
                    tcl_nonwordchars tcl_patchLevel \
                    tcl_platform tcl_precision \
+                   "(?:tcl_prompt1 )?" "(?:tcl_prompt2 )?" \
+                   "(?:tcl_prompt3 )?" "(?:tcl_prompt4 )?" \
+                   "(?:tcl_prompt5 )?" "(?:tcl_prompt6 )?" \
+                   "(?:tcl_prompt7 )?" "(?:tcl_prompt8 )?" \
                    tcl_rcFileName "(?:tcl_shellLibrary )?" \
                    tcl_version tcl_wordchars \
                    "(?:test_all_path )?" "(?:test_base_cops )?" \
@@ -111,6 +115,14 @@ proc getVars { after } {
       "{(?:eagle_paths )?} " "(?:eagle_paths )?" \
       "{(?:eagle_shell )?} " "(?:eagle_shell )?" \
       "{(?:no )?} " "(?:no )?" \
+      "{(?:tcl_prompt1 )?} " "(?:tcl_prompt1 )?" \
+      "{(?:tcl_prompt2 )?} " "(?:tcl_prompt2 )?" \
+      "{(?:tcl_prompt3 )?} " "(?:tcl_prompt3 )?" \
+      "{(?:tcl_prompt4 )?} " "(?:tcl_prompt4 )?" \
+      "{(?:tcl_prompt5 )?} " "(?:tcl_prompt5 )?" \
+      "{(?:tcl_prompt6 )?} " "(?:tcl_prompt6 )?" \
+      "{(?:tcl_prompt7 )?} " "(?:tcl_prompt7 )?" \
+      "{(?:tcl_prompt8 )?} " "(?:tcl_prompt8 )?" \
       "{(?:tcl_shellLibrary )?} " "(?:tcl_shellLibrary )?" \
       "{(?:test_all_path )?} " "(?:test_all_path )?" \
       "{(?:test_base_cops )?} " "(?:test_base_cops )?" \

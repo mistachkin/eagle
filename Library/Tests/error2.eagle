@@ -89,9 +89,17 @@ runTest {test error-2.2.2 {catch with options variable} -body {
 
 ###############################################################################
 
-runTest {test error-2.2.3 {catch with options variable} -body {
+runTest {test error-2.2.3 {catch with options variable} -setup {
+  set savedShellUnknown [eagle_enableShellUnknown]
+  eagle_enableShellUnknown false
+} -body {
   list [catch badProc msg opts] $msg [string map [list \r\n \n] $opts]
 } -cleanup {
+  if {[info exists savedShellUnknown]} then {
+    eagle_enableShellUnknown $savedShellUnknown
+    unset -nocomplain savedShellUnknown
+  }
+
   unset -nocomplain msg opts
 } -constraints {eagle} -result \
 {1 {invalid command name "badProc"} {-code 1 -level 0 -errorcode NONE\

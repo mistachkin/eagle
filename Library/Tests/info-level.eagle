@@ -629,13 +629,21 @@ if {[isEagle]} then {
 
 ###############################################################################
 
-runTest {test infoExists-1.2 {automatic errorCode and errorInfo} -body {
+runTest {test infoExists-1.2 {automatic errorCode and errorInfo} -setup {
+  set savedShellUnknown [eagle_enableShellUnknown]
+  eagle_enableShellUnknown false
+} -body {
   list [info exists errorCode] [info exists errorInfo] \
       [unset -nocomplain errorCode] [unset -nocomplain errorInfo] \
       [info exists errorCode] [info exists errorInfo] \
       [catch {some_bad_command}] \
       [info exists errorCode] [info exists errorInfo] \
       $errorCode $errorInfo
+} -cleanup {
+  if {[info exists savedShellUnknown]} then {
+    eagle_enableShellUnknown $savedShellUnknown
+    unset -nocomplain savedShellUnknown
+  }
 } -constraints {eagle} -result [string map [list \n $newLine] \
 {1 1 {} {} 0 0 1 1 1 NONE {invalid command name "some_bad_command"
     while executing
