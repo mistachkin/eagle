@@ -90,6 +90,7 @@ SHELL_DLL_NAME = EagleShell.dll
 SHELL_SH_NAME = eagle.sh
 SHELL_DLL_ARGS = -anyFile Makefile.eagle
 LIBRARY_DLL_NAME = Eagle.dll
+TEST_ARGS =
 
 # -----------------------------------------------------------------------------
 
@@ -245,7 +246,7 @@ run: validate-dotnet
 # -----------------------------------------------------------------------------
 
 test: validate-dotnet
-	$(DOTNET_ENV) $(DOTNET) exec $(DOTNET_ARGS) "$(SHELL_DLL_PATH)" $(SHELL_DLL_ARGS) -file "Library/Tests/all.eagle"
+	$(DOTNET_ENV) $(DOTNET) exec $(DOTNET_ARGS) "$(SHELL_DLL_PATH)" $(SHELL_DLL_ARGS) -file "Library/Tests/all.eagle" $(TEST_ARGS)
 
 # -----------------------------------------------------------------------------
 
