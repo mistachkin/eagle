@@ -760,6 +760,9 @@ runTest {test object-15.11 {no internal members on private classes} -setup {
 
 runTest {test object-16.1 {using [unknown] to invoke static methods} -setup {
   set savedRuntimeOptions $eagle_platform(runtimeOptions)
+
+  set savedShellUnknown [eagle_enableShellUnknown]
+  eagle_enableShellUnknown false
 } -body {
   #
   # HACK: The name of this runtime option was changed on November 29th, 2015.
@@ -789,6 +792,11 @@ runTest {test object-16.1 {using [unknown] to invoke static methods} -setup {
       [object invoke Interpreter.GetActive HasRuntimeOption $name(2)] \
       [catch {Int32 Parse 5} result] $result
 } -cleanup {
+  if {[info exists savedShellUnknown]} then {
+    eagle_enableShellUnknown $savedShellUnknown
+    unset -nocomplain savedShellUnknown
+  }
+
   unset -nocomplain result name
 
   set eagle_platform(runtimeOptions) $savedRuntimeOptions

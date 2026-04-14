@@ -906,7 +906,7 @@ runTest {test namespace-99.2026 {upvar to global namspace var} -setup {
 
 ###############################################################################
 
-runTest {test namespace-101.1.cc1 {incorrect resolution due to cache} -setup {
+runTest {test namespace-101.1.cc1 {incorrect resolution (cached)} -setup {
   if {[isEagle]} then {
     set i [interp create -namespaces]
   } else {

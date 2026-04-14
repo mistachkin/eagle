@@ -62,6 +62,7 @@ CHMOD_R = $(CHMOD) -R
 CHMOD_PERMS = a+rX,og-w
 
 DOTNET = dotnet
+DOTNET_ARGS = --roll-forward Major
 
 # -----------------------------------------------------------------------------
 
@@ -87,6 +88,7 @@ BUILD_ARGS = \
 RUNTIMECONFIG_JSON_NAME = EagleShell.runtimeconfig.json
 SHELL_DLL_NAME = EagleShell.dll
 SHELL_SH_NAME = eagle.sh
+SHELL_DLL_ARGS = -anyFile Makefile.eagle
 LIBRARY_DLL_NAME = Eagle.dll
 
 # -----------------------------------------------------------------------------
@@ -115,6 +117,12 @@ DOTNET_ENV = \
     VCPKG_DISABLE_METRICS=$(VCPKG_DISABLE_METRICS) \
     DOTNET_CLI_TELEMETRY_OPTOUT=$(DOTNET_CLI_TELEMETRY_OPTOUT) \
     DOTNET_SCAFFOLD_TELEMETRY_OPTOUT=$(DOTNET_SCAFFOLD_TELEMETRY_OPTOUT)
+
+# =============================================================================
+#                               Default Targets
+# =============================================================================
+
+all: build
 
 # =============================================================================
 #                                Shared Targets
@@ -197,8 +205,6 @@ rebuild: rebuild-native rebuild-managed
 
 build: build-native build-managed
 
-all: build
-
 fresh: force-clean build
 
 # =============================================================================
@@ -234,12 +240,12 @@ distclean: dist-clean
 # =============================================================================
 
 run: validate-dotnet
-	$(DOTNET_ENV) $(DOTNET) exec --roll-forward Major "$(SHELL_DLL_PATH)"
+	$(DOTNET_ENV) $(DOTNET) exec $(DOTNET_ARGS) "$(SHELL_DLL_PATH)" $(SHELL_DLL_ARGS)
 
 # -----------------------------------------------------------------------------
 
 test: validate-dotnet
-	$(DOTNET_ENV) $(DOTNET) exec --roll-forward Major "$(SHELL_DLL_PATH)" -file "Library/Tests/all.eagle"
+	$(DOTNET_ENV) $(DOTNET) exec $(DOTNET_ARGS) "$(SHELL_DLL_PATH)" $(SHELL_DLL_ARGS) -file "Library/Tests/all.eagle"
 
 # -----------------------------------------------------------------------------
 

@@ -1,0 +1,87 @@
+###############################################################################
+#
+# Makefile.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Official Makefile Helper for POSIX
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+apply [list [list] {
+  #
+  # HACK: Since this script file is being evaluated *prior* to the core
+  #       script library being available we need to manually source the
+  #       core script library files that contain the procedures we need.
+  #
+  source lib/Eagle1.0/platform.eagle;  # [isEagle]
+  source lib/Eagle1.0/object.eagle;    # [isNonNullObjectHandle]
+  source lib/Eagle1.0/auxiliary.eagle; # [getEnvironmentVariable]
+
+  set interpreter [object invoke -alias Interpreter GetActive]
+  if {![isNonNullObjectHandle $interpreter]} then {return}
+
+  set directory [getEnvironmentVariable SCRIPT_ROOT]
+  if {![string is directory -strict $directory]} then {return}
+
+  set fileName(1) [file normalize \
+      [file join $directory test_suite_pre_initialize.eagle]]
+
+  set fileName(2) [file normalize \
+      [file join $directory test_suite_post_initialize.eagle]]
+
+  if {![file exists $fileName(1)] && ![file exists $fileName(2)]} then {
+    return
+  }
+
+  #
+  # HACK: Attempt to grab the private "extra" shell arguments list from
+  #       the interpreter.  Typically, this value will be null.  In that
+  #       case, they will be created automatically by this procedure.
+  #
+  set arguments [$interpreter -flags +NonPublic -create -alias ShellArguments]
+
+  if {![isNonNullObjectHandle $arguments]} then {
+    set arguments [object create -alias StringList]
+    $interpreter -flags +NonPublic ShellArguments $arguments
+  }
+
+  #
+  # NOTE: Always reset the active trace listeners so that we start with
+  #       a clean slate (i.e. zero trace listeners).
+  #
+  $arguments Add -preInitialize
+  $arguments Add [list debug trace -resetlisteners true]
+
+  #
+  # NOTE: If a pre-initialize script file exists, attempt to arrange for
+  #       that script file to be evaluated before the core script library
+  #       is fully initialized.
+  #
+  if {[file exists $fileName(1)]} then {
+    $arguments Add -preInitialize
+    $arguments Add [list source $fileName(1)]
+  }
+
+  #
+  # NOTE: Arrange for the core script library to be fully initialized at
+  #       this point as that is required by the next shell argument.
+  #
+  $arguments Add -initialize
+
+  #
+  # NOTE: If a post-initialize script file exists, attempt to arrange for
+  #       that script file to be evaluated after the core script library
+  #       is fully initialized.
+  #
+  if {[file exists $fileName(2)]} then {
+    $arguments Add -postInitialize
+    $arguments Add [list source $fileName(2)]
+  }
+}]
