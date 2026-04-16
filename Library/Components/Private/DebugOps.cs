@@ -383,6 +383,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Threading Cooperative Locking Methods
+        //
+        // NOTE: Attempts to acquire the lock without waiting.
+        //       This is used by callers that must never block
+        //       (e.g. trace output, complaint recording).
+        //
         private static void TryLock(
             ref bool locked
             )
@@ -391,6 +396,28 @@ namespace Eagle._Components.Private
                 return;
 
             locked = Monitor.TryEnter(syncRoot);
+            MaybeSomebodyHasLock(locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: Attempts to acquire the lock with the standard
+        //       wait timeout.  This is used by callers that can
+        //       tolerate a brief wait (e.g. textWriter output
+        //       in Complain).
+        //
+        private static void TryLockWithWait(
+            ref bool locked
+            )
+        {
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(
+                syncRoot, ThreadOps.GetTimeout(
+                null, null, TimeoutType.WaitLock));
+
             MaybeSomebodyHasLock(locked);
         }
 
@@ -2394,17 +2421,97 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
-                        if (textWriter != null)
+                        //
+                        // NOTE: Attempt to use the debug host
+                        //       first, since it handles colors
+                        //       and locking properly via the
+                        //       WriteCore pipeline.  Only fall
+                        //       back to the direct textWriter
+                        //       path if the host is unavailable
+                        //       or fails.  Using both paths
+                        //       concurrently causes a race
+                        //       condition where the textWriter
+                        //       write can interleave with
+                        //       another thread's colored write
+                        //       in WriteCore, causing color to
+                        //       bleed across lines.
+                        //
+                        bool wroteViaHost = false;
+
+                    retryHost:
+
+                        if (debugHost != null)
                         {
+                            //
+                            // BUGFIX: The host may have been
+                            //         disposed at this point
+                            //         and we do NOT want to
+                            //         throw an exception;
+                            //         therefore, wrap the host
+                            //         access in a try block.
+                            //         If the host does throw
+                            //         an exception for any
+                            //         reason, we will simply
+                            //         null out the host and
+                            //         retry using our default
+                            //         handling.
+                            //
                             try
                             {
-                                lock (textWriter) /* TRANSACTIONAL */
+                                if (IsHostUsable(
+                                        debugHost,
+                                        HostFlags.Complain))
+                                {
+                                    debugHost.WriteErrorLine(
+                                        formatted); /* throw */
+
+                                    wroteViaHost = true;
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                HostWriteException(id, e);
+
+                                debugHost = null;
+
+                                goto retryHost;
+                            }
+                        }
+
+                        ///////////////////////////////////////////////////////
+
+                        //
+                        // NOTE: Only use the direct textWriter
+                        //       path if the host was unavailable
+                        //       or failed.  This avoids the
+                        //       color race condition described
+                        //       above.
+                        //
+                        if (!wroteViaHost && (textWriter != null))
+                        {
+                            bool locked = false;
+
+                            try
+                            {
+                                TryLockWithWait(
+                                    ref locked); /* TRANSACTIONAL */
+
+                                if (locked)
                                 {
                                     textWriter.WriteLine(
                                         formatted); /* throw */
 
                                     if (AutoFlushOnWrite)
                                         textWriter.Flush(); /* throw */
+                                }
+                                else
+                                {
+                                    TraceOps.LockTrace(
+                                        "Complain",
+                                        typeof(DebugOps).Name,
+                                        true,
+                                        TracePriority.LockWarning,
+                                        MaybeWhoHasLock());
                                 }
                             }
 #if DEBUG
@@ -2437,39 +2544,10 @@ namespace Eagle._Components.Private
                             {
                                 TextWriteException(id, e);
                             }
-                        }
-
-                        ///////////////////////////////////////////////////////
-
-                    retryHost:
-
-                        if (debugHost != null)
-                        {
-                            //
-                            // BUGFIX: The host may have been disposed at this
-                            //         point and we do NOT want to throw an
-                            //         exception; therefore, wrap the host
-                            //         access in a try block.  If the host does
-                            //         throw an exception for any reason, we
-                            //         will simply null out the host and retry
-                            //         using our default handling.
-                            //
-                            try
+                            finally
                             {
-                                if (IsHostUsable(
-                                        debugHost, HostFlags.Complain))
-                                {
-                                    debugHost.WriteErrorLine(
-                                        formatted); /* throw */
-                                }
-                            }
-                            catch (Exception e)
-                            {
-                                HostWriteException(id, e);
-
-                                debugHost = null;
-
-                                goto retryHost;
+                                ExitLock(
+                                    ref locked); /* TRANSACTIONAL */
                             }
                         }
 #if WINFORMS

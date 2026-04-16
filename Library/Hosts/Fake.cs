@@ -241,6 +241,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////
 
+        public virtual DetailFlags GetDetailFlags()
+        {
+            CheckDisposed();
+
+            throw new NotImplementedException();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public virtual HostFlags GetHostFlags()
         {
             CheckDisposed();

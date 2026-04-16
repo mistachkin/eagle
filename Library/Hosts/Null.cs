@@ -245,6 +245,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////
 
+        public DetailFlags GetDetailFlags()
+        {
+            CheckDisposed();
+
+            return DetailFlags.Invalid;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public HostFlags GetHostFlags()
         {
             CheckDisposed();

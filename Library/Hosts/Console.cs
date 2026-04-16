@@ -215,6 +215,14 @@ namespace Eagle._Hosts
         private static readonly string ModifierEchoFormat = "{0}{1}";
         private static readonly char ModifierEchoSeparator = Characters.MinusSign;
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region ANSI Escape Sequence Constants
+#if UNIX
+        private static string AnsiCursorBackFormat = "\x1B[{0}D";
+#endif
+        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -339,9 +347,11 @@ namespace Eagle._Hosts
                 else if (!PlatformOps.IsWindowsOperatingSystem())
                 {
                     //
-                    // NOTE: No idea on this platform as Mono does not support
-                    //       console window width and height on Unix (?).  Fake
-                    //       it.
+                    // NOTE: Mono does not reliably support console
+                    //       window width and height on Unix.  .NET
+                    //       Core does; however, if we reach this
+                    //       point, the query has already failed, so
+                    //       fall back to a reasonable default.
                     //
                     hostFlags |= HostFlags.CompactSize;
                 }
@@ -763,6 +773,76 @@ namespace Eagle._Hosts
                 throw new ScriptException(
                     "system console error channel is not available");
             }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region System.Console ReadLine Handling
+#if UNIX
+        protected virtual bool CursorBackToStartOfLine(
+            TextWriter textWriter, /* in */
+            ref string prompt      /* in, out */
+            )
+        {
+            if ((textWriter != null) && (prompt != null))
+            {
+                try
+                {
+                    textWriter.Write(String.Format(
+                        AnsiCursorBackFormat, prompt.Length));
+
+                    textWriter.Flush();
+                    return true;
+                }
+                catch (IOException)
+                {
+                    SetWriteException(true);
+
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    prompt = null;
+
+                    TraceOps.DebugTrace(
+                        e, typeof(Console).Name,
+                        TracePriority.ConsoleError);
+                }
+            }
+
+            return false;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        protected virtual string SystemConsoleReadLine()
+        {
+#if NATIVE && UNIX
+            //
+            // NOTE: On non-Windows platforms, attempt to
+            //       use native line editing and history
+            //       navigation (arrow keys, etc.).
+            //
+            if (!PlatformOps.IsWindowsOperatingSystem() &&
+                LineEditor.IsAvailable())
+            {
+                string prompt = MaybeGetPrompt();
+
+                if (!String.IsNullOrEmpty(prompt) &&
+                    !LineEditor.HasAlreadyPrompted())
+                {
+                    /* IGNORED */
+                    CursorBackToStartOfLine(
+                        System.Console.Out, ref prompt);
+                }
+
+                return LineEditor.ReadLine(prompt);
+            }
+#endif
+
+            return System.Console.ReadLine();
         }
         #endregion
 
@@ -2779,6 +2859,58 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Native Console Prompt Handling
+        protected virtual PromptFlags GetPromptFlags(
+            Interpreter interpreter /* in */
+            )
+        {
+#if SHELL
+            if (interpreter != null)
+            {
+                bool locked = false;
+
+                try
+                {
+                    interpreter.InternalSoftTryLock(
+                        ref locked); /* TRANSACTIONAL */
+
+                    if (locked)
+                        return interpreter.InternalPromptFlags;
+                }
+                finally
+                {
+                    interpreter.InternalExitLock(
+                        ref locked); /* TRANSACTIONAL */
+                }
+            }
+#endif
+
+            return PromptFlags.Default;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        protected virtual string MaybeGetPrompt()
+        {
+            Interpreter interpreter = SafeGetInterpreter();
+
+            if (interpreter == null)
+                return null;
+
+            PromptFlags promptFlags = GetPromptFlags(interpreter);
+            long id = 0;
+
+            HostOps.MaybeAdjustPromptFlags(
+                interpreter, ref promptFlags, ref id);
+
+            return HostOps.GetDefaultPrompt(
+                interpreter, PromptType.Start, promptFlags,
+                id, interpreter.TotalInteractiveInputs);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Native Console Open/Close Handling
 #if NATIVE && WINDOWS
         private ReturnCode PrivateAttachOrOpen(
@@ -3629,7 +3761,7 @@ namespace Eagle._Hosts
 
                 ResetCancelRead();
 
-                string localValue = System.Console.ReadLine();
+                string localValue = SystemConsoleReadLine();
 
                 GetValueForRead(ref localValue);
 
@@ -4545,9 +4677,32 @@ namespace Eagle._Hosts
                 if ((foregroundColor == _ConsoleColor.None) &&
                     DoesSavedColorForNone())
                 {
-                    lock (syncRoot) /* TRANSACTIONAL */
+                    bool locked = false;
+
+                    try
                     {
-                        foregroundColor = savedForegroundColor;
+                        TryLockWithWait(
+                            ref locked); /* TRANSACTIONAL */
+
+                        if (locked)
+                        {
+                            foregroundColor =
+                                savedForegroundColor;
+                        }
+                        else
+                        {
+                            TraceOps.LockTrace(
+                                "SetForegroundColor",
+                                typeof(Console).Name,
+                                false,
+                                TracePriority.LockWarning,
+                                null);
+                        }
+                    }
+                    finally
+                    {
+                        ExitLock(
+                            ref locked); /* TRANSACTIONAL */
                     }
                 }
 
@@ -4611,9 +4766,32 @@ namespace Eagle._Hosts
                 if ((backgroundColor == _ConsoleColor.None) &&
                     DoesSavedColorForNone())
                 {
-                    lock (syncRoot) /* TRANSACTIONAL */
+                    bool locked = false;
+
+                    try
                     {
-                        backgroundColor = savedBackgroundColor;
+                        TryLockWithWait(
+                            ref locked); /* TRANSACTIONAL */
+
+                        if (locked)
+                        {
+                            backgroundColor =
+                                savedBackgroundColor;
+                        }
+                        else
+                        {
+                            TraceOps.LockTrace(
+                                "SetBackgroundColor",
+                                typeof(Console).Name,
+                                false,
+                                TracePriority.LockWarning,
+                                null);
+                        }
+                    }
+                    finally
+                    {
+                        ExitLock(
+                            ref locked); /* TRANSACTIONAL */
                     }
                 }
 
@@ -5253,6 +5431,7 @@ namespace Eagle._Hosts
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 result.Add("HeaderFlags", GetHeaderFlags().ToString());
+                result.Add("DetailFlags", GetDetailFlags().ToString());
                 result.Add("HostFlags", GetHostFlags().ToString());
                 result.Add("StaticReadLevels", SharedReadLevels.ToString());
                 result.Add("StaticWriteLevels", SharedWriteLevels.ToString());

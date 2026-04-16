@@ -1070,6 +1070,16 @@ namespace Eagle._Components.Private
             if (colorHost == null)
                 return false;
 
+            //
+            // BUGFIX: On non-Windows terminals, background
+            //         colors extend to the right margin via
+            //         ANSI escape codes.  Reset all terminal
+            //         attributes before restoring saved colors
+            //         to prevent background color bleed.
+            //
+            /* IGNORED */
+            colorHost.ResetColors();
+
             int count = 0;
 
             if (savedForegroundColor != null)

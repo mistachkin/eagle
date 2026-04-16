@@ -114,6 +114,14 @@ namespace Eagle._Components.Private
         private static readonly Encoding TclEncoding = ChannelEncoding;
         private static readonly Encoding ScriptEncoding = TclEncoding;
         private static readonly Encoding SnippetEncoding = ScriptEncoding;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private const int Utf8CodePage = 65001;              /* UTF-8 */
+        private const int Utf16LittleEndianCodePage = 1200;  /* UTF-16LE */
+        private const int Utf16BigEndianCodePage = 1201;     /* UTF-16BE */
+        private const int Utf32LittleEndianCodePage = 12000; /* UTF-32LE */
+        private const int Utf32BigEndianCodePage = 12001;    /* UTF-32BE */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3894,6 +3902,94 @@ namespace Eagle._Components.Private
                 return @default;
 
             return length == encoding.GetByteCount(value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsUnicodeEncoding()
+        {
+            foreach (string name in new string[] { 
+                    EnvVars.Language, /* POSIX (?) */
+                    EnvVars.LocaleAll /* POSIX (?) */
+                })
+            {
+                if (name == null)
+                    continue;
+
+                string value = CommonOps.Environment.GetVariable(name);
+
+                if (value == null)
+                    continue;
+
+                if (value.IndexOf(EnvVars.Utf8Value,
+                        StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: Checks whether the specified encoding can represent
+        //       Unicode characters for display purposes.  This is
+        //       distinct from IsSingleByte, which checks encoding
+        //       byte width, not display width.  In a modern terminal,
+        //       box-drawing and other Unicode glyphs render as
+        //       single-width characters regardless of their multi-byte
+        //       representation in UTF-8.
+        //
+        public static bool IsUnicodeEncoding(
+            Encoding encoding /* in */
+            )
+        {
+            if (encoding == null)
+                return false;
+
+            //
+            // NOTE: Check type first (i.e. the fast path
+            //       for well-known encoding classes).
+            //
+            if ((encoding is UnicodeEncoding) ||
+                (encoding is UTF8Encoding) ||
+                (encoding is UTF32Encoding))
+            {
+                return true;
+            }
+
+            //
+            // NOTE: Fall back to checking by code page or
+            //       web name.  On .NET Core, the Console
+            //       OutputEncoding property may return a
+            //       wrapper type (e.g. OSEncoding) that
+            //       is not one of the well-known classes
+            //       but still represents UTF-8.
+            //
+            try
+            {
+                int codePage = encoding.CodePage; /* throw? */
+
+                switch (codePage)
+                {
+                    case Utf8CodePage:
+                    case Utf16LittleEndianCodePage:
+                    case Utf16BigEndianCodePage:
+                    case Utf32LittleEndianCodePage:
+                    case Utf32BigEndianCodePage:
+                        {
+                            return true;
+                        }
+                }
+            }
+            catch
+            {
+                // do nothing.
+            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

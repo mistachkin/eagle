@@ -410,6 +410,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/HostOps.cs
   Eagle/Library/Components/Private/InteractiveContext.cs
   Eagle/Library/Components/Private/InteractiveOps.cs
+  Eagle/Library/Components/Private/LineEditor.cs
   Eagle/Library/Components/Private/InternalKeys.cs
   Eagle/Library/Components/Private/KeyOps.cs
   Eagle/Library/Components/Private/LambdaData.cs
@@ -420,6 +421,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/MathOps.cs
   Eagle/Library/Components/Private/Namespace.cs
   Eagle/Library/Components/Private/NamespaceOps.cs
+  Eagle/Library/Components/Private/AnsiConsole.cs
   Eagle/Library/Components/Private/NativeConsole.cs
   Eagle/Library/Components/Private/NativeDelegate.cs
   Eagle/Library/Components/Private/NativeModule.cs
@@ -618,6 +620,9 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Shared/SourceLicense.cs
   Eagle/Library/Components/Shared/StringOps.cs
   Eagle/Library/Configurations/EagleConsole.ini
+  Eagle/Library/Configurations/EagleConsoleDark.ini
+  Eagle/Library/Configurations/EagleConsoleLight.ini
+  Eagle/Library/Configurations/EagleConsoleMinimal.ini
   Eagle/Library/Configurations/EagleConsoleNoColor.ini
   Eagle/Library/Containers/Private/AliasWrapperDictionary.cs
   Eagle/Library/Containers/Private/AppDomainDictionary.cs
@@ -3316,6 +3321,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/HostOps.cs
   src/Library/Components/Private/InteractiveContext.cs
   src/Library/Components/Private/InteractiveOps.cs
+  src/Library/Components/Private/LineEditor.cs
   src/Library/Components/Private/InternalKeys.cs
   src/Library/Components/Private/KeyOps.cs
   src/Library/Components/Private/LambdaData.cs
@@ -3326,6 +3332,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/MathOps.cs
   src/Library/Components/Private/Namespace.cs
   src/Library/Components/Private/NamespaceOps.cs
+  src/Library/Components/Private/AnsiConsole.cs
   src/Library/Components/Private/NativeConsole.cs
   src/Library/Components/Private/NativeDelegate.cs
   src/Library/Components/Private/NativeModule.cs

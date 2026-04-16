@@ -406,10 +406,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static void MaybeAdjustPromptFlags(
+            Interpreter interpreter,     /* in */
+            ref PromptFlags promptFlags, /* in, out */
+            ref long id                  /* in, out */
+            )
+        {
+            //
+            // NOTE: If available, grab the integer identifier for
+            //       the interpreter as this will help the end users
+            //       to identity which interpreter is emitting the
+            //       prompt.
+            //
+            if (interpreter != null)
+            {
+                id = interpreter.IdNoThrow;
+
+                if (id > 1) /* HACK: Omit Id for primary. */
+                    promptFlags |= PromptFlags.Interpreter;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string GetDefaultPrompt(
             Interpreter interpreter, /* in */
             PromptType type,         /* in */
-            PromptFlags flags,       /* in */
+            PromptFlags promptFlags, /* in */
             long id,                 /* in */
             int count                /* in */
             )
@@ -420,20 +443,32 @@ namespace Eagle._Components.Private
             {
                 builder.Append(DefaultPrompts[(int)type]);
 
-                if (FlagOps.HasFlags(flags, PromptFlags.CommandCount, true))
+                if (FlagOps.HasFlags(
+                        promptFlags, PromptFlags.CommandCount, true))
+                {
                     builder.Insert(0, String.Format(CountPrefixFormat, count));
+                }
 
-                if (FlagOps.HasFlags(flags, PromptFlags.Queue, true))
+                if (FlagOps.HasFlags(
+                        promptFlags, PromptFlags.Queue, true))
+                {
                     builder.Insert(0, QueuePrefix);
+                }
 
-                if (FlagOps.HasFlags(flags, PromptFlags.Debug, true))
+                if (FlagOps.HasFlags(
+                        promptFlags, PromptFlags.Debug, true))
+                {
                     builder.Insert(0, DebugPrefix);
+                }
 
-                if (FlagOps.HasFlags(flags, PromptFlags.Interpreter, true))
+                if (FlagOps.HasFlags(
+                        promptFlags, PromptFlags.Interpreter, true))
+                {
                     builder.Insert(0, String.Format(IdPrefixFormat, id));
+                }
 
-                if ((interpreter != null) &&
-                    FlagOps.HasFlags(flags, PromptFlags.ActiveLoops, true))
+                if ((interpreter != null) && FlagOps.HasFlags(
+                        promptFlags, PromptFlags.ActiveLoops, true))
                 {
                     int loops = TryGetInteractiveLoops(interpreter);
 
@@ -1599,6 +1634,30 @@ namespace Eagle._Components.Private
                 try
                 {
                     return interactiveHost.GetHeaderFlags(); /* throw */
+                }
+                catch (Exception e)
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(HostOps).Name,
+                        TracePriority.HostError);
+                }
+            }
+
+            return @default;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static DetailFlags GetDetailFlags(
+            IInteractiveHost interactiveHost, /* in */
+            DetailFlags @default              /* in */
+            )
+        {
+            if (interactiveHost != null)
+            {
+                try
+                {
+                    return interactiveHost.GetDetailFlags(); /* throw */
                 }
                 catch (Exception e)
                 {

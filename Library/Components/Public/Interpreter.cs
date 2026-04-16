@@ -78286,13 +78286,13 @@ namespace Eagle._Components.Public
                             try
                             {
                                 //
-                                // NOTE: Perform the preliminary initialiation of this
+                                // NOTE: Perform the preliminary initialization of this
                                 //       interpreter instance.  Generally, this cannot
                                 //       fail.  Typically, an interpreter host will be
                                 //       created (or cloned) from within it.  That new
                                 //       interpreter host will be passed a reference
                                 //       to this interpreter instance.  In theory, it
-                                //       could then "escape" and be visisble by other
+                                //       could then "escape" and be visible by other
                                 //       threads; however, this is unlikely, e.g. none
                                 //       of the built-in interpreter hosts permit this
                                 //       to happen.
@@ -92242,13 +92242,8 @@ namespace Eagle._Components.Public
                     //
                     long id = 0;
 
-                    if (interpreter != null)
-                    {
-                        id = interpreter.PrivateId;
-
-                        if (id > 1) /* HACK: Omit Id for primary. */
-                            promptFlags |= PromptFlags.Interpreter;
-                    }
+                    HostOps.MaybeAdjustPromptFlags(
+                        interpreter, ref promptFlags, ref id);
 
                     //
                     // NOTE: Get the appropriate default prompt for this
@@ -92419,7 +92414,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static int AnotherInteractiveInput(
+        internal static int AnotherInteractiveInput(
             Interpreter interpreter
             )
         {
@@ -96297,7 +96292,9 @@ namespace Eagle._Components.Public
                     interactiveHost, interpreter.HeaderFlags, loopData.Debug,
                     false, false, loopData.Debug);
 
-                DetailFlags localDetailFlags = interpreter.DetailFlags;
+                DetailFlags localDetailFlags = DebuggerOps.GetDetailFlags(
+                    interactiveHost, interpreter.DetailFlags, loopData.Debug,
+                    false, false, loopData.Debug);
                 #endregion
 
                 ///////////////////////////////////////////////////////////////

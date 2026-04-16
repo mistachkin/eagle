@@ -9,10 +9,7 @@
  * RCS: @(#) $Id: $
  */
 
-#if SERIALIZATION
 using System;
-#endif
-
 using System.Collections;
 using System.Collections.Generic;
 

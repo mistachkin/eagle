@@ -3094,6 +3094,7 @@ namespace Eagle._Components.Private
                         }
                         break;
                     }
+#if XML
                 case DbResultFormat.DataTable:
                     {
                         IDataTable dataTable = CreateDataTable(
@@ -3123,6 +3124,7 @@ namespace Eagle._Components.Private
                         }
                         break;
                     }
+#endif
                 default:
                     {
                         result = String.Format(
@@ -3524,6 +3526,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if XML
         public static IDataTable CreateDataTable(
             IDataReader reader,        /* in */
             Interpreter interpreter,   /* in */
@@ -3555,6 +3558,7 @@ namespace Eagle._Components.Private
 
             return dataTable;
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -4277,8 +4281,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region DataTable Helper Class
+#if XML
         [ObjectId("2199651c-fd55-4319-bb47-9ea05ea7995d")]
-        private sealed class _DataTable : DataTable, IDataTable
+        private sealed class _DataTable : DataTable /* Xml */, IDataTable
         {
             #region Private Data
             private Interpreter interpreter;
@@ -4489,6 +4494,7 @@ namespace Eagle._Components.Private
             }
             #endregion
         }
+#endif
         #endregion
     }
 }

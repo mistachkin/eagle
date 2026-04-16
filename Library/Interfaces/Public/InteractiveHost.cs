@@ -43,6 +43,7 @@ namespace Eagle._Interfaces.Public
         bool Flush();
 
         HeaderFlags GetHeaderFlags();
+        DetailFlags GetDetailFlags();
         HostFlags GetHostFlags();
 
         int ReadLevels { get; }

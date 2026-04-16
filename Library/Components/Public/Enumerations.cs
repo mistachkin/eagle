@@ -12952,6 +12952,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        Debug = 0x4000000000000000,
         User = 0x8000000000000000,      /* Indicates that the detail flags have been explicitly
                                          * set by the user. */
 

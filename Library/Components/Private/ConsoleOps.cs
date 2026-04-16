@@ -366,10 +366,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: Stores the most recently written prompt
+        //       text for use by LineEditor (readline)
+        //       which needs the prompt string to properly
+        //       redraw on history navigation.
+        //
+        private static string lastPrompt = null;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string LastPrompt
+        {
+            get { return lastPrompt; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void WritePrompt(
             string value /* in */
             )
         {
+            lastPrompt = value;
             WriteCoreNoThrow(value);
         }
 
@@ -507,8 +525,43 @@ namespace Eagle._Components.Private
         {
             if (!isMono)
             {
+#if UNIX || NET_STANDARD_20 || NET_STANDARD_21
                 //
-                // NOTE: This is only supported (or necessary) on Mono;
+                // NOTE: On .NET Core on Unix, write a newline to
+                //       /dev/tty to break out of the blocking
+                //       Console.ReadLine() or readline() call.
+                //       This is the Unix equivalent of the
+                //       Windows SimulateReturnKey approach.
+                //
+                if (!PlatformOps.IsWindowsOperatingSystem())
+                {
+                    try
+                    {
+                        using (StreamWriter writer = new StreamWriter(
+                            new FileStream("/dev/tty",
+                                FileMode.Open, FileAccess.Write)))
+                        {
+                            writer.WriteLine();
+                            writer.Flush();
+                        }
+
+                        return ReturnCode.Ok;
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(ConsoleOps).Name,
+                            TracePriority.ConsoleError);
+
+                        error = e;
+                        return ReturnCode.Error;
+                    }
+                }
+#endif
+
+                //
+                // NOTE: On Windows (non-Mono), this is handled
+                //       by SimulateReturnKey via PostMessage;
                 //       therefore, just fake success.
                 //
                 return ReturnCode.Ok;

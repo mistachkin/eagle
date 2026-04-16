@@ -6445,6 +6445,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if XML
         public static ReturnCode DataReaderToDataTable(
             Interpreter interpreter,
             IDataReader reader,
@@ -6482,6 +6483,7 @@ namespace Eagle._Components.Public
 
             return ReturnCode.Ok;
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 

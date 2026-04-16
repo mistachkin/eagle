@@ -461,6 +461,85 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static DetailFlags GetDetailFlags(
+            IInteractiveHost interactiveHost,
+            DetailFlags detailFlags,
+            bool debug,
+            bool show,
+            bool empty,
+            bool @default
+            )
+        {
+            //
+            // NOTE: If we are in debug mode and no header display flags have
+            //       been explicitly set for the interpreter, initialize them
+            //       to the default value.
+            //
+            if (@default && FlagOps.HasFlags(
+                    detailFlags, DetailFlags.Invalid, true))
+            {
+                //
+                // NOTE: Remove the "these flags have not been setup before"
+                //       indicator flag.
+                //
+                detailFlags &= ~DetailFlags.Invalid;
+
+                //
+                // NOTE: Add the default header flags for the interactive
+                //       host.  If the interactive host is not available,
+                //       fallback on the system default header flags.
+                //
+                DetailFlags defaultDetailFlags = DetailFlags.Default;
+
+                if (interactiveHost != null)
+                {
+                    detailFlags |= HostOps.GetDetailFlags(
+                        interactiveHost, defaultDetailFlags);
+                }
+                else
+                {
+                    detailFlags |= defaultDetailFlags;
+                }
+            }
+
+            //
+            // NOTE: Only modify (set or unset) the active debugger flag if we
+            //       have been told to do so; otherwise, the active debugger
+            //       flag may have been manually changed and should be left
+            //       alone.
+            //
+            if (show)
+            {
+                //
+                // NOTE: Is there an active debugger?
+                //
+                if (debug)
+                {
+                    //
+                    // NOTE: Set the active debugger flag.
+                    //
+                    detailFlags |= DetailFlags.Debug;
+                }
+                else
+                {
+                    //
+                    // NOTE: Unset the active debugger flag.
+                    //
+                    detailFlags &= ~DetailFlags.Debug;
+                }
+            }
+
+            //
+            // NOTE: Show empty content?
+            //
+            if (empty)
+                detailFlags |= DetailFlags.EmptyContent;
+
+            return detailFlags;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static EngineFlags GetEngineFlags(
             bool debug
             )

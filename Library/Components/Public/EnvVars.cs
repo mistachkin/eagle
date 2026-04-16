@@ -319,6 +319,14 @@ namespace Eagle._Components.Public
         public static readonly string Path = "PATH";
         public static readonly string LdLibraryPath = "LD_LIBRARY_PATH";
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Encoding Environment Variables
+        public static readonly string Language = "LANG";
+        public static readonly string LocaleAll = "LC_ALL";
+        public static readonly string Utf8Value = "UTF-8";
+        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

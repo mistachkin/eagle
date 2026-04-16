@@ -55,7 +55,9 @@ INSTALL_BIN = $(INSTALL) -m 755
 INSTALL_DATA = $(INSTALL) -m 644
 
 MKDIR_P = mkdir -p
-CP_R = cp -R
+
+CP = cp
+CP_R = $(CP) -R
 
 CHMOD = chmod
 CHMOD_R = $(CHMOD) -R
@@ -176,6 +178,7 @@ restore: validate-dotnet
 build-managed: validate-dotnet
 	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
 	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
+	$(CP) Library/Configurations/* "$(BUILD_DIRECTORY)"
 
 # -----------------------------------------------------------------------------
 
@@ -198,6 +201,7 @@ rebuild-native: force-clean build-native
 rebuild-managed: validate-dotnet
 	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
 	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
+	$(CP) Library/Configurations/* "$(BUILD_DIRECTORY)"
 
 # -----------------------------------------------------------------------------
 
@@ -219,6 +223,10 @@ clean: validate-dotnet
 # -----------------------------------------------------------------------------
 
 force-clean: FORCE
+	-fossil revert Native/Package/src/generic/pkgVersion.h
+	-fossil revert Native/Package/src/generic/rcVersion.h
+	-fossil revert Native/Utility/src/generic/pkgVersion.h
+	-fossil revert Native/Utility/src/generic/rcVersion.h
 	-rm -rf Library/obj
 	-rm -rf Native/Package/src/generic/libGarudaCore.dylib.dSYM
 	-rm -rf Native/Utility/src/generic/libSpilornis.dylib.dSYM

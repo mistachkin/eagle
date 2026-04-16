@@ -1171,6 +1171,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////
 
+        public virtual DetailFlags GetDetailFlags()
+        {
+            CheckDisposed();
+
+            return baseHost.GetDetailFlags();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public virtual HostFlags GetHostFlags()
         {
             CheckDisposed();

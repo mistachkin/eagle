@@ -8811,7 +8811,9 @@ namespace Eagle._Components.Private
                 {
                     object enumValue = EnumOps.TryParseFlags(
                         interpreter, typeof(DetailFlags),
-                        localDetailFlags.ToString(), debugArguments[1],
+                        DebuggerOps.GetDetailFlags(interactiveHost,
+                            localDetailFlags, debug, false, false,
+                            true).ToString(), debugArguments[1],
                         interpreter.InternalCultureInfo,
                         true, true, true, ref localResult);
 

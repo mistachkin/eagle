@@ -2757,6 +2757,8 @@ namespace Eagle._Components.Private
                     result.Add(host.GetTestFlags().ToString());
                     result.Add("HeaderFlags");
                     result.Add(host.GetHeaderFlags().ToString());
+                    result.Add("DetailFlags");
+                    result.Add(host.GetDetailFlags().ToString());
                 }
 
                 IHostData hostData = @object as IHostData;
@@ -2791,6 +2793,8 @@ namespace Eagle._Components.Private
                     result.Add(loopData.ExpressionFlags.ToString());
                     result.Add("HeaderFlags");
                     result.Add(loopData.HeaderFlags.ToString());
+                    result.Add("DetailFlags");
+                    result.Add(loopData.DetailFlags.ToString());
                     result.Add("Exit");
                     result.Add(loopData.Exit.ToString());
                 }

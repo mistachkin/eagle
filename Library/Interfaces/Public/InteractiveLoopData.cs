@@ -31,6 +31,7 @@ namespace Eagle._Interfaces.Public
         EventFlags EventFlags { get; set; }
         ExpressionFlags ExpressionFlags { get; set; }
         HeaderFlags HeaderFlags { get; set; }
+        DetailFlags DetailFlags { get; set; }
         ArgumentList Arguments { get; set; }
         bool Exit { get; set; }
 

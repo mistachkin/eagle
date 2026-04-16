@@ -1811,6 +1811,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region [library] Command Options
+#if EMIT && NATIVE && LIBRARY
         //
         // NOTE: This is for the [library declare] sub-command.
         //
@@ -1920,6 +1921,7 @@ namespace Eagle._Components.Private
                 Option.CreateEndOfOptions()
             });
         }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -3092,6 +3094,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region [sql] Command Options
+#if DATA
         //
         // NOTE: This is for the [sql open] sub-command
         //       (pre-options phase).
@@ -3166,7 +3169,6 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if DATA
         //
         // NOTE: This is for the [sql transaction] sub-command.
         //
@@ -4871,6 +4873,7 @@ namespace Eagle._Components.Private
                     return GetInterpSubstOptions();
                 case CommandOptionType.Kill:
                     return GetKillOptions();
+#if EMIT && NATIVE && LIBRARY
                 case CommandOptionType.Library_Call:
                     return ObjectOps.GetObjectOptions(
                         ObjectOptionType.Call);
@@ -4882,6 +4885,7 @@ namespace Eagle._Components.Private
                     return GetLibraryResolveOptions();
                 case CommandOptionType.Library_Unresolve:
                     return GetLibraryUnresolveOptions();
+#endif
                 case CommandOptionType.Load:
                     return GetLoadOptions();
                 case CommandOptionType.Lsearch:

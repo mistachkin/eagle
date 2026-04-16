@@ -336,6 +336,8 @@ namespace Eagle._Constants
 #if UNIX
         public const string LibC = "libc";
         public const string LibDL = "libdl";
+        public const string ReadLine = "libreadline.so";
+        public const string Edit = "libedit.dylib";
 
 #if !NET_STANDARD_20
         public const string Internal = "__Internal";

@@ -38,9 +38,9 @@ namespace Eagle._Commands
     internal sealed class Host : Core
     {
         #region Private Data
-#if NATIVE && WINDOWS
+#if NATIVE && (WINDOWS || (CONSOLE && UNIX))
         private readonly EnsembleDictionary screenSubCommands =
-        new EnsembleDictionary(new string[] {
+            new EnsembleDictionary(new string[] {
             "active", "create", "delete", "exists", "list", "peek", "pop",
             "push"
         });
@@ -1728,7 +1728,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-#if NATIVE && WINDOWS
+#if NATIVE && (WINDOWS || (CONSOLE && UNIX))
                                             string subSubCommand = arguments[2];
 
                                             code = ScriptOps.SubCommandFromEnsemble(
@@ -1743,15 +1743,23 @@ namespace Eagle._Commands
                                                         {
                                                             if (arguments.Count == 3)
                                                             {
+#if WINDOWS
                                                                 if (NativeConsole.IsSupported())
                                                                 {
                                                                     result = NativeConsole.HaveActiveScreenName();
+                                                                    break;
                                                                 }
-                                                                else
+#endif
+
+#if CONSOLE && UNIX
+                                                                if (AnsiConsole.IsSupported())
                                                                 {
-                                                                    result = "not implemented";
-                                                                    code = ReturnCode.Error;
+                                                                    result = AnsiConsole.HaveActiveScreenName();
+                                                                    break;
                                                                 }
+#endif
+
+                                                                goto screen_error;
                                                             }
                                                             else
                                                             {
@@ -1764,6 +1772,7 @@ namespace Eagle._Commands
                                                         {
                                                             if (arguments.Count == 3)
                                                             {
+#if WINDOWS
                                                                 if (NativeConsole.IsSupported())
                                                                 {
                                                                     code = NativeConsole.MaybeOpenHandles(
@@ -1779,12 +1788,27 @@ namespace Eagle._Commands
                                                                         if (code == ReturnCode.Ok)
                                                                             result = name;
                                                                     }
+
+                                                                    break;
                                                                 }
-                                                                else
+#endif
+
+#if CONSOLE && UNIX
+                                                                if (AnsiConsole.IsSupported())
                                                                 {
-                                                                    result = "not implemented";
-                                                                    code = ReturnCode.Error;
+                                                                    string name = null;
+
+                                                                    code = AnsiConsole.CreateScreenBuffer(
+                                                                        ref name, ref result);
+
+                                                                    if (code == ReturnCode.Ok)
+                                                                        result = name;
+
+                                                                    break;
                                                                 }
+#endif
+
+                                                                goto screen_error;
                                                             }
                                                             else
                                                             {
@@ -1797,6 +1821,7 @@ namespace Eagle._Commands
                                                         {
                                                             if ((arguments.Count == 4) || (arguments.Count == 5))
                                                             {
+#if WINDOWS
                                                                 if (NativeConsole.IsSupported())
                                                                 {
                                                                     bool active = false;
@@ -1817,12 +1842,35 @@ namespace Eagle._Commands
                                                                         if (code == ReturnCode.Ok)
                                                                             result = String.Empty;
                                                                     }
+
+                                                                    break;
                                                                 }
-                                                                else
+#endif
+
+#if CONSOLE && UNIX
+                                                                if (AnsiConsole.IsSupported())
                                                                 {
-                                                                    result = "not implemented";
-                                                                    code = ReturnCode.Error;
+                                                                    bool active = false;
+
+                                                                    if (arguments.Count >= 5)
+                                                                    {
+                                                                        code = Value.GetBoolean2(
+                                                                            arguments[4], ValueFlags.AnyBoolean,
+                                                                            interpreter.InternalCultureInfo, ref active,
+                                                                            ref result);
+                                                                    }
+
+                                                                    if (code == ReturnCode.Ok)
+                                                                    {
+                                                                        code = AnsiConsole.CloseScreenBuffer(
+                                                                            arguments[3], active, ref result);
+                                                                    }
+
+                                                                    break;
                                                                 }
+#endif
+
+                                                                goto screen_error;
                                                             }
                                                             else
                                                             {
@@ -1835,6 +1883,7 @@ namespace Eagle._Commands
                                                         {
                                                             if ((arguments.Count == 4) || (arguments.Count == 5))
                                                             {
+#if WINDOWS
                                                                 if (NativeConsole.IsSupported())
                                                                 {
                                                                     bool primary = false;
@@ -1852,12 +1901,35 @@ namespace Eagle._Commands
                                                                         result = NativeConsole.DoesScreenBufferExist(
                                                                             arguments[3], primary);
                                                                     }
+
+                                                                    break;
                                                                 }
-                                                                else
+#endif
+
+#if CONSOLE && UNIX
+                                                                if (AnsiConsole.IsSupported())
                                                                 {
-                                                                    result = "not implemented";
-                                                                    code = ReturnCode.Error;
+                                                                    bool primary = false;
+
+                                                                    if (arguments.Count >= 5)
+                                                                    {
+                                                                        code = Value.GetBoolean2(
+                                                                            arguments[4], ValueFlags.AnyBoolean,
+                                                                            interpreter.InternalCultureInfo, ref primary,
+                                                                            ref result);
+                                                                    }
+
+                                                                    if (code == ReturnCode.Ok)
+                                                                    {
+                                                                        result = AnsiConsole.DoesScreenBufferExist(
+                                                                            arguments[3], primary);
+                                                                    }
+
+                                                                    break;
                                                                 }
+#endif
+
+                                                                goto screen_error;
                                                             }
                                                             else
                                                             {
@@ -1870,6 +1942,7 @@ namespace Eagle._Commands
                                                         {
                                                             if ((arguments.Count >= 3) && (arguments.Count <= 5))
                                                             {
+#if WINDOWS
                                                                 if (NativeConsole.IsSupported())
                                                                 {
                                                                     string pattern = null;
@@ -1900,12 +1973,48 @@ namespace Eagle._Commands
                                                                         result = (list != null) ?
                                                                             list.ToString(pattern, false) : null;
                                                                     }
+
+                                                                    break;
                                                                 }
-                                                                else
+#endif
+
+#if CONSOLE && UNIX
+                                                                if (AnsiConsole.IsSupported())
                                                                 {
-                                                                    result = "not implemented";
-                                                                    code = ReturnCode.Error;
+                                                                    string pattern = null;
+
+                                                                    if (arguments.Count >= 4)
+                                                                    {
+                                                                        pattern = arguments[3];
+
+                                                                        if (String.IsNullOrEmpty(pattern))
+                                                                            pattern = null;
+                                                                    }
+
+                                                                    bool primary = false;
+
+                                                                    if (arguments.Count >= 5)
+                                                                    {
+                                                                        code = Value.GetBoolean2(
+                                                                            arguments[4], ValueFlags.AnyBoolean,
+                                                                            interpreter.InternalCultureInfo, ref primary,
+                                                                            ref result);
+                                                                    }
+
+                                                                    if (code == ReturnCode.Ok)
+                                                                    {
+                                                                        StringList list = AnsiConsole.ListScreenBuffers(
+                                                                            primary);
+
+                                                                        result = (list != null) ?
+                                                                            list.ToString(pattern, false) : null;
+                                                                    }
+
+                                                                    break;
                                                                 }
+#endif
+
+                                                                goto screen_error;
                                                             }
                                                             else
                                                             {
@@ -1918,16 +2027,27 @@ namespace Eagle._Commands
                                                         {
                                                             if (arguments.Count == 3)
                                                             {
+#if WINDOWS
                                                                 if (NativeConsole.IsSupported())
                                                                 {
                                                                     code = NativeConsole.GetActiveScreenName(
                                                                         ref result);
+
+                                                                    break;
                                                                 }
-                                                                else
+#endif
+
+#if CONSOLE && UNIX
+                                                                if (AnsiConsole.IsSupported())
                                                                 {
-                                                                    result = "not implemented";
-                                                                    code = ReturnCode.Error;
+                                                                    code = AnsiConsole.GetActiveScreenName(
+                                                                        ref result);
+
+                                                                    break;
                                                                 }
+#endif
+
+                                                                goto screen_error;
                                                             }
                                                             else
                                                             {
@@ -1940,16 +2060,27 @@ namespace Eagle._Commands
                                                         {
                                                             if (arguments.Count == 3)
                                                             {
+#if WINDOWS
                                                                 if (NativeConsole.IsSupported())
                                                                 {
                                                                     code = NativeConsole.ChangeActiveScreenBuffer(
                                                                         null, true, ref result);
+
+                                                                    break;
                                                                 }
-                                                                else
+#endif
+
+#if CONSOLE && UNIX
+                                                                if (AnsiConsole.IsSupported())
                                                                 {
-                                                                    result = "not implemented";
-                                                                    code = ReturnCode.Error;
+                                                                    code = AnsiConsole.ChangeActiveScreenBuffer(
+                                                                        null, true, ref result);
+
+                                                                    break;
                                                                 }
+#endif
+
+                                                                goto screen_error;
                                                             }
                                                             else
                                                             {
@@ -1962,16 +2093,27 @@ namespace Eagle._Commands
                                                         {
                                                             if (arguments.Count == 4)
                                                             {
+#if WINDOWS
                                                                 if (NativeConsole.IsSupported())
                                                                 {
                                                                     code = NativeConsole.ChangeActiveScreenBuffer(
                                                                         arguments[3], false, ref result);
+
+                                                                    break;
                                                                 }
-                                                                else
+#endif
+
+#if CONSOLE && UNIX
+                                                                if (AnsiConsole.IsSupported())
                                                                 {
-                                                                    result = "not implemented";
-                                                                    code = ReturnCode.Error;
+                                                                    code = AnsiConsole.ChangeActiveScreenBuffer(
+                                                                        arguments[3], false, ref result);
+
+                                                                    break;
                                                                 }
+#endif
+
+                                                                goto screen_error;
                                                             }
                                                             else
                                                             {
@@ -2563,6 +2705,11 @@ namespace Eagle._Commands
             }
 
             return code;
+
+        screen_error:
+
+            result = "host screen support unavailable";
+            return ReturnCode.Error;
         }
         #endregion
     }

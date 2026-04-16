@@ -1716,23 +1716,28 @@ namespace Eagle._Components.Private
         //                              [debug] command options
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-#if DEBUGGER
         Debug_Break = 16,
         Debug_Emergency = 17,
-#if TEST
         Debug_Hook = 18,
-#endif
+
+#if DEBUGGER
         Debug_Iqueue = 19,
+#endif
+
         Debug_Log = 20,
         Debug_SecureEval = 21,
         Debug_Set = 22,
+
 #if SHELL
         Debug_Shell = 23,
 #endif
+
+#if DEBUGGER
         Debug_Subst = 24,
+#endif
+
         Debug_Trace = 25,
         Debug_Variable = 26,
-#endif
 
 #if PREVIOUS_RESULT
         Debug_Exception = 27,
@@ -1865,10 +1870,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         Library_Call = 80,
+
+#if EMIT && NATIVE && LIBRARY
         Library_Declare = 81,
         Library_Load = 82,
         Library_Resolve = 83,
         Library_Unresolve = 84,
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
         //                              [load] command options
@@ -2035,12 +2043,8 @@ namespace Eagle._Components.Private
 #if DATA
         Sql_Execute = 153,
         Sql_ExecuteOnly = 154,
-#endif
-
         Sql_OpenPreOptions = 155,
         Sql_Open = 156,
-
-#if DATA
         Sql_Transaction = 157,
 #endif
 

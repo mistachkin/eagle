@@ -31,8 +31,10 @@ using Eagle._Constants;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using UNM = Eagle._Components.Private.NativeConsole.UnsafeNativeMethods;
+using ScreenStack = System.Collections.Generic.Stack<string>;
 
 namespace Eagle._Components.Private
 {
@@ -119,7 +121,7 @@ namespace Eagle._Components.Private
         //       active console screen buffer is changed UNLESS it is being
         //       reverted to a previously active console screen buffer.
         //
-        private static Stack<string> activeScreenNames;
+        private static ScreenStack activeScreenNames;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -970,7 +972,7 @@ namespace Eagle._Components.Private
                     if (SetActiveScreenBuffer(handle, ref result))
                     {
                         if (activeScreenNames == null)
-                            activeScreenNames = new Stack<string>();
+                            activeScreenNames = new ScreenStack();
 
                         activeScreenNames.Push(savedActiveScreenName);
 

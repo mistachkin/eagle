@@ -433,6 +433,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private DetailFlags detailFlags;
+        public DetailFlags DetailFlags
+        {
+            get { return detailFlags; }
+            set { detailFlags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private ArgumentList arguments;
         public ArgumentList Arguments
         {
@@ -500,6 +509,7 @@ namespace Eagle._Components.Public
             targetLoopData.EventFlags = sourceLoopData.EventFlags;
             targetLoopData.ExpressionFlags = sourceLoopData.ExpressionFlags;
             targetLoopData.HeaderFlags = sourceLoopData.HeaderFlags;
+            targetLoopData.DetailFlags = sourceLoopData.DetailFlags;
             targetLoopData.ClientData = sourceLoopData.ClientData;
             targetLoopData.Arguments = sourceLoopData.Arguments;
             targetLoopData.Exit = sourceLoopData.Exit;
@@ -532,6 +542,7 @@ namespace Eagle._Components.Public
                 FormatOps.WrapOrNull(expressionFlags));
 
             list.Add("headerFlags", FormatOps.WrapOrNull(headerFlags));
+            list.Add("detailFlags", FormatOps.WrapOrNull(detailFlags));
             list.Add("clientData", FormatOps.WrapOrNull(clientData));
             list.Add("arguments",
                 FormatOps.WrapOrNull(true, true, arguments));

@@ -339,6 +339,14 @@ namespace Eagle._Hosts
             get { return headerFlags; }
             set { headerFlags = value; }
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        protected virtual DetailFlags DetailFlags
+        {
+            get { return detailFlags; }
+            set { detailFlags = value; }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1978,6 +1986,13 @@ namespace Eagle._Hosts
         {
             return headerFlags;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private DetailFlags PrivateGetDetailFlags()
+        {
+            return detailFlags;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2203,11 +2218,9 @@ namespace Eagle._Hosts
         #region Detail Flags Support
         protected virtual void PopulateDetailFlags(
             Interpreter interpreter,
-            out DetailFlags detailFlags
+            ref DetailFlags detailFlags
             )
         {
-            detailFlags = DetailFlags.Default;
-
 #if DEBUGGER || SHELL
             if (interpreter != null)
                 detailFlags = interpreter.DetailFlags;
@@ -4538,6 +4551,65 @@ namespace Eagle._Hosts
         {
             return CommonOps.Runtime.IsDotNetCore();
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: Determines whether the host environment can
+        //       render Unicode box-drawing characters (U+2500
+        //       range) as single-width glyphs.  The default
+        //       implementation checks whether the output
+        //       encoding is a Unicode encoding (UTF-8, etc.)
+        //       and the runtime is modern enough to handle
+        //       it.  Subclasses may override to add platform
+        //       or terminal-specific checks.
+        //
+        protected virtual bool CanUseUnicodeBoxCharacters(
+            Encoding encoding /* in */
+            )
+        {
+#if UNIX
+            //
+            // NOTE: On .NET Core on Unix (Linux, macOS), modern
+            //       terminal emulators universally support Unicode
+            //       box-drawing characters via UTF-8.
+            //
+            if (ShouldTreatAsDotNetCore() &&
+                !PlatformOps.IsWindowsOperatingSystem())
+            {
+                //
+                // NOTE: If the encoding is known to be Unicode,
+                //       use Unicode box characters.
+                //
+                if (StringOps.IsUnicodeEncoding(encoding))
+                    return true;
+
+                //
+                // NOTE: If the encoding could not be determined
+                //       (null), check the locale environment as
+                //       a fallback.  On most modern Linux and
+                //       macOS systems, the locale is UTF-8.
+                //
+                if ((encoding == null) &&
+                    StringOps.IsUnicodeEncoding())
+                {
+                    return true;
+                }
+            }
+#endif
+
+            //
+            // NOTE: On Windows or when the encoding is
+            //       clearly not Unicode, do not attempt
+            //       Unicode box characters via this path
+            //       (the Windows path uses IsSingleByte
+            //       with code page 437 instead).
+            //
+            if (StringOps.IsUnicodeEncoding(encoding))
+                return true;
+
+            return false;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5312,13 +5384,52 @@ namespace Eagle._Hosts
             if (DoesRestoreColorAfterWrite())
             {
                 //
-                // HACK: This is only supported for hosts that derive
-                //       from the built-in console host.
+                // HACK: This is only supported for hosts that
+                //       derive from the built-in console host.
                 //
-                _Hosts.Console consoleHost = this as _Hosts.Console;
+                // BUGFIX: Do NOT call RestoreColors() here
+                //         because it acquires Console.syncRoot,
+                //         which is a different lock from the
+                //         staticSyncRoot already held by the
+                //         caller (WriteCore).  Acquiring two
+                //         different locks risks deadlock.
+                //         Instead, perform the equivalent
+                //         reset+set inline using methods that
+                //         do not acquire Console.syncRoot.
+                //
+                _Hosts.Console consoleHost =
+                    this as _Hosts.Console;
 
                 if (consoleHost != null)
-                    return consoleHost.RestoreColors();
+                {
+                    //
+                    // BUGFIX: On non-Windows terminals,
+                    //         setting a background color via
+                    //         ANSI escape codes causes the
+                    //         color to extend from the write
+                    //         position to the right margin.
+                    //         Always resetting attributes
+                    //         (ESC[0m via ResetColor) before
+                    //         restoring the saved colors
+                    //         prevents this line-fill bleed.
+                    //         On Windows, ResetColors is only
+                    //         needed when a saved color is
+                    //         None.
+                    //
+                    if (consoleHost.DoesResetColorForRestore() ||
+                        ((savedForegroundColor ==
+                            _ConsoleColor.None) ||
+                        (savedBackgroundColor ==
+                            _ConsoleColor.None)))
+                    {
+                        if (!ResetColors())
+                            return false;
+                    }
+
+                    return SetColors(true, true,
+                        savedForegroundColor,
+                        savedBackgroundColor);
+                }
             }
 #endif
 
@@ -6315,29 +6426,63 @@ namespace Eagle._Hosts
             Encoding encoding
             )
         {
+            StringList boxCharacterSets = BoxCharacterSets;
+
+            if (boxCharacterSets == null)
+            {
+                BoxCharacterSet = 0; /* SAFE */
+                return;
+            }
+
+            int count = boxCharacterSets.Count;
+
+            if (count <= 0)
+            {
+                BoxCharacterSet = 0; /* SAFE */
+                return;
+            }
+
 #if WINDOWS
+            //
+            // NOTE: On Windows, check if the encoding can
+            //       represent the highest-fidelity character
+            //       set as single bytes (e.g. code page 437).
+            //
             if (PlatformOps.IsWindowsOperatingSystem())
             {
-                StringList boxCharacterSets = BoxCharacterSets;
+                int index = count - 1;
 
-                if (boxCharacterSets == null)
-                    return;
-
-                int count = boxCharacterSets.Count;
-
-                if (count > 0)
+                if (StringOps.IsSingleByte(encoding,
+                        boxCharacterSets[index], true))
                 {
-                    int index = count - 1;
-
-                    if (StringOps.IsSingleByte(encoding,
-                            boxCharacterSets[index], true))
-                    {
-                        BoxCharacterSet = index;
-                        return;
-                    }
+                    BoxCharacterSet = index;
+                    return;
                 }
             }
 #endif
+
+            //
+            // NOTE: Check if the host environment supports
+            //       Unicode box-drawing characters for display.
+            //       If so, use the single-line Unicode set
+            //       (index 7), which is universally supported
+            //       in modern terminals.
+            //
+            if (CanUseUnicodeBoxCharacters(encoding))
+            {
+                //
+                // NOTE: Use single-line Unicode box characters
+                //       These have the best cross-terminal
+                //       compatibility.
+                //
+                int unicodeIndex = 7;
+
+                if (unicodeIndex < count)
+                {
+                    BoxCharacterSet = unicodeIndex;
+                    return;
+                }
+            }
 
             BoxCharacterSet = 0; /* SAFE */
         }
@@ -6348,6 +6493,21 @@ namespace Eagle._Hosts
             HostWriteType hostWriteType
             )
         {
+#if CONSOLE
+            //
+            // BUGFIX: On non-Windows terminals, background
+            //         colors extend from the write position to
+            //         the right margin via ANSI escape codes.
+            //         Explicitly reset all attributes before
+            //         writing the box newline to prevent the
+            //         box background color from filling the
+            //         remainder of the line.
+            //
+            if (DoesResetColorForRestore())
+                /* IGNORED */
+                ResetColors();
+#endif
+
             switch (hostWriteType)
             {
                 case HostWriteType.Normal:
@@ -7013,6 +7173,16 @@ namespace Eagle._Hosts
             CheckDisposed();
 
             return PrivateGetHeaderFlags();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private DetailFlags detailFlags = DetailFlags.Default;
+        public virtual DetailFlags GetDetailFlags()
+        {
+            CheckDisposed();
+
+            return PrivateGetDetailFlags();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -9162,9 +9332,10 @@ namespace Eagle._Hosts
             HeaderFlags headerFlags = (loopData != null) ?
                 loopData.HeaderFlags : HeaderFlags.Default;
 
-            DetailFlags detailFlags;
+            DetailFlags detailFlags = (loopData != null) ?
+                loopData.DetailFlags : DetailFlags.Default;
 
-            PopulateDetailFlags(interpreter, out detailFlags);
+            PopulateDetailFlags(interpreter, ref detailFlags);
             HeaderFlagsToDetailFlags(headerFlags, ref detailFlags);
 
             bool autoSize = FlagOps.HasFlags(
@@ -9784,6 +9955,11 @@ namespace Eagle._Hosts
 
             HeaderFlags headerFlags = (loopData != null) ?
                 loopData.HeaderFlags : HeaderFlags.Default;
+
+#if false
+            DetailFlags detailFlags = (loopData != null) ?
+                loopData.DetailFlags : DetailFlags.Default;
+#endif
 
             bool autoSize = FlagOps.HasFlags(
                 headerFlags, HeaderFlags.AutoSize, true);

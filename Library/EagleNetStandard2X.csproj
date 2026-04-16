@@ -1891,6 +1891,9 @@
     <Compile Include="Components\Private\ConsoleOps.cs" />
     <Compile Include="Hosts\Console.cs" />
   </ItemGroup>
+  <ItemGroup Condition="'$(EagleNative)' != 'false'">
+    <Compile Include="Components\Private\LineEditor.cs" />
+  </ItemGroup>
   <ItemGroup Condition="'$(EagleNetwork)' != 'false'">
     <Compile Include="Commands\Socket.cs" />
     <Compile Include="Components\Private\SocketClientData.cs" />
@@ -1965,6 +1968,11 @@
                         '$(EagleTcl)' != 'false'">
     <Compile Include="Components\Public\NativePackage.cs" />
     <Compile Include="Containers\Private\IntPtrInterpreterDictionary.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(EagleConsole)' != 'false' And
+                        '$(EagleNative)' != 'false' And
+                        '$(EagleUnix)' != 'false'">
+    <Compile Include="Components\Private\AnsiConsole.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleNative)' != 'false' And
                         '$(EagleWindows)' != 'false'">
@@ -2424,6 +2432,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Configurations\EagleConsole.ini" />
+    <None Include="Configurations\EagleConsoleDark.ini" />
+    <None Include="Configurations\EagleConsoleLight.ini" />
+    <None Include="Configurations\EagleConsoleMinimal.ini" />
     <None Include="Configurations\EagleConsoleNoColor.ini" />
   </ItemGroup>
   <ItemGroup>
