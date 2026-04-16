@@ -1788,9 +1788,11 @@ namespace Eagle._Components.Private
         File_Normalize = 40,
         File_ObjectId = 41,
         File_Rename = 42,
+
 #if !NET_STANDARD_20 && !MONO
         File_Sddl = 43,
 #endif
+
         File_Under = 44,
         File_Version = 45,
 
@@ -1820,9 +1822,11 @@ namespace Eagle._Components.Private
 
         Host_Beep = 51,
         Host_Color = 52,
+
 #if CONSOLE && NATIVE && WINDOWS
         Host_Font = 53,
 #endif
+
         Host_NamedColor = 54,
         Host_Position = 55,
         Host_Reset = 56,

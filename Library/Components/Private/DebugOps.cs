@@ -2422,19 +2422,16 @@ namespace Eagle._Components.Private
                     else
                     {
                         //
-                        // NOTE: Attempt to use the debug host
-                        //       first, since it handles colors
-                        //       and locking properly via the
-                        //       WriteCore pipeline.  Only fall
-                        //       back to the direct textWriter
-                        //       path if the host is unavailable
-                        //       or fails.  Using both paths
-                        //       concurrently causes a race
-                        //       condition where the textWriter
-                        //       write can interleave with
-                        //       another thread's colored write
-                        //       in WriteCore, causing color to
-                        //       bleed across lines.
+                        // NOTE: Attempt to use the debug host first, since
+                        //       it handles colors and locking properly via
+                        //       the WriteCore pipeline.  Only fallback to
+                        //       the direct TextWriter path if the host is
+                        //       unavailable or fails.  Using both paths
+                        //       concurrently causes a race condition where
+                        //       the TextWriter write could interleave with
+                        //       another thread writing with color enabled
+                        //       in the WriteCore pipeline, causing colors
+                        //       to "bleed" across lines.
                         //
                         bool wroteViaHost = false;
 
@@ -2443,17 +2440,13 @@ namespace Eagle._Components.Private
                         if (debugHost != null)
                         {
                             //
-                            // BUGFIX: The host may have been
-                            //         disposed at this point
-                            //         and we do NOT want to
-                            //         throw an exception;
-                            //         therefore, wrap the host
-                            //         access in a try block.
-                            //         If the host does throw
-                            //         an exception for any
-                            //         reason, we will simply
-                            //         null out the host and
-                            //         retry using our default
+                            // BUGFIX: The host may have been disposed at
+                            //         this point and we do NOT want to
+                            //         throw an exception; therefore, wrap
+                            //         the host access in a try block.  If
+                            //         the host does throw an exception for
+                            //         any reason, we will simply null out
+                            //         the host and retry using our default
                             //         handling.
                             //
                             try
@@ -2481,10 +2474,9 @@ namespace Eagle._Components.Private
                         ///////////////////////////////////////////////////////
 
                         //
-                        // NOTE: Only use the direct textWriter
-                        //       path if the host was unavailable
-                        //       or failed.  This avoids the
-                        //       color race condition described
+                        // NOTE: Only use the direct TextWriter path if the
+                        //       interpreter host was unavailable or failed.
+                        //       Avoids the color race condition described
                         //       above.
                         //
                         if (!wroteViaHost && (textWriter != null))

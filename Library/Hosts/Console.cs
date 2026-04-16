@@ -220,6 +220,9 @@ namespace Eagle._Hosts
 
         #region ANSI Escape Sequence Constants
 #if UNIX
+        //
+        // NOTE: This is purposely not read-only.
+        //
         private static string AnsiCursorBackFormat = "\x1B[{0}D";
 #endif
         #endregion

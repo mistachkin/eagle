@@ -515,6 +515,42 @@ namespace Eagle._Components.Private
 
         #region System.Console Support Methods (Mono 2.0 - 6.12)
 #if UNIX
+        private static ReturnCode PrivateSimulateEndOfTransmission(
+            ref Result error /* out */
+            )
+        {
+            try
+            {
+                //
+                // NOTE: On .NET Core on Unix, write newline to
+                //       "/dev/tty" to break out of the blocking
+                //       Console.ReadLine or readline call.  This
+                //       is the Unix equivalent of the Windows
+                //       SimulateReturnKey approach.
+                //
+                using (StreamWriter writer = new StreamWriter(
+                        new FileStream("/dev/tty", FileMode.Open,
+                        FileAccess.Write)))
+                {
+                    writer.WriteLine();
+                    writer.Flush();
+                }
+
+                return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(ConsoleOps).Name,
+                    TracePriority.ConsoleError);
+
+                error = e;
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: This method is used to support the IDebugHost.Cancel method
         //       when running on Unix (Mono).
@@ -525,44 +561,13 @@ namespace Eagle._Components.Private
         {
             if (!isMono)
             {
-#if UNIX || NET_STANDARD_20 || NET_STANDARD_21
-                //
-                // NOTE: On .NET Core on Unix, write a newline to
-                //       /dev/tty to break out of the blocking
-                //       Console.ReadLine() or readline() call.
-                //       This is the Unix equivalent of the
-                //       Windows SimulateReturnKey approach.
-                //
                 if (!PlatformOps.IsWindowsOperatingSystem())
-                {
-                    try
-                    {
-                        using (StreamWriter writer = new StreamWriter(
-                            new FileStream("/dev/tty",
-                                FileMode.Open, FileAccess.Write)))
-                        {
-                            writer.WriteLine();
-                            writer.Flush();
-                        }
-
-                        return ReturnCode.Ok;
-                    }
-                    catch (Exception e)
-                    {
-                        TraceOps.DebugTrace(
-                            e, typeof(ConsoleOps).Name,
-                            TracePriority.ConsoleError);
-
-                        error = e;
-                        return ReturnCode.Error;
-                    }
-                }
-#endif
+                    return PrivateSimulateEndOfTransmission(ref error);
 
                 //
-                // NOTE: On Windows (non-Mono), this is handled
-                //       by SimulateReturnKey via PostMessage;
-                //       therefore, just fake success.
+                // NOTE: On Windows (non-Mono), this will be handled by
+                //       SimulateReturnKey via PostMessage; therefore,
+                //       just fake success.
                 //
                 return ReturnCode.Ok;
             }
