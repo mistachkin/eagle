@@ -31,11 +31,9 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Build the managed projects
-        working-directory: ${{ github.workspace }}/Eagle
         run: make build-managed
 
       - name: Run the test suite
-        working-directory: ${{ github.workspace }}/Eagle
         env:
           EAGLE_TEST_TEMP: ${{ runner.temp }}
           logRemoteMessagePassword: ${{ secrets.LOG_REMOTE_MESSAGE_PASSWORD }}
