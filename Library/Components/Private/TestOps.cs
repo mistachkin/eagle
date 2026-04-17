@@ -39,23 +39,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-#if SHELL
-        private static readonly string SetCommandName = "::set";
+#if SHELL && !ENTERPRISE_LOCKDOWN
+        //
+        // NOTE: *TUNING* This is purposely not marked as read-only.
+        //
+        private static string SetCommandName = "::set";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal static readonly string TestToken = "%test%";
+        //
+        // NOTE: *TUNING* This is purposely not marked as read-only.
+        //
+        internal static string TestToken = "%test%";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static readonly string IsolationPrefix = "-isolation";
-        private static readonly int MinimumArgumentCount = 3;
-        private static readonly string MonoExecutableName = "mono";
-        private static readonly string LogFileOption = "-logFile"; /* NOTE: For "test.eagle" package. */
+        //
+        // NOTE: *TUNING* These are purposely not marked as read-only.
+        //
+        private static string IsolationPrefix = "-isolation";
+        private static int MinimumArgumentCount = 3;
+        private static string MonoExecutableName = "mono";
+        private static string LogFileOption = "-logFile"; /* NOTE: For "test.eagle" package. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static readonly string DotNetCoreExecutableArgument = "exec"; // TODO: Not official?
+        //
+        // NOTE: *TUNING* These are purposely not marked as read-only.
+        //
+        private static string DotNetCoreExecutableArgument = "exec"; // TODO: Not official?
+        private static string DotNetCoreRollForwardMajor = "--roll-forward"; // TODO: Not official?
+        private static string DotNetCoreMajor = "Major"; // TODO: Not official?
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2442,6 +2456,8 @@ namespace Eagle._Components.Private
                     firstArguments = new StringList();
 
                 firstArguments.Add(DotNetCoreExecutableArgument);
+                firstArguments.Add(DotNetCoreRollForwardMajor);
+                firstArguments.Add(DotNetCoreMajor);
 
                 //
                 // NOTE: Also, make sure the fully qualified path to
@@ -2664,6 +2680,7 @@ namespace Eagle._Components.Private
             StringList firstArguments, /* in */
             StringList otherArguments, /* in */
             StringList lastArguments,  /* in */
+            string text,               /* in */
             bool useEntryAssembly,     /* in */
             bool safe,                 /* in */
             bool security,             /* in */
@@ -2752,6 +2769,18 @@ namespace Eagle._Components.Private
                     ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Next, if there was a pre-initialize script specified
+            //       by the caller, add that now.
+            //
+            if (text != null)
+            {
+                list.Add(Characters.MinusSign + CommandLineOption.StartupPreInitialize);
+                list.Add(text);
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////

@@ -236,6 +236,26 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TESTING* This is purposely not marked as read-only.
         //
+        // NOTE: If this value is non-zero, the interpreter host will be
+        //       used to emit a complaint; otherwise, it will be skipped.
+        //
+        private static bool UseHostForComplain = true; // TODO: Good default?
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: *TESTING* This is purposely not marked as read-only.
+        //
+        // NOTE: If this value is non-zero, the text write will be used
+        //       to emit a complaint; otherwise, it will be skipped.
+        //
+        private static bool UseTextWriterForComplain = true; // TODO: Good default?
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: *TESTING* This is purposely not marked as read-only.
+        //
         // NOTE: If this value is non-zero, all complaints will be treated
         //       as trace messages instead of using the complaint handling
         //       subsystem.  It should be noted that the complaint counts
@@ -2437,7 +2457,7 @@ namespace Eagle._Components.Private
 
                     retryHost:
 
-                        if (debugHost != null)
+                        if (UseHostForComplain && (debugHost != null))
                         {
                             //
                             // BUGFIX: The host may have been disposed at
@@ -2479,7 +2499,8 @@ namespace Eagle._Components.Private
                         //       Avoids the color race condition described
                         //       above.
                         //
-                        if (!wroteViaHost && (textWriter != null))
+                        if (!wroteViaHost &&
+                            UseTextWriterForComplain && (textWriter != null))
                         {
                             bool locked = false;
 
@@ -2543,7 +2564,7 @@ namespace Eagle._Components.Private
                             }
                         }
 #if WINFORMS
-                        else
+                        else if (!wroteViaHost)
                         {
                             try
                             {

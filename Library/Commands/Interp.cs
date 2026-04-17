@@ -2396,6 +2396,14 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-flags", ref value))
                                                         flags = (PolicyFlags)value.Value;
 
+                                                    if (options.IsPresent("-isolated"))
+                                                        flags |= PolicyFlags.Isolated;
+
+                                                    string fileName = null;
+
+                                                    if (options.IsPresent("-file", ref value))
+                                                        fileName = value.ToString();
+
                                                     string path = arguments[argumentIndex];
                                                     Interpreter childInterpreter = null;
 
@@ -2418,6 +2426,7 @@ namespace Eagle._Commands
                                                                         code = childInterpreter.AddScriptPolicy(
                                                                             flags, type, token, interpreter,
                                                                             arguments[argumentIndex + 1],
+                                                                            fileName,
                                                                             plugin, clientData, ref result);
                                                                     }
                                                                     else

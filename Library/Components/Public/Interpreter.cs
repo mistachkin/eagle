@@ -25068,11 +25068,41 @@ namespace Eagle._Components.Public
             ref Result result
             )
         {
-            long token = 0;
-
             return AddScriptPolicy(
-                ScriptPolicy.Create(flags, commandType, commandToken, policyInterpreter, text),
-                plugin, clientData, ref token, ref result);
+                flags, commandType, commandToken,
+                policyInterpreter, text, null,
+                plugin, clientData, ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal ReturnCode AddScriptPolicy(
+            PolicyFlags flags,
+            Type commandType,
+            long commandToken,
+            Interpreter policyInterpreter,
+            string text,
+            string fileName,
+            IPlugin plugin,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                IScriptPolicy scriptPolicy = ScriptPolicy.Create(
+                    flags, commandType, commandToken, policyInterpreter,
+                    cultureInfo, text, fileName, ref result);
+
+                if (scriptPolicy == null)
+                    return ReturnCode.Error;
+
+                long token = 0;
+
+                return AddScriptPolicy(
+                    scriptPolicy, plugin, clientData, ref token,
+                    ref result);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

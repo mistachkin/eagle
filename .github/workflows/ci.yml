@@ -20,8 +20,6 @@ jobs:
 
     env:
       EAGLE_ROOT: ${{ github.workspace }}
-      DOTNET_NOLOGO: true
-      DOTNET_CLI_TELEMETRY_OPTOUT: true
 
     steps:
       - name: Checkout the Eagle repository
@@ -32,26 +30,13 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Build solution for the .NET Standard 2.1
-        run: >
-          dotnet build "$EAGLE_ROOT/EagleNetStandard2X.sln"
-          /property:EagleBuildType=NetStandard21
-          /property:EaglePatchLevel=false
+      - name: Build the managed projects
+        working-directory: ${{ github.workspace }}/Eagle
+        run: make build-managed
 
-      - name: Copy the .NET 10 runtime configuration file
-        run: >
-          cp "$EAGLE_ROOT/Shell/Configurations/dotNet/10.0/EagleShell.runtimeconfig.json"
-          "$EAGLE_ROOT/bin/DebugNetStandard21/bin/netcoreapp3.0"
-
-      - name: Run the test suite using the .NET 10 runtime
+      - name: Run the test suite
+        working-directory: ${{ github.workspace }}/Eagle
         env:
           EAGLE_TEST_TEMP: ${{ runner.temp }}
           logRemoteMessagePassword: ${{ secrets.LOG_REMOTE_MESSAGE_PASSWORD }}
-        run: >
-          dotnet exec
-          "$EAGLE_ROOT/bin/DebugNetStandard21/bin/netcoreapp3.0/EagleShell.dll"
-          -anyInitialize "set ::no(cleanState) 1"
-          -anyInitialize "set ::no(failTimingTests) 1"
-          -anyInitialize "set ::no(leak,runTest) 1"
-          -file "$EAGLE_ROOT/Library/Tests/all.eagle"
-          -skip interp-1.50000
+        run: make test

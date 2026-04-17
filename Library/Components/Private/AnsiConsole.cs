@@ -191,7 +191,11 @@ namespace Eagle._Components.Private
             //       standard output is not redirected (i.e. because an
             //       ANSI escape sequence is meaningless for files).
             //
+#if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
             return !System.Console.IsOutputRedirected;
+#else
+            return false;
+#endif
         }
 
         ///////////////////////////////////////////////////////////////////////

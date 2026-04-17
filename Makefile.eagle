@@ -53,8 +53,8 @@ apply [list [list] {
   }
 
   #
-  # NOTE: Always reset the active trace listeners so that we start with
-  #       a clean slate (i.e. zero trace listeners).
+  # NOTE: Always reset the active trace listeners so that we start with a
+  #       clean slate (i.e. zero trace listeners).
   #
   $arguments Add -preInitialize
   $arguments Add [list debug trace -resetlisteners true]
@@ -64,9 +64,25 @@ apply [list [list] {
   #       that script file to be evaluated before the core script library
   #       is fully initialized.
   #
-  if {[file exists $fileName(1)]} then {
+  if {![info exists ::no(testSuitePreInitialize)] && \
+      ![info exists ::env(testSuitePreInitialize)] && \
+      [file exists $fileName(1)]} then {
+    $arguments Add -preFile
+    $arguments Add $fileName(1)
+  }
+
+  #
+  # NOTE: Are we doing a GitHub Continuous Integration (CI) run?  If so,
+  #       there are several test suite settings that we need to enable.
+  #
+  if {[string is true -strict \
+      [getEnvironmentVariable GITHUB_ACTIONS]]} then {
     $arguments Add -preInitialize
-    $arguments Add [list source $fileName(1)]
+    $arguments Add [list set ::no(cleanState) 1]
+    $arguments Add -preInitialize
+    $arguments Add [list set ::no(failTimingTests) 1]
+    $arguments Add -preInitialize
+    $arguments Add [list set ::no(leak,runTest) 1]
   }
 
   #
@@ -80,8 +96,23 @@ apply [list [list] {
   #       that script file to be evaluated after the core script library
   #       is fully initialized.
   #
-  if {[file exists $fileName(2)]} then {
+  if {![info exists ::no(testSuitePostInitialize)] && \
+      ![info exists ::env(testSuitePostInitialize)] && \
+      [file exists $fileName(2)]} then {
+    $arguments Add -postFile
+    $arguments Add $fileName(2)
+  }
+
+  #
+  # NOTE: Are we doing a GitHub Continuous Integration (CI) run?  If so,
+  #       there are several tests that we want to skip as they intensive
+  #       (time, memory, etc) and do not need to run all the time.
+  #
+  if {[string is true -strict \
+      [getEnvironmentVariable GITHUB_ACTIONS]]} then {
     $arguments Add -postInitialize
-    $arguments Add [list source $fileName(2)]
+    $arguments Add [list package require Eagle.Test]
+    $arguments Add -postInitialize
+    $arguments Add [list addToArgv -skip [list interp-1.50000]]
   }
 }]

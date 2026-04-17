@@ -1576,6 +1576,10 @@ namespace Eagle._Components.Private
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
                     Index.Invalid, "-flags",
                     new Variant(PolicyFlags.Script)),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-isolated", null),
+                new Option(null, OptionFlags.MustHaveValue,
+                    Index.Invalid, Index.Invalid, "-file", null),
                 Option.CreateEndOfOptions()
             });
         }

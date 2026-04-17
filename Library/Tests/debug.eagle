@@ -175,6 +175,12 @@ runTest {test debug-1.4.1 {debug text writer} -setup {
     set savedDebugTextWriter null; # NOTE: Must be object.
   }
 
+  set savedUseHostForComplain [object invoke -flags +NonPublic \
+      Eagle._Components.Private.DebugOps UseHostForComplain]
+
+  object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
+      UseHostForComplain false
+
   object import System.IO; # StreamWriter
 } -body {
   set fileName [file join [getTemporaryPath] [appendArgs [file tail \
@@ -191,6 +197,12 @@ runTest {test debug-1.4.1 {debug text writer} -setup {
   unset -nocomplain textWriter
   catch {file delete $fileName}
   unset -nocomplain fileName
+
+  catch {object invoke -flags +NonPublic \
+      Eagle._Components.Private.DebugOps UseHostForComplain \
+      $savedUseHostForComplain}
+
+  unset -nocomplain savedUseHostForComplain
 
   catch {object invoke Interpreter.GetActive DebugTextWriter \
       $savedDebugTextWriter}
@@ -240,6 +252,12 @@ runTest {test debug-1.4.2 {debug text writer isolated} -setup [string map \
     set savedDebugTextWriter null; # NOTE: Must be object.
   }
 
+  set savedUseHostForComplain [object invoke -flags +NonPublic \
+      Eagle._Components.Private.DebugOps UseHostForComplain]
+
+  object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
+      UseHostForComplain false
+
   object import System.IO; # StreamWriter
 
   %enableInterpreterFlags%
@@ -270,6 +288,12 @@ runTest {test debug-1.4.2 {debug text writer isolated} -setup [string map \
   unset -nocomplain textWriter
   catch {file delete $fileName}
   unset -nocomplain fileName
+
+  catch {object invoke -flags +NonPublic \
+      Eagle._Components.Private.DebugOps UseHostForComplain \
+      $savedUseHostForComplain}
+
+  unset -nocomplain savedUseHostForComplain
 
   catch {object invoke Interpreter.GetActive DebugTextWriter \
       $savedDebugTextWriter}

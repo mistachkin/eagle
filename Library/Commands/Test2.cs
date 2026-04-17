@@ -942,7 +942,7 @@ namespace Eagle._Commands
                                                                                             isolationFirstArguments,
                                                                                             isolationOtherArguments,
                                                                                             isolationLastArguments,
-                                                                                            isolationUseEntryAssembly,
+                                                                                            text, isolationUseEntryAssembly,
                                                                                             testInterpreter.InternalIsSafe(),
                                                                                             security,
                                                                                             ref isolationExecutableArguments,

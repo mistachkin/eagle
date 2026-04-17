@@ -4633,6 +4633,9 @@ namespace Eagle._Components.Public
         NoAttributes = 0x1000000, /* Skip querying and combining the flags, etc,
                                    * from the underlying managed type. */
 
+        Isolated = 0x2000000,     /* The script policy should create and own a
+                                   * dedicated interpreter for evaluation. */
+
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         BeforeAny = BeforePlugin | BeforeScript | BeforeFile | BeforeStream |

@@ -39,10 +39,12 @@ proc getVars { after } {
                    auto_source_path base_path \
                    bin_file bin_path \
                    core_bin_path core_lib_path \
+                   "(?:compileCSharp )?" \
                    "(?:eagle_debugger )?" "(?:eagle_paths )?" \
                    eagle_platform "(?:eagle_shell )?" \
                    eagle_tests env \
                    errorCode errorInfo \
+                   "(?:getRuntimeCommandLine )?" \
                    key_path lib_path native_lib_path \
                    "(?:no )?" null \
                    root_path tcl_interactive \
@@ -111,9 +113,11 @@ proc getVars { after } {
   #
   set result [string trim [string map [list \
       "{(?:argc argv argv0 )?} " "(?:argc argv argv0 )?" \
+      "{(?:compileCSharp )?} " "(?:compileCSharp )?" \
       "{(?:eagle_debugger )?} " "(?:eagle_debugger )?" \
       "{(?:eagle_paths )?} " "(?:eagle_paths )?" \
       "{(?:eagle_shell )?} " "(?:eagle_shell )?" \
+      "{(?:getRuntimeCommandLine )?} " "(?:getRuntimeCommandLine )?" \
       "{(?:no )?} " "(?:no )?" \
       "{(?:tcl_prompt1 )?} " "(?:tcl_prompt1 )?" \
       "{(?:tcl_prompt2 )?} " "(?:tcl_prompt2 )?" \
