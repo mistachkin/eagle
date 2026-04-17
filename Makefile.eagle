@@ -36,7 +36,12 @@ apply [list [list] {
   set fileName(2) [file normalize \
       [file join $directory test_suite_post_initialize.eagle]]
 
-  if {![file exists $fileName(1)] && ![file exists $fileName(2)]} then {
+  #
+  # NOTE: If there is no setup work required by the test run, do nothing
+  #       and return now.
+  #
+  if {![file exists $fileName(1)] && ![file exists $fileName(2)] && \
+      ![string is true -strict [getEnvironmentVariable GITHUB_ACTIONS]]} then {
     return
   }
 

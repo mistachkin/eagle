@@ -37,6 +37,7 @@ jobs:
           IF EXIST Library\Resources\library.resources COPY /B Library\Resources\library.resources +,, Library\Resources\library.resources
           IF EXIST Library\Resources\messages.resources COPY /B Library\Resources\messages.resources +,, Library\Resources\messages.resources
           IF EXIST Library\Resources\packages.resources COPY /B Library\Resources\packages.resources +,, Library\Resources\packages.resources
+          IF EXIST Sample\Resources\packages.resources COPY /B Sample\Resources\packages.resources +,, Sample\Resources\packages.resources
 
       - name: Build the managed projects
         run: make build-managed
