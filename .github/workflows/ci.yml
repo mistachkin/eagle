@@ -30,6 +30,14 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Touch embedded resources to skip ResGen (Windows only)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          IF EXIST Library\Resources\library.resources COPY /B Library\Resources\library.resources +,, Library\Resources\library.resources
+          IF EXIST Library\Resources\messages.resources COPY /B Library\Resources\messages.resources +,, Library\Resources\messages.resources
+          IF EXIST Library\Resources\packages.resources COPY /B Library\Resources\packages.resources +,, Library\Resources\packages.resources
+
       - name: Build the managed projects
         run: make build-managed
 
