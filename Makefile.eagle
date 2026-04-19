@@ -14,7 +14,7 @@
 #
 ###############################################################################
 
-apply [list [list] {
+apply [list [list channel quiet] {
   #
   # HACK: Since this script file is being evaluated *prior* to the core
   #       script library being available we need to manually source the
@@ -77,8 +77,8 @@ apply [list [list] {
   }
 
   #
-  # NOTE: Are we doing a GitHub Continuous Integration (CI) run?  If so,
-  #       there are several test suite settings that we need to enable.
+  # NOTE: Are we doing a GitHub Actions run?  If so, there are several
+  #       Eagle test suite behavior overrides that we need to enable.
   #
   if {[string is true -strict \
       [getEnvironmentVariable GITHUB_ACTIONS]]} then {
@@ -109,9 +109,9 @@ apply [list [list] {
   }
 
   #
-  # NOTE: Are we doing a GitHub Continuous Integration (CI) run?  If so,
-  #       there are several tests that we want to skip as they intensive
-  #       (time, memory, etc) and do not need to run all the time.
+  # NOTE: Are we doing a GitHub Actions run?  If so, there are several
+  #       tests that we want to skip as they intensive (time, memory,
+  #       etc) and do not need to be run all the time.
   #
   if {[string is true -strict \
       [getEnvironmentVariable GITHUB_ACTIONS]]} then {
@@ -120,4 +120,30 @@ apply [list [list] {
     $arguments Add -postInitialize
     $arguments Add [list addToArgv -skip [list interp-1.50000]]
   }
-}]
+
+  #
+  # HACK: Make sure that all key GitHub workflow information ends up in
+  #       the test log file(s), for troubleshooting purposes.
+  #
+  if {!$quiet} then {
+    tqputs $channel [appendArgs \
+        "---- final shell arguments: " \
+        [$arguments ToString] \n]
+
+    foreach name [lsort [array names ::env]] {
+      if {$name eq "CI" || \
+          [string match GITHUB_* $name] || \
+          [string match RUNNER_* $name]} then {
+        set value [getEnvironmentVariable $name]
+
+        if {[string length $value] == 0} then {
+          set value <none>
+        }
+
+        tqputs $channel [appendArgs \
+            "---- GitHub workflow variable \"" \
+            $name "\": " $value \n]
+      }
+    }
+  }
+}] stdout false
