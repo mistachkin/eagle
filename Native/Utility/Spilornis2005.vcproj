@@ -421,6 +421,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\src\win\SpilornisWin32.h"
+				>
+			</File>
+			<File
 				RelativePath=".\src\generic\Spilornis.c"
 				>
 			</File>

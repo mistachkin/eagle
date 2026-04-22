@@ -1590,6 +1590,7 @@ set eagle_manifests(source) {
   Eagle/Native/Utility/src/generic/SpilornisInt.h
   Eagle/Native/Utility/src/win/DllMain.c
   Eagle/Native/Utility/src/win/Spilornis.def
+  Eagle/Native/Utility/src/win/SpilornisWin32.h
   Eagle/Native/Utility/Tools/compile-debug.sh
   Eagle/Native/Utility/Tools/compile-release.sh
   Eagle/Native/Utility/Tools/signViaBuild.bat
@@ -4107,6 +4108,7 @@ set eagle_manifests(nuGetSource) {
   src/Stub/Properties/AssemblyInfo.cs
   src/Native/Utility/src/generic/Spilornis.c
   src/Native/Utility/src/win/DllMain.c
+  src/Native/Utility/src/win/SpilornisWin32.h
   src/Native/Utility/src/generic/pkgVersion.h
   src/Native/Utility/src/generic/rcVersion.h
   src/Native/Utility/src/generic/Spilornis.h

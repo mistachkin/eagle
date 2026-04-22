@@ -134,7 +134,7 @@ all: build
 # =============================================================================
 
 validate-git: FORCE
-	@if ! $(GIT) --version > /dev/null 2>&1; then \
+	@if ! $(GIT) --version >/dev/null 2>&1; then \
 	    echo "ERROR: $(GIT) is not installed or not working properly."; \
 	    exit 1; \
 	fi
@@ -142,7 +142,7 @@ validate-git: FORCE
 # -----------------------------------------------------------------------------
 
 validate-dotnet: FORCE
-	@if ! $(DOTNET_ENV) $(DOTNET) --info > /dev/null 2>&1; then \
+	@if ! $(DOTNET_ENV) $(DOTNET) --info >/dev/null 2>&1; then \
 	    echo "ERROR: $(DOTNET) is not installed or not working properly."; \
 	    exit 1; \
 	fi

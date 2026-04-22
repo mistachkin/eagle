@@ -52,31 +52,44 @@
  * local functions.
  */
 
-#ifdef iswspace
-#  undef iswspace
-#endif
-
-#ifdef iswbdigit
-#  undef iswbdigit
-#endif
-
-#ifdef iswodigit
-#  undef iswodigit
-#endif
-
-#ifdef iswdigit
-#  undef iswdigit
-#endif
-
-#ifdef iswxdigit
-#  undef iswxdigit
-#endif
-
-#define iswspace				EagleIsSpace
-#define iswbdigit				EagleIsBinDigit
-#define iswodigit				EagleIsOctDigit
-#define iswdigit				EagleIsDecDigit
-#define iswxdigit				EagleIsHexDigit
+#if defined(NO_ISW_MACROS)
+#  if !defined(iswspace)
+#    define iswspace				EagleIsSpace
+#  endif
+#  if !defined(iswbdigit)
+#    define iswbdigit				EagleIsBinDigit
+#  endif
+#  if !defined(iswodigi)
+#    define iswodigit				EagleIsOctDigit
+#  endif
+#  if !defined(iswdigit)
+#    define iswdigit				EagleIsDecDigit
+#  endif
+#  if !defined(iswxdigit)
+#    define iswxdigit				EagleIsHexDigit
+#  endif
+#else /* !defined(NO_ISW_MACROS) */
+#  if defined(iswspace)
+#    undef iswspace
+#  endif
+#  if defined(iswbdigit)
+#    undef iswbdigit
+#  endif
+#  if defined(iswodigi)
+#    undef iswodigit
+#  endif
+#  if defined(iswdigit)
+#    undef iswdigit
+#  endif
+#  if defined(iswxdigit)
+#    undef iswxdigit
+#  endif
+#  define iswspace				EagleIsSpace
+#  define iswbdigit				EagleIsBinDigit
+#  define iswodigit				EagleIsOctDigit
+#  define iswdigit				EagleIsDecDigit
+#  define iswxdigit				EagleIsHexDigit
+#endif /*  defined(NO_ISW_MACROS) */
 
 /*
  * The following values are used in the flags returned by
@@ -107,36 +120,12 @@
 #define EAGLE_DONT_QUOTE_HASH			(8)
 
 /*
- * NOTE: Win32 API functions required by this file.  These functions are
- *       declared inline rather than simply including "windows.h" because
- *       that would bring in a ton of unrelated stuff that is completely
- *       unnecessary here.  Also, the "standard" Win32 type definitions
- *       would conflict with those already defined by this project.
+ * NOTE: Possibly define the specific Win32 API functions that we need, if
+ *	 needed, i.e. we are not including the "windows.h" header somehow.
  */
 
-#if defined(_WIN32)
-#if defined(USE_HEAPAPI) && USE_HEAPAPI
-extern __declspec(dllimport) BOOL __stdcall HeapValidate(
-			    HANDLE, DWORD, LPCVOID);
-
-extern __declspec(dllimport) LPVOID __stdcall HeapAlloc(
-			    HANDLE, DWORD, SIZE_T);
-
-extern __declspec(dllimport) SIZE_T __stdcall HeapSize(
-			    HANDLE, DWORD, LPCVOID);
-
-extern __declspec(dllimport) BOOL __stdcall HeapFree(
-			    HANDLE, DWORD, LPVOID);
-#endif
-
-extern __declspec(dllimport) DWORD __stdcall GetEnvironmentVariableW(
-			    LPCWSTR, LPWSTR, DWORD);
-
-extern __declspec(dllimport) VOID __stdcall OutputDebugStringA(LPCSTR);
-
-#if defined(USE_SYSSTRINGLEN) && USE_SYSSTRINGLEN
-extern __declspec(dllimport) UINT __stdcall SysStringLen(BSTR);
-#endif
+#if !defined(NO_INLINE_WIN32_PROTOTYPES) && defined(_WIN32)
+#include "SpilornisWin32.h"
 #endif
 
 /*

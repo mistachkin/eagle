@@ -27,6 +27,9 @@
     <ClCompile Include="src\win\DllMain.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClInclude Include="src\win\SpilornisWin32.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\win\Spilornis.def">

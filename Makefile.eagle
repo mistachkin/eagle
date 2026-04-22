@@ -16,120 +16,11 @@
 
 apply [list [list channel quiet] {
   #
-  # HACK: Since this script file is being evaluated *prior* to the core
-  #       script library being available we need to manually source the
-  #       core script library files that contain the procedures we need.
+  # NOTE: This is a script snippet to dump the GitHub Actions CI workflow
+  #       variables to the test log file(s), for troubleshooting purposes.
+  #       It will be used twice within this anonymous procedure.
   #
-  source lib/Eagle1.0/platform.eagle;  # [isEagle]
-  source lib/Eagle1.0/object.eagle;    # [isNonNullObjectHandle]
-  source lib/Eagle1.0/auxiliary.eagle; # [getEnvironmentVariable]
-
-  set interpreter [object invoke -alias Interpreter GetActive]
-  if {![isNonNullObjectHandle $interpreter]} then {return}
-
-  set directory [getEnvironmentVariable SCRIPT_ROOT]
-  if {![string is directory -strict $directory]} then {return}
-
-  set fileName(1) [file normalize \
-      [file join $directory test_suite_pre_initialize.eagle]]
-
-  set fileName(2) [file normalize \
-      [file join $directory test_suite_post_initialize.eagle]]
-
-  #
-  # NOTE: If there is no setup work required by the test run, do nothing
-  #       and return now.
-  #
-  if {![file exists $fileName(1)] && ![file exists $fileName(2)] && \
-      ![string is true -strict [getEnvironmentVariable GITHUB_ACTIONS]]} then {
-    return
-  }
-
-  #
-  # HACK: Attempt to grab the private "extra" shell arguments list from
-  #       the interpreter.  Typically, this value will be null.  In that
-  #       case, they will be created automatically by this procedure.
-  #
-  set arguments [$interpreter -flags +NonPublic -create -alias ShellArguments]
-
-  if {![isNonNullObjectHandle $arguments]} then {
-    set arguments [object create -alias StringList]
-    $interpreter -flags +NonPublic ShellArguments $arguments
-  }
-
-  #
-  # NOTE: Always reset the active trace listeners so that we start with a
-  #       clean slate (i.e. zero trace listeners).
-  #
-  $arguments Add -preInitialize
-  $arguments Add [list debug trace -resetlisteners true]
-
-  #
-  # NOTE: If a pre-initialize script file exists, attempt to arrange for
-  #       that script file to be evaluated before the core script library
-  #       is fully initialized.
-  #
-  if {![info exists ::no(testSuitePreInitialize)] && \
-      ![info exists ::env(testSuitePreInitialize)] && \
-      [file exists $fileName(1)]} then {
-    $arguments Add -preFile
-    $arguments Add $fileName(1)
-  }
-
-  #
-  # NOTE: Are we doing a GitHub Actions run?  If so, there are several
-  #       Eagle test suite behavior overrides that we need to enable.
-  #
-  if {[string is true -strict \
-      [getEnvironmentVariable GITHUB_ACTIONS]]} then {
-    $arguments Add -preInitialize
-    $arguments Add [list set ::no(cleanState) 1]
-    $arguments Add -preInitialize
-    $arguments Add [list set ::no(failTimingTests) 1]
-    $arguments Add -preInitialize
-    $arguments Add [list set ::no(leak,runTest) 1]
-  }
-
-  #
-  # NOTE: Arrange for the core script library to be fully initialized at
-  #       this point as that is required by the next shell argument.
-  #
-  $arguments Add -initialize
-
-  #
-  # NOTE: If a post-initialize script file exists, attempt to arrange for
-  #       that script file to be evaluated after the core script library
-  #       is fully initialized.
-  #
-  if {![info exists ::no(testSuitePostInitialize)] && \
-      ![info exists ::env(testSuitePostInitialize)] && \
-      [file exists $fileName(2)]} then {
-    $arguments Add -postFile
-    $arguments Add $fileName(2)
-  }
-
-  #
-  # NOTE: Are we doing a GitHub Actions run?  If so, there are several
-  #       tests that we want to skip as they intensive (time, memory,
-  #       etc) and do not need to be run all the time.
-  #
-  if {[string is true -strict \
-      [getEnvironmentVariable GITHUB_ACTIONS]]} then {
-    $arguments Add -postInitialize
-    $arguments Add [list package require Eagle.Test]
-    $arguments Add -postInitialize
-    $arguments Add [list addToArgv -skip [list interp-1.50000]]
-  }
-
-  #
-  # HACK: Make sure that all key GitHub workflow information ends up in
-  #       the test log file(s), for troubleshooting purposes.
-  #
-  if {!$quiet} then {
-    tqputs $channel [appendArgs \
-        "---- final shell arguments: " \
-        [$arguments ToString] \n]
-
+  set tqputs_workflow_environment {
     foreach name [lsort [array names ::env]] {
       if {$name eq "CI" || \
           [string match GITHUB_* $name] || \
@@ -141,9 +32,174 @@ apply [list [list channel quiet] {
         }
 
         tqputs $channel [appendArgs \
-            "---- GitHub workflow variable \"" \
-            $name "\": " $value \n]
+            "---- GitHub workflow variable \"" $name "\": " $value \n]
       }
     }
+  }
+
+  #############################################################################
+  #
+  # HACK: Since this script file is being evaluated *prior* to the core
+  #       script library being available we need to manually source the
+  #       core script library files that contain the procedures we need.
+  #
+  source lib/Eagle1.0/platform.eagle;  # [isEagle]
+  source lib/Eagle1.0/object.eagle;    # [isNonNullObjectHandle]
+  source lib/Eagle1.0/auxiliary.eagle; # [getEnvironmentVariable]
+  source lib/Eagle1.0/testlog.eagle;   # [tqputs]
+
+  set interpreter [object invoke -alias Interpreter GetActive]
+  if {![isNonNullObjectHandle $interpreter]} then {return}
+
+  set directory [getEnvironmentVariable SCRIPT_ROOT]
+  if {![string is directory -strict $directory]} then {return}
+
+  #############################################################################
+  #
+  # HACK: Attempt to locate the optional pre-initialize / post-initialize
+  #       script files typically used with the full Eagle test suite.
+  #
+  set fileName(1) [file normalize \
+      [file join $directory test_suite_pre_initialize.eagle]]
+
+  set fileName(2) [file normalize \
+      [file join $directory test_suite_post_initialize.eagle]]
+
+  set haveFile(1) [file exists $fileName(1)]
+  set haveFile(2) [file exists $fileName(2)]
+
+  #############################################################################
+  #
+  # HACK: Attempt to grab the private "extra" shell arguments list from
+  #       the interpreter.  Typically, this value will be null.  In that
+  #       case, they will be created automatically by this procedure.
+  #
+  set arguments [$interpreter \
+      -flags +NonPublic -create -alias ShellArguments]
+
+  if {![isNonNullObjectHandle $arguments]} then {
+    set arguments [object create -alias StringList]
+    $interpreter -flags +NonPublic ShellArguments $arguments
+  }
+
+  #############################################################################
+  #
+  # HACK: Make sure the initial GitHub Actions CI workflow information ends
+  #       up in the test log file(s), for troubleshooting purposes.
+  #
+  if {!$quiet} then {
+    set toString [$arguments ToString]
+    if {[string length $toString] == 0} then {set toString <none>}
+
+    tqputs $channel [appendArgs \
+        "---- initial extra shell arguments: " $toString \n]
+
+    eval $tqputs_workflow_environment
+  }
+
+  #############################################################################
+  #
+  # NOTE: Are we doing a GitHub Actions CI workflow run?
+  #
+  set running_on_ci [string is true -strict [getEnvironmentVariable CI]]
+
+  #############################################################################
+  #
+  # NOTE: If there is no setup work required by the test run, do nothing
+  #       and return now.
+  #
+  if {!$running_on_ci && !$haveFile(1) && !$haveFile(2)} then {
+    return
+  }
+
+  #############################################################################
+  #
+  # NOTE: Always reset the active trace listeners so that we start with a
+  #       clean slate (i.e. zero trace listeners).
+  #
+  $arguments Add -preInitialize
+  $arguments Add [list debug trace -resetlisteners true]
+
+  #############################################################################
+  #
+  # NOTE: If a pre-initialize script file exists, attempt to arrange for
+  #       that script file to be evaluated before the core script library
+  #       is fully initialized.
+  #
+  # NOTE: Otherwise, are we doing a GitHub Actions CI workflow run?  If so,
+  #       there are several Eagle test suite "behavioral overrides" that we
+  #       need to enable.
+  #
+  if {$haveFile(1) && \
+      ![info exists ::no(NoTestSuitePreInitialize)] && \
+      ![info exists ::env(NoTestSuitePreInitialize)]} then {
+    $arguments Add -preFile
+    $arguments Add $fileName(1)
+  } elseif {$running_on_ci} then {
+    $arguments Add -preInitialize
+
+    $arguments Add [list \
+        set ::getRuntimeCommandLine(dotNetCoreExecArgs) \
+        [list --roll-forward Major]]
+
+    $arguments Add -preInitialize
+
+    $arguments Add [list \
+        set ::compileCSharp(dotNetCoreExecArgs) \
+        [list --roll-forward Major]]
+
+    $arguments Add -preInitialize
+    $arguments Add [list set ::no(cleanState) 1]
+    $arguments Add -preInitialize
+    $arguments Add [list set ::no(failTimingTests) 1]
+    $arguments Add -preInitialize
+    $arguments Add [list set ::no(leak,runTest) 1]
+  }
+
+  #############################################################################
+  #
+  # NOTE: Arrange for the core script library to be fully initialized at
+  #       this point, as that is required by the next shell argument.  It
+  #       should be noted that the "-preInitialize" / "-preFile" options
+  #       are not legal after this option and that the "-postInitialize"
+  #       / "-postFile" options are not legal before this option.
+  #
+  $arguments Add -initialize
+
+  #############################################################################
+  #
+  # NOTE: If a post-initialize script file exists, attempt to arrange for
+  #       that script file to be evaluated after the core script library
+  #       is fully initialized.
+  #
+  # NOTE: Are we doing a GitHub Actions CI workflow run?  If so, there are
+  #       several tests that we want to skip as they intensive (e.g. time,
+  #       memory, etc) and do not need to be run all the time.
+  #
+  if {$haveFile(2) && \
+      ![info exists ::no(NoTestSuitePostInitialize)] && \
+      ![info exists ::env(NoTestSuitePostInitialize)]} then {
+    $arguments Add -postFile
+    $arguments Add $fileName(2)
+  } elseif {$running_on_ci} then {
+    $arguments Add -postInitialize
+    $arguments Add [list package require Eagle.Test]
+    $arguments Add -postInitialize
+    $arguments Add [list addToArgv -skip [list interp-1.50000]]
+  }
+
+  #############################################################################
+  #
+  # HACK: Make sure the final GitHub Actions CI workflow information ends
+  #       up in the test log file(s), for troubleshooting purposes.
+  #
+  if {!$quiet} then {
+    set toString [$arguments ToString]
+    if {[string length $toString] == 0} then {set toString <none>}
+
+    tqputs $channel [appendArgs \
+        "---- final extra shell arguments: " $toString \n]
+
+    eval $tqputs_workflow_environment
   }
 }] stdout false

@@ -259,6 +259,7 @@ $(COPY_BUILD_COMMAND_RELEASE_X64)</Command>
   <ItemGroup>
     <ClCompile Include="src\generic\Spilornis.c" />
     <ClCompile Include="src\win\DllMain.c" />
+    <ClCompile Include="src\win\SpilornisWin32.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\win\Spilornis.def" />
