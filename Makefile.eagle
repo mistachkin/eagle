@@ -52,7 +52,7 @@ apply [list [list channel quiet] {
   if {![isNonNullObjectHandle $interpreter]} then {return}
 
   set directory [getEnvironmentVariable SCRIPT_ROOT]
-  if {![string is directory -strict $directory]} then {return}
+  if {![string is directory -strict $directory]} then {set directory [pwd]}
 
   #############################################################################
   #
