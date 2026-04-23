@@ -1,2 +1,3 @@
 *.eagle linguist-language=Tcl
 *.eeagle linguist-language=Tcl
+* -text

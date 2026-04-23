@@ -545,6 +545,11 @@ runTest {test fileIO-2.1.2 {file dirname} -body {
 #       this test has a different expected result for its third call to
 #       the [file dirname] sub-command.
 #
+# HACK: At several points, the implementation of the Path.GetDirectoryName
+#       method was changed in ways that impacted the expected results for
+#       this test, e.g. prior to the .NET Framework v4.6.2 (and later) and
+#       at some point in the .NET (Core?) runtime development cycle.
+#
 runTest {test fileIO-2.1.3 {file dirname} -body {
   list [file dirname .] [file dirname ..] [file dirname :C/] \
       [file dirname C:/] [file dirname C:\\] [file dirname C:\\foo] \
@@ -557,7 +562,8 @@ runTest {test fileIO-2.1.3 {file dirname} -body {
 [haveConstraint targetFramework.NETFramework.Version.v4.7.2] || \
 [haveConstraint targetFramework.NETFramework.Version.v4.8] || \
 [haveConstraint targetFramework.NETFramework.Version.v4.8.1] || \
-[haveConstraint dotNetCore]} -result {. . :C C:/ C:/ C:/ C:/foo . foo foo}}
+[haveConstraint dotNetCore]} -match regexp -result \
+{^\. \. (?::C C:/ C:/|\. C: C:) C:/ C:/foo \. foo foo$}}
 
 ###############################################################################
 

@@ -105,19 +105,21 @@ runTest {test array-1.11 {normal array searches} -setup {
 runTest {test array-1.12 {env array searches} -setup {
   set s [array startsearch env]
 } -body {
-  set result [list]
+  set result 0
 
   while {[array anymore env $s]} {
-    if {[array nextelement env $s] eq "windir"} then {
-      lappend result windir
+    set n [array nextelement env $s]
+
+    if {[string match -nocase windir $n]} then {
+      set result 1; break
     }
   }
 
   set result
 } -cleanup {
   array donesearch env $s
-  unset -nocomplain result s
-} -constraints {tclBug windows} -result {windir}}
+  unset -nocomplain result s n
+} -constraints {tclBug windows} -result {1}}
 
 ###############################################################################
 
