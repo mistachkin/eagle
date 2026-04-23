@@ -38,8 +38,8 @@ proc getVars { after } {
                    auto_index auto_path \
                    auto_source_path base_path \
                    bin_file bin_path \
-                   core_bin_path core_lib_path \
                    "(?:compileCSharp )?" \
+                   core_bin_path core_lib_path \
                    "(?:eagle_debugger )?" "(?:eagle_paths )?" \
                    eagle_platform "(?:eagle_shell )?" \
                    eagle_tests env \
