@@ -193,7 +193,7 @@ add-sds-pkg: validate-dotnet
 build-managed: validate-dotnet add-sds-pkg
 	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
 	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
-	RID=$$($(DOTNET_ENV) $(DOTNET) --info | grep 'RID:' | sed 's/.*RID: *//;s/ *$$//') && $(CP) "$(BUILD_DIRECTORY)/runtimes/$$RID/native/SQLite.Interop.dll" "$(BUILD_DIRECTORY)"
+	-RID=$$($(DOTNET_ENV) $(DOTNET) --info | grep 'RID:' | sed 's/.*RID: *//;s/ *$$//') && $(CP) "$(BUILD_DIRECTORY)/runtimes/$$RID/native/SQLite.Interop.dll" "$(BUILD_DIRECTORY)"
 	$(CP) Library/Configurations/* "$(BUILD_DIRECTORY)"
 
 # -----------------------------------------------------------------------------
@@ -217,7 +217,7 @@ rebuild-native: force-clean build-native
 rebuild-managed: validate-dotnet add-sds-pkg
 	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
 	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
-	RID=$$($(DOTNET_ENV) $(DOTNET) --info | grep 'RID:' | sed 's/.*RID: *//;s/ *$$//') && $(CP) "$(BUILD_DIRECTORY)/runtimes/$$RID/native/SQLite.Interop.dll" "$(BUILD_DIRECTORY)"
+	-RID=$$($(DOTNET_ENV) $(DOTNET) --info | grep 'RID:' | sed 's/.*RID: *//;s/ *$$//') && $(CP) "$(BUILD_DIRECTORY)/runtimes/$$RID/native/SQLite.Interop.dll" "$(BUILD_DIRECTORY)"
 	$(CP) Library/Configurations/* "$(BUILD_DIRECTORY)"
 
 # -----------------------------------------------------------------------------
