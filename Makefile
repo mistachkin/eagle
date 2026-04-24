@@ -59,25 +59,34 @@ MKDIR_P = mkdir -p
 CP = cp
 CP_R = $(CP) -R
 
+MV = mv
+SED = sed
+
 CHMOD = chmod
 CHMOD_R = $(CHMOD) -R
 CHMOD_PERMS = a+rX,og-w
 
 DOTNET = dotnet
+DOTNET_FRAMEWORK = netcoreapp3.0
 DOTNET_ARGS = --roll-forward Major
+
+# -----------------------------------------------------------------------------
+
+DOTNET_SDS_PKG_NAME = System.Data.SQLite.Core
+DOTNET_SDS_PKG_VERSION = 1.0.119.0
 
 # -----------------------------------------------------------------------------
 
 BUILD_MANAGED_CONFIGURATION = Debug
 BUILD_NATIVE_CONFIGURATION = debug
 BUILD_TYPE = NetStandard21
-BUILD_NET_DIRECTORY = netcoreapp3.0
 BUILD_SOLUTION_1 = EagleEnterpriseNetStandard2X.sln
 BUILD_SOLUTION_2 = EagleNetStandard2X.sln
 
 # -----------------------------------------------------------------------------
 
 BUILD_SUB_DIRECTORY = $(BUILD_MANAGED_CONFIGURATION)$(BUILD_TYPE)
+BUILD_NET_DIRECTORY = $(DOTNET_FRAMEWORK)
 BUILD_DIRECTORY = bin/$(BUILD_SUB_DIRECTORY)/bin/$(BUILD_NET_DIRECTORY)
 
 BUILD_ARGS = \
@@ -177,9 +186,14 @@ restore: validate-dotnet
 #                                Build Targets
 # =============================================================================
 
-build-managed: validate-dotnet
+add-sds-pkg: validate-dotnet
+	$(SED) 's|!-- $(DOTNET_SDS_PKG_NAME) --|PackageReference Include="$(DOTNET_SDS_PKG_NAME)" Version="$(DOTNET_SDS_PKG_VERSION)" /|' "Shell/EagleShellNetStandard2X.csproj" > "Shell/EagleShellNetStandard2X.csproj.tmp" && $(MV) Shell/EagleShellNetStandard2X.csproj.tmp Shell/EagleShellNetStandard2X.csproj
+	$(DOTNET_ENV) $(DOTNET) restore Shell/EagleShellNetStandard2X.csproj
+
+build-managed: validate-dotnet add-sds-pkg
 	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
 	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
+	RID=$$($(DOTNET_ENV) $(DOTNET) --info | grep 'RID:' | sed 's/.*RID: *//;s/ *$$//') && $(CP) "$(BUILD_DIRECTORY)/runtimes/$$RID/native/SQLite.Interop.dll" "$(BUILD_DIRECTORY)"
 	$(CP) Library/Configurations/* "$(BUILD_DIRECTORY)"
 
 # -----------------------------------------------------------------------------
@@ -200,9 +214,10 @@ rebuild-native: force-clean build-native
 
 # -----------------------------------------------------------------------------
 
-rebuild-managed: validate-dotnet
+rebuild-managed: validate-dotnet add-sds-pkg
 	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
 	$(DOTNET_ENV) $(DOTNET) build /target:Rebuild "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_2)" $(BUILD_ARGS)
+	RID=$$($(DOTNET_ENV) $(DOTNET) --info | grep 'RID:' | sed 's/.*RID: *//;s/ *$$//') && $(CP) "$(BUILD_DIRECTORY)/runtimes/$$RID/native/SQLite.Interop.dll" "$(BUILD_DIRECTORY)"
 	$(CP) Library/Configurations/* "$(BUILD_DIRECTORY)"
 
 # -----------------------------------------------------------------------------

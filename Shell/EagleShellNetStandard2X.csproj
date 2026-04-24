@@ -471,11 +471,13 @@
                         '$(EagleNetStandard21)' == 'false' And
                         '$(EagleNetCoreReferences)' != 'false'">
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="5.0.1" />
+    <!-- System.Data.SQLite.Core -->
   </ItemGroup>
   <ItemGroup Condition="'$(EagleNetStandard20)' != 'false' And
                         '$(EagleNetStandard21)' != 'false' And
                         '$(EagleNetCoreReferences)' != 'false'">
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
+    <!-- System.Data.SQLite.Core -->
   </ItemGroup>
 
   <!--
