@@ -182,13 +182,13 @@ restore: validate-dotnet
 	$(DOTNET_ENV) $(DOTNET) restore "$(BUILD_SOLUTION_1)" || \
 	$(DOTNET_ENV) $(DOTNET) restore "$(BUILD_SOLUTION_2)"
 
-# =============================================================================
-#                                Build Targets
-# =============================================================================
-
 add-sds-pkg: validate-dotnet
 	$(SED) 's|!-- $(DOTNET_SDS_PKG_NAME) --|PackageReference Include="$(DOTNET_SDS_PKG_NAME)" Version="$(DOTNET_SDS_PKG_VERSION)" /|' "Shell/EagleShellNetStandard2X.csproj" > "Shell/EagleShellNetStandard2X.csproj.tmp" && $(MV) Shell/EagleShellNetStandard2X.csproj.tmp Shell/EagleShellNetStandard2X.csproj
 	$(DOTNET_ENV) $(DOTNET) restore Shell/EagleShellNetStandard2X.csproj
+
+# =============================================================================
+#                                Build Targets
+# =============================================================================
 
 build-managed: validate-dotnet add-sds-pkg
 	$(DOTNET_ENV) $(DOTNET) build /target:Build "/property:Configuration=$(BUILD_MANAGED_CONFIGURATION)" "$(BUILD_SOLUTION_1)" $(BUILD_ARGS) || \
@@ -415,6 +415,7 @@ help: FORCE
 	@echo "  rebuild-native   - Rebuild native projects only."
 	@echo ""
 	@echo "  restore          - Restore NuGet packages."
+	@echo "  add-sds-pkg      - Add System.Data.SQLite.Core shell package."
 	@echo ""
 	@echo "  run              - Run the interactive shell."
 	@echo "  shell            - Alias for \"run\"."
