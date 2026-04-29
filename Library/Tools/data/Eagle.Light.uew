@@ -1,4 +1,4 @@
-/L20"Eagle Light" Line Comment = # String Chars = " Escape Char = \ DisableMLS File Extensions = EAGLE RULESET
+/L20"Eagle Light" Line Comment = # String Chars = " Escape Char = \ DisableMLS File Extensions = EAGLE RULESET TH8
 /Delimiters = ~!@%^&*()+=|\/{}[]:;"'	<> ,?#
 /Function String = "^{proc^}^{nproc^} ^([a-zA-Z_0-9]++ {[ a-zA-Z_0-9{}]++^)"
 /Indent Strings = "{"

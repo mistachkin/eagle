@@ -29,7 +29,7 @@
 # variable set to the correct version, the native .NET libraries cannot be
 # successfully built and will be always be skipped.
 #
-# DOTNET_SDK_VERSION = 10.0.5
+# DOTNET_SDK_VERSION = 10.0.7
 
 # =============================================================================
 #                     Installation Configuration Variables
