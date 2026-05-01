@@ -13,6 +13,39 @@
 # RCS: @(#) $Id: $
 #
 ###############################################################################
+#
+# What this file does.
+#
+# This is the "primary" loader script -- sourced by pkgIndex.tcl for the
+# [package require Garuda] / [package require GarudaDotNetFx] / [package
+# require GarudaDotNetCore] cases.  Its job is to set per-package
+# configuration defaults appropriate for "I want Garuda fully loaded,
+# CLR started, and the Eagle bridge connected, in one [package require]
+# call".
+#
+# The mechanism is uniform across this file, dotnet.tcl, and helper.tcl:
+# each loader script declares its preferred default values for a
+# documented set of ::Garuda::* configuration variables, then sources
+# helper.tcl which reads those variables and acts on them.  Variables
+# that a downstream embedder pre-set BEFORE the [package require] are
+# preserved unchanged (the [info exists] guards see the existing value
+# and skip the assignment), letting embedders override anything they
+# care about without forking the loader.
+#
+# Variables this file sets (default values shown):
+#
+#   setupAndLoad   true   Load Garuda.dll AND start the CLR AND start
+#                          the bridge.  The "do everything" flag.
+#
+# Compare with dotnet.tcl, which sets setupAndLoad=true but
+# startClr=false and startBridge=false -- a more conservative "load only"
+# defaults profile for embedders that want to defer CLR commitment.
+#
+# Other variables (useCoreClr, noNormalize, methodFlags, ...) are NOT
+# touched here and inherit helper.tcl's own defaults -- those are the
+# more numerous configuration knobs that helper.tcl documents.
+#
+###############################################################################
 
 #
 # NOTE: This script file uses features that are only present in Tcl 8.4 or
@@ -40,6 +73,20 @@ namespace eval ::Garuda {
   #
   # NOTE: Also defined in and used by "helper.tcl".
   #
+  # Path-canonicalization helper.  Returns [file normalize $path] under
+  # default configuration.  An embedder that has explicitly set
+  # ::Garuda::noNormalize true gets the raw path back unchanged -- useful
+  # when the embedder is on a network filesystem or junction point
+  # where Tcl's normalizer would resolve away a symlink the embedder
+  # specifically wants to preserve.  The `force` argument is a per-call
+  # override that bypasses noNormalize for paths that MUST be canonical
+  # regardless of the configuration knob (e.g. the package's own
+  # location, used to compute lib/ subdirectory paths).
+  #
+  # Defined here AND in helper.tcl because this file may run before
+  # helper.tcl sources, and the package-startup section below uses it
+  # immediately to discover packagePath.  Keep both copies in sync.
+  #
   proc fileNormalize { path {force false} } {
     variable noNormalize
 
@@ -54,6 +101,18 @@ namespace eval ::Garuda {
   #********************* PACKAGE VARIABLE SETUP PROCEDURE *********************
   #############################################################################
 
+  #
+  # Set this file's preferred defaults into the ::Garuda namespace.
+  # Each variable uses the "guarded assignment" pattern:
+  #
+  #     variable foo
+  #     if {![info exists foo]} then { set foo <our-default> }
+  #
+  # which preserves any value an embedder pre-set before [package require]
+  # while still installing a default for the unconfigured case.  See the
+  # file-level comment block for the variable inventory and how this
+  # file's defaults differ from dotnet.tcl's.
+  #
   proc setupGarudaVariables { directory } {
     ###########################################################################
     #************* NATIVE PACKAGE GENERAL CONFIGURATION VARIABLES *************
@@ -74,6 +133,26 @@ namespace eval ::Garuda {
   #***************************** PACKAGE STARTUP ******************************
   #############################################################################
 
+  #
+  # Three-step startup, all running in ::Garuda's namespace context:
+  #
+  #   1. Pin packagePath to this file's directory.  [info script] gives
+  #      the .tcl path Tcl is currently sourcing; [file dirname] yields
+  #      the lib/ directory which contains all of Garuda's auxiliary
+  #      files (helper.tcl, the .dll/.so, the runtimeconfig.json, etc).
+  #      Forced canonicalization (`force=true`) -- the package directory
+  #      MUST be the resolved path so subsequent [file join] calls
+  #      land where the package files actually live, even if
+  #      noNormalize is set globally.
+  #
+  #   2. Apply this file's configuration defaults via setupGarudaVariables.
+  #      No-op for any variable an embedder pre-set.
+  #
+  #   3. Source helper.tcl with [uplevel 1] so its top-level code runs in
+  #      the same namespace context as this file (::Garuda) -- without
+  #      uplevel it would source into setupGarudaVariables's stack frame,
+  #      which would scope its variables incorrectly.  The same uplevel
+  #      pattern appears in dotnet.tcl.
   #
   # NOTE: Next, save the package path for later use.
   #

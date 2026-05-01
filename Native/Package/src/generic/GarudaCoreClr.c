@@ -85,14 +85,34 @@ static volatile BOOL bCoreClrBridgeStarted = FALSE;
  *
  * GetCoreClrWasLoaded --
  *
- *	This function returns a boolean value that indicates whether
- *	or not the CoreCLR has been loaded.
+ *	Test whether THIS package has loaded the CoreCLR shared
+ *	library (hostfxr) into the current process.
+ *
+ * Why / How:
+ *	"Loaded" here is a strict claim about the loader-level
+ *	mapping done by THIS package, not a global "is some copy
+ *	of the CoreCLR present in the process" check.  The
+ *	pCoreClrModule global is set by LoadAndStartTheCoreClr
+ *	when its dlopen / LoadLibraryW call succeeds, and cleared
+ *	by StopAndReleaseTheCoreClr after the matching
+ *	dlclose / FreeLibrary call.  Concurrent package callers
+ *	(of which there should be at most one in practice, but
+ *	the field is package-mutex protected anyway) all see a
+ *	consistent value.
+ *
+ *	The package mutex is held only across the read of the
+ *	module pointer.  Callers that need to use the resulting
+ *	BOOL must understand that another thread could change
+ *	the state immediately after this returns; this is
+ *	therefore a diagnostic / fast-path predicate, not a
+ *	synchronization primitive.
  *
  * Results:
- *	Non-zero if the CoreCLR has been loaded; otherwise, zero.
+ *	TRUE if pCoreClrModule is non-NULL at the moment of the
+ *	read; FALSE otherwise.
  *
  * Side effects:
- *	None.
+ *	None.  Briefly acquires and releases the package mutex.
  *
  *----------------------------------------------------------------------
  */
@@ -113,14 +133,33 @@ BOOL GetCoreClrWasLoaded(void)
  *
  * GetCoreClrWasStarted --
  *
- *	This function returns a boolean value that indicates whether
- *	or not the CoreCLR has been started.
+ *	Test whether the CoreCLR has been initialized AND a
+ *	hostfxr context is held by this package.
+ *
+ * Why / How:
+ *	"Started" is a stronger claim than "loaded": LoadAndStart
+ *	can be invoked with bStart=FALSE to dlopen hostfxr without
+ *	calling hostfxr_initialize_for_runtime_config.  Only the
+ *	successful initialize step produces a hostfxr_handle, and
+ *	only that handle gives this package the right to call
+ *	hostfxr_get_runtime_delegate / hostfxr_close.
+ *
+ *	pCoreClrContext is the cached hostfxr_handle returned by
+ *	hostfxr_initialize_for_runtime_config.  It is set in
+ *	LoadAndStartTheCoreClr after a successful initialize, and
+ *	cleared in StopAndReleaseTheCoreClr after hostfxr_close.
+ *
+ *	Like GetCoreClrWasLoaded, this is a snapshot under the
+ *	package mutex; the value can change immediately after
+ *	the function returns.  Treat as a diagnostic, not a
+ *	synchronization primitive.
  *
  * Results:
- *	Non-zero if the CoreCLR has been started; otherwise, zero.
+ *	TRUE if pCoreClrContext is non-NULL at the moment of the
+ *	read; FALSE otherwise.
  *
  * Side effects:
- *	None.
+ *	None.  Briefly acquires and releases the package mutex.
  *
  *----------------------------------------------------------------------
  */
@@ -141,14 +180,38 @@ BOOL GetCoreClrWasStarted(void)
  *
  * GetCoreClrBridgeStarted --
  *
- *	This function returns a boolean value that indicates whether
- *	or not the bridge between Tcl and the CoreCLR has been started.
+ *	Test whether the Eagle-side managed bridge that hosts
+ *	Garuda's Tcl / CLR interop has been brought up inside the
+ *	CoreCLR.
+ *
+ * Why / How:
+ *	The "bridge" is the managed-side counterpart to the
+ *	native-side hostfxr context.  A successful startup
+ *	sequence is:
+ *
+ *	  1. hostfxr_initialize_for_runtime_config -- produces
+ *	     pCoreClrContext (tracked by GetCoreClrWasStarted).
+ *	  2. hostfxr_get_runtime_delegate to obtain the function
+ *	     pointer for the managed bridge entry point.
+ *	  3. Call into that delegate, which constructs the Eagle
+ *	     bridge object inside the CLR and signals success
+ *	     back via SetCoreClrBridgeStarted.
+ *
+ *	bCoreClrBridgeStarted therefore reflects whether step 3
+ *	completed.  It is the most authoritative "is the bridge
+ *	usable?" predicate in this file: a TRUE here implies all
+ *	prior steps completed AND the managed side acknowledged
+ *	the handshake.
+ *
+ *	Same package-mutex snapshot semantics as the other
+ *	predicates in this group.
  *
  * Results:
- *	Non-zero if the bridge has been started; otherwise, zero.
+ *	TRUE if the bridge handshake has completed and not been
+ *	subsequently torn down; FALSE otherwise.
  *
  * Side effects:
- *	None.
+ *	None.  Briefly acquires and releases the package mutex.
  *
  *----------------------------------------------------------------------
  */
@@ -169,14 +232,29 @@ BOOL GetCoreClrBridgeStarted(void)
  *
  * SetCoreClrBridgeStarted --
  *
- *	This function sets a boolean value that indicates whether or
- *	not the bridge between Tcl and the CoreCLR has been started.
+ *	Record whether the managed-side bridge has been started.
+ *
+ * Why / How:
+ *	Called by the managed bridge entry point itself, via the
+ *	delegate obtained from hostfxr_get_runtime_delegate, to
+ *	signal completion of the handshake described in the
+ *	GetCoreClrBridgeStarted comment.  Also called by the
+ *	teardown path with bStarted=FALSE before the matching
+ *	hostfxr_close.
+ *
+ *	The package-mutex acquisition is what makes this safe to
+ *	call from any thread the CLR happens to schedule on; the
+ *	managed-side caller has no idea which Tcl thread context
+ *	it's running in, so the predicate / setter pair must be
+ *	internally synchronized.
  *
  * Results:
  *	None.
  *
  * Side effects:
- *	None.
+ *	Updates bCoreClrBridgeStarted under the package mutex.
+ *	Future GetCoreClrBridgeStarted calls observe the new
+ *	value.
  *
  *----------------------------------------------------------------------
  */
@@ -194,15 +272,99 @@ void SetCoreClrBridgeStarted(
  *
  * LoadAndStartTheCoreClr --
  *
- *	This function loads and optionally starts the latest version of
- *	the CoreCLR supported by this package.
+ *	The package's main .NET-hosting entry point.  Discovers,
+ *	loads, and (optionally) initializes hostfxr; then resolves
+ *	the small set of hostfxr API function pointers that this
+ *	package needs at runtime.
+ *
+ * Why / How:
+ *	This is the routine that does the heavy lifting of hosting
+ *	.NET 5+ as a guest inside Tcl's process.  The host /
+ *	hostfxr / hostpolicy / coreclr layer cake assumes that the
+ *	OUTER caller is a managed application or the dotnet CLI;
+ *	we are neither -- we're a Tcl extension.  Working with the
+ *	grain of that API requires the steps below, in order:
+ *
+ *	  1. nethost::get_hostfxr_path discovers the
+ *	     installed hostfxr library on disk (consulting
+ *	     /etc/dotnet/install_location on Linux,
+ *	     DOTNET_ROOT and registry entries on Windows, and
+ *	     the per-arch install-location convention on macOS).
+ *	     Returns an OS-native path string.
+ *
+ *	  2. LoadLibraryW (Win32) / dlopen (POSIX) maps the
+ *	     hostfxr shared library into the process.
+ *
+ *	  3. GetProcAddress / dlsym resolves the four (or five,
+ *	     when HAVE_DOTNET_ENVIRONMENT_INFO is set) hostfxr
+ *	     entry points we use:
+ *	       - hostfxr_get_dotnet_environment_info  (optional)
+ *	       - hostfxr_initialize_for_runtime_config
+ *	       - hostfxr_get_runtime_delegate
+ *	       - hostfxr_close
+ *
+ *	  4. (only if bStart) hostfxr_initialize_for_runtime_config
+ *	     reads the runtimeconfig.json file at runtimeConfigPath
+ *	     and sets up an in-process CoreCLR according to it.  On
+ *	     success, returns a hostfxr_handle that the caller must
+ *	     eventually pass to hostfxr_close.  This is the call
+ *	     that brings the managed runtime up; from this point
+ *	     the CLR has been initialized AND IT CANNOT BE
+ *	     UNLOADED FROM THIS PROCESS.  .NET 5+ does not support
+ *	     CLR unload (no AppDomains, no in-process restart).
+ *
+ *	The bLoad / bStart split exists so callers can pre-stage
+ *	hostfxr without committing to a CLR initialization, which
+ *	is useful for diagnostic commands that want to query the
+ *	installed runtimes (via hostfxr_get_dotnet_environment_info)
+ *	without paying the CLR-init cost.  bUseMinimumClr forces
+ *	use of the lowest CLR version this package was built
+ *	against, even when newer is installed -- used for testing
+ *	and ABI-floor verification.  bStrict converts the
+ *	"already loaded / already started" cases into errors
+ *	rather than treating the call as idempotent.
+ *
+ *	The Win32 and POSIX library-load and symbol-resolution
+ *	blocks are deliberately mirror images of each other: same
+ *	field-load order, same indent, same field names.  Diffing
+ *	the two halves should produce only the calls that actually
+ *	differ between platforms (LoadLibraryW vs dlopen,
+ *	GetProcAddress vs dlsym).  This makes auditing the platform
+ *	parity trivial.
+ *
+ *	The package mutex is held for the entire body.  This is
+ *	intentional: hostfxr's loader and initialize calls are not
+ *	required by Microsoft to be reentrant from a single
+ *	process, and the global state we maintain
+ *	(pCoreClrModule, pCoreClrContext, uCoreClrFunctions) must
+ *	be assigned to atomically with respect to all other
+ *	package operations.  The blocking is acceptable because
+ *	this routine is called once per package lifetime in
+ *	practice.
+ *
+ *	On any failure inside the routine, all state is unwound
+ *	(via goto done):  any partially-loaded module is released,
+ *	any partially-initialized hostfxr context is closed, and
+ *	uCoreClrFunctions is left in its pre-call zero state.  The
+ *	package globals reflect the post-failure state, which is
+ *	the same as the pre-call state from the caller's
+ *	perspective.
  *
  * Results:
- *	A standard Tcl result.
+ *	TCL_OK on success.  TCL_ERROR with an error message
+ *	appended to the interp result on failure (interp may be
+ *	NULL, in which case the message is suppressed but the
+ *	return code is still TCL_ERROR).
  *
  * Side effects:
- *	Since the CoreCLR may execute startup code, this function may
- *	have arbitrary side-effects.
+ *	On success: pCoreClrModule, pCoreClrContext, and
+ *	uCoreClrFunctions are populated.  The CoreCLR has been
+ *	initialized inside the process and CANNOT be uninitialized
+ *	for the rest of the process lifetime.  Managed code may
+ *	have run as part of CLR startup (static constructors of
+ *	the System.Private.CoreLib types, etc.), which can have
+ *	arbitrary observable side-effects (file I/O, env var
+ *	access, JIT compilation work).
  *
  *----------------------------------------------------------------------
  */
@@ -535,14 +697,65 @@ done:
  *
  * StopAndReleaseTheCoreClr --
  *
- *	This function stops and releases the CoreCLR.
+ *	The teardown counterpart to LoadAndStartTheCoreClr.
+ *	Closes the hostfxr context (if any), unloads the hostfxr
+ *	shared library (if any), and clears the package's cached
+ *	function pointers.
+ *
+ * Why / How:
+ *	This is the documented "release" path, but its real-world
+ *	contract is unusual and worth understanding precisely:
+ *
+ *	  - hostfxr_close(pCoreClrContext) releases the *handle*
+ *	    we hold against the runtime, but it does NOT unload
+ *	    the CoreCLR from the process.  Once .NET 5+ has been
+ *	    initialized inside a process, that initialization is
+ *	    permanent for the rest of the process lifetime.  No
+ *	    AppDomains, no in-process restart.  This is a
+ *	    deliberate Microsoft design choice (the rationale is
+ *	    documented in the .NET 5 hosting design notes), and
+ *	    we work within it.
+ *
+ *	  - dlclose / FreeLibrary on hostfxr only releases OUR
+ *	    reference to the hostfxr shared library; the CLR
+ *	    itself, having been initialized, holds its own
+ *	    reference.  So this call typically does NOT result in
+ *	    hostfxr being unmapped from the address space.
+ *
+ *	  - On a partial-load (bLoad succeeded, bStart was FALSE)
+ *	    there is no context to close; we still need to
+ *	    release the loader reference and clear the cached
+ *	    function pointers.  The routine handles both shapes
+ *	    based on which globals are non-NULL.
+ *
+ *	The bridge teardown is layered on top: if the managed
+ *	bridge is started (bCoreClrBridgeStarted), the caller is
+ *	responsible for tearing IT down before calling here.
+ *	This function does not call into managed code; it only
+ *	releases native resources.  bStrict converts "nothing to
+ *	stop" into an error rather than treating the call as
+ *	idempotent.
+ *
+ *	The package mutex is held for the whole body, same
+ *	rationale as LoadAndStartTheCoreClr: hostfxr_close is
+ *	not documented to be reentrant, and the global-state
+ *	mutations need to be atomic w.r.t. other package
+ *	operations.
  *
  * Results:
- *	A standard Tcl result.
+ *	TCL_OK on success.  TCL_ERROR with an error message
+ *	appended to the interp result if hostfxr_close fails or
+ *	bStrict is set and there was nothing to release.
  *
  * Side effects:
- *	Since the CoreCLR may execute cleanup code, this function may have
- *	arbitrary side-effects.
+ *	On success the package globals (pCoreClrModule,
+ *	pCoreClrContext, uCoreClrFunctions) are cleared back to
+ *	their pre-LoadAndStart state, but the CoreCLR runtime
+ *	itself remains initialized inside the process and may
+ *	continue to execute background work (finalizer thread,
+ *	timer threads, etc.).  Managed cleanup code MAY run as
+ *	part of hostfxr_close, with arbitrary observable
+ *	side-effects.
  *
  *----------------------------------------------------------------------
  */
@@ -722,15 +935,47 @@ done:
  *
  * CanExecuteCoreClrCode --
  *
- *	This function checks if CoreCLR code can safely be executed by this
- *	package.
+ *	Test whether all preconditions for invoking managed code
+ *	via this package are currently satisfied.  This is the
+ *	guard predicate that ExecuteCoreClrMethod consults before
+ *	doing anything irrevocable.
+ *
+ * Why / How:
+ *	The conjunction of conditions checked here is the
+ *	"executable" state of the package:
+ *
+ *	  - The CoreCLR shared library has been loaded
+ *	    (pCoreClrModule != NULL).
+ *	  - The hostfxr context has been initialized
+ *	    (pCoreClrContext != NULL) -- required before any
+ *	    delegate can be obtained from
+ *	    hostfxr_get_runtime_delegate.
+ *	  - The required hostfxr function pointers have been
+ *	    resolved (pGetRuntimeDelegate, pClose).  Both should
+ *	    be non-NULL after a successful LoadAndStartTheCoreClr,
+ *	    but we verify rather than assume.
+ *	  - The managed bridge has signalled readiness
+ *	    (bCoreClrBridgeStarted).
+ *
+ *	If any condition fails, we set a descriptive error on
+ *	the interp (when one is provided) so callers don't have
+ *	to figure out which step is missing.  This routine does
+ *	NOT itself touch the CLR; it only inspects local state.
+ *
+ *	The package mutex is held for the inspection so the four
+ *	values are read coherently -- without it, a concurrent
+ *	StopAndReleaseTheCoreClr could see "loaded yes,
+ *	context yes, bridge no" mid-teardown.
  *
  * Results:
- *	Non-zero if CoreCLR code can be safely executed by this package,
- *	zero otherwise.
+ *	TRUE if all preconditions are satisfied at the moment of
+ *	the call; FALSE otherwise (with an error appended to
+ *	interp's result if interp is non-NULL).
  *
  * Side effects:
- *	None.
+ *	On failure with non-NULL interp, an error message is
+ *	appended to the interp result.  Briefly acquires and
+ *	releases the package mutex.
  *
  *----------------------------------------------------------------------
  */
@@ -771,14 +1016,80 @@ done:
  *
  * ExecuteCoreClrMethod --
  *
- *	This function executes the specified CoreCLR method.
+ *	Invoke a named managed method (an entry point on a
+ *	managed assembly inside the CoreCLR), passing the Tcl
+ *	module handle, the Tcl stub-function table, and the
+ *	calling interp through to the managed side as parameters.
+ *	This is the primary call-into-managed-code path of the
+ *	package.
+ *
+ * Why / How:
+ *	The .NET 5+ hosting API does not let an unmanaged caller
+ *	invoke a managed method by name in one shot.  The protocol
+ *	is two-step:
+ *
+ *	  1. Call hostfxr_get_runtime_delegate with a request type
+ *	     of hdt_load_assembly_and_get_function_pointer to
+ *	     obtain a function pointer for an internal CLR helper.
+ *	  2. Call that helper, passing the assembly path, type
+ *	     name, method name, and delegate type name.  The
+ *	     helper loads the assembly into its
+ *	     AssemblyLoadContext, JITs the method, and returns
+ *	     a callable function pointer with the requested
+ *	     delegate signature.
+ *	  3. Call that function pointer with the unmanaged-side
+ *	     arguments.  Native-to-managed marshaling happens
+ *	     across this boundary; everything the caller passes
+ *	     must already be in a form the managed side knows
+ *	     how to consume (pointers, primitives, NUL-terminated
+ *	     strings).
+ *
+ *	This routine does the full sequence, with the managed
+ *	method's signature and assembly metadata expressed via
+ *	the wide-string parameters.  The hModule and pTclStubs
+ *	parameters are passed through to managed code so the
+ *	managed side can call back into Tcl via the same stubs
+ *	indirection an unmanaged extension would use.
+ *
+ *	CanExecuteCoreClrCode is invoked first as a guard.  If it
+ *	returns FALSE, the relevant precondition failure is
+ *	already on the interp's result and we propagate
+ *	TCL_ERROR without trying to load the assembly.
+ *
+ *	Argument marshaling: bUnicode controls whether returned
+ *	strings are appended to the interp result via the
+ *	Tcl_AppendUnicodeToObj path (Unicode/UTF-16) or the
+ *	Tcl_AppendResult path (the engine's narrow encoding).
+ *	bArrayAsList controls whether managed methods returning
+ *	arrays are surfaced as Tcl lists vs. concatenated string
+ *	fragments.  These two flags exist because the
+ *	ergonomically-best representation for return data depends
+ *	on what the caller intends to do with it.
+ *
+ *	The package mutex is held only across the
+ *	get_runtime_delegate / load_assembly_and_get_function_pointer
+ *	steps.  The actual managed call runs WITHOUT the mutex --
+ *	otherwise managed code that re-entered into Tcl through
+ *	this package would deadlock against itself.  This is the
+ *	critical reason Pal_MutexLock is recursive: in some
+ *	configurations the managed side calls back into native
+ *	code that ends up acquiring the package mutex, and the
+ *	recursive semantics make that re-entry safe.
  *
  * Results:
- *	A standard Tcl result.
+ *	TCL_OK on success, with any return data from the managed
+ *	method appended to the interp result.  TCL_ERROR with an
+ *	appropriate error message on any failure (precondition,
+ *	delegate acquisition, assembly load, JIT, or managed-side
+ *	exception).
  *
  * Side effects:
- *	Since third-party code is executed during this function, there
- *	may be arbitrary side-effects.
+ *	Loads the named managed assembly into the CLR's default
+ *	AssemblyLoadContext on first invocation; the assembly
+ *	cannot subsequently be unloaded.  Executes managed code,
+ *	which may have arbitrary observable side-effects (file
+ *	I/O, network calls, Tcl state mutations via the stubs
+ *	callback path, etc.).
  *
  *----------------------------------------------------------------------
  */
@@ -1076,11 +1387,33 @@ done:
  *
  * GetCurrentCoreClrAppDomainId --
  *
- *	This function attempts to query the integer identifier for the
- *	current application domain of the CoreCLR.
+ *	Return a stable integer identifier representing the
+ *	"current application domain" inside the CoreCLR.
+ *
+ * Why / How:
+ *	NB: .NET 5+ removed AppDomains as a first-class isolation
+ *	primitive -- you cannot create or unload them from
+ *	unmanaged code, and there is only ever one per process.
+ *	The concept survives in the API surface, however, because
+ *	managed code (and native callers like this one) sometimes
+ *	want a logical identifier they can pass alongside other
+ *	references for diagnostics or correlation.  The identifier
+ *	this function returns is whatever the CLR exposes via its
+ *	hosting introspection path -- in practice a constant for
+ *	the lifetime of the process under .NET 5+, but the API is
+ *	defined to return it dynamically because older CLRs DID
+ *	support multiple AppDomains and embedders may still
+ *	depend on the call shape.
+ *
+ *	Used primarily by diagnostic / logging code paths (e.g.
+ *	DumpCoreClrState) so the resulting log lines can be
+ *	cross-referenced with managed-side log lines that
+ *	include the same identifier.
  *
  * Results:
- *	A standard COM result.
+ *	S_OK on success, with *pAppDomainId populated.  E_POINTER
+ *	if pAppDomainId is NULL.  An HRESULT translated from the
+ *	underlying CLR error if the host introspection call fails.
  *
  * Side effects:
  *	None.
@@ -1122,15 +1455,44 @@ done:
  *
  * GetCoreClrVersionCallback --
  *
- *	This function handles the version information callbacks from
- *	the currently loaded CoreCLR.  The resulting information for
- *	the user command is stored in the context structure.
+ *	hostfxr_get_dotnet_environment_info callback.  Receives a
+ *	hostfxr_dotnet_environment_info * describing the dotnet
+ *	installation found by hostfxr, copies the fields of
+ *	interest into a caller-owned context struct, and returns.
+ *
+ * Why / How:
+ *	hostfxr_get_dotnet_environment_info is the modern (.NET 6+)
+ *	introspection API that enumerates every installed runtime
+ *	and SDK on the machine.  It uses a "callback during
+ *	enumeration" idiom rather than returning an array, so the
+ *	caller (us, in GetCoreClrVersion) provides this function
+ *	and a context pointer; hostfxr invokes us during its walk.
+ *
+ *	The HOSTFXR_CALLTYPE macro applies the calling convention
+ *	hostfxr expects on the current platform -- __stdcall on
+ *	Win32, the platform default elsewhere.  Mismatching the
+ *	calling convention is one of the silent crashes you can
+ *	hit when integrating with hostfxr; getting it right at
+ *	the macro level eliminates the per-call risk.
+ *
+ *	The "Input / Output" annotations on the parameters reflect
+ *	the data flow: hostfxr fills info, we read it; the
+ *	caller of hostfxr_get_dotnet_environment_info supplies
+ *	context, we write into it.
+ *
+ *	NB: this function is gated on HAVE_DOTNET_ENVIRONMENT_INFO
+ *	because hostfxr_get_dotnet_environment_info was added
+ *	mid-.NET-5-lifetime and is absent on the earliest .NET 5
+ *	builds.  When the symbol isn't available, GetCoreClrVersion
+ *	falls back to a simpler version-discovery path.
  *
  * Results:
- *	None.
+ *	None (the API is void-returning).
  *
  * Side effects:
- *	None.
+ *	Mutates the caller-owned context struct pointed to by
+ *	context.  Does not allocate, does not call back into
+ *	hostfxr.
  *
  *----------------------------------------------------------------------
  */
@@ -1175,11 +1537,46 @@ static void HOSTFXR_CALLTYPE GetCoreClrVersionCallback(
  *
  * GetCoreClrVersion --
  *
- *	This function attempts to query version information for the
- *	currently loaded CoreCLR.
+ *	Format a human-readable version-information string for
+ *	the currently loaded CoreCLR into the caller-supplied
+ *	wide-character buffer.
+ *
+ * Why / How:
+ *	When HAVE_DOTNET_ENVIRONMENT_INFO is defined and the
+ *	hostfxr_get_dotnet_environment_info symbol resolved at
+ *	load time, the canonical path is to call that function
+ *	with GetCoreClrVersionCallback to populate a local
+ *	context struct, then format that struct's fields into
+ *	pVersion.  This produces a richer string that names not
+ *	just the CLR version but the SDK install location and
+ *	related metadata.
+ *
+ *	When the symbol is absent (older hostfxr), we fall back
+ *	to a simpler path that emits whatever version data the
+ *	older API can produce.
+ *
+ *	pLength is in/out: callers pass in the capacity of the
+ *	pVersion buffer (in WCHARs, not bytes), and on success
+ *	we write back the number of WCHARs actually emitted
+ *	(not including the terminating NUL).  On failure with
+ *	a too-small buffer, *pLength is set to the required size
+ *	so callers can re-try with an appropriately sized buffer.
+ *
+ *	NB: this function does NOT load or initialize the CoreCLR;
+ *	it requires that LoadAndStartTheCoreClr (with at least
+ *	bLoad=TRUE) has previously succeeded so hostfxr is mapped
+ *	into the process and the optional environment-info
+ *	function pointer was resolved.  CanExecuteCoreClrCode is
+ *	NOT a precondition -- version queries can succeed even
+ *	when the bridge hasn't started, by design.
  *
  * Results:
- *	A standard COM result.
+ *	S_OK on success with pVersion populated and *pLength
+ *	updated to the written length.  E_POINTER on NULL
+ *	parameters.  HRESULT_FROM_WIN32(...) translated from
+ *	hostfxr's underlying failure code, when applicable.
+ *	A buffer-too-small error with *pLength set to the
+ *	required size.
  *
  * Side effects:
  *	None.
@@ -1270,15 +1667,53 @@ done:
  *
  * DumpCoreClrState --
  *
- *	This function attempts to debugging information for this
- *	package.  Generally, this information is only useful for
- *	advanced troubleshooting.
+ *	Format a multi-line, human-readable diagnostic snapshot of
+ *	the package's current CoreCLR-hosting state into the
+ *	caller's wide-character buffer.  Intended for advanced
+ *	troubleshooting and for the [garuda diagnose] command
+ *	exposed at the script level.
+ *
+ * Why / How:
+ *	Aggregates the values produced by the predicate /
+ *	introspection functions in this file into a single
+ *	formatted string.  Typical contents include:
+ *
+ *	  - the file name of the loaded hostfxr library (as
+ *	    discovered via get_module_file_name on
+ *	    pCoreClrModule);
+ *	  - the result of GetCoreClrVersion;
+ *	  - the AppDomain identifier from
+ *	    GetCurrentCoreClrAppDomainId;
+ *	  - boolean state from GetCoreClrWasLoaded /
+ *	    GetCoreClrWasStarted / GetCoreClrBridgeStarted;
+ *	  - the package's own module file name, for
+ *	    cross-referencing with logs.
+ *
+ *	The fileName parameter is the package's own shared-library
+ *	path; the caller supplies it because this routine doesn't
+ *	have direct access to the package module handle in a
+ *	platform-uniform way.  pState / pLength follow the same
+ *	in/out length convention as GetCoreClrVersion: pass in
+ *	capacity, get back actual or required size.
+ *
+ *	Failures of individual sub-queries are tolerated: the
+ *	dump emits whatever it can and notes the missing pieces
+ *	rather than aborting on the first error.  This is what
+ *	makes it useful for diagnosing partial-load conditions
+ *	(e.g. hostfxr loaded but CLR initialization never
+ *	attempted, or bridge handshake started but never
+ *	completed).
  *
  * Results:
- *	A standard COM result.
+ *	S_OK on success with pState populated and *pLength
+ *	updated to the written length.  E_POINTER on NULL
+ *	parameters.  A buffer-too-small error with *pLength set
+ *	to the required size.
  *
  * Side effects:
- *	None.
+ *	None.  The introspection sub-calls each acquire and
+ *	release the package mutex briefly, but no state is
+ *	mutated.
  *
  *----------------------------------------------------------------------
  */

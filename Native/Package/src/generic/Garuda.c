@@ -198,6 +198,41 @@ static const char *packageNames[] = {
  *	source code file "th_tcl.c" and was originally written by Jan
  *	Nijtmans and has been heavily modified for use by this project.
  *
+ * Why / How:
+ *	This is the "Fossil trick": Tcl stubs are normally bound by
+ *	linking the loader against tclstub.lib / libtclstub.so, which
+ *	provides the magic Tcl_InitStubs symbol that pokes the stubs
+ *	pointer into the interpreter and validates ABI compat.  But
+ *	building Garuda.dll with that link dependency means a copy of
+ *	tclstub goes into every Garuda binary, AND Garuda has to know
+ *	at link-time which Tcl version it's targeting.  Fossil hit the
+ *	same problem (it embeds Tcl as a script engine for skin
+ *	scripting) and Jan Nijtmans's solution there was to skip the
+ *	import library entirely: read the stubs pointer directly out
+ *	of the Tcl_Interp's private layout (cast through PrivateTclInterp
+ *	defined in our private headers), validate the magic number, then
+ *	hand it to Tcl_PkgRequireEx which is itself a stubs-table call.
+ *
+ *	The cost: we depend on the layout of TclInterp's stubTable
+ *	field being stable across Tcl point releases.  In practice it
+ *	is -- the field has been at offset 16 (32-bit) / 32 (64-bit)
+ *	since Tcl 8.4.  If that ever changes we will get TCL_STUB_MAGIC
+ *	mismatches at startup, which is the right failure mode (loud,
+ *	at first call, with a clear log message).
+ *
+ *	The hooks dance at the bottom unpacks the platform / internal /
+ *	internal-platform sub-tables.  These exist because Tcl's stubs
+ *	mechanism splits its API surface across four tables -- the public
+ *	one we got from PrivateTclInterp's stubTable, plus three reached
+ *	via tclStubsPtr->hooks.  Older Tcl builds NULL-out the hooks
+ *	field if they were configured without internal-stub support;
+ *	we tolerate that by leaving the sub-table pointers NULL and
+ *	letting later use-sites detect the absence (the TIP #285
+ *	cancellation path is the main consumer that cares).
+ *
+ *	Only compiled when USE_TCL_PRIVATE_STUBS is defined; otherwise
+ *	a normal Tcl_InitStubs link is expected.
+ *
  * Results:
  *	The actual version of Tcl satisfying the request -OR- NULL if
  *	the Tcl version is not acceptable, does not support stubs, or
@@ -261,6 +296,42 @@ static const char *initTclStubs(
  *	into the pointer provided by the caller.  This function uses no
  *	global state and assumes any required locks are already held by
  *	the caller.
+ *
+ * Why / How:
+ *	The package needs its own .dll/.so/.dylib path on disk for two
+ *	reasons: (1) the lib/ subdirectory of the package is computed
+ *	relative to it (where helper.tcl, Eagle.dll, and the runtime
+ *	configuration files live), and (2) [object dump] surfaces it
+ *	for diagnostics.  Tcl gives us hModule via the Init entry
+ *	point, but resolving hModule -> file name is a Win32 API call
+ *	(GetModuleFileName) and not portable per se -- on POSIX the
+ *	equivalent comes from dladdr.  GarudaPal abstracts the
+ *	difference into Wrp_get_module_file_name; this function just
+ *	wraps the buffer protocol around it.
+ *
+ *	The two-buffer dance is deliberate.  Win32's GetModuleFileName
+ *	has the well-known "you can't ask for the size first" wart:
+ *	you must pass a buffer, and if it was too small, the API
+ *	returns the buffer size you supplied (NOT the size you needed).
+ *	The only way to be certain you got the whole path is to pass
+ *	a buffer at least UNICODE_STRING_MAX_CHARS long (32767, the
+ *	NT max path length) and then truncate down to the actual
+ *	length the API reports.  We do exactly that: oversize first
+ *	allocation, copy into a right-sized second allocation, free
+ *	the oversize one.  The cost of the oversize alloc is one
+ *	~64 KB transient -- paid once at package load, never again.
+ *
+ *	Caller-owns-the-result: ckfree-able via the standard Tcl
+ *	allocator, freed during Garuda_Unload.  The static
+ *	packageFileName variable is the consumer of the success
+ *	output; nothing else owns a copy.
+ *
+ *	"Uses no global state and assumes any required locks are
+ *	already held" -- a defensive note because GetPackageModule-
+ *	FileName is called from Garuda_Init, which holds packageMutex
+ *	for the entire setup sequence.  Hot path concurrency is not
+ *	a concern (load is single-threaded by Tcl convention) but
+ *	the comment makes the contract explicit.
  *
  * Results:
  *	None.
@@ -370,6 +441,51 @@ done:
  *	This function sets the Tcl C API function pointers contained
  *	within the passed structure so they point to the functions
  *	contained in the Tcl module currently in use.
+ *
+ * Why / How:
+ *	This is the bridge between Tcl's stubs world and Eagle's
+ *	managed-side native-Tcl integration subsystem.  When Eagle
+ *	wants to call back into Tcl from C# (to set a variable in
+ *	the calling interpreter, fire an event, etc.), it can't go
+ *	through Tcl's stubs table directly -- the stubs table is in
+ *	this DLL's address space, and the marshaling code on the
+ *	managed side wants typed function pointers it can pin into
+ *	delegates.  The ClrTclStubs structure is that -- a flat list
+ *	of function pointers, populated by this function, passed
+ *	across the bridge protocol so the managed side can invoke
+ *	any of them as a P/Invoke target.
+ *
+ *	The TIP-flag arguments switch on conditional fields:
+ *
+ *	  bTip285  TIP #285 = "Script-level interrupt of Tcl evaluation"
+ *	           (Tcl_CancelEval, Tcl_Canceled, TclResetCancellation,
+ *	           TclSetSlaveCancelFlags).  Required for Eagle's
+ *	           cooperative-cancel design -- without these, Eagle
+ *	           cannot cancel an in-flight Tcl_Eval from a managed
+ *	           thread.  Falls back to no-cancel if the running
+ *	           Tcl is too old.
+ *
+ *	  bTip335  TIP #335 = "Detect interp-active state"
+ *	           (Tcl_InterpActive).  Used by Eagle's interp-state
+ *	           inspector; absence is non-fatal.
+ *
+ *	  bTip336  TIP #336 = "Public API for Tcl_GetErrorLine"
+ *	           Two function pointers (get + set).  Older Tcl
+ *	           versions have ErrorLine as a struct field accessed
+ *	           directly; newer ones go through the public API.
+ *	           Eagle's stack-trace formatter prefers the API.
+ *
+ *	The internal-stubs requirement on bTip285 is explicit: the
+ *	cancel-flag setters live in tclIntStubsPtr (Tcl considers
+ *	them internal-but-stubbed), so if internal stubs failed to
+ *	resolve, we cannot honor a TIP #285 request -- return FALSE
+ *	rather than silently dropping cancel support.
+ *
+ *	Note: the field assignments below are in a fixed order that
+ *	mirrors the layout of the ClrTclStubs struct in GarudaInt.h.
+ *	If you add a field, append both here and in the struct
+ *	definition.  The managed side's marshalling code is
+ *	field-order-sensitive (positional, not nominal).
  *
  * Results:
  *	Non-zero for success; zero otherwise.
@@ -481,6 +597,35 @@ static BOOL SetClrTclStubs(
  *	This function sends a printf-style formatted trace message to
  *	the connected Win32 debugger, if any.
  *
+ * Why / How:
+ *	The package's lowest-level diagnostic primitive.  TclLog goes
+ *	through the script layer (a configurable Tcl command that may
+ *	or may not exist depending on package configuration) and is
+ *	therefore unsuitable for very-early failures (before the Tcl
+ *	stubs are wired up) and very-late failures (after the package
+ *	is being unloaded and the log command is gone).
+ *
+ *	This bypasses both worlds: on Win32 it routes to
+ *	OutputDebugStringA, which any attached debugger (or DebugView,
+ *	or DbgPrint capture tool) will pick up.  On non-Win32 it
+ *	falls through to fprintf(stderr) as a stand-in.  The intent is
+ *	"there is no scenario in which calling this is unsafe" -- it
+ *	does not allocate, does not call into Tcl, does not depend on
+ *	package state being initialized.
+ *
+ *	The PACKAGE_TRACE_BUFFER_SIZE truncation is silent.  Long
+ *	traces get cut at the buffer limit; the return value
+ *	reflects how many characters made it out (or -1 if gsnprintf
+ *	itself signaled truncation, but it is rare in practice).
+ *	Callers who care about diagnostic completeness chunk their
+ *	output across multiple calls rather than depending on one
+ *	huge trace surviving.
+ *
+ *	This is invoked through the PACKAGE_TRACE macro, which is
+ *	compiled to nothing in production builds -- see GarudaInt.h.
+ *	A debug build of Garuda.dll is therefore the only one that
+ *	produces trace output; the release path is zero-cost.
+ *
  * Results:
  *	The number of characters written or -1 if the trace output was
  *	truncated.
@@ -523,6 +668,30 @@ int TracePrintf(
  *	This function accepts a Tcl return code (e.g. TCL_ERROR) and
  *	creates an appropriate error message as a Unicode string.
  *
+ * Why / How:
+ *	Sister of GetClrErrorMessage; the same shape but for Tcl
+ *	return codes (TCL_OK / TCL_ERROR / TCL_RETURN / TCL_BREAK /
+ *	TCL_CONTINUE) instead of HRESULTs.  Used by the bridge code
+ *	to format diagnostic strings for log output.
+ *
+ *	The static-buffer return is intentional and ABI-stable: the
+ *	caller copies (or appends) the returned text immediately,
+ *	never holds the pointer across another GetTclErrorMessage
+ *	call.  We do not malloc here because the only call sites are
+ *	logging paths that should NEVER fail-because-of-OOM during
+ *	a diagnostic.  This trade -- caller must not retain the
+ *	pointer -- is consistent across the package's other
+ *	error-formatting helpers (GetClrErrorMessage shares the
+ *	pattern, even has its own static buffer).
+ *
+ *	Concurrency: the static buffer is NOT thread-safe.  Two
+ *	threads calling this concurrently can scramble each other's
+ *	output.  All current callers hold packageMutex when they
+ *	call this, which serializes them.  If a future caller wants
+ *	to use this from outside the mutex, switch to caller-allocated
+ *	buffer convention rather than adding internal locking -- the
+ *	contract is simple and the call frequency is low.
+ *
  * Results:
  *	An error message string (Unicode) based on the specified Tcl
  *	return code.
@@ -560,6 +729,32 @@ static LPCWSTR GetTclErrorMessage(
  *
  *	This function accepts a CLR error code (i.e. an HRESULT) and
  *	creates an appropriate error message as a Unicode string.
+ *
+ * Why / How:
+ *	Used by EVERY error-return path in GarudaClr.c and
+ *	GarudaCoreClr.c that wants a human-friendly representation
+ *	of an HRESULT for the Tcl interp result.  Format is
+ *
+ *	    "<source>: <severity> (code 0x<hex>).\n"
+ *	or
+ *	    "<severity> (code 0x<hex>).\n"
+ *
+ *	when source is NULL, where <severity> is "success" if the
+ *	HRESULT's S-bit is clear, "failure" otherwise.  We use
+ *	SUCCEEDED() rather than checking == S_OK because COM HRESULTs
+ *	have legitimate non-S_OK success codes (S_FALSE, all the
+ *	S_OK_FOO variants used by hosting interfaces).
+ *
+ *	NOTE: this deliberately does NOT call FormatMessage to
+ *	stringify the HRESULT.  FormatMessage gives locale-dependent
+ *	text and resolves to system error messages even when the
+ *	HRESULT came from the CLR (whose error space overlaps Win32
+ *	but is not equivalent).  Hex-only output is unambiguous,
+ *	greppable, and locale-stable -- which matters for diagnostics
+ *	the user pastes into a bug report.
+ *
+ *	Same static-buffer / not-thread-safe / called-under-package-
+ *	mutex contract as GetTclErrorMessage.
  *
  * Results:
  *	An error message string (Unicode) based on the specified CLR
@@ -601,6 +796,52 @@ LPCWSTR GetClrErrorMessage(
  *	can be easily overridden by a Tcl script.  All failures are
  *	simply ignored.  If the supplied Tcl interpreter or log command
  *	is NULL, the function does nothing.
+ *
+ * Why / How:
+ *	The package's middle-tier diagnostic primitive (between
+ *	TracePrintf at the bottom and a full [object dump] at the
+ *	top).  Routes through a configurable Tcl command -- by default
+ *	[tclLog], which Tcl pre-defines, but the embedder can
+ *	override per-call by passing a different command name.  This
+ *	indirection is what lets a host application redirect Garuda's
+ *	chatter into its own log stream without touching this code.
+ *
+ *	The variadic API takes one or more LPCWSTR strings terminated
+ *	by a NULL sentinel.  Internally they are concatenated into
+ *	a single Tcl_Obj which becomes the second argument to the
+ *	log command:
+ *
+ *	    {logCommand} "msg arg1 arg2 ..."
+ *
+ *	The result is restored via Tcl_SaveResult / Tcl_RestoreResult
+ *	so a log call inside an error path doesn't clobber the error
+ *	message the caller is about to surface.  This is the entire
+ *	reason for the SaveResult dance -- without it, a TCL_ERROR-
+ *	bearing interp would have its result replaced by the log
+ *	command's empty success result.
+ *
+ *	If the log command succeeds, we ALSO mirror the message to
+ *	the platform's debug stream: OutputDebugStringW on Win32,
+ *	fwprintf(stderr) elsewhere.  This dual-write is intentional:
+ *	when debugging a load failure, you typically want to see the
+ *	message regardless of whether the embedder's log command
+ *	wrote anywhere visible.  The debug-stream mirror is
+ *	conditioned on TCL_OK from the log command -- failures are
+ *	silent (per the contract -- "All failures are simply ignored")
+ *	to avoid recursive noise from a broken log command.
+ *
+ *	Reentrancy: the called Tcl command runs at TCL_EVAL_GLOBAL,
+ *	so it does not see the calling proc's locals.  If the log
+ *	command itself calls back into this DLL, the package mutex
+ *	is recursive on Win32 (Tcl_Mutex is) but on POSIX it is
+ *	emulated via packageOwner -- see GarudaPal.c.  Don't put
+ *	expensive work in a custom log command.
+ *
+ *	Memory: objv[1] is built incrementally with AppendUnicodeToObj.
+ *	On the POSIX-stderr path we additionally ckfree the unicode
+ *	buffer because Wrp_GetUnicode allocates there; on Win32 the
+ *	buffer is owned by the Tcl_Obj and freed when its refcount
+ *	hits zero at the bottom of this function.
  *
  * Results:
  *	None.
@@ -697,6 +938,39 @@ done:
  *	This function returns the value of the specified Tcl object
  *	as a Unicode string.
  *
+ * Why / How:
+ *	Garuda's Win32-DNA dictates Unicode (WCHAR / UTF-16) for the
+ *	managed-side bridge surface -- the CLR is UTF-16-native -- but
+ *	Tcl on POSIX uses UTF-8 internally and exposes UTF-16 only
+ *	through conversion helpers in Wrp_*.  This function papers
+ *	over that platform difference with a single contract:
+ *	"give me a fresh, ckfree-owned LPWSTR".
+ *
+ *	Win32 path:
+ *	    Wrp_GetUnicodeFromObj returns a pointer into Tcl's
+ *	    internal storage.  We must copy it into a fresh
+ *	    attemptckalloc'd buffer because Tcl_Obj backing memory
+ *	    can be invalidated by ANY subsequent Tcl call.
+ *
+ *	POSIX path:
+ *	    Wrp_GetUnicodeFromObj allocates a fresh buffer (see
+ *	    GarudaStr.c).  We can return that pointer directly --
+ *	    the caller-owns-and-ckfrees contract is already
+ *	    satisfied without an extra copy.  The cleanup branch
+ *	    at `done:` skips ckfree only when result aliased the
+ *	    objValue allocation; otherwise it cleans up.
+ *
+ *	The branching is asymmetric on purpose: the POSIX path
+ *	avoids an unnecessary copy when the string is already a
+ *	standalone heap allocation.  The Win32 path's invariant
+ *	(don't trust Tcl_Obj-backed pointers) is non-negotiable.
+ *
+ *	Length semantics: the int *lengthPtr argument is the
+ *	UCS-2 / UTF-16 code-unit count, NOT byte count or
+ *	codepoint count.  Surrogate pairs count as two units.
+ *	This matches WCHAR-counting conventions throughout the
+ *	package and the managed bridge.
+ *
  * Results:
  *	The value of the Tcl object as a Unicode string or NULL if
  *	any of the arguments are NULL or if the Tcl object cannot be
@@ -766,6 +1040,30 @@ done:
  *
  *	This function returns the value of the specified Tcl variable
  *	as a Unicode string.
+ *
+ * Why / How:
+ *	Lookups one of the package's configuration variables by
+ *	name (e.g. ::Garuda::library, ::Garuda::useMinimumClr,
+ *	::Garuda::runtimeConfigPath) and returns the value as
+ *	an LPWSTR.  Used by Garuda_Init and the [object load]
+ *	command to read embedder-supplied settings.
+ *
+ *	Lookup is unconditionally TCL_GLOBAL_ONLY: the package's
+ *	configuration variables live in the package's namespace
+ *	(::Garuda::*), and resolving against the calling proc's
+ *	scope would be wrong -- embedders may invoke [object]
+ *	from inside any proc.  The varName argument is therefore
+ *	expected to be fully-qualified (the package's setup code
+ *	prepends "::Garuda::" before each lookup).
+ *
+ *	On variable-not-found, the interp result gets a
+ *	"variable not found: <name>" message.  Some callers
+ *	suppress this via Tcl_SaveResult / Tcl_RestoreResult
+ *	when the variable is optional (e.g. logging-related
+ *	settings); see Garuda_Init for the dance.
+ *
+ *	Same Win32-copy / POSIX-direct-return ownership pattern
+ *	as GetStringObjectValue.
  *
  * Results:
  *	The value of the Tcl variable as a Unicode string or NULL if
@@ -876,6 +1174,30 @@ done:
  *	This function returns the value of the specified Tcl variable
  *	as a boolean value.
  *
+ * Why / How:
+ *	Same lookup convention as GetStringVariableValue (TCL_GLOBAL_
+ *	ONLY, fully-qualified name) but the value is parsed via
+ *	Tcl_GetBooleanFromObj -- meaning Tcl's standard boolean
+ *	encoding accepts true/false/yes/no/0/1/on/off.  This is
+ *	user-friendly: an embedder can set ::Garuda::verbose to
+ *	"yes" or "1" and both work.
+ *
+ *	Failure modes:
+ *	  - varName == NULL  -> defValue, "invalid variable name" in
+ *	    interp result.
+ *	  - variable not set -> defValue, "variable not found:" in
+ *	    interp result.
+ *	  - non-boolean value -> defValue, "variable value is invalid:"
+ *	    in interp result.
+ *
+ *	The default-on-error pattern is a deliberate design choice for
+ *	configuration variables: most callers do not want to fail the
+ *	entire Init/load over a malformed verbose flag.  The error
+ *	message in interp result lets a curious embedder still see
+ *	what happened if they choose to inspect.  Callers that DO
+ *	require strictness handle the result themselves before
+ *	calling this and skip the lookup if the variable is malformed.
+ *
  * Results:
  *	The value of the Tcl variable as a boolean value.  If any of
  *	the arguments are NULL or if the variable is not found, the
@@ -956,6 +1278,25 @@ done:
  *
  *	This function returns the value of the specified Tcl variable
  *	as an integer value.
+ *
+ * Why / How:
+ *	Mirror of GetBooleanVariableValue for int-valued config
+ *	variables (e.g. method-flag bitmasks, timeout milliseconds,
+ *	the protocol-revision selector).  Parsed via
+ *	Tcl_GetIntFromObj which accepts decimal, "0x..." hex, "0..."
+ *	octal, and "0b..." binary on modern Tcl -- same flexibility as
+ *	[expr].  Uses int (not long, not Tcl_WideInt) because every
+ *	current consumer fits in 32 bits and using a wider type would
+ *	require parallel changes throughout the package.
+ *
+ *	Same default-on-error pattern as the boolean variant -- the
+ *	defValue is what the caller wants if the embedder didn't set
+ *	the variable or set it to garbage.  See the boolean variant's
+ *	Why/How for the rationale.
+ *
+ *	No floating-point sister exists because no current
+ *	configuration value is fractional; if one is added in the
+ *	future, follow the same pattern with Tcl_GetDoubleFromObj.
  *
  * Results:
  *	The value of the Tcl variable as an integer value.  If any of
@@ -1039,6 +1380,39 @@ done:
  *	information for this package to execute a CLR method. The
  *	allocated resources must be freed by the caller via the
  *	FreeClrMethodInfo function.
+ *
+ * Why / How:
+ *	The "demand-dispatch" path's method-info builder.  When a
+ *	caller invokes [object demand assemblyPath typeName methodName
+ *	arg], they have explicitly told us which managed method to
+ *	call -- there is no lookup against package configuration
+ *	variables (that's GetClrMethodInfo's job, the
+ *	configuration-driven sister of this function).
+ *
+ *	Each of the four Tcl_Obj inputs is converted to a fresh
+ *	LPWSTR via GetStringObjectValue.  All four are required --
+ *	a NULL or empty string aborts with a specific error message
+ *	naming which field was bad.  The argument string is the only
+ *	one that may be empty (length == 0) but not NULL; the others
+ *	must be non-empty (length > 0).  Asymmetry is intentional:
+ *	an empty managed argument is a valid call shape; an empty
+ *	method name is not.
+ *
+ *	The sizeOf field is set as the first thing after zeroing the
+ *	struct.  This is part of the package's general "every public
+ *	struct carries its own size" pattern (so future revisions can
+ *	add fields without breaking the bridge protocol -- the managed
+ *	side reads sizeOf to know how many bytes are valid).
+ *
+ *	Caller MUST ckfree via FreeClrMethodInfo (not raw ckfree); the
+ *	four LPWSTR fields each have their own ownership and must be
+ *	freed individually.  Do not call ckfree on the struct directly
+ *	or you leak the four embedded strings.
+ *
+ *	On any failure mid-build, the partially-populated struct is
+ *	left in *ppMethodInfo for the caller to clean up via
+ *	FreeClrMethodInfo.  This keeps the cleanup path uniform --
+ *	the caller does not need to track WHERE in setup we failed.
  *
  * Results:
  *	A standard Tcl result.
@@ -1124,6 +1498,38 @@ static int CreateClrMethodInfo(
  *	necessary information for this package to execute a CLR method.
  *	The allocated resources must be freed by the caller via the
  *	FreeClrMethodInfo function.
+ *
+ * Why / How:
+ *	The "configuration-driven" sister of CreateClrMethodInfo.
+ *	Where CreateClrMethodInfo takes Tcl_Obj arguments
+ *	(supplied by [object demand]), this one builds the
+ *	ClrMethodInfo entirely from package-namespace
+ *	configuration variables, indexed by methodFlags.
+ *
+ *	Method-type fan-out (METHOD_TYPE_MASK in methodFlags):
+ *	  STARTUP    -> ::Garuda::startupMethod   (called from Init)
+ *	  CONTROL    -> ::Garuda::controlMethod   (mid-life ops)
+ *	  DETACH     -> ::Garuda::detachMethod    (soft unload)
+ *	  SHUTDOWN   -> ::Garuda::shutdownMethod  (called from Unload)
+ *	  DEMAND     -> N/A (use CreateClrMethodInfo instead)
+ *
+ *	The assemblyPath, typeName, and argument fields are
+ *	always read from the ASSEMBLY_PATH / TYPE_NAME / METHOD_
+ *	ARGUMENTS package variables -- a method invocation thus
+ *	spans one ClrMethodInfo with three constants and one
+ *	method-type-specific name.  This matches the embedder's
+ *	mental model: "all my managed lifecycle hooks live in
+ *	the same type, with different methods for different
+ *	events."
+ *
+ *	Returning TCL_ERROR with "invalid method type" if METHOD_
+ *	TYPE_DEMAND or anything else falls through.  The DEMAND
+ *	case is deliberately rejected here because there is no
+ *	demand-method package variable to read -- the caller must
+ *	invoke CreateClrMethodInfo with explicit args instead.
+ *
+ *	Same partial-struct-on-failure / FreeClrMethodInfo cleanup
+ *	contract as CreateClrMethodInfo.
  *
  * Results:
  *	A standard Tcl result.
@@ -1239,6 +1645,23 @@ static int GetClrMethodInfo(
  *	This function frees all the resources allocated by the
  *	GetClrMethodInfo function.
  *
+ * Why / How:
+ *	Reverse-order cleanup of CreateClrMethodInfo /
+ *	GetClrMethodInfo: argument, methodName, typeName,
+ *	assemblyPath, then the struct itself.  The reverse order
+ *	is not load-bearing here (these are independent
+ *	allocations) but follows the convention used elsewhere
+ *	in the package, which makes interleaved leak diagnoses
+ *	easier to read in trace output.
+ *
+ *	Tolerates a NULL ppMethodInfo OR a NULL *ppMethodInfo --
+ *	useful because failure paths in the builder leave the
+ *	struct partially populated; this function copes with
+ *	whatever it finds.  Each LPWSTR field is checked
+ *	independently before ckfree.  After freeing the struct,
+ *	*ppMethodInfo is set to NULL so the caller can safely
+ *	double-free or test-after-free without UB.
+ *
  * Results:
  *	None.
  *
@@ -1287,6 +1710,57 @@ static void FreeClrMethodInfo(
  *	requested configuration information for this package.  The
  *	allocated resources must be freed by the caller via the
  *	FreeClrConfigInfo function.
+ *
+ * Why / How:
+ *	The "snapshot the package's configuration into one struct"
+ *	helper.  Garuda's runtime behavior is configured through
+ *	a substantial set of namespace variables (see lib/helper.tcl
+ *	for the full enumeration) and ClrConfigInfo is the C-side
+ *	denormalized snapshot of them.  This function is what
+ *	converts the loose Tcl-namespace state into a single
+ *	ckalloc'd struct that downstream code can reason about.
+ *
+ *	Two boolean parameters tune the depth of the snapshot:
+ *
+ *	  bForLogOnly  Read ONLY ::Garuda::logCommand, skip
+ *	                 everything else.  Used by paths that only
+ *	                 need to issue diagnostic output and don't
+ *	                 want to evaluate the rest of the config
+ *	                 (which may itself fail and produce noise).
+ *	                 Most importantly, used during error paths
+ *	                 in Init/Unload where partially-set config
+ *	                 must not derail the error message.
+ *
+ *	  bMethods     Read the four method-info structs (startup /
+ *	                 control / detach / shutdown).  Skipped during
+ *	                 fast-path config queries that don't need to
+ *	                 dispatch.  Each method-info is itself an
+ *	                 attemptckalloc; bMethods=FALSE saves four
+ *	                 small allocations and four name lookups.
+ *
+ *	The runtimeConfigPath field is REQUIRED on USE_CORE_CLR
+ *	(the .NET 5+ path needs the runtimeconfig.json to load
+ *	the runtime), but optional on .NET Framework -- Framework
+ *	uses its own version-binding logic, no JSON needed.  The
+ *	#if-guarded error-out reflects that asymmetry.
+ *
+ *	Variables backing the boolean flags (bLoadClr, bStartClr,
+ *	bStartBridge, bStopClr, bUseIsolation, bUseSafeInterp)
+ *	all default to FALSE if not set.  This matches embedder
+ *	expectations: opt-in for everything; nothing happens
+ *	implicitly.  Default-load + default-start would be
+ *	surprising for a library that wants to expose [object]
+ *	without committing to a runtime selection.
+ *
+ *	logCommand is REQUIRED unconditionally -- every path through
+ *	this function expects to be able to log.  Helper.tcl ensures
+ *	::Garuda::logCommand is always set (defaults to "tclLog").
+ *	If the embedder unsets it, we fail loudly here rather than
+ *	silently skipping logs later.
+ *
+ *	Caller MUST FreeClrConfigInfo, not raw ckfree, for the same
+ *	reason as FreeClrMethodInfo -- embedded LPWSTR / sub-struct
+ *	pointers are independently owned.
  *
  * Results:
  *	A standard Tcl result.
@@ -1411,6 +1885,21 @@ static int GetClrConfigInfo(
  *	This function frees all the resources allocated by the
  *	GetClrConfigInfo function.
  *
+ * Why / How:
+ *	Cleanup mirror of GetClrConfigInfo, in reverse construction
+ *	order: scalar fields first (logCommand, runtimeConfigPath),
+ *	then the four method-info sub-structs delegated to
+ *	FreeClrMethodInfo, then the parent struct.
+ *
+ *	The four method-info pointers are freed in reverse order
+ *	of build (shutdown -> detach -> control -> startup) -- same
+ *	purely-cosmetic LIFO convention as FreeClrMethodInfo.
+ *	Independent allocations, so order is not load-bearing.
+ *
+ *	NULL-tolerant in both arguments and contained pointers,
+ *	just like FreeClrMethodInfo, so partial-build cleanup
+ *	from GetClrConfigInfo's failure paths works correctly.
+ *
  * Results:
  *	None.
  *
@@ -1452,6 +1941,39 @@ static void FreeClrConfigInfo(
  *
  *	This function combines the specified method flags with those
  *	from the configuration information for this package.
+ *
+ * Why / How:
+ *	The package supports two sources of method-flag bits: the
+ *	caller's immediate request (e.g. METHOD_TYPE_STARTUP from the
+ *	dispatch path) and the embedder-set ::Garuda::methodFlags
+ *	configuration variable (held in pConfigInfo->methodFlags).
+ *	This function OR-merges the two so the dispatched managed
+ *	method sees both -- caller-required type bits AND embedder-
+ *	configured behavior bits, with neither side overriding the
+ *	other.
+ *
+ *	On top of the OR-merge, this function also folds in two
+ *	derived bits:
+ *	  bUseIsolation  -> METHOD_USE_ISOLATION
+ *	  bUseSafeInterp -> METHOD_USE_SAFE_INTERP
+ *
+ *	These are kept as separate booleans in ClrConfigInfo (so
+ *	that helper.tcl can configure them via dedicated variable
+ *	names rather than requiring users to compute bit values),
+ *	but get folded into the flags word here for transmission
+ *	across the bridge protocol.  The managed side only reads
+ *	flag bits, not booleans.
+ *
+ *	Defensive against NULL inputs -- used in dispatch paths
+ *	where pConfigInfo or pMethodFlags might be skipped under
+ *	error conditions.  No-op rather than crash.
+ *
+ *	Note the read-modify-write through `methodFlags` local:
+ *	pMethodFlags is read once, modified, then written back
+ *	once.  This avoids torn reads if pMethodFlags happens to
+ *	point at concurrently-mutated storage (the package mutex
+ *	covers this, but the local-copy pattern is robust to
+ *	future caller refactoring).
  *
  * Results:
  *	None.
@@ -1518,6 +2040,50 @@ static void MaybeCombineMethodFlags(
  *	interpreter and executes the CLR method responsible for setting
  *	up, controlling, detaching from, or shutting down the bridge
  *	between Eagle and Tcl.
+ *
+ * Why / How:
+ *	The "configured-dispatch" entry point.  Used for the four
+ *	package-lifecycle methods (startup / control / detach /
+ *	shutdown) -- which managed method to call is read from the
+ *	configuration variables, not supplied by the caller.
+ *	DemandExecuteClrMethod is the sister for caller-supplied
+ *	dispatch.
+ *
+ *	Sequence:
+ *	  1. Validate pConfigInfo (must have been built via
+ *	     GetClrConfigInfo before this call).
+ *	  2. MaybeCombineMethodFlags -- fold caller flags with
+ *	     configured flags.
+ *	  3. CanExecuteClrCode / CanExecuteCoreClrCode predicate;
+ *	     if FALSE, return early.  METHOD_STRICT_CLR controls
+ *	     whether the early return is success or error -- strict
+ *	     callers (Init's startup-method call) want an error
+ *	     because they cannot proceed; relaxed callers (Unload's
+ *	     shutdown-method call) want success because "CLR
+ *	     already gone" is fine for shutdown.
+ *	  4. GetClrMethodInfo to resolve the method-type to a
+ *	     concrete method-info struct using the configuration.
+ *	  5. ExecuteClrMethod / ExecuteCoreClrMethod via the
+ *	     #ifdef-selected branch.
+ *	  6. METHOD_STRICT_RETURN check on the managed method's
+ *	     returnValue -- this is the cross-language ABI contract
+ *	     "managed lifecycle methods return TCL_OK on success".
+ *	     Strict callers convert non-TCL_OK to TCL_ERROR with a
+ *	     formatted error message naming the method type, type,
+ *	     method, and assembly.  Relaxed callers tolerate any
+ *	     return code.
+ *	  7. Cleanup pMethodInfo unconditionally.
+ *
+ *	The two STRICT_* flag bits (CLR and RETURN) are separable
+ *	because some lifecycle states want one kind of strictness
+ *	but not the other.  E.g. detach wants STRICT_RETURN
+ *	(non-TCL_OK from detach is a real bug) but not STRICT_CLR
+ *	(detaching a CLR that's already gone is fine).
+ *
+ *	Note: this function does NOT acquire packageMutex.
+ *	Callers (Init, Unload, [object dispatch], etc.) hold it
+ *	already; nesting it here would be redundant and on POSIX
+ *	would burn a recursive-lock cycle in packageOwner.
  *
  * Results:
  *	A standard Tcl result.
@@ -1676,6 +2242,45 @@ done:
  *	This function executes the specified CLR method using the
  *	specified assembly, type, and method information.
  *
+ * Why / How:
+ *	The "demand-dispatch" sister of GetAndExecuteClrMethod.
+ *	Where GetAndExecuteClrMethod resolves the method to call
+ *	by reading package configuration variables, this function
+ *	takes assembly / type / method / argument as Tcl_Obj*
+ *	arguments -- supplied directly by the caller, typically
+ *	from the [object demand assemblyPath typeName methodName
+ *	arg] script-level command.
+ *
+ *	Sequence is parallel to GetAndExecuteClrMethod minus the
+ *	configured-method lookup:
+ *	  1. Validate pConfigInfo (only logCommand / methodFlags
+ *	     are read from it; the method coords come from the
+ *	     Tcl_Obj args).
+ *	  2. MaybeCombineMethodFlags.
+ *	  3. CreateClrMethodInfo (NOT GetClrMethodInfo) to build
+ *	     the method-info from the Tcl_Obj arguments.
+ *	  4. ExecuteCoreClrMethod / ExecuteClrMethod dispatch.
+ *	  5. Cleanup pMethodInfo.
+ *
+ *	Notable absences relative to GetAndExecuteClrMethod:
+ *	  - No CanExecute*ClrCode predicate guard -- the script-
+ *	    level [object demand] command does its own gating.
+ *	  - No STRICT_RETURN treatment -- demand-dispatched methods
+ *	    pass their return value back through pReturnValue
+ *	    instead of being interpreted as TCL_OK/TCL_ERROR.  The
+ *	    caller decides what to do with the DWORD.
+ *
+ *	The "argument" parameter to ExecuteCoreClrMethod /
+ *	ExecuteClrMethod is passed as NULL because the Tcl_Obj
+ *	argumentPtr was already merged into the method-info via
+ *	CreateClrMethodInfo's argument capture.  Passing it again
+ *	would double-include it in the protocol payload.
+ *
+ *	pReturnValue is forwarded all the way to the dispatch
+ *	function, which writes the managed method's DWORD return
+ *	there before returning.  Caller MAY pass NULL if they
+ *	don't care about the return value.
+ *
  * Results:
  *	A standard Tcl result.
  *
@@ -1759,6 +2364,114 @@ done:
  *
  *	This function initializes the package for the specified Tcl
  *	interpreter.
+ *
+ * Why / How:
+ *	The Tcl-mandated package entry point -- invoked once when an
+ *	embedder calls [load /path/to/Garuda.dll] (or auto-loads via
+ *	pkgIndex.tcl).  This is the function whose name is matched
+ *	by Tcl's [load] command after capitalizing the first letter
+ *	of the package name and appending "_Init".  Its presence in
+ *	the export table is non-negotiable.
+ *
+ *	The startup sequence is the longest single piece of logic in
+ *	the package, ordered as follows.  Each step has a specific
+ *	failure mode that determines whether [load] reports success
+ *	or error to the embedder:
+ *
+ *	  1. Tcl stubs init (Tcl_InitStubs or initTclStubs).
+ *	     If this fails, no Tcl API is callable; we must return
+ *	     TCL_ERROR via PACKAGE_TRACE-only diagnostic (we do not
+ *	     have an interp to write a result on yet -- well, we have
+ *	     `interp`, but if Tcl_InitStubs failed, calling
+ *	     Tcl_AppendResult would itself crash).  This is a
+ *	     trace-and-bail.
+ *
+ *	  2. lTclStubs interlocked-increment.  Marks "Tcl API is
+ *	     available" so that downstream paths (including unload)
+ *	     can detect we got past stubs init.  Atomicity matters
+ *	     because Garuda_Unload reads this flag from a potentially
+ *	     different thread.
+ *
+ *	  3. Package mutex acquired for the rest of the function.
+ *	     This serializes against any other Garuda_Init/_Unload
+ *	     racing through the same DLL instance (rare but not
+ *	     impossible: an embedder loading two interps that each
+ *	     load Garuda).  Recursive on POSIX via packageOwner.
+ *
+ *	  4. GetPackageModuleFileName -- discover our own
+ *	     .dll/.so/.dylib path.  Required because helper.tcl
+ *	     computes ::Garuda::library relative to it.
+ *
+ *	  5. Tcl version / TIP-feature detection (Tcl_GetVersion,
+ *	     Tcl_PkgPresent for tcl::tip-285/335/336).  Result is
+ *	     bTcl86 and the per-TIP flags fed to SetClrTclStubs.
+ *
+ *	  6. SetClrTclStubs -- populate uTclStubs (the static
+ *	     ClrTclStubs struct) with function pointers that the
+ *	     bridge will hand to Eagle.
+ *
+ *	  7. Source helper.tcl from <package-dir>/lib/helper.tcl
+ *	     (computed relative to packageFileName).  This is a
+ *	     SUBSTANTIAL amount of script that does runtime
+ *	     selection (CoreCLR vs .NET Framework), assembly path
+ *	     resolution, runtime config writing, namespace setup.
+ *	     A failure here is the most common embedder-visible
+ *	     load failure; the helper.tcl error message bubbles
+ *	     up through the interp result.
+ *
+ *	  8. GetClrConfigInfo -- snapshot helper.tcl's namespace
+ *	     variables into a ClrConfigInfo struct.
+ *
+ *	  9. logCommand pulled out of pConfigInfo.  From this
+ *	     point on, errors get logged through TclLog as well
+ *	     as written to interp result.
+ *
+ *	 10. Conditional CLR load + start (bLoadClr, bStartClr).
+ *	     LoadAndStartTheClr or LoadAndStartTheCoreClr depending
+ *	     on the build.  Skip if already loaded by a sibling
+ *	     interp earlier (bClrWasLoaded / bClrWasStarted are
+ *	     tracked because we should NOT teardown a CLR we did
+ *	     not bring up, even if Init eventually fails).
+ *
+ *	 11. Conditional bridge startup (bStartBridge).  Calls
+ *	     into the managed startup method via
+ *	     GetAndExecuteClrMethod with METHOD_TYPE_STARTUP.
+ *	     This is the call that crosses into Eagle and runs
+ *	     the C# Garuda bootstrap.
+ *
+ *	 12. Tcl_CreateObjCommand to register [object].  Done
+ *	     LAST so that the command is only available if every
+ *	     prior step succeeded -- partial init must not leave
+ *	     a half-functional [object] in the interp.
+ *
+ *	 13. Tcl_PkgProvideEx for each name in packageNames[]
+ *	     (currently four aliases: garuda, eagle, dotnet, clr --
+ *	     see PACKAGE_NAME_0..3 in pkgVersion.h).
+ *
+ *	On any error mid-sequence, the function jumps to `done:`
+ *	which:
+ *	  - On TCL_ERROR with bClrWasLoaded/bClrWasStarted set
+ *	    by THIS Init (not by an earlier sibling Init), tear
+ *	    down what we built.
+ *	  - Free pConfigInfo via FreeClrConfigInfo.
+ *	  - Release packageMutex.
+ *	  - Return code.
+ *
+ *	The teardown asymmetry -- only undo what THIS Init did --
+ *	is critical.  An embedder loading Garuda into two interps
+ *	in sequence wants the second [load] to be safely skippable
+ *	if the first one already brought up the CLR; a failure on
+ *	the second Init must NOT tear down the first interp's CLR.
+ *
+ *	Concurrency caveat: although packageMutex serializes Init
+ *	calls, the global state (pClrRuntimeHost, bClrStarted,
+ *	bClrBridgeStarted) means TWO concurrent [load Garuda] in
+ *	different interps share the same CLR.  This is intended
+ *	(.NET single-runtime-per-process is mandatory) but worth
+ *	knowing when reasoning about "why did my second interp see
+ *	a managed object created by the first?"  Eagle's isolation
+ *	bit (METHOD_USE_ISOLATION) addresses that at the AppDomain
+ *	level on .NET Framework.
  *
  * Results:
  *	A standard Tcl result.
@@ -2063,6 +2776,29 @@ done:
  *	package is aware of "safe" Tcl interpreters, no extra handling
  *	is needed here.
  *
+ * Why / How:
+ *	The Tcl-mandated entry point for safe interpreter init.
+ *	Tcl looks up <Package>_SafeInit when [load] is called from
+ *	a safe interp; if absent, [load] fails.  Garuda's design
+ *	puts the safe-interp gating inside GarudaObjCmd
+ *	(per-sub-command) rather than refusing the load entirely,
+ *	so this function legitimately delegates to Garuda_Init.
+ *
+ *	The reason GarudaObjCmd's per-sub-command gating works
+ *	for safe interps: the introspection sub-commands (with the
+ *	dumpstate exception) reveal nothing the embedder could not
+ *	already learn through other means; the lifecycle and
+ *	bridge sub-commands fail with "permission denied".  Net
+ *	effect from a safe-interp viewpoint: [object dumpstate],
+ *	[object clrload], [object startup], etc. all return errors;
+ *	[object clrrunning], [object clrversion], etc. work fine.
+ *
+ *	If the gating model ever changes -- for example, if a future
+ *	sub-command needs to be safe-only or unsafe-only with
+ *	different semantics in each -- this function would acquire
+ *	per-mode behavior and stop being a one-line delegate.  For
+ *	now, the delegation is the right answer.
+ *
  * Results:
  *	A standard Tcl result.
  *
@@ -2085,6 +2821,73 @@ int Garuda_SafeInit(
  *
  *	This function unloads the package from the specified Tcl
  *	interpreter -OR- from the entire process.
+ *
+ * Why / How:
+ *	The mirror entry point of Garuda_Init.  Registered with Tcl
+ *	via standard package conventions and invoked from one of
+ *	three contexts identified by the `flags` argument:
+ *
+ *	  TCL_UNLOAD_DETACH_FROM_PROCESS:
+ *	    Full unload -- the [load Garuda] is being undone for
+ *	    real, the .dll/.so will be FreeLibrary'd / dlclose'd
+ *	    after we return.  This is the destructive path: stop
+ *	    bridge, stop CLR, free packageFileName, release the
+ *	    static storage.  Goes through GarudaExitProc to
+ *	    coordinate with Tcl's exit handlers.
+ *
+ *	  TCL_UNLOAD_FROM_INIT (bFromInit):
+ *	    Garuda_Init failed mid-sequence; this is the cleanup
+ *	    pass.  We must NOT do anything that assumes a fully-
+ *	    successful init -- for example, do not try to call the
+ *	    managed shutdown method if the bridge never started.
+ *	    The flag tells us to be conservative.
+ *
+ *	  TCL_UNLOAD_FROM_CMD_DELETE (bFromCmdDelete):
+ *	    Tcl is destroying the [object] command (interp delete,
+ *	    or rename to ""); Tcl will follow up with another
+ *	    Garuda_Unload call if the package's full unload is
+ *	    intended.  This call is just the per-interp cleanup,
+ *	    NOT the process-level teardown.
+ *
+ *	The bShutdown / bFromInit / bFromCmdDelete trio gets used
+ *	throughout the function to gate which steps run.  The
+ *	default decision tree:
+ *
+ *	  bFromInit                -> minimal cleanup; no managed
+ *	                              calls; release packageMutex
+ *	                              and return.
+ *	  bShutdown                -> full teardown via
+ *	                              GarudaExitProc; this is the
+ *	                              "really exit" path.
+ *	  bFromCmdDelete           -> per-interp cleanup; leave
+ *	                              the CLR alone for other
+ *	                              interps.
+ *	  (none of the above)      -> dispatch the [Garuda] managed
+ *	                              detach method but leave the
+ *	                              CLR up for re-attach.
+ *
+ *	The lTclStubs interlocked-CAS at the top is the symmetric
+ *	pair of Garuda_Init's interlocked-increment.  It's
+ *	idempotent -- calling Garuda_Unload after a successful
+ *	Garuda_Unload is a no-op (PACKAGE_TRACE + return).  This
+ *	lets Tcl's unload machinery be sloppy without breaking us:
+ *	if Tcl decides to call Unload twice (it usually doesn't,
+ *	but defensive code is cheap here), the second call is
+ *	silent.
+ *
+ *	One thing this function deliberately does NOT do: it does
+ *	not call Tcl_DeleteCommandFromToken to remove [object].
+ *	That happens automatically through the GarudaObjCmdDelete-
+ *	Proc which Tcl invokes when the command's interp is being
+ *	destroyed.  Doing it from here would race with Tcl's own
+ *	command-deletion machinery.
+ *
+ *	The "TODO: Good default?" comment on bStopClr reflects an
+ *	open design question -- should an unload that's not
+ *	bShutdown still stop the CLR?  Currently TRUE on the
+ *	theory "if you're unloading the package, you don't need
+ *	the CLR running anymore", but a sibling-interp scenario
+ *	might want the opposite.  Left as a known issue for now.
  *
  * Results:
  *	A standard Tcl result.
@@ -2371,6 +3174,21 @@ done:
  *	functionality provided by this package is aware of "safe"
  *	Tcl interpreters, no extra handling is needed here.
  *
+ * Why / How:
+ *	The Tcl-mandated unload entry point for safe interpreters,
+ *	the symmetric pair of Garuda_SafeInit.  Tcl looks up
+ *	<Package>_SafeUnload when a safe interp's [unload] runs;
+ *	if absent, the unload fails.  Same delegation rationale as
+ *	Garuda_SafeInit: the per-sub-command gating in GarudaObjCmd
+ *	already enforces safe-interp restrictions, so Unload
+ *	itself has nothing extra to do.
+ *
+ *	Note: Tcl's unload mechanism passes the same `flags`
+ *	through to both the regular and safe variants.  The
+ *	bShutdown / bFromInit / bFromCmdDelete branches inside
+ *	Garuda_Unload handle every case identically regardless of
+ *	whether the interp was safe.
+ *
  * Results:
  *	A standard Tcl result.
  *
@@ -2393,6 +3211,31 @@ int Garuda_SafeUnload(
  * GarudaExitProc --
  *
  *	Cleanup all the resources allocated by this package.
+ *
+ * Why / How:
+ *	Registered with Tcl_CreateExitHandler from Garuda_Init.
+ *	Tcl invokes this when the process is terminating cleanly
+ *	(Tcl_Exit, Tcl_Finalize, or main() returning).  The
+ *	purpose is to coordinate Garuda's teardown with Tcl's
+ *	finalization order -- by the time Tcl calls our handler,
+ *	all interpreters are gone but the .dll is still mapped,
+ *	so we can safely unwind CLR state.
+ *
+ *	The implementation is a single delegated call into
+ *	Garuda_Unload(NULL, TCL_UNLOAD_DETACH_FROM_PROCESS).
+ *	The NULL interp is intentional -- there is no live interp
+ *	at exit time; we are doing process-wide teardown.  Code
+ *	that tries to use the interp inside Unload checks for
+ *	NULL first and falls back to log-only or no-op as
+ *	appropriate.
+ *
+ *	If Unload fails -- exceedingly rare; this would mean a
+ *	managed shutdown method threw -- we cannot return an error
+ *	to Tcl (the signature is void).  Instead we PACKAGE_PANIC
+ *	which on debug builds aborts with a diagnostic and on
+ *	release builds is a no-op.  The asymmetry is deliberate:
+ *	in production, a failed exit-time cleanup should not
+ *	prevent the process from exiting.
  *
  * Results:
  *	None.
@@ -2427,6 +3270,81 @@ static void GarudaExitProc(
  *	all introspection sub-commands are allowed with the exception
  *	of "dumpstate", which is forbidden; all other sub-commands are
  *	also forbidden.
+ *
+ * Why / How:
+ *	The implementation of [object], the package's only script-
+ *	level command.  The dispatcher is a Tcl_GetIndexFromObj +
+ *	switch over an enum, the standard Ousterhout pattern for
+ *	multi-subcommand commands.  The cmdOptions / options enum
+ *	pair must stay in sync -- Tcl_GetIndexFromObj returns the
+ *	index of the matched name, which we cast to the enum.
+ *
+ *	Sub-commands fall into four categories:
+ *
+ *	  Introspection (always safe; allowed in safe interps):
+ *	    clrappdomainid    -> ICLRRuntimeHost::GetCurrentAppDomainId
+ *	    clrbridgerunning  -> bClrBridgeStarted
+ *	    clrrunning        -> bClrStarted
+ *	    clrversion        -> ICLRRuntimeInfo::GetVersionString
+ *	    packageid         -> compile-time package identity
+ *
+ *	  Forbidden in safe interps (denied even though they look
+ *	  introspective):
+ *	    dumpstate         -> exposes raw pointers; pointer
+ *	                         disclosure is a sandbox-escape
+ *	                         vector for Tcl scripts that have
+ *	                         FFI access (memcpy, etc).
+ *
+ *	  CLR lifecycle (forbidden in safe interps):
+ *	    clrload           -> LoadAndStart*TheClr (load only)
+ *	    clrstart          -> LoadAndStart*TheClr (load + start)
+ *	    clrstop           -> StopAndRelease*TheClr
+ *	    clrexecute        -> DemandExecuteClrMethod
+ *
+ *	  Bridge lifecycle (forbidden in safe interps):
+ *	    startup           -> METHOD_TYPE_STARTUP
+ *	    control           -> METHOD_TYPE_CONTROL
+ *	    detach            -> METHOD_TYPE_DETACH
+ *	    shutdown          -> METHOD_TYPE_SHUTDOWN
+ *
+ *	Per-subcommand argv check uses Tcl_WrongNumArgs to produce
+ *	the canonical "wrong # args:" error, with the prefix already
+ *	formatted to include the subcommand name (because
+ *	Tcl_WrongNumArgs is given objc=2 to skip past "object
+ *	<sub>" before formatting the rest).
+ *
+ *	Concurrency: packageMutex is acquired at entry and released
+ *	at every exit path via the `done:` label.  This serializes
+ *	the entire sub-command implementation, including the
+ *	bridge-method dispatches, against any other thread that
+ *	might call Garuda_Init / Garuda_Unload / a parallel [object]
+ *	call.  The cost is reduced concurrency for [object]
+ *	parallelism, but the savings are real: every sub-command
+ *	either reads or modifies global package state, and a
+ *	finer-grained scheme would require per-piece locks that
+ *	don't exist.
+ *
+ *	Safe-interp gating uses Tcl_IsSafe(interp) and is checked
+ *	at the top of each non-introspection case.  Failure case
+ *	produces the canonical "permission denied" error message
+ *	and bypasses any further work.  The pattern is tedious
+ *	but explicit; an alternative top-of-function check was
+ *	rejected because some safe sub-commands have nuanced
+ *	gating (the "dumpstate" exception above).
+ *
+ *	Sub-commands that dispatch managed methods build the
+ *	pConfigInfo via GetClrConfigInfo at the top of the case
+ *	body and free it at `done:` via FreeClrConfigInfo.  This
+ *	keeps the cost of building config info paid only by the
+ *	sub-commands that actually need it.  Introspection paths
+ *	skip the cost.
+ *
+ *	When the bridge is involved (startup/control/detach/
+ *	shutdown), MaybeCombineMethodFlags is invoked through
+ *	GetAndExecuteClrMethod to fold in embedder-set flags.
+ *	The clrexecute sub-command goes through Demand-
+ *	ExecuteClrMethod instead, which takes explicit Tcl_Obj
+ *	arguments rather than reading from the configuration.
  *
  * Results:
  *	A standard Tcl result.
@@ -2986,6 +3904,42 @@ done:
  *	Handles deletion of the command(s) added by this package.
  *	This will cause the saved package data associated with the
  *	Tcl interpreter to be deleted, if it has not been already.
+ *
+ * Why / How:
+ *	The deleteProc passed to Tcl_CreateObjCommand when [object]
+ *	was registered in Garuda_Init.  Tcl invokes this in two
+ *	scenarios:
+ *
+ *	  1. Explicit [rename object {}] -- script-level command
+ *	     deletion.  The interp is still alive; we want
+ *	     per-interp cleanup but the CLR / bridge / package
+ *	     state should remain because OTHER interps may still
+ *	     have [object] registered.
+ *
+ *	  2. Tcl_DeleteInterp on the [object]-owning interp --
+ *	     the interp is being torn down; same per-interp
+ *	     cleanup; the interp pointer is still valid until
+ *	     this callback returns.
+ *
+ *	In both cases the right move is Garuda_Unload(interp,
+ *	TCL_UNLOAD_FROM_CMD_DELETE | TCL_UNLOAD_DETACH_FROM_
+ *	INTERPRETER).  The two flags together tell Garuda_Unload
+ *	"this is a per-interp cleanup, not a process-wide
+ *	teardown", which causes it to invoke the managed detach
+ *	method (if the bridge is up) but leave the CLR running.
+ *
+ *	The PACKAGE_PANIC on failure is mostly defensive -- the
+ *	failure modes here are exotic (managed detach throws,
+ *	already-torn-down state, etc.) and we have no return
+ *	channel to surface the error.  In production this is a
+ *	no-op; in debug builds it aborts with a diagnostic
+ *	message identifying the failure point.
+ *
+ *	Note: this is REGISTERED for [object] in Garuda_Init via
+ *	Tcl_CreateObjCommand's deleteProc parameter.  Tcl
+ *	guarantees this fires before the interp is fully torn
+ *	down -- that's why we can still call Tcl_AppendResult and
+ *	friends from inside Garuda_Unload's per-interp branches.
  *
  * Results:
  *	None.
