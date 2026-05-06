@@ -1181,8 +1181,8 @@ runTest {test redefine-6.1 {custom package fallback (non-isolated)} -setup {
   file mkdir $directory
 
   writeFile [file join $directory pkgIndex.eagle] {
-    if {![package vsatisfies [package provide Tcl] 8.4]} {return}
-    if {![package vsatisfies [package provide Eagle] 1.0]} {return}
+    if {![package vsatisfies [package provide Tcl] 8.4]} then {return}
+    if {![package vsatisfies [package provide Eagle] 1.0]} then {return}
 
     package ifneeded redefine-6.1 1.0 \
         [list package provide redefine-6.1 1.0]
@@ -1325,8 +1325,8 @@ runTest {test redefine-6.2 {custom package fallback (isolated)} -setup {
   file mkdir $directory
 
   writeFile [file join $directory pkgIndex.eagle] {
-    if {![package vsatisfies [package provide Tcl] 8.4]} {return}
-    if {![package vsatisfies [package provide Eagle] 1.0]} {return}
+    if {![package vsatisfies [package provide Tcl] 8.4]} then {return}
+    if {![package vsatisfies [package provide Eagle] 1.0]} then {return}
 
     package ifneeded redefine-6.2 1.0 \
         [list package provide redefine-6.2 1.0]

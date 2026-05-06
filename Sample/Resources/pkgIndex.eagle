@@ -14,8 +14,8 @@
 #
 ###############################################################################
 
-if {![package vsatisfies [package provide Tcl] 8.4]} {return}
-if {![package vsatisfies [package provide Eagle] 1.0]} {return}
+if {![package vsatisfies [package provide Tcl] 8.4]} then {return}
+if {![package vsatisfies [package provide Eagle] 1.0]} then {return}
 
 package ifneeded Sample.Embedded 1.0 [list apply [list [list dir args] {
   catch {tclLog [appendArgs "Sample.Embedded directory is: \"" $dir \"]}

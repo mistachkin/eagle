@@ -71,21 +71,11 @@ namespace eval ::Garuda {
   #############################################################################
 
   #
-  # NOTE: Also defined in and used by "helper.tcl".
-  #
-  # Path-canonicalization helper.  Returns [file normalize $path] under
-  # default configuration.  An embedder that has explicitly set
-  # ::Garuda::noNormalize true gets the raw path back unchanged -- useful
-  # when the embedder is on a network filesystem or junction point
-  # where Tcl's normalizer would resolve away a symlink the embedder
-  # specifically wants to preserve.  The `force` argument is a per-call
-  # override that bypasses noNormalize for paths that MUST be canonical
-  # regardless of the configuration knob (e.g. the package's own
-  # location, used to compute lib/ subdirectory paths).
-  #
   # Defined here AND in helper.tcl because this file may run before
   # helper.tcl sources, and the package-startup section below uses it
-  # immediately to discover packagePath.  Keep both copies in sync.
+  # immediately to discover packagePath.  Keep all copies in sync.
+  #
+  # NOTE: Also defined in and used by "helper.tcl".
   #
   proc fileNormalize { path {force false} } {
     variable noNormalize

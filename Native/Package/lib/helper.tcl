@@ -176,10 +176,15 @@ namespace eval ::Garuda {
   }
 
   #
-  # Path-canonicalization helper.  See garuda.tcl for full design notes;
-  # this is the same proc body, redefined here so helper.tcl can be
-  # sourced standalone (via [package require GarudaHelper]) without
-  # needing the loader-script copies.
+  # Path-canonicalization helper.  Returns [file normalize $path] under
+  # default configuration.  An embedder that has explicitly set
+  # ::Garuda::noNormalize true gets the raw path back unchanged -- useful
+  # when the embedder is on a network filesystem or junction point
+  # where Tcl's normalizer would resolve away a symlink the embedder
+  # specifically wants to preserve.  The `force` argument is a per-call
+  # override that bypasses noNormalize for paths that MUST be canonical
+  # regardless of the configuration knob (e.g. the package's own
+  # location, used to compute lib/ subdirectory paths).
   #
   # NOTE: Also defined in and used by "dotnet.tcl" and "garuda.tcl".
   #

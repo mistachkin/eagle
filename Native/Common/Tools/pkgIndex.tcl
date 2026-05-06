@@ -14,7 +14,7 @@
 #
 ###############################################################################
 
-if {![package vsatisfies [package provide Tcl] 8.4]} {return}
+if {![package vsatisfies [package provide Tcl] 8.4]} then {return}
 if {[string length [package provide Eagle]] > 0} then {return}
 
 package ifneeded Eagle.Tools.Common 1.0 \

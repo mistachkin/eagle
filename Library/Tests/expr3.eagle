@@ -169,7 +169,7 @@ runTest {test expr-3.3 {lots of logical OR operators} -setup {
   }
 
   proc zero { {a 20} } {
-    if {$a == 0} {return 0}
+    if {$a == 0} then {return 0}
     return [zero [expr {$a - 1}]]
   }
 } -body {
@@ -256,7 +256,7 @@ runTest {test expr-3.4 {lots of logical AND operators} -setup {
   }
 
   proc one { {a 20} } {
-    if {$a == 0} {return 1}
+    if {$a == 0} then {return 1}
     return [expr {1 + [one [expr {$a - 1}]]}]
   }
 } -body {

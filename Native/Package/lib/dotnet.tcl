@@ -70,8 +70,11 @@ namespace eval ::Garuda {
   #############################################################################
 
   #
+  # Defined here AND in helper.tcl because this file may run before
+  # helper.tcl sources, and the package-startup section below uses it
+  # immediately to discover packagePath.  Keep all copies in sync.
+  #
   # NOTE: Also defined in and used by "helper.tcl".
-  # See garuda.tcl for full design notes; identical implementation.
   #
   proc fileNormalize { path {force false} } {
     variable noNormalize
