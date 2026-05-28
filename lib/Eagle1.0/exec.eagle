@@ -247,8 +247,8 @@ namespace eval ::Eagle {
     # evaluated in the caller's context via [uplevel 1], so its result (the
     # child's captured output) becomes this procedure's result.
     #
-    # Tricky details: it relies on getShellExecutableName and
-    # getRuntimeCommandLine, so it inherits their runtime detection and PATH
+    # Tricky details: it relies on [getShellExecutableName] and
+    # [getRuntimeCommandLine], so it inherits their runtime detection and PATH
     # assumptions.  There is a workaround for a .NET Core issue in which an
     # empty-string argument is silently dropped: under Eagle on .NET Core,
     # any argument that is an empty string expressed as a pair of double

@@ -2259,10 +2259,10 @@ namespace eval ::Eagle {
     # family.
     #
     # How it works: it reads tcl_platform(platform) and, if present, passes it
-    # straight to addConstraint.  Additionally, when running under native Tcl
+    # straight to [addConstraint].  Additionally, when running under native Tcl
     # (not Eagle) and the global no(runtimeVersion) is not set, it pre-registers
     # the known Mono and .NET Core bug-skip constraints (via the helper
-    # addKnownMonoConstraints and addKnownDotNetCoreConstraints, each called for
+    # [addKnownMonoConstraints] and [addKnownDotNetCoreConstraints], each called for
     # both boolean arguments).  This is a bugfix so that native Tcl does not
     # erroneously skip tests guarded for Mono or .NET Core quirks.
     #
@@ -2316,14 +2316,14 @@ namespace eval ::Eagle {
     # requiring the version to look like a dotted major.minor number.  Because
     # Windows can misreport its version to a process (application compatibility
     # shims), it cross-checks by running the command processor's internal VER
-    # command (when canExecComSpec permits and ComSpec is set); if the detected
+    # command (when [canExecComSpec] permits and ComSpec is set); if the detected
     # value differs from the reported one, the detected value wins and a warning
-    # is logged.  It then iterates the list from getKnownWindowsVersions,
+    # is logged.  It then iterates the list from [getKnownWindowsVersions],
     # adding an _OrHigher constraint for each baseline the running version meets
     # or exceeds, and finally an exact-version constraint.
     #
     # Tricky details: version comparisons rely on dotted-version semantics via
-    # getDottedVersion; spaces in the OS name are removed when forming
+    # [getDottedVersion]; spaces in the OS name are removed when forming
     # constraint names.  All work is skipped on non-Windows platforms.
     #
     # Arguments:
@@ -2551,9 +2551,9 @@ namespace eval ::Eagle {
     # require that a particular OS patch or hotfix be present.
     #
     # How it works: it delegates the actual detection to the helper
-    # haveTclPlatformOsExtraUpdateName, which looks the name up among the update
-    # names recorded in the extra OS information (see checkForGetInstalledUpdates).
-    # When found, cleanConstraintName is used to turn the (possibly punctuation
+    # [haveTclPlatformOsExtraUpdateName], which looks the name up among the update
+    # names recorded in the extra OS information (see [checkForGetInstalledUpdates]).
+    # When found, [cleanConstraintName] is used to turn the (possibly punctuation
     # laden) update name into a valid constraint suffix before registration.
     #
     # Arguments:
@@ -2724,7 +2724,7 @@ namespace eval ::Eagle {
     # of a global script variable and registers a test constraint named with the
     # prefix variable_ followed by either the caller-supplied constraint suffix
     # or, by default, the variable name itself.  It is the script-variable
-    # analogue of checkForEnvironmentVariable.
+    # analogue of [checkForEnvironmentVariable].
     #
     # How it works: it first normalizes the name into the global scope by
     # trimming leading colons and prepending the global namespace qualifier.  It
@@ -2958,7 +2958,7 @@ namespace eval ::Eagle {
     # How it works: it iterates the entries returned by info loaded, applying
     # the given regular expression to the last field of each entry (the package
     # name), and stops at the first match, recording that entry's package name
-    # (its second field).  When a match is found, the helper cleanPackageName is
+    # (its second field).  When a match is found, the helper [cleanPackageName] is
     # used twice (with its boolean argument false then true) to derive valid
     # short and full constraint suffixes.
     #
@@ -3026,8 +3026,8 @@ namespace eval ::Eagle {
     # repository require these.
     #
     # How it works: it uses the test_path global as the working directory (or
-    # empty) and, gated on canExecFossil, runs Fossil sub-commands via the
-    # execFossilCommand helper.  The version sub-command output is parsed with a
+    # empty) and, gated on [canExecFossil], runs Fossil sub-commands via the
+    # [execFossilCommand] helper.  The version sub-command output is parsed with a
     # regular expression to extract the version and source identifier.  It then
     # runs remote-url and validates the result (Eagle can use uri isvalid; Tcl
     # only checks for non-empty text), optionally probing the URL for an HTTP
@@ -3037,7 +3037,7 @@ namespace eval ::Eagle {
     # saves it to test_repository_file unless no(setRepositoryFile) is set.  A
     # human-readable summary is accumulated and logged.
     #
-    # Tricky details: each external invocation is guarded by canExecFossil and
+    # Tricky details: each external invocation is guarded by [canExecFossil] and
     # catch.  The redirect-detection step is Eagle-only and is skipped when
     # no(detectRepositoryUrlType) is set; it recognizes a TestBaseUrl HTML
     # comment or a base href tag and strips a trailing login path.  The
@@ -3224,7 +3224,7 @@ namespace eval ::Eagle {
     # for each edition found.  Tests that require a given Visual Studio version
     # use these.
     #
-    # How it works: only on Windows and only when canExecVsWhere permits, it
+    # How it works: only on Windows and only when [canExecVsWhere] permits, it
     # iterates a fixed table mapping internal versions to release years (15.0
     # to 2017, 16.0 to 2019, 17.0 to 2022).  For each it runs vswhere to obtain
     # the latest installation path for that version, splits the possibly
@@ -3351,7 +3351,7 @@ namespace eval ::Eagle {
     #
     # How it works: when running in Eagle it adds eagle plus tclBug, tclCrash,
     # and tclHang (both bare and suffixed with each known dotless Tcl version
-    # from getKnownTclVersions), because those Tcl-specific problems can never
+    # from [getKnownTclVersions]), because those Tcl-specific problems can never
     # affect an Eagle run and so the guarded tests should not be skipped.  When
     # running under native Tcl it adds tcl, then for every known Tcl version
     # that does NOT match the running version it adds the version-suffixed
@@ -3362,7 +3362,7 @@ namespace eval ::Eagle {
     # Tricky details: the asymmetry is deliberate.  These constraints work by
     # presence: a test guarded with tclBugNN runs only when that constraint is
     # present, which is precisely when the current engine/version is immune to
-    # the bug.  Version suffixes come from getDotlessVersion.
+    # the bug.  Version suffixes come from [getDotlessVersion].
     #
     # Arguments:
     #   channel -- The channel where diagnostic and progress output should be
@@ -3538,7 +3538,7 @@ namespace eval ::Eagle {
     # the test constraint named garuda when it is.  Tests that exercise the
     # Eagle/Tcl bridge require this.
     #
-    # How it works: it delegates detection to the helper haveGaruda, passing the
+    # How it works: it delegates detection to the helper [haveGaruda], passing the
     # name of a variable (packageId) that the helper fills in with the detected
     # Garuda package identifier on success; that identifier is then echoed in
     # the diagnostic output.
@@ -3575,7 +3575,7 @@ namespace eval ::Eagle {
     # interpreter) use these.
     #
     # How it works: it takes the base name of the current shell executable (via
-    # getShellExecutableName).  In Eagle it matches that name against a list of
+    # [getShellExecutableName]).  In Eagle it matches that name against a list of
     # well-known Eagle shell names (Eagle, EagleShell, EagleKit, and their 32/64
     # variants); if the global no(strictCheckForShell) is set it loosens this to
     # any name beginning with Eagle.  In native Tcl it matches names beginning
@@ -3659,12 +3659,12 @@ namespace eval ::Eagle {
     # This procedure probes whether the tests are running as part of Eagle's
     # official stable release process and registers the test constraint named
     # officialStableReleaseInProgress when so.  That constraint is consulted by
-    # the fixTimingConstraints procedure so that timing-sensitive tests are not
+    # the [fixTimingConstraints] procedure so that timing-sensitive tests are not
     # counted against the overall results during an official release run (where
     # build machines may behave unpredictably).
     #
     # How it works: it simply delegates the decision to the helper
-    # isOfficialStableReleaseInProgress and registers the constraint on a true
+    # [isOfficialStableReleaseInProgress] and registers the constraint on a true
     # result.
     #
     # Arguments:
@@ -3775,11 +3775,11 @@ namespace eval ::Eagle {
     # on that match it adds the exact tclNN constraint, then for every known
     # version less than or equal to it adds both tclNNFeature and tclNNOrHigher,
     # and for every known version greater than or equal to it adds tclNNOrLower,
-    # using filterKnownVersions to produce the two ranges.  There is exactly one
+    # using [filterKnownVersions] to produce the two ranges.  There is exactly one
     # exact match, so it breaks afterward.
     #
     # Tricky details: dotless and dotted version forms are produced by
-    # getDotlessVersion and getDottedVersion; the Eagle-only blanket Feature
+    # [getDotlessVersion] and [getDottedVersion]; the Eagle-only blanket Feature
     # pass is what lets Eagle satisfy "since version" tests for features it
     # implements.
     #
@@ -4202,15 +4202,15 @@ namespace eval ::Eagle {
     # <help>
     # This procedure probes whether the test suite is permitted to launch
     # external processes via the [exec] command and registers the test
-    # constraint named testExec when so.  Tests that spawn helper processes use
+    # constraint named [testExec] when so.  Tests that spawn helper processes use
     # this so they are skipped in locked-down environments.
     #
     # How it works: it requires that the global no(testExec) opt-out is not set
-    # and that the helper canTestExec approves, passing the name of the calling
+    # and that the helper [canTestExec] approves, passing the name of the calling
     # procedure (obtained from info level) so the policy check can account for
     # the caller.  When permitted it adds the constraint; additionally, if the
     # quiet argument is false and the global no(exec) flag is set, it logs a
-    # warning that the testExec procedure itself is disabled.
+    # warning that the [testExec] procedure itself is disabled.
     #
     # Arguments:
     #   channel -- The channel where diagnostic and progress output should be
@@ -4448,8 +4448,8 @@ namespace eval ::Eagle {
     # a test constraint named with the prefix file_ followed by either the
     # caller-supplied constraint suffix or, by default, the tail of the file
     # name.  Tests that require a particular file be present use this; it is also
-    # the primitive building block used by checkForNativeLibraryFile and
-    # checkForPathFile.
+    # the primitive building block used by [checkForNativeLibraryFile] and
+    # [checkForPathFile].
     #
     # How it works: it tests the path with file exists (the diagnostic message
     # shows the normalized path) and, when present, adds the constraint using
@@ -4493,7 +4493,7 @@ namespace eval ::Eagle {
     # library) file under any of several candidate base names and, when found,
     # leaves behind a test constraint named with the prefix file_ followed by
     # either the caller-supplied constraint suffix or the file tail.  It does not
-    # register the constraint itself; it relies on checkForFile to do so, then
+    # register the constraint itself; it relies on [checkForFile] to do so, then
     # detects success by checking for that constraint.  Tests that require a
     # native library be locatable use this.
     #
@@ -4507,12 +4507,12 @@ namespace eval ::Eagle {
     # constraint name and, unless that constraint already exists, tries many
     # variations: with and without a lib prefix, with and without the shared
     # extension, and within per-architecture sub-directories derived from the
-    # machine argument via machineToPlatform for both 32-bit and 64-bit.  Each
-    # candidate path is delegated to checkForFile; as soon as the target
+    # machine argument via [machineToPlatform] for both 32-bit and 64-bit.  Each
+    # candidate path is delegated to [checkForFile]; as soon as the target
     # constraint appears the search stops.
     #
-    # Tricky details: detection of success is indirect (it checks haveConstraint
-    # for the computed name after each checkForFile call) because checkForFile is
+    # Tricky details: detection of success is indirect (it checks [haveConstraint]
+    # for the computed name after each [checkForFile] call) because [checkForFile] is
     # what registers the constraint.  The lib prefix and per-architecture
     # sub-directory probing accommodate Unix/macOS naming and multi-architecture
     # layouts.  Nothing matching a name that already has the shared extension is
@@ -4853,7 +4853,7 @@ namespace eval ::Eagle {
     # arbitrary-precision (big) integers and registers the test constraint named
     # bigIntegers when so.  Tests that rely on big-integer arithmetic use this.
     #
-    # How it works: it delegates the decision to the helper hasAllowBigIntegers
+    # How it works: it delegates the decision to the helper [hasAllowBigIntegers]
     # and adds the constraint on a true result.
     #
     # Arguments:
@@ -6693,7 +6693,7 @@ namespace eval ::Eagle {
     # How it works: under Eagle it uses [uri download] (inline, with a network
     # timeout) to fetch the content.  Outside Eagle it falls back, only if the
     # global native_lib_path is set, to loading the Eagle.Tools.Common package
-    # and fetching via its getFileViaHttp helper.  In either case, if the fetch
+    # and fetching via its [getFileViaHttp] helper.  In either case, if the fetch
     # succeeds and either no pattern was supplied or the downloaded content
     # matches the pattern (as a regular expression), it returns true.  On a
     # failed download it optionally writes a warning to the channel unless quiet
@@ -8104,7 +8104,7 @@ namespace eval ::Eagle {
     proc checkForCompileCSharp { channel } {
       # <help>
       # This procedure probes whether the test suite is able to compile C# source
-      # code on demand and registers the test constraint compileCSharp when it can.
+      # code on demand and registers the test constraint [compileCSharp] when it can.
       # Many tests dynamically compile small C# snippets, so this gates those tests
       # on a working compiler.
       #
@@ -9085,7 +9085,7 @@ namespace eval ::Eagle {
       # [info level]] at increasing absolute levels (## prefix) inside a [catch]
       # until one succeeds; this loop always terminates because at least the current
       # frame qualifies.  The command name is taken from the first element of those
-      # arguments.  When that command is runTestPrologue or checkForTestCallStack
+      # arguments.  When that command is [runTestPrologue] or [checkForTestCallStack]
       # (both deemed safe because they will not be on the stack when the tests
       # actually run), the constraint is added and yes plus the command name is
       # printed; otherwise no plus the command name is printed.
@@ -11957,7 +11957,7 @@ namespace eval ::Eagle {
       # [getDotlessVersion], registers the appropriate constraints, reports the
       # result, and returns.  Tricky detail: the plain "4.0" version is
       # deliberately NOT given "dotNet40"/"dotNet40OrHigher" constraints here (a
-      # NOTE points to checkForRuntimeVersion for that); only the higher point
+      # NOTE points to [checkForRuntimeVersion] for that); only the higher point
       # releases get version constraints, though a profile constraint is still
       # added for the 4.0 Client SKU.
       #

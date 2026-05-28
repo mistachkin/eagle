@@ -332,7 +332,7 @@ namespace eval ::Eagle {
     # configured remote URI and extracts it into a per-package install
     # directory on the local file system.  It exists to bootstrap the package
     # repository client onto a machine that does not already have it, and it is
-    # the natural companion of the loadPackageClientToolset procedure, which
+    # the natural companion of the [loadPackageClientToolset] procedure, which
     # loads what this procedure installs.
     #
     # How it works: it first ensures the configuration parameters are set up,
@@ -411,7 +411,7 @@ namespace eval ::Eagle {
     # of the available package indexes: asking for a package that cannot
     # possibly exist causes the package subsystem to consult every package
     # index without actually loading anything.  It is used by the
-    # forceScanOfPackages procedure.
+    # [forceScanOfPackages] procedure.
     #
     # How it works: it concatenates a fixed prefix with the current time in
     # seconds (with any leading minus sign trimmed), yielding a name that
@@ -444,7 +444,7 @@ namespace eval ::Eagle {
     # that by provoking a full scan.
     #
     # How it works: it obtains an almost-certainly bogus package name from
-    # getBogusPackageName and then attempts to resolve it.  Under Eagle it
+    # [getBogusPackageName] and then attempts to resolve it.  Under Eagle it
     # directly invokes the internal package-unknown handler; under native Tcl
     # it issues an ordinary package require for the bogus name.  Either way the
     # request is expected to fail, so it is wrapped in catch to swallow the
@@ -508,7 +508,7 @@ namespace eval ::Eagle {
     # <help>
     # This procedure loads the package repository client (via package require)
     # and configures the surrounding environment so that remote package lookups
-    # work.  It is the companion to downloadAndExtractPackageClientToolset: that
+    # work.  It is the companion to [downloadAndExtractPackageClientToolset]: that
     # procedure installs the toolset, while this one makes it usable in the
     # current interpreter.  It handles locating the client directory, optionally
     # adding it to the auto-path, registering API keys, enabling Eagle's signed
@@ -844,7 +844,7 @@ namespace eval ::Eagle {
     # current platform and extracts them into a per-platform install directory,
     # returning the path to one of the extracted shared libraries.  It exists to
     # obtain a complete native Tcl/Tk runtime without manual installation, and
-    # it closely parallels downloadAndExtractNativeTclKitDll, differing only in
+    # it closely parallels [downloadAndExtractNativeTclKitDll], differing only in
     # which configured URI and URN it uses and where the libraries land inside
     # the archive.
     #
@@ -1400,7 +1400,7 @@ namespace eval ::Eagle {
     # This procedure queries the remote repository for the list of named example
     # scripts that are available and returns that list.  It exists so callers
     # can discover which example scripts may be fetched (for instance via
-    # downloadExampleScript) before requesting one.
+    # [downloadExampleScript]) before requesting one.
     #
     # How it works: it ensures the configuration parameters are set up and
     # imports the script URI and URN variables.  It selects the endpoint (an
@@ -1525,7 +1525,7 @@ namespace eval ::Eagle {
     # <help>
     # This procedure downloads a single named example script from the remote
     # repository, saves it to a temporary file, and returns that file name.  It
-    # exists as the fetch counterpart to listExampleScripts: once a desired
+    # exists as the fetch counterpart to [listExampleScripts]: once a desired
     # example name is known, this retrieves its contents (and, when present, its
     # accompanying Harpy signature) to the local file system.
     #

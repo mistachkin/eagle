@@ -37,7 +37,7 @@ namespace eval ::Eagle {
     # opt-in.
     #
     # How it works: nothing is emitted unless the global array element
-    # ::no(csharpLog) is absent, the helper command hasRuntimeOption is
+    # ::no(csharpLog) is absent, the helper command [hasRuntimeOption] is
     # available, and the runtime option named enableCSharpLog is currently
     # enabled.  When logging is active and a non-null opaque object handle was
     # supplied, it attempts to enrich the message with that object's public
@@ -56,7 +56,7 @@ namespace eval ::Eagle {
     # [tclLog].
     #
     # Tricky details: every external helper this procedure leans on (the object
-    # command, hasRuntimeOption, formatListAsDict, getTestChannelOrDefault, and
+    # command, [hasRuntimeOption], [formatListAsDict], [getTestChannelOrDefault], and
     # tputs) is probed for via [info commands] or guarded so that the procedure
     # degrades gracefully rather than failing when those helpers are absent.
     # The object property query deliberately uses the +NonPublic flag and an

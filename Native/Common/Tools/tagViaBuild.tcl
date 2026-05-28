@@ -352,8 +352,8 @@ namespace eval ::Eagle::Tools::TagViaBuild {
     # is loaded into the current native Tcl interpreter, adding its directory
     # to the Tcl auto-path first if necessary.  It exists because this build
     # tool, although it runs under native Tcl, reuses utility procedures
-    # provided by the Eagle script library (such as appendArgs, readFile, and
-    # writeFile), so that library must be available before the tagging
+    # provided by the Eagle script library (such as [appendArgs], [readFile], and
+    # [writeFile]), so that library must be available before the tagging
     # procedures run.
     #
     # How it works: it derives the project root directory by going three levels

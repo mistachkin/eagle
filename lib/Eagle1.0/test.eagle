@@ -12212,7 +12212,7 @@ namespace eval ::Eagle {
     # How it works: it first consults the recording predicate for the given
     # type and does nothing if recording is disabled.  When enabled, it links to
     # the caller's array via [upvar], and -- if the environment requests it via
-    # the enableTestStatisticsLists environment variable -- turns on detailed
+    # the [enableTestStatisticsLists] environment variable -- turns on detailed
     # list tracking for the statistic types named in that variable before taking
     # the snapshot.  It then delegates to the actual recording helper to capture
     # the counts (and any enabled lists) under the given index.
@@ -18924,7 +18924,7 @@ namespace eval ::Eagle {
       # whether the URI already contains a query string) so the service returns
       # the destination as text, then downloads that text -- under Eagle via the
       # [uri download] command, and otherwise via the Eagle.Tools.Common
-      # getFileViaHttp helper using the http package.  The trimmed download
+      # [getFileViaHttp] helper using the http package.  The trimmed download
       # result becomes the resolved URI.  If the URI does not look like a
       # redirector URI, it is returned unchanged.  The ::beforeUri_Redirect and
       # ::afterUri_Redirect tester hooks bracket the download.
@@ -24002,7 +24002,7 @@ namespace eval ::Eagle {
       # evaluated as a pre-load hook.  If varName is supplied, a "loaded" flag
       # in the caller's context is updated to record whether a load occurred.
       # When native Tcl is not already ready, the procedure checks whether
-      # loading has been disabled via the "no" array element tclLoadForTest; if
+      # loading has been disabled via the "no" array element [tclLoadForTest]; if
       # not disabled, it builds and evaluates a [tcl load] command (in the
       # caller's context) optionally augmented with -findflags and/or
       # -loadflags.  It then marks loaded as one (which may be a fake when
@@ -24091,7 +24091,7 @@ namespace eval ::Eagle {
       # true also requests one.  When varName is supplied, the loaded flag is
       # unset afterward (note that it may have been a fake set by the load
       # helper).  When an unload is warranted, the procedure checks the "no"
-      # array element tclUnloadForTest; if not disabled, it records the module
+      # array element [tclUnloadForTest]; if not disabled, it records the module
       # and primary interpreter names and evaluates [tcl unload] in the caller's
       # context, otherwise it uses angle-bracket "none" placeholders.  It then
       # logs whether native Tcl was (forcibly) unloaded, and finally evaluates
@@ -24730,7 +24730,7 @@ namespace eval ::Eagle {
       # (GarudaCore on .NET Core, otherwise Garuda), and the effective test
       # suffix (which may be empty).  When no machine was supplied, it auto
       # detects one by querying the Tcl shell (unless that query is disabled via
-      # the "no" array element getMachineForTclShell), so the chosen library
+      # the "no" array element [getMachineForTclShell]), so the chosen library
       # matches the shell's architecture.  Finally it assembles the path under
       # base_path/bin: on .NET Core for non-Windows it uses a target-framework
       # specific layout (currently assuming the netcoreapp3.0 moniker), and
