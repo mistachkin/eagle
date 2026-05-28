@@ -31,6 +31,32 @@ namespace eval ::Eagle {
   #
   # <bootstrap>
   proc isEagle {} {
+    # <help>
+    # This procedure reports whether the script is currently running under
+    # the Eagle engine as opposed to vanilla native Tcl.  It is one of the
+    # most fundamental compatibility primitives in the entire script library:
+    # because the library is designed to be loaded by both Eagle and Tcl, an
+    # enormous amount of code branches on the result of this procedure to use
+    # engine-specific features only where they are available.  It is defined
+    # in this file (and duplicated in "init.eagle") precisely because it must
+    # be available while these bootstrap script files are themselves being
+    # evaluated.
+    #
+    # How it works: it checks the global tcl_platform array for an "engine"
+    # element and, if present, compares its value case-insensitively against
+    # the string "eagle".  Only Eagle populates that element with that value,
+    # so the test is non-zero only when running in Eagle.  The implementation
+    # is intentionally cheap because, despite the original expectation that it
+    # would be called rarely, it is in fact invoked very frequently.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero (true) when running under Eagle; zero (false) otherwise,
+    #   including when running under native Tcl.
+    # </help>
+
     #
     # NOTE: Nothing too fancy or expensive should be done in here.  In
     #       theory, use of this routine should be rare; however, in
@@ -49,6 +75,31 @@ namespace eval ::Eagle {
   #
   # <demonstration>
   proc appendArgs { args } {
+    # <help>
+    # This procedure concatenates all of its arguments, verbatim, into a
+    # single string and returns that string.  Unlike list construction, no
+    # separators are inserted and no quoting is applied; the arguments are
+    # joined exactly as given.  It is used pervasively throughout the script
+    # library as a readable way to build up a string from several pieces
+    # while avoiding the surprising results that double-quote string
+    # interpolation can sometimes produce.  It works identically in both
+    # Tcl and Eagle.
+    #
+    # How it works: a result variable is initialized to the empty string and
+    # then [eval append] is used so that the "args" list is expanded, causing
+    # [append] to receive every argument as a separate operand and append
+    # each one in turn.  The value of that [append] is the procedure result;
+    # there is no explicit return.
+    #
+    # Arguments:
+    #   args -- Zero or more values that are appended together, in order.
+    #           With no arguments, the empty string is returned.
+    #
+    # Results:
+    #   The string formed by concatenating all of the arguments with no
+    #   separators.
+    # </help>
+
     set result ""; eval append result $args
   }
 
@@ -64,6 +115,32 @@ namespace eval ::Eagle {
     #
     # <create>
     proc unknown { name args } {
+      # <help>
+      # This procedure is the Eagle [unknown] handler installed for "safe"
+      # interpreters.  The script engine invokes [unknown] automatically
+      # whenever a command name cannot be resolved.  In a safe interpreter
+      # the deliberately minimal behavior is simply to refuse the command by
+      # raising an error; in particular, no attempt is made to auto-load
+      # packages or otherwise reach outside the sandbox.  This keeps the
+      # behavior of unknown commands strict and predictable in a restricted
+      # environment.
+      #
+      # How it works: it formats an "invalid command name" error message that
+      # includes the offending command name and returns it as an error code.
+      # It intentionally does not call [appendArgs], because that helper lives
+      # in a separate script file that is never loaded into safe interpreters;
+      # therefore the message is built using ordinary string interpolation.
+      #
+      # Arguments:
+      #   name -- The name of the command that could not be found.
+      #   args -- Any additional arguments that were supplied to the unknown
+      #           command; these are accepted but not used.
+      #
+      # Results:
+      #   This procedure always raises an error reporting the invalid command
+      #   name; it does not return normally.
+      # </help>
+
       #
       # NOTE: This is an [unknown] procedure that produces an appropriate
       #       error message.
@@ -88,6 +165,35 @@ namespace eval ::Eagle {
       #
       # <create>
       proc ::tcl::tm::UnknownHandler { original name args } {
+        # <help>
+        # This procedure is a Tcl Modules (TM) unknown-package handler that
+        # exists to provide compatibility with the native Tcl module system.
+        # The Tcl module subsystem allows a custom handler to be interposed
+        # ahead of its built-in handler; this implementation interposes such
+        # a handler but adds no behavior of its own, instead simply forwarding
+        # the request to the original (built-in) handler unchanged.  It is
+        # defined inside the "::tcl::tm" namespace, where the module subsystem
+        # expects to find it.
+        #
+        # How it works: it reconstructs the original argument list by
+        # inserting the package "name" back at the front of the remaining
+        # arguments (using the namespace-qualified [::linsert]), then evaluates
+        # the original handler with that argument list in the caller's frame
+        # via [uplevel 1].
+        #
+        # Arguments:
+        #   original -- The command prefix of the original (built-in) module
+        #               handler that this procedure delegates to.
+        #   name     -- The name of the package being sought, which is placed
+        #               back at the front of the forwarded argument list.
+        #   args     -- Any remaining arguments originally supplied to the
+        #               handler.
+        #
+        # Results:
+        #   Whatever the original handler returns when invoked with the
+        #   reconstructed argument list.
+        # </help>
+
         #
         # NOTE: Do nothing except call the original handler.
         #
@@ -102,6 +208,26 @@ namespace eval ::Eagle {
     #
     # <create>
     proc tclPkgUnknown { name args } {
+      # <help>
+      # This procedure is the package "unknown" handler that the Eagle package
+      # management subsystem invokes when a requested package cannot be found.
+      # In native Tcl, the like-named handler would scan directories on the
+      # auto-path for "pkgIndex.tcl" files in an attempt to locate the missing
+      # package.  Here, the handler is deliberately a no-op: in a safe
+      # interpreter such filesystem scanning is neither desirable nor allowed,
+      # so the procedure simply does nothing and lets the original "package
+      # require" fail normally.
+      #
+      # Arguments:
+      #   name -- The name of the package that could not be found; accepted
+      #           but not used.
+      #   args -- Any additional arguments (such as a version requirement)
+      #           supplied by the package subsystem; accepted but not used.
+      #
+      # Results:
+      #   The empty string; this procedure intentionally performs no action.
+      # </help>
+
       #
       # NOTE: Do nothing since this is probably a safe interpreter.
       #

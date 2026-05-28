@@ -25,6 +25,32 @@ namespace eval ::Eagle {
   #       it actually exists; otherwise, an empty string is returned.
   #
   proc getEnvironmentVariable { name } {
+    # <help>
+    # This procedure returns the value of a named process environment
+    # variable, or the empty string when no such variable exists.  It exists
+    # to provide a single, safe way to read an environment variable without
+    # raising an error for a missing name, which is convenient because reading
+    # a non-existent element of the global "env" array directly would normally
+    # fail.
+    #
+    # How it works: it makes the global "env" array visible within the
+    # procedure and then uses an expression with a conditional operator to
+    # test, via [info exists], whether the requested element is present.  If
+    # it is, that element's value is returned; otherwise the empty string is
+    # returned.  It is typically used by other library procedures that need to
+    # consult configuration supplied through the environment.
+    #
+    # Arguments:
+    #   name -- The name of the environment variable to look up.  This is used
+    #           as an index into the global "env" array and is matched exactly.
+    #
+    # Results:
+    #   The value of the named environment variable, or the empty string if no
+    #   variable with that name is set.  Note that a variable that is set to
+    #   the empty string and a variable that does not exist are
+    #   indistinguishable in the returned value.
+    # </help>
+
     global env
 
     return [expr {[info exists env($name)] ? $env($name) : ""}]
@@ -37,6 +63,32 @@ namespace eval ::Eagle {
   #       string interpolation operations.
   #
   proc appendArgs { args } {
+    # <help>
+    # This procedure concatenates all of its arguments into a single string
+    # and returns it.  Each argument is appended verbatim, with no separators
+    # added between them.  It exists as a terse, readable way to build up a
+    # string from several pieces and, in particular, to avoid the undesired
+    # string interpolation, quoting, or grouping that can occur when using
+    # double-quoted strings; because the pieces arrive as already-separated
+    # arguments, they are joined exactly as given.  It is one of the most
+    # heavily used helpers in the script library, especially for composing
+    # messages and command fragments.
+    #
+    # How it works: the result is initialized to the empty string and then
+    # [eval append] is used so that the "args" list is expanded, causing each
+    # of its elements to be appended to the result in turn.  The value of that
+    # final [append] is the procedure result; there is no explicit [return].
+    # It works identically in both Tcl and Eagle.
+    #
+    # Arguments:
+    #   args -- Zero or more values.  Each value is appended, in order, to the
+    #           result string with no intervening separator.  With no
+    #           arguments, the empty string is returned.
+    #
+    # Results:
+    #   The string formed by concatenating all of the arguments verbatim.
+    # </help>
+
     set result ""; eval append result $args
   }
 
@@ -48,6 +100,38 @@ namespace eval ::Eagle {
   #       <name1> <value1> <name2> <value2> ... <nameN> <valueN>
   #
   proc getDictionaryValue { dictionary name {default ""} {wrap ""} } {
+    # <help>
+    # This procedure looks up a named value in a dictionary-style list and
+    # returns it, optionally wrapped with a surrounding string, or a caller
+    # supplied default when the name is not present.  The dictionary argument
+    # must be a flat list with an even number of elements arranged as
+    # alternating name and value pairs (name1 value1 name2 value2 and so on).
+    # It exists to provide simple dictionary lookups without requiring the
+    # native dict commands, so the same code works in both Tcl and Eagle.
+    #
+    # How it works: it iterates the list two elements at a time, comparing each
+    # pair's name against the requested name using exact string equality.  The
+    # first match wins; its value is returned after being surrounded by the
+    # wrap string on both sides via [appendArgs].  If the loop completes with
+    # no match, the default value is returned instead.
+    #
+    # Tricky details: only the first matching name is honored, so later
+    # duplicate names are ignored.  The wrap string is applied to a found value
+    # but is NOT applied to the default value.
+    #
+    # Arguments:
+    #   dictionary -- The list of alternating name and value pairs to search.
+    #   name       -- The name to look for, matched exactly (case sensitive).
+    #   default    -- The value to return when the name is not found; defaults
+    #                 to the empty string.
+    #   wrap       -- An optional string placed before and after a found value;
+    #                 defaults to the empty string (no wrapping).
+    #
+    # Results:
+    #   The matching value, surrounded by the wrap string on each side, when
+    #   the name is found; otherwise the default value (unwrapped).
+    # </help>
+
     foreach {pairName pairValue} $dictionary {
       #
       # NOTE: Does this name match the one specified by the caller?
@@ -72,6 +156,48 @@ namespace eval ::Eagle {
   #       forgetting all previous imports from the specified namespace.
   #
   proc exportAndImportPackageCommands { namespace exports forget force } {
+    # <help>
+    # This procedure exports one or more commands from a given namespace and
+    # imports them into the global namespace, optionally forgetting any
+    # commands previously imported from that namespace first.  It exists so
+    # that a package which defines its commands inside a private namespace can
+    # make a selected set of them available without qualification at the global
+    # scope, which is how the various Eagle library packages publish their
+    # public procedures.
+    #
+    # How it works: if the namespace, once its leading colons are trimmed, is
+    # empty (that is, the global namespace itself), the procedure does nothing
+    # because there is nothing to import.  When the forget flag is set, it asks
+    # the global namespace to forget every command previously imported from the
+    # source namespace.  It then processes each requested command in turn.  For
+    # each one, unless the force flag is set, it first checks whether a command
+    # of that name already exists globally and skips it if so.  Otherwise it
+    # exports the command from the source namespace and imports it into the
+    # global namespace, using a forced import when the force flag is set so
+    # that an existing command of the same name is overwritten.
+    #
+    # Tricky details: command names to export are combined with the namespace
+    # using [appendArgs], so they should be simple command names rather than
+    # already-qualified names.  The actual namespace operations are performed
+    # by evaluating [namespace] sub-commands in the appropriate scope.
+    #
+    # Arguments:
+    #   namespace -- The fully qualified source namespace whose commands are to
+    #                be exported and imported.  When this names the global
+    #                namespace, the procedure is a no-op.
+    #   exports   -- A list of command names (relative to the source namespace)
+    #                to export and import.
+    #   forget    -- A boolean; when true, previously imported commands from the
+    #                source namespace are forgotten before importing.
+    #   force     -- A boolean; when true, each command is imported even if it
+    #                already exists globally, overwriting any existing command,
+    #                and the membership check is bypassed.
+    #
+    # Results:
+    #   The empty string.  The observable effect is the set of commands made
+    #   available (or refreshed) in the global namespace.
+    # </help>
+
     #
     # NOTE: If the specified namespace is global, do nothing as this is a
     #       no-op.

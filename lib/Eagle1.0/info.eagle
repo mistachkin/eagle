@@ -25,6 +25,29 @@ namespace eval ::Eagle {
   #       compiling the Eagle core library.
   #
   proc getCompileInfo {} {
+    # <help>
+    # This procedure returns the set of compile-time options and identifying
+    # information that were recorded when the Eagle core library was built.  It
+    # exists so that setup scripts, diagnostics, and other callers can inspect
+    # how the running engine was compiled, for example to report build details
+    # or to make decisions based on the available feature set.
+    #
+    # How it works: when running under Eagle, as detected by [isEagle], it
+    # gathers several values from the global eagle_platform array -- the build
+    # time stamp, the image runtime version, the module version identifier, and
+    # the list of compile options -- and returns them as a flat name/value list
+    # suitable for use as a dictionary.  When not running under Eagle, there is
+    # no such information available, so the empty string is returned instead.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Under Eagle, a name/value list pairing TimeStamp, ImageRuntimeVersion,
+    #   ModuleVersionId, and CompileOptions with their respective values.  Under
+    #   Tcl, the empty string.
+    # </help>
+
     #
     # NOTE: Return the important compile-time information for use by the
     #       setup or other callers.
@@ -41,6 +64,34 @@ namespace eval ::Eagle {
   #       if available; otherwise a default value is returned instead.
   #
   proc getPlatformInfo { name {default ""} } {
+    # <help>
+    # This procedure returns a single named piece of Eagle platform
+    # information, falling back to a caller-supplied default when that
+    # information is not available.  It provides safe, guarded access to the
+    # global eagle_platform array so that callers do not have to test for the
+    # engine, the existence of the element, and a non-empty value themselves.
+    #
+    # How it works: it returns the value of the requested element only when all
+    # of the following hold -- the script is running under Eagle, as detected
+    # by [isEagle]; the named element exists in the eagle_platform array; and
+    # that element, after trimming surrounding whitespace, is not empty.  If any
+    # of those conditions fails, the supplied default is returned instead.
+    #
+    # Tricky details: the emptiness test trims whitespace before measuring
+    # length, so an element containing only spaces is treated as absent and the
+    # default is returned.  The stored value itself is returned untrimmed.
+    #
+    # Arguments:
+    #   name    -- The name of the desired element within the eagle_platform
+    #              array.
+    #   default -- Optional.  The value to return when the requested
+    #              information is unavailable.  Defaults to the empty string.
+    #
+    # Results:
+    #   The requested platform value when available and non-empty; otherwise
+    #   the default value.
+    # </help>
+
     #
     # NOTE: Return the important platform information for use by the test
     #       suite or other callers.
@@ -55,6 +106,33 @@ namespace eval ::Eagle {
   #       matches the specified pattern.
   #
   proc getPluginName { pattern } {
+    # <help>
+    # This procedure returns the registered name of the first loaded plugin
+    # whose descriptive entry matches the specified regular expression pattern.
+    # It lets callers locate a plugin by a pattern rather than having to know
+    # its exact name, for example to confirm that a particular plugin is loaded
+    # or to retrieve its name for use in subsequent commands.
+    #
+    # How it works: it iterates over the entries reported by [info loaded].
+    # For each entry, it applies the pattern with [regexp] against the last
+    # element of the entry (the plugin's descriptive field) and, on the first
+    # match, returns the second element of that entry, which is the plugin
+    # name.  This logic works in both Tcl and Eagle.
+    #
+    # Tricky details: the pattern is interpreted as a regular expression, not a
+    # glob, and matching stops at the first loaded entry that matches, so
+    # ordering of the loaded list determines which name is returned when more
+    # than one entry could match.
+    #
+    # Arguments:
+    #   pattern -- A regular expression matched against the descriptive field
+    #              of each loaded entry.
+    #
+    # Results:
+    #   The name of the first matching plugin, or the empty string if none
+    #   match.
+    # </help>
+
     #
     # NOTE: This should work properly in both Tcl and Eagle.
     #
@@ -72,6 +150,33 @@ namespace eval ::Eagle {
   #       loaded plugin that matches the specified pattern.
   #
   proc getPluginPath { pattern } {
+    # <help>
+    # This procedure returns the fully qualified file name of the first loaded
+    # plugin whose descriptive entry matches the specified regular expression
+    # pattern.  It is the path-returning companion to [getPluginName], useful
+    # when a caller needs the on-disk location of a plugin rather than its
+    # registered name.
+    #
+    # How it works: it iterates over the entries reported by [info loaded].
+    # For each entry, it applies the pattern with [regexp] against the last
+    # element of the entry (the plugin's descriptive field) and, on the first
+    # match, returns the first element of that entry, which is the file name.
+    # This logic works in both Tcl and Eagle.
+    #
+    # Tricky details: the pattern is interpreted as a regular expression, not a
+    # glob, and matching stops at the first loaded entry that matches, so
+    # ordering of the loaded list determines which path is returned when more
+    # than one entry could match.
+    #
+    # Arguments:
+    #   pattern -- A regular expression matched against the descriptive field
+    #              of each loaded entry.
+    #
+    # Results:
+    #   The fully qualified file name of the first matching plugin, or the
+    #   empty string if none match.
+    # </help>
+
     #
     # NOTE: This should work properly in both Tcl and Eagle.
     #
@@ -90,6 +195,52 @@ namespace eval ::Eagle {
   #       values of this procedure are subject to change in future releases.
   #
   proc getPackageInstallPath { {packageName ""} {temporaryPrefix ""} } {
+    # <help>
+    # This procedure returns the fully qualified directory into which new
+    # packages targeting the interpreter should be installed, creating any
+    # directories it needs along the way.  It centralizes the policy for
+    # choosing an installation location so that package installers do not have
+    # to guess.  The specific locations it returns are subject to change in
+    # future releases and should not be relied upon as a stable contract.
+    #
+    # How it works: it tries a preferred location first and falls back to a
+    # temporary one.  Unless the global no array element named for this
+    # procedure has been set to forbid it, the preferred location is derived
+    # from the global tcl_library variable: the parent directory of the Tcl
+    # library is examined, and if it exists, is a directory, and is writable, a
+    # common "install" sub-directory is created there and used.  When that path
+    # cannot be used, the procedure requires the Eagle.Test package and falls
+    # back to the temporary directory reported by [getTemporaryPath], beneath
+    # which it likewise creates an "install" sub-directory.
+    #
+    # In either case, when a package name is supplied, a sub-directory of that
+    # name is created within the chosen location and returned, so that each
+    # package occupies its own directory.  When the temporary fallback is used
+    # and a temporary prefix is supplied, an intermediate directory whose name
+    # combines that prefix, the current process id, and the current clock
+    # seconds is created first to keep separate runs from colliding.  If the
+    # pkgInstallLog command is defined, the chosen location is logged, tagged
+    # as either a persistent or a temporary install.
+    #
+    # Tricky details: callers should generally not place files directly in the
+    # returned directory but instead create an appropriately named
+    # sub-directory within it, unless they supplied a package name, in which
+    # case the returned directory is already package-specific.  Directory
+    # creation may fail and propagate an error to the caller.
+    #
+    # Arguments:
+    #   packageName     -- Optional.  When non-empty, a sub-directory of this
+    #                      name is created within the chosen location and
+    #                      becomes the returned path.  Defaults to empty.
+    #   temporaryPrefix -- Optional.  Used only when the temporary fallback
+    #                      location is selected; when non-empty, it forms part
+    #                      of an intermediate per-run directory name.  Defaults
+    #                      to empty.
+    #
+    # Results:
+    #   The fully qualified directory in which packages should be installed.
+    # </help>
+
     #
     # NOTE: Skip using the Tcl library location if that has been explicitly
     #       forbidden.
@@ -185,6 +336,35 @@ namespace eval ::Eagle {
   #       value like "C:\Eagle" when loaded from "C:\Eagle\bin\Eagle.dll".
   #
   proc getBasePath {} {
+    # <help>
+    # This procedure returns the base path of the Eagle core library, that is,
+    # the root directory of the installation from which the core library
+    # assembly was loaded.  For example, it may return a value like the drive
+    # root Eagle directory when the library was loaded from the bin
+    # sub-directory beneath it.  It is intended for callers that need to locate
+    # files relative to the Eagle installation rather than relative to the
+    # assembly file itself.
+    #
+    # How it works: it obtains the core library assembly object by invoking a
+    # non-public method on Eagle's internal global state, then invokes a
+    # non-public path operation that derives the base path from that assembly
+    # and from the directory containing the assembly file (the latter computed
+    # via [file dirname] of the assembly file name reported by [info
+    # assembly]).
+    #
+    # Tricky details: this procedure relies on non-public internal members of
+    # the Eagle implementation accessed through the [object invoke] command, so
+    # it is specific to Eagle and is sensitive to internal changes between
+    # releases.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The fully qualified base directory of the Eagle core library
+    #   installation.
+    # </help>
+
     set assembly [object invoke -flags +NonPublic \
         Eagle._Components.Private.GlobalState GetAssembly]
 
@@ -198,6 +378,34 @@ namespace eval ::Eagle {
   #       matches the specified pattern.
   #
   proc getPluginFlags { pattern } {
+    # <help>
+    # This procedure returns the flags associated with the first loaded plugin
+    # whose descriptive entry matches the specified regular expression pattern.
+    # It complements [getPluginName] and [getPluginPath] by exposing the
+    # plugin's flag set, which describes its capabilities and behavior.
+    #
+    # How it works: it iterates over the entries reported by [info loaded].
+    # For each entry it takes the last element as the plugin's descriptive
+    # field and tests it against the pattern with [regexp].  On the first
+    # match, it queries the plugin's information with [info plugin], extracts
+    # its flags field via [getDictionaryValue], converts the comma-separated
+    # flag text into a space-separated list using [string map], and returns
+    # that list.
+    #
+    # Tricky details: the pattern is a regular expression, not a glob, and the
+    # search stops at the first matching loaded entry.  The conversion replaces
+    # commas with spaces so the result is a proper list of individual flag
+    # names rather than a single comma-joined string.
+    #
+    # Arguments:
+    #   pattern -- A regular expression matched against the descriptive field
+    #              of each loaded entry.
+    #
+    # Results:
+    #   A list of the matching plugin's flag names, or the empty list if no
+    #   loaded plugin matches.
+    # </help>
+
     foreach loaded [info loaded] {
       set plugin [lindex $loaded end]
 
@@ -215,6 +423,37 @@ namespace eval ::Eagle {
   #       Tcl (Garuda) is loaded into the primary native Tcl interpreter.
   #
   proc haveGaruda { {varName ""} } {
+    # <help>
+    # This procedure returns non-zero if the Eagle Native Package for Tcl,
+    # known as Garuda, is present and loaded into the primary native Tcl
+    # interpreter, and optionally reports the package's identifier back to the
+    # caller.  It lets scripts detect whether the Eagle/Tcl bridge component is
+    # available before attempting to use functionality that depends on it.
+    #
+    # How it works: when a variable name is supplied, that name is linked via
+    # [upvar] so the discovered package identifier can be stored into the
+    # caller's variable.  The presence check itself differs by engine, selected
+    # with [isEagle].  Under Eagle, it confirms that the tcl command exists and
+    # that native Tcl is ready, then evaluates, in the primary Tcl interpreter,
+    # a check that the Garuda package is present and a request for its package
+    # id, treating success of all of these as a positive result.  Under Tcl, it
+    # directly checks that the Garuda package is present and that its package id
+    # can be obtained.
+    #
+    # Tricky details: the package id is captured only when the underlying calls
+    # succeed; the checks are written so that a failure at any step yields a
+    # false result without raising an error.  The caller's variable is updated
+    # only when a variable name was provided.
+    #
+    # Arguments:
+    #   varName -- Optional.  When non-empty, the name of a variable in the
+    #              caller's frame to receive the Garuda package identifier.
+    #              Defaults to empty, meaning no identifier is reported.
+    #
+    # Results:
+    #   Non-zero if Garuda is present and loaded; zero otherwise.
+    # </help>
+
     #
     # NOTE: Check for a variable name to place the Garuda package Id into.
     #
@@ -241,6 +480,34 @@ namespace eval ::Eagle {
   #       a thread managed by the native Tcl integration subsystem of Eagle.
   #
   proc isTclThread { name } {
+    # <help>
+    # This procedure returns non-zero if the specified name identifies a thread
+    # that is managed by Eagle's native Tcl integration subsystem.  It allows
+    # callers to determine whether a given thread name corresponds to one of
+    # the threads Eagle has created or adopted for interacting with native Tcl.
+    #
+    # How it works: it starts with a false result and, only when running under
+    # Eagle as detected by [isEagle], attempts the check inside a [catch] so
+    # that any failure leaves the result false rather than raising an error.
+    # Within that guarded block, it confirms that the tcl command exists and
+    # that native Tcl is ready, then searches the list of Tcl threads reported
+    # by the tcl threads sub-command for an exact match of the supplied name,
+    # setting the result true when a match is found.
+    #
+    # Tricky details: this check is meaningful only under Eagle; under Tcl it
+    # always returns false because the native Tcl integration subsystem does
+    # not apply.  The whole determination is wrapped in [catch], so transient
+    # conditions such as native Tcl not being ready simply yield a false
+    # result.
+    #
+    # Arguments:
+    #   name -- The thread name to test against the set of threads managed by
+    #           the native Tcl integration subsystem.
+    #
+    # Results:
+    #   Non-zero if the name matches a managed Tcl thread; zero otherwise.
+    # </help>
+
     #
     # NOTE: For now, this check only works in Eagle.
     #

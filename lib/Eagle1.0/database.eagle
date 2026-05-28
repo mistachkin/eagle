@@ -25,6 +25,33 @@ namespace eval ::Eagle {
   #       is within the specified database row value.
   #
   proc haveColumnValue { row column } {
+    # <help>
+    # This procedure reports whether a named column is present within a single
+    # database row value.  A row is represented as a list of column entries,
+    # where each entry is itself a list whose first element is the column name
+    # (typically followed by the column value).  It exists so that callers can
+    # test for the existence of a column before attempting to read its value,
+    # which is part of the lightweight, list-based database result handling
+    # used by this package.
+    #
+    # How it works: it uses [lsearch -exact -index 0] to search the row's
+    # column entries, comparing the requested column name against the first
+    # element of each entry.  It returns true when a matching entry is found
+    # (the search index is not negative one) and false otherwise.
+    #
+    # Tricky details: the [lsearch -index] option requires Tcl 8.5 or higher,
+    # or Eagle.  The column name match is exact and case sensitive.
+    #
+    # Arguments:
+    #   row    -- The row value, a list of column entries each beginning with a
+    #             column name.
+    #   column -- The column name to search for, matched exactly.
+    #
+    # Results:
+    #   Non-zero (true) if the column is present in the row; zero (false)
+    #   otherwise.
+    # </help>
+
     #
     # NOTE: Locate the index of the named column we are interested in.
     #       This requires Tcl 8.5 (or higher) or Eagle.
@@ -42,6 +69,34 @@ namespace eval ::Eagle {
   #       is within the specified array of database row values.
   #
   proc haveRowColumnValue { varName id column } {
+    # <help>
+    # This procedure reports whether a named column is present within a
+    # particular row of an array of database row values.  The array, keyed by
+    # row identifier, holds one row value per element, each row being a list of
+    # column entries.  It exists as the array-of-rows counterpart to
+    # [haveColumnValue], letting callers test for a column in a specific row
+    # without first extracting that row themselves.
+    #
+    # How it works: it links to the caller's array via [upvar] using the
+    # supplied variable name, then checks whether an element with the given row
+    # identifier exists.  If it does, it delegates to [haveColumnValue] to test
+    # for the column within that row's value; if the row is absent, it returns
+    # the default result of false.
+    #
+    # Tricky details: the result variable name is passed by name, not by value,
+    # and is resolved in the immediate caller's scope.  A missing row simply
+    # yields false rather than an error.
+    #
+    # Arguments:
+    #   varName -- The name, in the caller's scope, of the array of row values.
+    #   id      -- The row identifier used as the array index.
+    #   column  -- The column name to search for, matched exactly.
+    #
+    # Results:
+    #   Non-zero (true) if the row exists and contains the named column; zero
+    #   (false) if the row is missing or the column is not present.
+    # </help>
+
     #
     # NOTE: Start with the default value.
     #
@@ -73,6 +128,42 @@ namespace eval ::Eagle {
   #       default value when the specified database column is not found.
   #
   proc getColumnValue { row column {default ""} {wrap ""} } {
+    # <help>
+    # This procedure returns the value of a named column within a single
+    # database row value, optionally wrapping the returned value with a
+    # surrounding string, or returns a caller-supplied default when the column
+    # is not found.  A row is a list of column entries, where each entry is a
+    # list whose first element is the column name and whose final element is
+    # the column value.  It exists to read a single column from the
+    # lightweight, list-based row representation used by this package while
+    # gracefully handling missing columns.
+    #
+    # How it works: the result starts as the default value.  It uses [lsearch
+    # -exact -index 0] to find the entry whose first element matches the
+    # requested column name.  When a match is found, the column value is taken
+    # as the last element of that entry and surrounded by the wrap string on
+    # both sides via [appendArgs], becoming the result.  If no match is found,
+    # the default value is returned unchanged.
+    #
+    # Tricky details: the [lsearch -index] option requires Tcl 8.5 or higher,
+    # or Eagle.  The value is read as the last element of the matching entry,
+    # so an entry of the form name followed by value behaves as expected.  The
+    # wrap string is applied only to a found value, never to the default.
+    #
+    # Arguments:
+    #   row     -- The row value, a list of column entries each beginning with
+    #              a column name.
+    #   column  -- The column name to look up, matched exactly.
+    #   default -- The value returned when the column is not found; defaults to
+    #              the empty string.
+    #   wrap    -- An optional string placed before and after a found value;
+    #              defaults to the empty string (no wrapping).
+    #
+    # Results:
+    #   The column's value, surrounded by the wrap string on each side, when
+    #   the column is found; otherwise the default value (unwrapped).
+    # </help>
+
     #
     # NOTE: Start with the default value.
     #
@@ -105,6 +196,42 @@ namespace eval ::Eagle {
   #       not found.
   #
   proc getRowColumnValue { varName id column {default ""} {wrap ""} } {
+    # <help>
+    # This procedure returns the value of a named column within a particular
+    # row of an array of database row values, optionally wrapping the value
+    # with a surrounding string, or returns a caller-supplied default when the
+    # row or column is not found.  The array, keyed by row identifier, holds
+    # one row value per element.  It exists as the array-of-rows counterpart to
+    # [getColumnValue], letting callers read a single column from a specific
+    # row in one step.
+    #
+    # How it works: the result starts as the default value.  It links to the
+    # caller's array via [upvar] using the supplied variable name, then checks
+    # whether an element with the given row identifier exists.  If it does, it
+    # delegates to [getColumnValue], passing the row value, column name,
+    # default, and wrap string, and returns whatever that produces.  If the row
+    # is absent, the default value is returned unchanged.
+    #
+    # Tricky details: the array variable name is passed by name and resolved in
+    # the immediate caller's scope.  A missing row yields the default rather
+    # than an error.  The wrap string is applied only to a found value (by the
+    # delegated [getColumnValue] call), never to the default.
+    #
+    # Arguments:
+    #   varName -- The name, in the caller's scope, of the array of row values.
+    #   id      -- The row identifier used as the array index.
+    #   column  -- The column name to look up, matched exactly.
+    #   default -- The value returned when the row or column is not found;
+    #              defaults to the empty string.
+    #   wrap    -- An optional string placed before and after a found value;
+    #              defaults to the empty string (no wrapping).
+    #
+    # Results:
+    #   The column's value, surrounded by the wrap string on each side, when
+    #   the row exists and contains the column; otherwise the default value
+    #   (unwrapped).
+    # </help>
+
     #
     # NOTE: Start with the default value.
     #

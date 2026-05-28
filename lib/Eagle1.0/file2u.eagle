@@ -25,6 +25,29 @@ namespace eval ::Eagle {
   #       mode.
   #
   proc makeUnicodeChannel { channel } {
+    # <help>
+    # This procedure reconfigures an already-open channel so that it reads and
+    # writes Unicode text.  It provides a single, named place to apply the
+    # canonical "Unicode text" channel settings, so the file helpers in this
+    # package can share one consistent configuration rather than repeating the
+    # underlying [fconfigure] call.
+    #
+    # How it works: it sets the channel encoding to "unicode" and the
+    # end-of-line translation mode to "auto".  The "auto" translation mode
+    # means that, on input, any of the common line-ending conventions are
+    # recognized and normalized, while on output the platform-native line
+    # ending is used.  The value of the underlying [fconfigure] call becomes
+    # the procedure result; there is no explicit return.
+    #
+    # Arguments:
+    #   channel -- The identifier of an already-open channel to reconfigure, as
+    #              returned by [open] or a similar command.
+    #
+    # Results:
+    #   The result of the underlying [fconfigure] call, which is normally the
+    #   empty string.
+    # </help>
+
     fconfigure $channel -encoding unicode -translation auto; # UNICODE TEXT
   }
 
@@ -33,6 +56,34 @@ namespace eval ::Eagle {
   #       returns it.
   #
   proc readUnicodeFile { fileName } {
+    # <help>
+    # This procedure reads the entire contents of a file as Unicode text and
+    # returns it.  It is a convenience wrapper that combines opening the file,
+    # applying the standard Unicode channel configuration, reading everything,
+    # and closing the channel, so callers can obtain a whole file's text in a
+    # single call.
+    #
+    # How it works: the named file is opened read-only, the channel is
+    # reconfigured for Unicode text via [makeUnicodeChannel] (encoding
+    # "unicode", line-ending translation "auto"), the complete contents are
+    # read with a single [read], and the channel is closed before the text is
+    # returned.
+    #
+    # Tricky details: because the channel uses "auto" translation, line endings
+    # in the returned text are normalized to line feeds.  The file is decoded
+    # using the "unicode" encoding, so its bytes must represent Unicode text in
+    # that form.  The entire file is buffered in memory, so this is not
+    # suitable for extremely large files.  Errors opening or reading the file
+    # propagate to the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to read.  It must exist, be readable,
+    #               and contain Unicode-encoded text.
+    #
+    # Results:
+    #   A string containing the full text of the file.
+    # </help>
+
     set channel [open $fileName RDONLY]
     makeUnicodeChannel $channel
     set result [read $channel]
@@ -46,6 +97,34 @@ namespace eval ::Eagle {
   #       if any, is lost.
   #
   proc writeUnicodeFile { fileName data } {
+    # <help>
+    # This procedure writes the specified data to a file as Unicode text,
+    # replacing any previous contents, and returns an empty string.  It is the
+    # write counterpart to [readUnicodeFile], wrapping the open/configure/
+    # write/close sequence into one call.
+    #
+    # How it works: the named file is opened for writing, creating it if it
+    # does not already exist and truncating it to zero length if it does, the
+    # channel is reconfigured for Unicode text via [makeUnicodeChannel], the
+    # data is written without an added trailing newline using [puts] with its
+    # no-newline option, and the channel is closed.
+    #
+    # Tricky details: any existing contents of the file are lost because the
+    # file is truncated on open.  The data is encoded using the "unicode"
+    # encoding, and because the channel uses "auto" translation, line feeds in
+    # the data are written using the platform-native line ending.  No newline
+    # is appended automatically.  Errors opening or writing the file propagate
+    # to the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to write.  It is created if missing
+    #               and truncated if present.
+    #   data     -- The text to write to the file.
+    #
+    # Results:
+    #   An empty string.
+    # </help>
+
     set channel [open $fileName {WRONLY CREAT TRUNC}]
     makeUnicodeChannel $channel
     puts -nonewline $channel $data
@@ -58,6 +137,29 @@ namespace eval ::Eagle {
   #       mode without any line-ending translations.
   #
   proc makeUnicodeBinaryChannel { channel } {
+    # <help>
+    # This procedure reconfigures an already-open channel so that it reads and
+    # writes Unicode text without any line-ending translation.  It is the
+    # "binary translation" variant of [makeUnicodeChannel], used when line
+    # endings must be preserved exactly rather than normalized.
+    #
+    # How it works: it sets the channel encoding to "unicode" and the
+    # end-of-line translation mode to "binary".  The "binary" translation mode
+    # disables all line-ending conversion, so bytes that represent carriage
+    # returns and line feeds pass through unchanged on both input and output,
+    # while characters are still encoded and decoded using the Unicode
+    # encoding.  The value of the underlying [fconfigure] call becomes the
+    # procedure result; there is no explicit return.
+    #
+    # Arguments:
+    #   channel -- The identifier of an already-open channel to reconfigure, as
+    #              returned by [open] or a similar command.
+    #
+    # Results:
+    #   The result of the underlying [fconfigure] call, which is normally the
+    #   empty string.
+    # </help>
+
     fconfigure $channel -encoding unicode -translation binary; # UNICODE BINARY
   }
 
@@ -66,6 +168,33 @@ namespace eval ::Eagle {
   #       returns it.
   #
   proc readUnicodeBinaryFile { fileName } {
+    # <help>
+    # This procedure reads the entire contents of a file as Unicode text while
+    # preserving line endings exactly, and returns it.  It is the
+    # binary-translation counterpart to [readUnicodeFile], used when the
+    # original line endings must not be normalized.
+    #
+    # How it works: the named file is opened read-only, the channel is
+    # reconfigured via [makeUnicodeBinaryChannel] (encoding "unicode",
+    # line-ending translation "binary"), the complete contents are read with a
+    # single [read], and the channel is closed before the text is returned.
+    #
+    # Tricky details: unlike [readUnicodeFile], no line-ending normalization is
+    # performed, so carriage returns and line feeds appear in the returned text
+    # exactly as stored.  Characters are still decoded using the "unicode"
+    # encoding, so the file must contain Unicode-encoded text.  The entire file
+    # is buffered in memory.  Errors opening or reading the file propagate to
+    # the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to read.  It must exist, be readable,
+    #               and contain Unicode-encoded text.
+    #
+    # Results:
+    #   A string containing the full text of the file, with line endings
+    #   preserved exactly.
+    # </help>
+
     set channel [open $fileName RDONLY]
     makeUnicodeBinaryChannel $channel
     set result [read $channel]
@@ -79,6 +208,36 @@ namespace eval ::Eagle {
   #       if any, is lost.
   #
   proc writeUnicodeBinaryFile { fileName data } {
+    # <help>
+    # This procedure writes the specified data to a file as Unicode text while
+    # preserving line endings exactly, replacing any previous contents, and
+    # returns an empty string.  It is the binary-translation counterpart to
+    # [writeUnicodeFile], used when line endings in the data must be written
+    # verbatim rather than converted.
+    #
+    # How it works: the named file is opened for writing, creating it if it
+    # does not already exist and truncating it to zero length if it does, the
+    # channel is reconfigured via [makeUnicodeBinaryChannel], the data is
+    # written without an added trailing newline using [puts] with its
+    # no-newline option, and the channel is closed.
+    #
+    # Tricky details: any existing contents of the file are lost because the
+    # file is truncated on open.  The data is encoded using the "unicode"
+    # encoding, but because translation is "binary", carriage returns and line
+    # feeds in the data are written exactly as supplied with no conversion.  No
+    # newline is appended automatically.  Errors opening or writing the file
+    # propagate to the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to write.  It is created if missing
+    #               and truncated if present.
+    #   data     -- The text to write to the file, with its line endings
+    #               preserved exactly.
+    #
+    # Results:
+    #   An empty string.
+    # </help>
+
     set channel [open $fileName {WRONLY CREAT TRUNC}]
     makeUnicodeBinaryChannel $channel
     puts -nonewline $channel $data
@@ -91,6 +250,29 @@ namespace eval ::Eagle {
   #       mode.
   #
   proc makeUtf8Channel { channel } {
+    # <help>
+    # This procedure reconfigures an already-open channel so that it reads and
+    # writes UTF-8 text.  It provides a single, named place to apply the
+    # canonical "UTF-8 text" channel settings, so the file helpers in this
+    # package can share one consistent configuration rather than repeating the
+    # underlying [fconfigure] call.
+    #
+    # How it works: it sets the channel encoding to "utf-8" and the end-of-line
+    # translation mode to "auto".  The "auto" translation mode means that, on
+    # input, any of the common line-ending conventions are recognized and
+    # normalized, while on output the platform-native line ending is used.  The
+    # value of the underlying [fconfigure] call becomes the procedure result;
+    # there is no explicit return.
+    #
+    # Arguments:
+    #   channel -- The identifier of an already-open channel to reconfigure, as
+    #              returned by [open] or a similar command.
+    #
+    # Results:
+    #   The result of the underlying [fconfigure] call, which is normally the
+    #   empty string.
+    # </help>
+
     fconfigure $channel -encoding utf-8 -translation auto; # UTF-8 TEXT
   }
 
@@ -99,6 +281,32 @@ namespace eval ::Eagle {
   #       returns it.
   #
   proc readUtf8File { fileName } {
+    # <help>
+    # This procedure reads the entire contents of a file as UTF-8 text and
+    # returns it.  It is a convenience wrapper that combines opening the file,
+    # applying the standard UTF-8 channel configuration, reading everything,
+    # and closing the channel, so callers can obtain a whole file's text in a
+    # single call.
+    #
+    # How it works: the named file is opened read-only, the channel is
+    # reconfigured for UTF-8 text via [makeUtf8Channel] (encoding "utf-8",
+    # line-ending translation "auto"), the complete contents are read with a
+    # single [read], and the channel is closed before the text is returned.
+    #
+    # Tricky details: because the channel uses "auto" translation, line endings
+    # in the returned text are normalized to line feeds.  The file is decoded
+    # as UTF-8, so its bytes must form valid UTF-8.  The entire file is
+    # buffered in memory, so this is not suitable for extremely large files.
+    # Errors opening or reading the file propagate to the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to read.  It must exist, be readable,
+    #               and contain UTF-8-encoded text.
+    #
+    # Results:
+    #   A string containing the full text of the file.
+    # </help>
+
     set channel [open $fileName RDONLY]
     makeUtf8Channel $channel
     set result [read $channel]
@@ -112,6 +320,33 @@ namespace eval ::Eagle {
   #       if any, is lost.
   #
   proc writeUtf8File { fileName data } {
+    # <help>
+    # This procedure writes the specified data to a file as UTF-8 text,
+    # replacing any previous contents, and returns an empty string.  It is the
+    # write counterpart to [readUtf8File], wrapping the open/configure/write/
+    # close sequence into one call.
+    #
+    # How it works: the named file is opened for writing, creating it if it
+    # does not already exist and truncating it to zero length if it does, the
+    # channel is reconfigured for UTF-8 text via [makeUtf8Channel], the data is
+    # written without an added trailing newline using [puts] with its
+    # no-newline option, and the channel is closed.
+    #
+    # Tricky details: any existing contents of the file are lost because the
+    # file is truncated on open.  The data is encoded as UTF-8, and because the
+    # channel uses "auto" translation, line feeds in the data are written using
+    # the platform-native line ending.  No newline is appended automatically.
+    # Errors opening or writing the file propagate to the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to write.  It is created if missing
+    #               and truncated if present.
+    #   data     -- The text to write to the file.
+    #
+    # Results:
+    #   An empty string.
+    # </help>
+
     set channel [open $fileName {WRONLY CREAT TRUNC}]
     makeUtf8Channel $channel
     puts -nonewline $channel $data
@@ -124,6 +359,29 @@ namespace eval ::Eagle {
   #       without any line-ending translations.
   #
   proc makeUtf8BinaryChannel { channel } {
+    # <help>
+    # This procedure reconfigures an already-open channel so that it reads and
+    # writes UTF-8 text without any line-ending translation.  It is the "binary
+    # translation" variant of [makeUtf8Channel], used when line endings must be
+    # preserved exactly rather than normalized.
+    #
+    # How it works: it sets the channel encoding to "utf-8" and the end-of-line
+    # translation mode to "binary".  The "binary" translation mode disables all
+    # line-ending conversion, so bytes that represent carriage returns and line
+    # feeds pass through unchanged on both input and output, while characters
+    # are still encoded and decoded as UTF-8.  The value of the underlying
+    # [fconfigure] call becomes the procedure result; there is no explicit
+    # return.
+    #
+    # Arguments:
+    #   channel -- The identifier of an already-open channel to reconfigure, as
+    #              returned by [open] or a similar command.
+    #
+    # Results:
+    #   The result of the underlying [fconfigure] call, which is normally the
+    #   empty string.
+    # </help>
+
     fconfigure $channel -encoding utf-8 -translation binary; # UTF-8 BINARY
   }
 
@@ -132,6 +390,32 @@ namespace eval ::Eagle {
   #       returns it.
   #
   proc readUtf8BinaryFile { fileName } {
+    # <help>
+    # This procedure reads the entire contents of a file as UTF-8 text while
+    # preserving line endings exactly, and returns it.  It is the
+    # binary-translation counterpart to [readUtf8File], used when the original
+    # line endings must not be normalized.
+    #
+    # How it works: the named file is opened read-only, the channel is
+    # reconfigured via [makeUtf8BinaryChannel] (encoding "utf-8", line-ending
+    # translation "binary"), the complete contents are read with a single
+    # [read], and the channel is closed before the text is returned.
+    #
+    # Tricky details: unlike [readUtf8File], no line-ending normalization is
+    # performed, so carriage returns and line feeds appear in the returned text
+    # exactly as stored.  Characters are still decoded as UTF-8, so the file
+    # must contain valid UTF-8.  The entire file is buffered in memory.  Errors
+    # opening or reading the file propagate to the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to read.  It must exist, be readable,
+    #               and contain UTF-8-encoded text.
+    #
+    # Results:
+    #   A string containing the full text of the file, with line endings
+    #   preserved exactly.
+    # </help>
+
     set channel [open $fileName RDONLY]
     makeUtf8BinaryChannel $channel
     set result [read $channel]
@@ -145,6 +429,36 @@ namespace eval ::Eagle {
   #       if any, is lost.
   #
   proc writeUtf8BinaryFile { fileName data } {
+    # <help>
+    # This procedure writes the specified data to a file as UTF-8 text while
+    # preserving line endings exactly, replacing any previous contents, and
+    # returns an empty string.  It is the binary-translation counterpart to
+    # [writeUtf8File], used when line endings in the data must be written
+    # verbatim rather than converted.
+    #
+    # How it works: the named file is opened for writing, creating it if it
+    # does not already exist and truncating it to zero length if it does, the
+    # channel is reconfigured via [makeUtf8BinaryChannel], the data is written
+    # without an added trailing newline using [puts] with its no-newline
+    # option, and the channel is closed.
+    #
+    # Tricky details: any existing contents of the file are lost because the
+    # file is truncated on open.  The data is encoded as UTF-8, but because
+    # translation is "binary", carriage returns and line feeds in the data are
+    # written exactly as supplied with no conversion.  No newline is appended
+    # automatically.  Errors opening or writing the file propagate to the
+    # caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to write.  It is created if missing
+    #               and truncated if present.
+    #   data     -- The text to write to the file, with its line endings
+    #               preserved exactly.
+    #
+    # Results:
+    #   An empty string.
+    # </help>
+
     set channel [open $fileName {WRONLY CREAT TRUNC}]
     makeUtf8BinaryChannel $channel
     puts -nonewline $channel $data

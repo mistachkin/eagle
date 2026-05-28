@@ -27,6 +27,29 @@ namespace eval ::Eagle {
   #       the other procedures in this file.
   #
   proc getHostSize {} {
+    # <help>
+    # This procedure returns the size of the interpreter host, expressed as a
+    # two element list of the number of columns followed by the number of
+    # rows.  When the host size cannot be determined, it falls back to a
+    # reasonable default.  It exists primarily as a helper for the other
+    # procedures in this file (such as the array and dictionary printers),
+    # which need to know how wide the output area is so that they can format
+    # and, if necessary, truncate their output to fit.
+    #
+    # How it works: it attempts the [host size] sub-command inside a [catch].
+    # If that succeeds, its result (the columns and rows list) is returned
+    # directly.  If it fails (for example, when there is no usable host), a
+    # default size of eighty columns by twenty-five rows is returned instead.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   A two element list containing the host width (columns) and height
+    #   (rows).  When the actual size is unavailable, the list 80 25 is
+    #   returned.
+    # </help>
+
     if {[catch {host size} result] == 0} then {
       return $result
     }
@@ -41,6 +64,48 @@ namespace eval ::Eagle {
   #       specified pattern.
   #
   proc parray { a args } {
+    # <help>
+    # This procedure emulates the native Tcl [parray] command: it prints, to
+    # the standard output channel, the names and values of the elements of an
+    # array, one element per line, optionally limited to those names matching
+    # a glob pattern.  It exists to provide the familiar [parray] facility in
+    # Eagle (and to behave consistently across Tcl and Eagle), which is useful
+    # for quickly inspecting the contents of an array during development and
+    # debugging.
+    #
+    # How it works: it links to the caller's array via [upvar], verifying that
+    # the named variable really is an array and erroring out otherwise.  It
+    # collects and sorts the element names (passing any extra arguments along
+    # to [array names] so that a pattern can be applied), then computes the
+    # width of the longest name so that the equals signs line up in a column.
+    # Each element is printed on its own line as the parenthesized array
+    # reference, padded to that width, followed by its value.  Control
+    # characters such as backspace, tab, carriage return, and newline are
+    # mapped to spaces or a visible pilcrow so that each element stays on a
+    # single line, and values too wide for the host are truncated with a
+    # trailing ellipsis.
+    #
+    # Tricky details: the column width budget is derived from [getHostSize], so
+    # output adapts to the host width.  Because some platforms (notably Mono)
+    # cannot invoke the variadic String.Format overload through reflection, the
+    # line is formatted using the Eagle [string format] command when available,
+    # then a direct String.Format object invocation when the object command is
+    # present, and finally the plain [format] command as a last resort.  At
+    # most one optional pattern argument is meaningful; supplying more than two
+    # extra arguments is rejected as a usage error.
+    #
+    # Arguments:
+    #   a    -- The name of an array variable in the caller's scope.  It must
+    #           refer to an existing array.
+    #   args -- An optional trailing glob pattern restricting which element
+    #           names are printed; when omitted, all elements are printed.
+    #
+    # Results:
+    #   The empty string; the array contents are written to standard output as
+    #   a side effect.  An error is raised if too many arguments are supplied
+    #   or if the named variable is not an array.
+    # </help>
+
     if {[llength $args] > 2} then {
       error "wrong # args: should be \"parray a ?pattern?\""
     }
@@ -111,6 +176,37 @@ namespace eval ::Eagle {
   #       the specified pattern.
   #
   proc pdict { d } {
+    # <help>
+    # This procedure prints, to the standard output channel, the names and
+    # values contained in a dictionary-style list, one pair per line, in a
+    # format mirroring that produced by [parray].  It exists as the dictionary
+    # counterpart to [parray], giving a quick, readable dump of a name and
+    # value list during development and debugging.
+    #
+    # How it works: it iterates the dictionary two elements at a time to find
+    # the longest name, so that the equals signs line up in a column, then
+    # iterates again to print each name and value.  Values too wide for the
+    # host are truncated with a trailing ellipsis, with the available width
+    # derived from [getHostSize].  Each line is formatted using the Eagle
+    # [string format] command when available, then a direct String.Format
+    # object invocation when the object command is present, and finally the
+    # plain [format] command as a last resort, because some platforms (notably
+    # Mono) cannot invoke the variadic String.Format overload through
+    # reflection.
+    #
+    # Tricky details: the dictionary is supplied directly as a value (it is not
+    # a variable name and is not accessed via [upvar]), so it must already be a
+    # well-formed list with an even number of elements.  Unlike [parray], the
+    # values here are printed without control-character mapping.
+    #
+    # Arguments:
+    #   d -- A dictionary-style list of alternating names and values to print.
+    #
+    # Results:
+    #   The empty string; the dictionary contents are written to standard
+    #   output as a side effect.
+    # </help>
+
     set maxLength 0
 
     foreach {name value} $d {
@@ -164,6 +260,38 @@ namespace eval ::Eagle {
   #       test or a new style test.
   #
   proc test { name description args } {
+    # <help>
+    # This procedure emulates the native Tcl [test] command provided by the
+    # bundled "tcltest" package.  It automatically detects whether the caller
+    # is supplying an old style test or a new style test and dispatches to the
+    # appropriate underlying command.  It exists so that test scripts written
+    # in either calling convention can use a single [test] entry point and have
+    # the correct implementation chosen for them.
+    #
+    # How it works: it inspects the first of the trailing arguments.  If that
+    # argument begins with a hyphen, it is taken to be an option, indicating a
+    # new style test, and the [test2] command is used; otherwise the arguments
+    # are treated as a positional, old style test and the [test1] command is
+    # used.  The selected command is then invoked with [uplevel 1] (so it runs
+    # in the caller's frame), passing the name and description followed by all
+    # of the trailing arguments, and its result is returned.
+    #
+    # Tricky details: the detection relies solely on whether the first trailing
+    # argument's first character is a hyphen, so an old style test whose first
+    # extra argument happens to begin with a hyphen could be misclassified.
+    #
+    # Arguments:
+    #   name        -- The name of the test.
+    #   description -- A human-readable description of the test.
+    #   args        -- The remaining test arguments; their form (option-led or
+    #                  positional) selects between the new style and old style
+    #                  test commands and is passed through unchanged.
+    #
+    # Results:
+    #   Whatever the selected underlying test command ([test1] or [test2])
+    #   returns.
+    # </help>
+
     #
     # NOTE: Determine if the caller is trying to run an old style or
     #       new style test and use the appropriate command.
@@ -188,6 +316,27 @@ namespace eval ::Eagle {
   #       command.
   #
   proc tclLog { string } {
+    # <help>
+    # This procedure emulates the native Tcl [tclLog] command, which is the
+    # default logging routine used by parts of the Tcl runtime to report
+    # background messages.  It writes the supplied string to the standard error
+    # channel.  It exists so that code expecting [tclLog] to be present behaves
+    # the same under Eagle as under Tcl.
+    #
+    # How it works: it writes the string to the standard error channel using
+    # [puts], wrapped in a [catch] so that a failure to write (for example, if
+    # the standard error channel is unavailable) is silently ignored rather
+    # than raising an error.  This works identically in both Tcl and Eagle.
+    #
+    # Arguments:
+    #   string -- The message to log; it is written verbatim, followed by a
+    #             newline, to the standard error channel.
+    #
+    # Results:
+    #   The empty string (any error from the write is suppressed); the message
+    #   is emitted to standard error as a side effect.
+    # </help>
+
     #
     # NOTE: This should work properly in both Tcl and Eagle.
     #

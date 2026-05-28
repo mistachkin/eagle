@@ -31,6 +31,37 @@ namespace eval ::Eagle {
   #
   # <bootstrap>
   proc isEagle {} {
+    # <help>
+    # This procedure detects whether the script library is currently running
+    # inside Eagle as opposed to vanilla (native) Tcl, returning non-zero only
+    # when running in Eagle.  It exists because the script library is shared,
+    # almost verbatim, between the two engines; nearly every place where the
+    # behavior must diverge keys off of this single test.  Because that need
+    # arises while this very file is being evaluated, the procedure is defined
+    # here (rather than relying on it being loaded from elsewhere); an
+    # equivalent copy is also defined in the "platform.eagle" file.
+    #
+    # How it works: it checks the global tcl_platform array for an "engine"
+    # element and, when present, compares its value case-insensitively against
+    # the literal "eagle".  Both conditions must hold.  The tcl_platform(engine)
+    # element is an Eagle (and modern Tcl) convention identifying the hosting
+    # script engine; native Tcl interpreters that predate that element will
+    # simply fail the first existence test and report false.
+    #
+    # Tricky details: the test must remain correct in both engines and must be
+    # inexpensive, since (despite the original intent that it be rare) it is in
+    # practice consulted very frequently, for example throughout the test
+    # suite.  It deliberately avoids any Eagle-only commands so that it can be
+    # safely evaluated under native Tcl.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero (true) when running under Eagle; zero (false) when running
+    #   under native Tcl or any other engine.
+    # </help>
+
     #
     # NOTE: Nothing too fancy or expensive should be done in here.  In
     #       theory, use of this routine should be rare; however, in
@@ -52,6 +83,84 @@ namespace eval ::Eagle {
   proc loadGarudaForUseByEagle {
           {machine ""} {configuration ""} {suffix ""} {methodFlags true}
           {noNormalize true} {quiet false} } {
+    # <help>
+    # This procedure bootstraps interoperability between Eagle and native Tcl
+    # by loading a native Tcl library, enabling command bridging between the
+    # two engines, and then loading the Eagle Native Package for Tcl, which is
+    # named "Garuda".  It exists so that an Eagle interpreter can reach out to
+    # a real Tcl runtime (and, through Garuda, allow that Tcl runtime to call
+    # back into Eagle).  Because it touches native code loading, version
+    # discovery, and cross-engine evaluation, it can fail in many ways, for
+    # example when no native Tcl is available or when its Garuda package cannot
+    # be found; such failures surface as ordinary script errors.
+    #
+    # How it works: it first determines a descriptive name for the current
+    # call level (used only in diagnostic logging).  It then chooses the script
+    # used to actually require Garuda -- preferring a caller-supplied override
+    # stored in the global eagle_debugger array element named garudaScript, and
+    # otherwise defaulting to a plain "package require Garuda".  When running
+    # under Eagle, it requires the Eagle.Test package (for its helper
+    # procedures), and, if native Tcl is not already loaded, it loads a native
+    # Tcl library via the [tcl load] command with bridging and robustification
+    # enabled and constrained to the supported version range returned by
+    # [getTclMinimumVersion] and [getTclMaximumVersion].  It then fills in any
+    # omitted arguments from the environment (machine from tcl_platform, build
+    # configuration from the eagle_platform array, and the file name suffix via
+    # [getTestSuffix]) and probes a series of candidate directories -- derived
+    # from the interpreter base directory and binary directory combined with
+    # platform names from [machineToPlatform] -- to locate the directory that
+    # should be added to the native Tcl auto_path so that Garuda can be found.
+    # The first such directory that exists wins; if none exist, no auto_path
+    # entry is added and the subsequent require will rely on whatever the
+    # native Tcl interpreter can already locate.  It optionally configures the
+    # Garuda namespace variables for method flags and path normalization inside
+    # the primary native Tcl interpreter, evaluates the require script there
+    # (or directly, when already in native Tcl), installs a "garuda" alias that
+    # forwards to the native Tcl "garuda" command, and provides a same-named
+    # Eagle package so that Eagle's own package machinery sees Garuda as loaded.
+    #
+    # Tricky details and things it relies upon: it intentionally avoids using
+    # ActiveTcl "BaseKits" because they may not embed Tk correctly, and it
+    # depends on the Win32 SetDllDirectory API having been arranged so that the
+    # native Tcl library can locate its companion DLLs.  The methodFlags
+    # argument is interpreted flexibly: a hexadecimal string is used verbatim,
+    # a true-like value selects the protocol flag value, and a false-like value
+    # selects no flags; anything else is an error.  The noNormalize argument is
+    # similarly true/false only.  Several of the operations are wrapped so that
+    # diagnostic logging failures are non-fatal, and most of the real work is
+    # gated behind the [isEagle] test.  Typical use is during development or
+    # testing when a script needs Eagle and native Tcl to cooperate.
+    #
+    # Arguments:
+    #   machine       -- The processor architecture name used to locate the
+    #                    native build directory.  When empty, it defaults to
+    #                    the tcl_platform machine value when available.
+    #   configuration -- The build configuration name (for example a Debug or
+    #                    Release style label) used in directory discovery.
+    #                    When empty, it defaults to the eagle_platform
+    #                    configuration value when available.
+    #   suffix        -- An extra file name suffix used in directory discovery.
+    #                    When empty, it defaults to the value from
+    #                    [getTestSuffix].
+    #   methodFlags   -- Controls the Garuda method flags.  May be a
+    #                    hexadecimal string (used as-is), a true-like value
+    #                    (selects the standard protocol flags), or a false-like
+    #                    value (selects none).  An empty value skips
+    #                    configuring this setting.  Defaults to true.
+    #   noNormalize   -- Controls whether Garuda avoids path normalization (to
+    #                    work around a native Tcl junction defect).  A
+    #                    true-like or false-like value; an empty value skips
+    #                    configuring this setting.  Defaults to true.
+    #   quiet         -- When true-like, suppresses the informational logging
+    #                    about the chosen auto_path directory and the loaded
+    #                    Garuda state.  Defaults to false.
+    #
+    # Results:
+    #   An empty string on success.  A script error is raised if native Tcl or
+    #   Garuda cannot be loaded, or if an unsupported methodFlags or noNormalize
+    #   value is supplied.
+    # </help>
+
     set level [lindex [info level [info level]] 0]
 
     if {[info exists ::eagle_debugger(garudaScript)]} then {
@@ -203,6 +312,51 @@ namespace eval ::Eagle {
   #
   # <bootstrap>
   proc loadScripts { directory fileNamesOnly } {
+    # <help>
+    # This procedure loads -- that is, [source]s -- a set of additional script
+    # files that logically belong to the package defined by this file.  It
+    # exists to centralize the way the core script library pulls in its many
+    # companion files, applying consistent directory resolution and consistent
+    # [source] options across both Eagle and native Tcl.  Because it is needed
+    # while this file itself is being evaluated, it is defined here.
+    #
+    # How it works: it first resolves the directory in which to look for the
+    # files.  If the caller passes an empty string or a lone "." (which carry
+    # no useful location information), it falls back to the global tcl_library
+    # directory when that variable exists, is non-empty, and names a real
+    # directory.  It then builds a base [source] command; under Eagle it
+    # augments that command with the -withinfo and -library options so that
+    # location information is preserved for procedures defined in the sourced
+    # files and so that [source] knows these files are part of initializing a
+    # core script library sub-package.  Finally it iterates over the requested
+    # file names in the exact order given, joining each onto the resolved
+    # directory and evaluating the resulting [source] command in the caller's
+    # frame via [uplevel 1].
+    #
+    # Tricky details and global state: two global array conventions can cause a
+    # candidate file to be skipped.  If the global no array has an element
+    # whose name is the fully joined file name, that file is skipped entirely.
+    # Separately, if the global no array has a "strictLoadScript" element and
+    # the candidate file does not exist, it is also skipped; otherwise missing
+    # files are left for [source] to report.  The files are evaluated in the
+    # caller's context (not inside this procedure), so any procedures or
+    # variables they define land where the caller expects.  Ordering matters:
+    # later files may depend on earlier ones, so the requested order is
+    # honored exactly.
+    #
+    # Arguments:
+    #   directory     -- The directory to load the files from.  An empty string
+    #                    or "." means "no useful directory was supplied", in
+    #                    which case the tcl_library directory is used when
+    #                    available.
+    #   fileNamesOnly -- A list of bare file names (without directory) to load,
+    #                    in the order they should be sourced.
+    #
+    # Results:
+    #   An empty string on success.  A script error may propagate from any
+    #   [source] that fails.
+    # </help>
+
     #
     # NOTE: Does the directory specified by the caller contain information
     #       useful in locating the script file?
@@ -301,6 +455,42 @@ namespace eval ::Eagle {
   #
   # <bootstrap>
   proc maybeLoadScripts { directory fileNamesOnly } {
+    # <help>
+    # This procedure is a filtering wrapper around [loadScripts] that loads a
+    # set of companion script files while honoring per-file opt-out flags.  It
+    # exists so that callers can request a whole batch of script files but
+    # still allow individual files to be suppressed (for example, to disable a
+    # feature or to avoid loading something in a constrained environment)
+    # without having to remove them from the batch.  Like [loadScripts], it is
+    # defined here because it is needed while this file is being evaluated, and
+    # it works the same way in both Eagle and native Tcl.
+    #
+    # How it works: it walks the requested list of bare file names and keeps
+    # only those for which there is no corresponding element in the global no
+    # array (that is, it skips any file name for which no(fileNameOnly) exists).
+    # It then delegates to [loadScripts] with the surviving file names, invoked
+    # via [uplevel 1] so that the actual sourcing happens in (and affects) the
+    # caller's frame, and returns whatever [loadScripts] returns.
+    #
+    # Tricky details and global state: the opt-out test here keys on the bare
+    # file name (the element name in the global no array), whereas [loadScripts]
+    # additionally tests the fully joined path; both layers of suppression are
+    # therefore in effect.  Because the delegation uses [uplevel 1], the
+    # caller's context is what receives the sourced definitions.
+    #
+    # Arguments:
+    #   directory     -- The directory to load the files from, passed through
+    #                    to [loadScripts] (an empty string or "." defers to the
+    #                    tcl_library directory there).
+    #   fileNamesOnly -- A list of bare file names to consider loading, in
+    #                    order; any whose bare name is present in the global no
+    #                    array is omitted.
+    #
+    # Results:
+    #   The result of the delegated [loadScripts] call (an empty string on
+    #   success).  A script error may propagate from a failed [source].
+    # </help>
+
     set matchFileNames [list]
 
     foreach fileNameOnly $fileNamesOnly {
@@ -438,6 +628,48 @@ namespace eval ::Eagle {
     #
     # <pkgIndex>
     proc sourceWithInfo { args } {
+      # <help>
+      # This procedure evaluates a script file with the [source] command while
+      # preserving the source location information for any procedures defined
+      # within that file.  It exists because Eagle can optionally track where
+      # each procedure was defined (file name and line), and ordinary sourcing
+      # does not always retain that information; this wrapper turns on the
+      # necessary interpreter behavior for the duration of the [source] and
+      # then restores the prior behavior.  It is an Eagle-only procedure.
+      #
+      # How it works: it temporarily reconfigures two pieces of interpreter
+      # state on the active interpreter via non-public methods.  First it
+      # begins a "no argument cache" region (saving the prior cache flags) so
+      # that argument caching does not interfere with location capture.  Then,
+      # inside a try/finally, it begins an "argument location" region (saving
+      # the prior interpreter state flags) so that argument locations are
+      # tracked.  With that state in place, it builds a [source] command,
+      # appends all of its own arguments to it, and evaluates it in the
+      # caller's frame via [uplevel 1], returning that result.  The two regions
+      # are torn down in finally blocks, in reverse order, so the interpreter
+      # is restored even when the sourced script raises an error.
+      #
+      # Tricky details and things it relies upon: the calls that begin and end
+      # the cache and location regions are each wrapped in their own [catch]
+      # so that an interpreter that does not support (or refuses) those
+      # non-public operations degrades gracefully rather than failing the
+      # whole source.  The save/restore variables are passed by name to the
+      # underlying methods.  Because the actual [source] runs via [uplevel 1],
+      # the sourced file is evaluated in the caller's context.  All of the
+      # arguments are forwarded to [source] verbatim, so this procedure accepts
+      # whatever options and file name [source] itself accepts.
+      #
+      # Arguments:
+      #   args -- The arguments to pass to the [source] command, typically the
+      #           name of the script file to evaluate (optionally preceded by
+      #           [source] options).  They are forwarded unchanged.
+      #
+      # Results:
+      #   The result of evaluating the [source] command.  Any error raised
+      #   while sourcing propagates to the caller (with interpreter state
+      #   restored first).
+      # </help>
+
       catch {
         set savedCacheFlags None
 
@@ -481,6 +713,52 @@ namespace eval ::Eagle {
       #
       # <create>
       proc unknown { name args } {
+        # <help>
+        # This is the [unknown] command handler for Eagle, the procedure the
+        # script engine automatically invokes when a command name cannot be
+        # resolved.  This variant (used in normal, non-safe, non-SDK
+        # interpreters) normally just reports that the command name is invalid,
+        # but it can optionally treat the unknown name as the name of a CLR
+        # type and attempt to invoke a static object method on it.  It exists
+        # so that, when explicitly enabled, scripts can call into .NET static
+        # methods using ordinary command syntax, while still producing a clear
+        # error in the common case.
+        #
+        # How it works: the optional object-invocation path is taken only when
+        # several preconditions all hold -- the helper [hasRuntimeOption]
+        # command exists and reports the "eagleUnknownObjectInvoke" runtime
+        # option as enabled, the [object] command exists, and the helper
+        # [unknownObjectInvoke] command exists.  When so, it evaluates
+        # [unknownObjectInvoke] with the unknown name and the original
+        # arguments in the caller's context (so that argument variable names
+        # resolve there).  If that succeeds, its result is returned with an ok
+        # return code.  If it fails but produced a non-empty error message,
+        # that error is re-raised.  In every other case (the option disabled,
+        # the helpers absent, or a failure with no message) the procedure falls
+        # through to returning an "invalid command name" error naming the
+        # command.
+        #
+        # Tricky details and global state: the entire object-invocation attempt
+        # is conditional on runtime options and on optional helper commands
+        # being present, so the procedure remains safe when those are absent.
+        # The error fallback uses [appendArgs] to build the message and
+        # embeds the offending command name in quotes.  As the engine-level
+        # [unknown] hook, this procedure is foundational: it is consulted for
+        # every unresolved command, so it is kept inexpensive on the common
+        # error path.
+        #
+        # Arguments:
+        #   name -- The name of the command that could not be found.
+        #   args -- Any arguments that were passed to that command; forwarded
+        #           to the optional static method invocation attempt.
+        #
+        # Results:
+        #   On the optional path, the result of the successfully invoked static
+        #   object method (return code ok).  Otherwise an error is raised whose
+        #   message either comes from a failed invocation attempt or states
+        #   that the command name is invalid.
+        # </help>
+
         #
         # NOTE: This is an [unknown] procedure that normally produces an
         #       appropriate error message; however, it can optionally try
@@ -526,6 +804,37 @@ namespace eval ::Eagle {
       #
       # <create>
       proc unknown { name args } {
+        # <help>
+        # This is the [unknown] command handler for Eagle used in "safe" and
+        # SDK interpreters, the procedure the script engine automatically
+        # invokes when a command name cannot be resolved.  Unlike the
+        # full-featured variant used in normal interpreters, this version never
+        # attempts to invoke CLR static methods; it simply reports that the
+        # command name is invalid.  It exists because safe and SDK
+        # interpreters are deliberately restricted, and because the helper
+        # procedures the richer variant relies upon are not loaded into safe
+        # interpreters.  An equivalent copy of this minimal handler is also
+        # defined in the "safe.eagle" file.
+        #
+        # How it works: it immediately returns an error whose message names the
+        # offending command in quotes.  It intentionally avoids using the
+        # [appendArgs] helper to build that message, because that helper lives
+        # in another file that is never loaded into safe interpreters;
+        # ordinary string substitution is used instead.
+        #
+        # Tricky details: as the engine-level [unknown] hook, this is called
+        # for every unresolved command, so it is kept as simple and dependency
+        # free as possible.  It does not consult any global state.
+        #
+        # Arguments:
+        #   name -- The name of the command that could not be found; embedded
+        #           in the error message.
+        #   args -- Any arguments that were passed to that command; ignored.
+        #
+        # Results:
+        #   Always raises an error reporting that the command name is invalid.
+        # </help>
+
         #
         # NOTE: This is an [unknown] procedure that produces an appropriate
         #       error message.
@@ -551,6 +860,39 @@ namespace eval ::Eagle {
       #
       # <create>
       proc ::tcl::tm::UnknownHandler { original name args } {
+        # <help>
+        # This procedure is a pass-through Tcl Modules unknown-package handler,
+        # provided for compatibility with native Tcl's module subsystem.  Tcl
+        # Modules installs a chain of handlers that are consulted when a package
+        # cannot be located; this procedure participates in that chain but adds
+        # no behavior of its own beyond invoking the previous handler.  It
+        # exists so that Eagle presents the same ::tcl::tm namespace and
+        # handler shape that native Tcl code may expect.
+        #
+        # How it works: it simply forwards to the original (previous) handler,
+        # reconstructing that handler's expected argument list by inserting the
+        # package name back at the front of the remaining arguments.  The
+        # insertion uses the core [linsert] command (referenced with its
+        # global-namespace name) to place name at index zero of args, and the
+        # whole thing is evaluated in the caller's frame via [uplevel 1].
+        #
+        # Tricky details: the procedure is intentionally defined with its fully
+        # qualified name inside the ::tcl::tm namespace, since that is where the
+        # module subsystem looks for it.  Because it only delegates, the actual
+        # resolution behavior is entirely whatever the original handler does.
+        #
+        # Arguments:
+        #   original -- The previous unknown handler command prefix to delegate
+        #               to.
+        #   name     -- The package name being resolved; re-inserted as the
+        #               first argument to the original handler.
+        #   args     -- Any remaining arguments, forwarded after name.
+        #
+        # Results:
+        #   Whatever the original handler returns; any error it raises
+        #   propagates.
+        # </help>
+
         #
         # NOTE: Do nothing except call the original handler.
         #
@@ -566,6 +908,49 @@ namespace eval ::Eagle {
     #
     # <create>
     proc tclPkgUnknown { name args } {
+      # <help>
+      # This procedure is Eagle's handler for unknown packages, invoked by the
+      # package management subsystem when a requested package cannot be found.
+      # Its job is to force a fresh scan of all known package index sources so
+      # that a package that was added (or became visible) after the last scan
+      # can be discovered on demand.  It exists to mirror the role of native
+      # Tcl's package-unknown handler while driving Eagle's richer [package
+      # scan] machinery.
+      #
+      # How it works: it first reads the core library compilation options from
+      # the eagle_platform array element named compileOptions, defaulting to an
+      # empty list when that information is unavailable.  It then begins
+      # building a [package scan] sub-command requesting host and bundle
+      # sources.  If the compilation options indicate that application domains,
+      # isolated interpreters, or isolated plugins are in use, it probes the
+      # active interpreter (via a non-public HasProbePlugins method) and, when
+      # that reports true, adds the plugins source to the scan as well.
+      # Finally it appends the options that request a normal, primary, tagged,
+      # refreshing rescan and evaluates the assembled command at the global
+      # scope using [uplevel] with level "#0".
+      #
+      # Tricky details and global state: the rescan must run in the global
+      # scope specifically so that the special global variable that the
+      # package index loading subsystem sets (the one naming the current index
+      # directory) is accessible to the index scripts as they are evaluated;
+      # running it anywhere else would break that contract.  The plugin-source
+      # decision depends both on the recorded compilation options and on a
+      # runtime probe, and the probe is performed inside a [catch] so that an
+      # interpreter that does not support it does not cause a failure.  This
+      # procedure relies on the eagle_platform array and on the active
+      # interpreter's package subsystem.
+      #
+      # Arguments:
+      #   name -- The name of the package that could not be found.  It is not
+      #           used to target the scan; the scan refreshes all indexes.
+      #   args -- Any additional arguments supplied by the package subsystem
+      #           (such as a version requirement); not used here.
+      #
+      # Results:
+      #   The result of evaluating the [package scan] sub-command at the global
+      #   scope; errors from that scan propagate to the caller.
+      # </help>
+
       #
       # NOTE: Grab the current compilation options for the core library,
       #       if available.
@@ -612,6 +997,36 @@ namespace eval ::Eagle {
     #
     # <experimental>
     proc makeProcedureFast { name fast } {
+      # <help>
+      # This procedure marks a named procedure for (or unmarks it from) "fast"
+      # execution.  In the current implementation, fast execution means
+      # disabling, while the target procedure runs, the interpreter features
+      # that would otherwise make variable access slower.  It exists as an
+      # experimental performance tuning knob for hot procedures and is an
+      # Eagle-only facility.
+      #
+      # How it works: it asks the active interpreter to toggle the fast flag
+      # for the named procedure by invoking a non-public MakeProcedureFast
+      # method, evaluated in the caller's frame via [uplevel 1].  The whole
+      # invocation is wrapped in a [catch] so that the request is best-effort:
+      # if the interpreter does not support it, the call quietly does nothing
+      # rather than raising an error.
+      #
+      # Tricky details: because the operation is swallowed by [catch], callers
+      # cannot tell from the result whether the request actually took effect.
+      # The setting is experimental and affects only variable-access speed
+      # while the marked procedure executes; it does not change the
+      # procedure's semantics.
+      #
+      # Arguments:
+      #   name -- The name of the procedure to mark or unmark.
+      #   fast -- A boolean-like value; a true value requests fast execution
+      #           and a false value clears it.
+      #
+      # Results:
+      #   An empty string.  Any failure to apply the setting is suppressed.
+      # </help>
+
       #
       # NOTE: This should work properly in Eagle only.
       #
@@ -628,6 +1043,37 @@ namespace eval ::Eagle {
     #
     # <experimental>
     proc makeVariableFast { name fast } {
+      # <help>
+      # This procedure marks a named variable for (or unmarks it from) "fast"
+      # access.  In the current implementation, fast access means disabling,
+      # while the target variable is read, set, or unset, the interpreter
+      # features that would otherwise slow those operations down.  It is the
+      # variable-level companion to [makeProcedureFast], provided as an
+      # experimental performance tuning knob, and is an Eagle-only facility.
+      #
+      # How it works: it asks the active interpreter to toggle the fast flag
+      # for the named variable by invoking a non-public MakeVariableFast
+      # method, evaluated in the caller's frame via [uplevel 1].  The
+      # invocation is wrapped in a [catch] so that it is best-effort: an
+      # interpreter that does not support it simply does nothing instead of
+      # raising an error.
+      #
+      # Tricky details: because the operation is swallowed by [catch], the
+      # result does not reveal whether the request took effect.  The setting
+      # is experimental and affects only the speed of accessing the marked
+      # variable; it does not change the variable's value or scope.  The name
+      # is resolved in the caller's frame.
+      #
+      # Arguments:
+      #   name -- The name of the variable to mark or unmark, resolved in the
+      #           caller's context.
+      #   fast -- A boolean-like value; a true value requests fast access and a
+      #           false value clears it.
+      #
+      # Results:
+      #   An empty string.  Any failure to apply the setting is suppressed.
+      # </help>
+
       #
       # NOTE: This should work properly in Eagle only.
       #
@@ -677,6 +1123,56 @@ namespace eval ::Eagle {
         #       arguments are passed to the procedure verbatim.
         #
         proc ::apply { lambdaExpr args } {
+          # <help>
+          # This procedure is a compatibility shim that provides a TIP #194
+          # style [apply] command to native Tcl interpreters that lack one
+          # (notably Tcl 8.4); Eagle and Tcl 8.5 or higher already provide
+          # [apply] natively, so this shim is only created when no [apply]
+          # command already exists.  It exists so that the rest of the shared
+          # script library can use anonymous-procedure (lambda) application
+          # uniformly across engines.  The implementation was adapted from the
+          # "pkgr.eagle" script belonging to the Package Client Toolset and
+          # should be kept in sync with it.
+          #
+          # How it works: the lambda expression argument is a list of two or
+          # three elements -- the argument list, the body, and an optional
+          # target namespace (defaulting to the global namespace when omitted).
+          # The procedure validates that the list length is two or three,
+          # raising an error otherwise.  It then destructures the three pieces,
+          # generates a unique name suffix via [getUniqueSuffix] (asking for a
+          # higher paranoia level so the name is unlikely to collide), and
+          # composes a fully qualified temporary procedure name placed in the
+          # requested namespace.  It defines a real procedure under that name
+          # whose body is prefixed with a small snippet that renames the
+          # procedure to the empty string as its very first action, so the
+          # temporary procedure deletes itself the moment it begins running.
+          # It then calls that temporary procedure in the caller's frame via
+          # [uplevel 1], forwarding the extra arguments, and returns its
+          # result.
+          #
+          # Tricky details: the self-deleting prologue is what makes the
+          # anonymous procedure single-use and avoids leaking temporary
+          # commands into the namespace.  The uniqueness of the generated name
+          # depends on [getUniqueSuffix]; collisions are avoided rather than
+          # strictly impossible.  The destructuring relies on a single-pass
+          # loop over the lambda expression that breaks after assigning the
+          # three component variables.  The procedure runs the lambda body in
+          # the caller's context, so upvar and similar relative references
+          # behave as a caller would expect from a real [apply].
+          #
+          # Arguments:
+          #   lambdaExpr -- A list of two or three elements: the procedure
+          #                 argument list, the procedure body, and an optional
+          #                 target namespace.  Any other length is an error.
+          #   args       -- Zero or more values passed verbatim as the
+          #                 arguments to the lambda's procedure.
+          #
+          # Results:
+          #   The result of invoking the lambda's procedure with the supplied
+          #   arguments.  An error is raised if the lambda expression does not
+          #   have two or three elements.
+          # </help>
+
           set length [llength $lambdaExpr]
 
           if {$length < 2 || $length > 3} {
@@ -706,6 +1202,46 @@ namespace eval ::Eagle {
         #
         if {[llength [info commands getUniqueSuffix]] == 0} then {
           proc getUniqueSuffix { {paranoia 1} } {
+            # <help>
+            # This procedure returns a name suffix (suitable for use in a
+            # directory, variable, or command name) that is unique to the
+            # running process at the current point in time.  It exists to help
+            # generate names that are unlikely to collide with preexisting
+            # variables or commands in the global namespace, and is used
+            # internally by the [apply] compatibility shim when fabricating
+            # temporary procedure names.  Its uniqueness is probabilistic and
+            # scales with a caller-specified paranoia level.
+            #
+            # How it works: it starts the suffix with the current process
+            # identifier (from [pid]), trimming any leading or trailing dash
+            # characters.  When the paranoia level is greater than zero, it
+            # appends the current wall-clock time in seconds (from [clock
+            # seconds]).  When the paranoia level is greater than one, it
+            # additionally appends a millisecond click counter (from [clock
+            # clicks -milliseconds]); each appended component is likewise
+            # trimmed of dashes and joined with an underscore separator.
+            #
+            # Tricky details: the higher the paranoia level, the more
+            # time-derived entropy is folded in and the more likely the result
+            # is to be unique across rapid successive calls within the same
+            # process.  The dash trimming guards against negative or
+            # dash-prefixed values producing awkward names.  The procedure is
+            # only defined when no command of the same name already exists, so
+            # an existing implementation is not overridden.  Note that this
+            # does not guarantee absolute uniqueness; it minimizes the chance of
+            # collision.
+            #
+            # Arguments:
+            #   paranoia -- The relative level of uniqueness required.  Zero
+            #               uses only the process id; one (the default) adds
+            #               seconds; two or more also adds a millisecond
+            #               counter.
+            #
+            # Results:
+            #   A string suffix built from the process id and, depending on the
+            #   paranoia level, time-derived components, joined by underscores.
+            # </help>
+
             set result [string trim [pid] -]
 
             if {$paranoia > 0} then {

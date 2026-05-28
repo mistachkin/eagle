@@ -28,6 +28,54 @@ namespace eval ::Eagle {
   #       errors should not be raised by this procedure.
   #
   proc getOwnerForProcess { process {noIntegrity false} {refresh false} } {
+    # <help>
+    # This procedure attempts to determine the owning user of a given process
+    # and return it in "DOMAIN\USER" form.  It is used (notably by
+    # [getProcesses]) to skip over processes that do not belong to the current
+    # user, thereby avoiding many "Access Denied" exceptions when enumerating
+    # or manipulating processes.  This functionality is Windows-only and
+    # requires the [object] command; on other platforms or without that
+    # command it simply returns an empty string.  By design, this procedure
+    # never raises a script error to its caller.
+    #
+    # How it works: it reads the process Id and, unless a refresh is
+    # requested, returns a previously cached owner for that Id from the
+    # eagle_debugger array when one is present.  Otherwise it loads the
+    # System.Management assembly if needed, builds and runs a WMI query
+    # selecting the Win32_Process row for that Id, and calls the GetOwner
+    # method to obtain the user and domain.  As an additional safeguard, it
+    # compares the integrity level of the target process against that of the
+    # current process (using a non-public NativeOps helper): even when the
+    # current user technically owns a process, it is not reported as owned if
+    # its integrity level is higher than ours.  When ownership is confirmed,
+    # the computed "DOMAIN\USER" string is cached in the eagle_debugger array
+    # keyed by process Id and returned.
+    #
+    # Tricky details: the whole body runs inside a [catch]; a [catch] code of
+    # 2 means the inner [return] fired with a real owner string, which is
+    # passed straight back to the caller.  Any other outcome yields either the
+    # captured error text (when non-empty) or the literal string "error" when
+    # no error message is available.  The WMI calls here are noted as
+    # potentially expensive.  The integrity check may itself fail; the
+    # noIntegrity argument lets the caller bypass it entirely.
+    #
+    # Arguments:
+    #   process     -- An object handle for the process to inspect (something
+    #                  exposing Id and supporting a WMI lookup by that Id).
+    #   noIntegrity -- When true, the integrity-level comparison is skipped and
+    #                  ownership is reported without regard to integrity level.
+    #                  Defaults to false.
+    #   refresh     -- When true, any cached owner for this process Id is
+    #                  ignored and the owner is recomputed (and re-cached).
+    #                  Defaults to false.
+    #
+    # Results:
+    #   The owner as "DOMAIN\USER" on success; an empty string when not on
+    #   Windows or when the [object] command is unavailable; a captured error
+    #   message, or the literal string "error" when none is available, on
+    #   failure.  A script error is never raised.
+    # </help>
+
     if {[isWindows] && [llength [info commands object]] > 0} then {
       if {[catch {
         set id [$process Id]
@@ -115,6 +163,39 @@ namespace eval ::Eagle {
   #       name -OR- all process Ids if the specified name is an empty string.
   #
   proc getProcesses { name } {
+    # <help>
+    # This procedure returns a list of process Ids for processes running on
+    # the local machine.  When the name argument is a non-empty string, only
+    # processes whose name matches are returned; when it is empty, all
+    # processes are considered.  It is typically paired with
+    # [waitForProcesses] to wait for or terminate a set of processes.  The
+    # functionality requires the [object] command; without it the empty list
+    # is returned.
+    #
+    # How it works: using System.Diagnostics.Process, it obtains either the
+    # processes matching the requested name (GetProcessesByName) or all
+    # processes (GetProcesses) as a managed array.  Unless ownership checking
+    # has been disabled via the global no(getOwnerForProcess) element, it then
+    # determines the current user and, for each process, calls
+    # [getOwnerForProcess] to skip any process not owned by the current user
+    # (this reduces "Access Denied" errors, though some seemingly owned
+    # processes such as high-integrity ones may still be inaccessible).  For
+    # each remaining process it refreshes the process state, verifies the
+    # process has not exited, and reads its Id, appending that Id to the
+    # result; each of these steps is guarded with [catch] because they can
+    # fail (including on some versions of Mono).  Object-bearing variables are
+    # explicitly unset as they are finished with, both to release the
+    # underlying objects and to document the intent.
+    #
+    # Arguments:
+    #   name -- A process name to match, or an empty string to consider all
+    #           processes on the local machine.
+    #
+    # Results:
+    #   A list of integer process Ids, which may be empty (including when the
+    #   [object] command is unavailable).
+    # </help>
+
     #
     # NOTE: Start with an empty list of process Ids.
     #
@@ -220,6 +301,46 @@ namespace eval ::Eagle {
   #       processes with the specified Ids to exit (or be terminated).
   #
   proc waitForProcesses { ids timeout {collect true} {kill true} } {
+    # <help>
+    # This procedure waits, up to a specified timeout, for a set of processes
+    # (identified by their integer Ids) to exit, optionally killing those that
+    # do not exit in time.  It returns the Ids of the processes that exited or
+    # were successfully killed.  It is commonly used to clean up child or
+    # helper processes after a test or operation.
+    #
+    # How it works: if requested, it first runs the garbage collector via
+    # [debug collect]; this can be necessary to release runtime callable
+    # wrappers that are keeping out-of-process COM servers (such as Excel)
+    # alive, so that those processes can actually exit.  Then, for each Id, it
+    # obtains the process object via
+    # System.Diagnostics.Process.GetProcessById (which fails if the process is
+    # gone or inaccessible) and waits up to the timeout using WaitForExit.  If
+    # the process exits within the timeout, its Id is recorded.  Otherwise, if
+    # killing is enabled, it refreshes its view of the process and attempts to
+    # Kill it, recording the Id when the kill call succeeds.  A [try]/[finally]
+    # ensures the process object variable is unset (released) after each
+    # iteration whether or not an error occurred.
+    #
+    # Tricky details: the GetProcessById, WaitForExit, Refresh, and Kill calls
+    # are each wrapped in [catch] so that one inaccessible or already-exited
+    # process does not abort the wait for the others.  An Id is added to the
+    # result only when the process is confirmed exited or the kill call
+    # succeeds.
+    #
+    # Arguments:
+    #   ids     -- A list of integer process Ids to wait for.
+    #   timeout -- The maximum number of milliseconds to wait for each process
+    #              to exit.
+    #   collect -- When true, the garbage collector is run before waiting, to
+    #              release wrappers keeping processes alive.  Defaults to true.
+    #   kill    -- When true, a process that has not exited by the timeout is
+    #              forcibly killed.  Defaults to true.
+    #
+    # Results:
+    #   A list of the Ids of the processes that exited within the timeout or
+    #   were successfully killed; this may be empty.
+    # </help>
+
     #
     # NOTE: Start with an empty list of process Ids.
     #

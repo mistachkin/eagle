@@ -38,6 +38,31 @@ namespace eval ::Eagle::Tools::TagViaBuild {
   #############################################################################
 
   proc getClockBuildNumber {} {
+    # <help>
+    # This procedure computes the "build" and "revision" components of a
+    # version number from the current date and time, following the same
+    # convention the .NET Framework uses when it auto-generates those two
+    # fields.  It exists so the build tooling can synthesize an
+    # ever-increasing version without being told an explicit patch level.
+    #
+    # How it works: the build number is the count of whole days elapsed since
+    # the .NET build-number epoch of midnight on January 1st, 2000; the
+    # revision number is the count of whole two-second intervals elapsed since
+    # local midnight today.  Both are derived from [clock seconds] and
+    # [clock scan].
+    #
+    # Tricky details: the epoch and midnight are computed in local time (no
+    # GMT flag is used), so the values are relative to the machine's time
+    # zone, exactly mirroring the .NET behavior this imitates.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   A two-element list whose first element is the build number and whose
+    #   second element is the revision number, both non-negative integers.
+    # </help>
+
     #
     # NOTE: What time is it, in seconds since the epoch, now?
     #
@@ -77,6 +102,33 @@ namespace eval ::Eagle::Tools::TagViaBuild {
   }
 
   proc getFossilManifestDirectory { directory } {
+    # <help>
+    # This procedure searches upward from a starting directory for the nearest
+    # ancestor that contains a Fossil "manifest" file, returning that ancestor.
+    # It exists so the version tagger can locate the repository's checkout root
+    # in order to read source provenance from the manifest, which is the
+    # fallback used when the fossil executable itself is not usable.
+    #
+    # How it works: starting at the given directory it checks for a regular
+    # file named "manifest"; if found, that directory is returned.  Otherwise
+    # it moves to the parent directory with [file dirname] and repeats,
+    # stopping when the directory name becomes empty or names a volume root (as
+    # reported by [file volumes]).
+    #
+    # Tricky details: only a regular file (not a directory) named "manifest"
+    # qualifies.  The first matching ancestor encountered while ascending is
+    # returned, so the closest enclosing checkout wins.
+    #
+    # Arguments:
+    #   directory -- The absolute directory at which to begin the upward
+    #                search.
+    #
+    # Results:
+    #   The absolute path of the nearest ancestor directory containing a
+    #   "manifest" file, or the empty string if none is found before reaching a
+    #   volume root.
+    # </help>
+
     #
     # NOTE: Keep going until the directory name is empty -OR- represents the
     #       root of the associated volume.
@@ -107,6 +159,37 @@ namespace eval ::Eagle::Tools::TagViaBuild {
   }
 
   proc getFossilManifestInfo { directory } {
+    # <help>
+    # This procedure extracts the source identifier and commit timestamp for a
+    # Fossil checkout by reading its "manifest" and "manifest.uuid" files from
+    # the specified directory.  It exists as the manifest-based fallback for
+    # obtaining source provenance when the live fossil command (see
+    # [getFossilSourceInfo]) is unavailable, and it relies on the parent
+    # repository having the "manifest" setting enabled so those files are
+    # written into the checkout.
+    #
+    # How it works: it requires both files to be present.  It reads the
+    # "manifest" file and extracts the commit date from its "D" record using a
+    # regular expression, then reformats that value from the manifest's
+    # ISO-style form into a space-separated form suffixed with " UTC" (dropping
+    # the fractional seconds).  It then reads the source ID from
+    # "manifest.uuid" and validates it as a 40-to-64 character lowercase
+    # hexadecimal string.
+    #
+    # Tricky details: the procedure is fail-safe -- if either file is missing,
+    # the timestamp cannot be parsed, or the ID fails validation, it returns an
+    # empty list rather than raising an error.
+    #
+    # Arguments:
+    #   directory -- The directory containing the Fossil "manifest" and
+    #                "manifest.uuid" files (typically the checkout root located
+    #                by [getFossilManifestDirectory]).
+    #
+    # Results:
+    #   A two-element list of the source ID followed by the reformatted commit
+    #   timestamp, or an empty list if the information could not be obtained.
+    # </help>
+
     #
     # NOTE: Verify that the "manifest" file exists in the directory.  If not,
     #       return nothing.
@@ -174,6 +257,29 @@ namespace eval ::Eagle::Tools::TagViaBuild {
   }
 
   proc getFossilSourceInfo {} {
+    # <help>
+    # This procedure obtains the source identifier and timestamp of the current
+    # Fossil checkout by running the Fossil "info" command.  It is the
+    # preferred, live source of provenance for the version tagger and is tried
+    # before the manifest-file fallback ([getFossilManifestInfo]).
+    #
+    # How it works: it runs the external "fossil info" command and matches its
+    # "checkout:" output line with a regular expression to capture the checkout
+    # ID and its timestamp.
+    #
+    # Tricky details: it is fail-safe -- the [exec] is wrapped so that if
+    # Fossil is not installed or the current directory is not inside an active
+    # checkout, the failure is swallowed and an empty list is returned.  It
+    # relies on the fossil executable being present on the PATH.
+    #
+    # Arguments:
+    #   None.  It operates on the process's current working directory.
+    #
+    # Results:
+    #   A two-element list of the checkout ID followed by its timestamp, or an
+    #   empty list when Fossil is unavailable or there is no active checkout.
+    # </help>
+
     #
     # NOTE: Build the pattern used to match (and extract) the source ID and
     #       timestamp information from the output of [exec]'ing the Fossil
@@ -200,6 +306,27 @@ namespace eval ::Eagle::Tools::TagViaBuild {
   }
 
   proc getVersionViaClock { major minor } {
+    # <help>
+    # This procedure assembles a complete four-part dotted version string of
+    # the form major.minor.build.revision, where the caller supplies the major
+    # and minor components and the build and revision components are derived
+    # from the current date and time.  It exists to produce a full version
+    # number for the resource header when no explicit patch level has been
+    # provided to the build.
+    #
+    # How it works: it starts with the caller's major and minor numbers,
+    # appends the build and revision pair returned by [getClockBuildNumber],
+    # and joins all four components with periods.
+    #
+    # Arguments:
+    #   major -- The major version component (the leading number).
+    #   minor -- The minor version component (the second number).
+    #
+    # Results:
+    #   A dotted version string with four components, for example a value like
+    #   "1.0.<build>.<revision>".
+    # </help>
+
     #
     # NOTE: First, use the major and minor version numbers provided by the
     #       caller.
@@ -220,6 +347,36 @@ namespace eval ::Eagle::Tools::TagViaBuild {
   }
 
   proc requireEagleLibrary { toolPath } {
+    # <help>
+    # This procedure ensures the Eagle script library package (Eagle.Library)
+    # is loaded into the current native Tcl interpreter, adding its directory
+    # to the Tcl auto-path first if necessary.  It exists because this build
+    # tool, although it runs under native Tcl, reuses utility procedures
+    # provided by the Eagle script library (such as appendArgs, readFile, and
+    # writeFile), so that library must be available before the tagging
+    # procedures run.
+    #
+    # How it works: it derives the project root directory by going three levels
+    # up from the supplied tool path, computes the library directory as
+    # lib/Eagle1.0 beneath that root, appends it to the global auto-path if it
+    # is not already present, and then issues a [package require] for
+    # Eagle.Library.
+    #
+    # Tricky details: the three-levels-up calculation assumes this tool resides
+    # at a fixed depth beneath the project root (the Native common tools
+    # location).  The [package require] is a no-op if the library has already
+    # been loaded.
+    #
+    # Arguments:
+    #   toolPath -- The normalized directory containing this tool, used as the
+    #               anchor for locating the project root and script library.
+    #
+    # Results:
+    #   Returns the empty string on success; its purpose is the side effect of
+    #   making the Eagle library commands available.  Raises an error if the
+    #   library package cannot be found or loaded.
+    # </help>
+
     #
     # NOTE: Reference the Tcl auto-path now because we need to read, and
     #       possibly modify it, below.
@@ -257,6 +414,42 @@ namespace eval ::Eagle::Tools::TagViaBuild {
   #############################################################################
 
   proc tagRcVersion { toolPath path major minor } {
+    # <help>
+    # This procedure stamps the real version number into the native resource
+    # header file (src/generic/rcVersion.h beneath the given project path),
+    # replacing the placeholder version that is checked into source control.
+    # It exists so the compiled native libraries carry an accurate, build-time
+    # version in their Windows resource information.
+    #
+    # How it works: after ensuring the Eagle library is loaded (via
+    # [requireEagleLibrary]), it reads the header file and normalizes it to
+    # Unix line endings.  It builds a regular expression that matches the dummy
+    # "major.minor.X.X" version (using the caller's major and minor as fixed
+    # anchors), and determines the replacement version: the PATCHLEVEL
+    # environment variable when it is set, otherwise a clock-derived version
+    # from [getVersionViaClock].  It then performs the substitution twice -- in
+    # both the period-delimited form and the comma-delimited form that Windows
+    # resource files also use -- and, only if at least one replacement was
+    # made, rewrites the file converted back to DOS (CRLF) line endings.
+    #
+    # Tricky details: the file is left untouched when nothing matched, avoiding
+    # spurious rewrites.  The dual period/comma substitution is required
+    # because resource version fields appear in both notations.  Only the
+    # build and revision portions are variable; major and minor are matched
+    # literally.
+    #
+    # Arguments:
+    #   toolPath -- The tool directory, forwarded to [requireEagleLibrary].
+    #   path     -- The native project directory whose src/generic/rcVersion.h
+    #               is to be updated.
+    #   major    -- The major version component used to anchor the match.
+    #   minor    -- The minor version component used to anchor the match.
+    #
+    # Results:
+    #   Returns the empty string; its purpose is the side effect of updating
+    #   rcVersion.h in place when a matching placeholder is present.
+    # </help>
+
     #
     # NOTE: Reference the Tcl environment array now because we need to read
     #       it, below.
@@ -323,6 +516,41 @@ namespace eval ::Eagle::Tools::TagViaBuild {
   }
 
   proc tagPkgVersion { toolPath path } {
+    # <help>
+    # This procedure stamps the Fossil source identifier and commit timestamp
+    # into the native package version header file (src/generic/pkgVersion.h
+    # beneath the given project path), replacing the placeholder values checked
+    # into source control.  It exists so the compiled native package records
+    # the exact source revision it was built from.
+    #
+    # How it works: after ensuring the Eagle library is loaded (via
+    # [requireEagleLibrary]), it reads the header file and normalizes it to
+    # Unix line endings.  It then obtains the source ID and timestamp using a
+    # two-tier strategy: first the live checkout via [getFossilSourceInfo], and
+    # if that yields nothing, the manifest files located by
+    # [getFossilManifestDirectory] and parsed by [getFossilManifestInfo].  When
+    # provenance is available, it replaces the SOURCE_ID and SOURCE_TIMESTAMP
+    # string values via regular-expression substitution and, only if a
+    # replacement was made, rewrites the file converted back to DOS (CRLF) line
+    # endings.
+    #
+    # Tricky details: if neither the live checkout nor the manifest files yield
+    # the source information, the header is left completely unchanged (the
+    # placeholders remain).  Likewise the file is not rewritten unless a
+    # substitution actually occurred.
+    #
+    # Arguments:
+    #   toolPath -- The tool directory, forwarded to [requireEagleLibrary].
+    #   path     -- The native project directory whose src/generic/pkgVersion.h
+    #               is to be updated; it is also the starting point for the
+    #               manifest-file search.
+    #
+    # Results:
+    #   Returns the empty string; its purpose is the side effect of updating
+    #   pkgVersion.h in place when source provenance can be determined and a
+    #   matching placeholder is present.
+    # </help>
+
     #
     # NOTE: Attempt to require the Eagle library package now.
     #

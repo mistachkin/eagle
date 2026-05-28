@@ -27,6 +27,44 @@ namespace eval ::Eagle {
   #       unspecified.
   #
   proc makeUpdateId { args } {
+    # <help>
+    # This procedure creates a stable, opaque identifier string suitable for
+    # use as the key that the [isUpdateInstalled] and [markUpdateInstalled]
+    # procedures store in (and look up from) the installed-updates file.  It
+    # exists so that a set of distinguishing values (for example a release
+    # type, public key token, product name, culture, and patch level) can be
+    # collapsed into a single token that uniquely names one installable
+    # update, without the caller needing to know how that token is formed.
+    # The exact format of the returned string is deliberately unspecified and
+    # callers must treat it as opaque.
+    #
+    # How it works: at least one argument is required; with none, a script
+    # error is raised.  Under Eagle, the Eagle.Test package is loaded so that
+    # its [generateUniqueId] procedure can be used to hash the argument list
+    # into a unique identifier.  Under Tcl, it instead requires the tcllib
+    # sha1 package and returns the hexadecimal SHA1 digest of the argument
+    # list.  If neither facility is available under Tcl, a script error is
+    # raised.
+    #
+    # Tricky details: because the identifier is derived from the whole list of
+    # arguments, the same arguments in the same order always yield the same
+    # identifier, which is what makes "installed" tracking work across runs.
+    # Note the BUGBUG comment in the body regarding a possible defect in some
+    # versions of the ActiveState tcllib sha1 package that may produce
+    # incorrect digests; no workaround is attempted here, so an Eagle-produced
+    # identifier and a Tcl-produced identifier are not guaranteed to agree.
+    #
+    # Arguments:
+    #   args -- One or more values that together identify the update.  At least
+    #           one value must be supplied; the values are treated as a list
+    #           and hashed as a whole, so their order is significant.
+    #
+    # Results:
+    #   An opaque identifier string for the update.  A script error is raised
+    #   when no arguments are supplied, or (under Tcl) when no suitable hashing
+    #   package is available.
+    # </help>
+
     #
     # NOTE: Enforce a restriction that there must be at least one string
     #       in the list of arguments.
@@ -67,6 +105,39 @@ namespace eval ::Eagle {
   #       file -OR- an empty string if it cannot be determined.
   #
   proc getUpdateFileName { {directory ""} } {
+    # <help>
+    # This procedure computes the fully qualified file name of the installed-
+    # updates file (named "updates.tsv"), the tab-separated text file used by
+    # [isUpdateInstalled] and [markUpdateInstalled] to record which updates
+    # have been applied on the local machine.  It exists to centralize the
+    # search for that file so all callers agree on where it lives.
+    #
+    # How it works: the directory that should contain the file is chosen in
+    # priority order.  If the caller supplied a non-empty directory, that
+    # directory is used.  Otherwise, under Eagle and only when the [object]
+    # command is available, the target interpreter's current update directory
+    # is queried via a non-public ShellOps helper and used when non-empty.
+    # Failing both of those, the directory returned by [info library] (the Tcl
+    # script library directory) is used.  In every case the chosen directory
+    # is joined with the file name "updates.tsv" to form the result.
+    #
+    # Tricky details: this procedure only builds a path; it does not check
+    # whether the file actually exists or is readable.  The update directory
+    # lookup is skipped entirely outside Eagle or when the [object] command is
+    # absent.
+    #
+    # Arguments:
+    #   directory -- Optional directory in which the updates file should
+    #                reside.  When empty (the default), the update directory of
+    #                the target interpreter and then the script library
+    #                directory are consulted instead.
+    #
+    # Results:
+    #   The fully qualified file name of the updates file.  An empty string can
+    #   in principle be returned only if no candidate directory can be
+    #   determined.
+    # </help>
+
     #
     # NOTE: The (installed) updates file, if it exists, must reside in the
     #       specified directory by the caller, the current update directory
@@ -94,6 +165,51 @@ namespace eval ::Eagle {
   #       arbitrary script for each update found.
   #
   proc isUpdateInstalled { updateId {directory ""} {script ""} } {
+    # <help>
+    # This procedure determines whether the update named by the specified
+    # identifier has been recorded as installed in the local updates file, and
+    # optionally lets the caller observe every line of that file as it is
+    # scanned.  It is the read side of the installed-updates bookkeeping used
+    # by the auto-update logic to avoid re-applying updates that are already
+    # present.
+    #
+    # How it works: the updates file name is resolved via [getUpdateFileName]
+    # using the optional directory.  If that file exists and is readable, its
+    # contents are read (via a shared-file read) and normalized to Unix-style
+    # line endings, then split into lines.  Each line is examined: leading and
+    # trailing spaces (but not tabs) are trimmed, and blank lines and lines
+    # beginning with a number-sign or semicolon (comments) are skipped for
+    # matching purposes.  Remaining lines are split on tab characters into at
+    # least three fields, interpreted as the update identifier, a time stamp,
+    # and notes.  When a line's update identifier equals the requested one, the
+    # result is set true, but scanning continues so that the optional callback
+    # script can still see the rest of the file.
+    #
+    # Tricky details: the optional callback script, when non-empty, is invoked
+    # via [eval] for essentially every line (including blank, comment, and
+    # short lines), running in this procedure's own frame so it can read the
+    # local variables named line, savedLine, lineCount, and the per-line array
+    # whose elements are the update identifier, time stamp, and notes fields;
+    # savedLine holds the original untrimmed line.  This callback mechanism is
+    # how [markUpdateInstalled] collects a filtered copy of the file.  Matching
+    # is an exact string comparison of the update identifier field.
+    #
+    # Arguments:
+    #   updateId  -- The opaque update identifier to search for, typically one
+    #                produced by [makeUpdateId].
+    #   directory -- Optional directory containing the updates file; passed
+    #                through to [getUpdateFileName].  Empty selects the default
+    #                search.
+    #   script    -- Optional callback evaluated once per scanned line in this
+    #                procedure's frame.  When empty (the default), no callback
+    #                runs.
+    #
+    # Results:
+    #   Non-zero (true) if a line whose update identifier matches was found;
+    #   otherwise zero (false), including when the updates file is missing,
+    #   unreadable, or empty.
+    # </help>
+
     #
     # NOTE: Assume that the specified update is not installed and then try
     #       to prove otherwise.
@@ -207,6 +323,52 @@ namespace eval ::Eagle {
   #       the local machine (or not).
   #
   proc markUpdateInstalled { updateId installed {directory ""} {notes ""} } {
+    # <help>
+    # This procedure records, or removes the record of, an update being
+    # installed on the local machine by editing the updates file.  It is the
+    # write side companion to [isUpdateInstalled] and is what the download and
+    # extract logic calls once an update has been successfully applied.
+    #
+    # How it works: it first calls [isUpdateInstalled] for the given identifier
+    # while supplying a callback script that accumulates, into a local list,
+    # every line of the existing file except the line (if any) describing this
+    # update; the value returned by that call tells whether the update is
+    # presently marked installed.  When the caller is marking the update as
+    # installed and it is not already installed, a new tab-delimited line is
+    # appended to the file consisting of the update identifier, a freshly
+    # generated time stamp, and the escaped notes; a leading new line is
+    # included only when the file already had content.  Under Eagle the time
+    # stamp is an ISO time stamp with time zone, while under Tcl it is a
+    # comparable ISO-style string with a zero millisecond field.  When the
+    # caller is instead removing the installed mark and the update is currently
+    # installed, the filtered list of retained lines (which already omits this
+    # update's line) is written back over the file, effectively deleting that
+    # record.
+    #
+    # Tricky details: notes are passed through [escapeUpdateNotes] so that
+    # embedded tabs and line endings do not corrupt the tab-and-newline
+    # delimited format.  It is an error to mark as installed an update that is
+    # already installed, or to remove the mark from an update that is not
+    # installed; both conditions raise a script error.  The filtered line list
+    # gathered by the callback is only actually used on the removal path.
+    #
+    # Arguments:
+    #   updateId  -- The opaque update identifier, typically from
+    #                [makeUpdateId].
+    #   installed -- A boolean.  True means add an installed record for the
+    #                update; false means remove the existing installed record.
+    #   directory -- Optional directory containing the updates file; passed
+    #                through to [getUpdateFileName].
+    #   notes     -- Optional descriptive notes stored alongside the record
+    #                when marking as installed; ignored when removing a mark.
+    #
+    # Results:
+    #   The prior installed state of the update (the value from the internal
+    #   [isUpdateInstalled] call): non-zero if it had been installed before
+    #   this call, zero otherwise.  A script error is raised on the redundant
+    #   cases described above.
+    # </help>
+
     #
     # NOTE: Check if the update is installed while capturing each line of
     #       the updates file.
@@ -289,6 +451,27 @@ namespace eval ::Eagle {
   #       empty string).
   #
   proc matchUpdatePublicKeyToken { publicKeyToken1 publicKeyToken2 } {
+    # <help>
+    # This procedure tests whether two strong name public key tokens should be
+    # considered a match for update purposes.  It exists so that the update
+    # checking logic can confirm that a candidate update was produced by the
+    # same signing identity (build "flavor" or plugin vendor) as the running
+    # product, while still supporting wildcard entries.
+    #
+    # How it works: an empty token on either side is treated as a wildcard that
+    # matches anything, including another empty token, so if either argument is
+    # the empty string the result is true.  Otherwise the two tokens must be
+    # exactly equal (a plain string comparison) for the result to be true.
+    #
+    # Arguments:
+    #   publicKeyToken1 -- The first public key token; empty means match any.
+    #   publicKeyToken2 -- The second public key token; empty means match any.
+    #
+    # Results:
+    #   Non-zero (true) when the tokens match (either is empty, or they are
+    #   equal); otherwise zero (false).
+    # </help>
+
     if {[string length $publicKeyToken1] == 0} then {
       return true
     }
@@ -306,6 +489,38 @@ namespace eval ::Eagle {
   #       string).
   #
   proc matchUpdateName { name1 name2 {exactOnly false} } {
+    # <help>
+    # This procedure tests whether two product or update names should be
+    # considered a match.  It is used by the update checking logic to align an
+    # update line's name field with the running product's name, while allowing
+    # an empty name to act as a wildcard and (optionally) allowing glob-style
+    # pattern matching.
+    #
+    # How it works: the result is true when the first name is empty (matches
+    # anything), or when the two names are exactly equal, or, unless exact
+    # matching was requested, when the first name interpreted as a glob pattern
+    # matches the second name.  These conditions are combined within a single
+    # [expr], so the first name plays the role of the pattern when glob
+    # matching is used.
+    #
+    # Tricky details: glob matching is one-directional -- the first name is the
+    # pattern and the second is the candidate -- so the argument order matters
+    # whenever wildcards are present.  Passing a true exactOnly value disables
+    # the glob path, leaving only the empty-string and exact-equality cases.
+    #
+    # Arguments:
+    #   name1     -- The first name, which also serves as the glob pattern;
+    #                empty means match any name.
+    #   name2     -- The second name, the candidate being tested.
+    #   exactOnly -- Optional boolean (default false).  When true, only the
+    #                empty and exact-equality matches are allowed and glob
+    #                matching is suppressed.
+    #
+    # Results:
+    #   Non-zero (true) when the names match per the rules above; otherwise
+    #   zero (false).
+    # </help>
+
     return [expr {
       [string length $name1] == 0 || \
       $name1 eq $name2 || \
@@ -319,6 +534,33 @@ namespace eval ::Eagle {
   #       empty string).
   #
   proc matchUpdateCulture { culture1 culture2 {exactOnly false} } {
+    # <help>
+    # This procedure tests whether two culture names should be considered a
+    # match.  It mirrors [matchUpdateName] but is applied to the culture field
+    # of an update line, letting the update checking logic confirm that a
+    # candidate update targets the appropriate culture while still supporting
+    # wildcards and optional glob matching.
+    #
+    # How it works: the result is true when the first culture is empty (matches
+    # anything), or when the two culture names are exactly equal, or, unless
+    # exact matching was requested, when the first culture interpreted as a
+    # glob pattern matches the second.  As with name matching, the first
+    # argument acts as the pattern when glob matching is used, so argument
+    # order is significant in the presence of wildcards.
+    #
+    # Arguments:
+    #   culture1  -- The first culture name, also used as the glob pattern;
+    #                empty means match any culture.
+    #   culture2  -- The second culture name, the candidate being tested.
+    #   exactOnly -- Optional boolean (default false).  When true, glob
+    #                matching is suppressed, leaving only the empty and exact
+    #                cases.
+    #
+    # Results:
+    #   Non-zero (true) when the cultures match per the rules above; otherwise
+    #   zero (false).
+    # </help>
+
     return [expr {
       [string length $culture1] == 0 || \
       $culture1 eq $culture2 || \
@@ -331,6 +573,26 @@ namespace eval ::Eagle {
   #       matches the one in use by the Eagle script engine.
   #
   proc matchEnginePublicKeyToken { publicKeyToken } {
+    # <help>
+    # This procedure tests whether the specified public key token matches the
+    # one currently in use by the running Eagle script engine.  It is a
+    # convenience wrapper that saves callers from having to query the engine's
+    # token themselves before comparing.
+    #
+    # How it works: it obtains the engine's public key token via [info engine
+    # PublicKeyToken] and defers the actual comparison to
+    # [matchUpdatePublicKeyToken], so the same wildcard rules apply (an empty
+    # token on either side matches anything).
+    #
+    # Arguments:
+    #   publicKeyToken -- The public key token to compare against the engine's
+    #                     token; empty matches any token.
+    #
+    # Results:
+    #   Non-zero (true) when the token matches the engine's public key token;
+    #   otherwise zero (false).
+    # </help>
+
     return [matchUpdatePublicKeyToken \
         $publicKeyToken [info engine PublicKeyToken]]
   }
@@ -340,6 +602,30 @@ namespace eval ::Eagle {
   #       name matches the Eagle script engine.
   #
   proc matchEngineName { name {exactOnly false} } {
+    # <help>
+    # This procedure tests whether the specified product or update name matches
+    # the name of the running Eagle script engine.  It is a convenience wrapper
+    # so callers do not have to fetch the engine name themselves.
+    #
+    # How it works: it obtains the engine name via [info engine Name] and
+    # defers to [matchUpdateName], passing the supplied name as the pattern and
+    # the engine name as the candidate.  Consequently the same rules apply: an
+    # empty name matches anything, an exact match always succeeds, and, unless
+    # exact matching is requested, the supplied name is treated as a glob
+    # pattern against the engine name.
+    #
+    # Arguments:
+    #   name      -- The name to compare against the engine name; empty matches
+    #                any name, and it serves as the glob pattern when glob
+    #                matching is enabled.
+    #   exactOnly -- Optional boolean (default false).  When true, glob matching
+    #                is suppressed.
+    #
+    # Results:
+    #   Non-zero (true) when the name matches the engine name per the rules
+    #   above; otherwise zero (false).
+    # </help>
+
     return [matchUpdateName $name [info engine Name] $exactOnly]
   }
 
@@ -348,6 +634,30 @@ namespace eval ::Eagle {
   #       matches the one in use by the Eagle script engine.
   #
   proc matchEngineCulture { culture {exactOnly false} } {
+    # <help>
+    # This procedure tests whether the specified culture name matches the
+    # culture of the running Eagle script engine.  It is a convenience wrapper
+    # so callers do not have to fetch the engine culture themselves.
+    #
+    # How it works: it obtains the engine culture via [info engine Culture] and
+    # defers to [matchUpdateCulture], passing the supplied culture as the
+    # pattern and the engine culture as the candidate.  The same rules apply:
+    # an empty culture matches anything, an exact match always succeeds, and,
+    # unless exact matching is requested, the supplied culture is treated as a
+    # glob pattern against the engine culture.
+    #
+    # Arguments:
+    #   culture   -- The culture name to compare against the engine culture;
+    #                empty matches any culture, and it serves as the glob
+    #                pattern when glob matching is enabled.
+    #   exactOnly -- Optional boolean (default false).  When true, glob matching
+    #                is suppressed.
+    #
+    # Results:
+    #   Non-zero (true) when the culture matches the engine culture per the
+    #   rules above; otherwise zero (false).
+    # </help>
+
     return [matchUpdateCulture $culture [info engine Culture] $exactOnly]
   }
 
@@ -356,6 +666,32 @@ namespace eval ::Eagle {
   #       update notes and returns the resulting string.
   #
   proc escapeUpdateNotes { notes } {
+    # <help>
+    # This procedure escapes the characters in an update notes string that
+    # would otherwise be reserved by the updates file format, returning the
+    # escaped string.  It exists because notes are stored as a single field in
+    # a tab-and-newline delimited file, so any literal tab, vertical tab,
+    # carriage return, or line feed embedded in the notes would corrupt the
+    # record structure if written verbatim.  It is used by
+    # [markUpdateInstalled] before a notes value is appended to the file.
+    #
+    # How it works: a single [string map] replaces the offending characters
+    # with ampersand-prefixed, semicolon-terminated entity-style escapes.  The
+    # ampersand itself is escaped first so that ampersands occurring naturally
+    # in the notes are not confused with the escape introducer, and the tab,
+    # vertical tab, line feed, and carriage return characters are each mapped
+    # to their own named escape.  The escaping is the exact inverse of what
+    # [unescapeUpdateNotes] reverses.
+    #
+    # Arguments:
+    #   notes -- The raw notes string to escape.  May be empty, in which case
+    #            the empty string is returned.
+    #
+    # Results:
+    #   The notes string with reserved characters replaced by their escape
+    #   sequences, safe to store as a single field in the updates file.
+    # </help>
+
     #
     # NOTE: Escape any embedded tab and line-ending characters.
     #
@@ -368,6 +704,33 @@ namespace eval ::Eagle {
   #       update notes and returns the resulting string.
   #
   proc unescapeUpdateNotes { notes } {
+    # <help>
+    # This procedure reverses the escaping performed by [escapeUpdateNotes],
+    # converting the entity-style escape sequences in a stored notes string
+    # back into their original tab and line-ending characters, and returning
+    # the result.  It is used when a notes field read from the updates manifest
+    # is about to be displayed or returned to a caller.
+    #
+    # How it works: a single [string map] replaces each named escape sequence
+    # with the character it represents -- the horizontal tab, vertical tab,
+    # line feed, and carriage return escapes map back to those characters, and
+    # the ampersand escape maps back to a literal ampersand.  The ampersand
+    # restoration is performed last in the mapping, the mirror image of
+    # [escapeUpdateNotes] escaping it first, so that round-tripping is exact.
+    #
+    # Tricky details: this assumes the input was produced by
+    # [escapeUpdateNotes]; stray ampersand sequences that are not recognized
+    # escapes are left unchanged.
+    #
+    # Arguments:
+    #   notes -- The escaped notes string to decode.  May be empty, in which
+    #            case the empty string is returned.
+    #
+    # Results:
+    #   The notes string with its escape sequences converted back to the
+    #   original reserved characters.
+    # </help>
+
     #
     # NOTE: Unescape any embedded tab and line-ending characters.
     #
@@ -380,6 +743,61 @@ namespace eval ::Eagle {
   #       [uri download] call that performs the auto-update check.
   #
   proc getFetchUpdateArgs { name type directory metadata extension varName } {
+    # <help>
+    # This procedure validates a prospective update download and, on success,
+    # builds the two-element argument list (a source URI and a local
+    # destination file name) needed to fetch that update's archive.  It exists
+    # to concentrate all of the input checking and URI construction in one
+    # place so that [fetchUpdate] can simply pass the result to [uri download].
+    #
+    # How it works: it first extracts the base URI from the supplied metadata
+    # dictionary and requires it to be a valid URI.  It then requires the base
+    # (product) name to consist only of digits, letters, and underscores; the
+    # patch level from the metadata to be a four-part dotted numeric version;
+    # the target directory to be either empty or an existing directory; and the
+    # file extension to be one of the supported archive kinds.  When all of
+    # those hold, it begins assembling the URI components from the base URI, a
+    # "releases" path segment, and the patch level, then branches on the
+    # requested release type.  For the legacy source, setup, and binary types,
+    # only the self-extracting executable and RAR extensions are accepted (and
+    # setup is forced to the executable extension because Windows setup files
+    # must be executables); for the plugin type, only the ZIP extension is
+    # accepted because plugins must be portable across platforms.  In the
+    # accepted cases it forms the archive file name from the product name, the
+    # title-cased release type, the patch level, and the extension, appends it
+    # to the URI components, and produces a list whose first element is the
+    # joined download URI and whose second element is the local destination
+    # file name under the target directory.
+    #
+    # Tricky details: every failed check writes a human-readable explanation
+    # into the caller's error variable (named by varName) and leaves the result
+    # as the empty list, so callers must inspect the returned list length to
+    # decide success and read the error variable for the reason.  The error
+    # variable is only assigned on failure, so callers should initialize it
+    # beforehand.  The preferred extension is determined by the caller; this
+    # procedure only verifies it is legal for the chosen release type.
+    #
+    # Arguments:
+    #   name      -- The base product name; must match only digits, letters,
+    #                and underscores.
+    #   type      -- The release type, one of source, setup, binary, or plugin
+    #                (matched case-insensitively); anything else is rejected.
+    #   directory -- The local target directory for the download; empty is
+    #                allowed, otherwise it must already exist.
+    #   metadata  -- A dictionary providing at least the update base URI, the
+    #                four-part patch level, and (used elsewhere) the file
+    #                hashes for the release.
+    #   extension -- The desired archive file extension; must be one supported
+    #                by the chosen release type.
+    #   varName   -- The name, in the caller's frame, of a variable that
+    #                receives an explanatory message when validation fails.
+    #
+    # Results:
+    #   A two-element list of the download URI and the local destination file
+    #   name when all checks pass; otherwise the empty list, with the reason
+    #   stored in the caller's error variable.
+    # </help>
+
     #
     # NOTE: Use a variable in the context of the caller to communicate the
     #       exact error condition, if any.
@@ -519,6 +937,63 @@ namespace eval ::Eagle {
   proc fetchUpdate {
           type publicKeyToken name culture patchLevel targetDirectory
           metadata varName } {
+    # <help>
+    # This procedure downloads a single update package archive for a given
+    # release type and patch level and saves it into the specified local
+    # directory.  It sits between the higher-level update checking logic and
+    # the low-level [uri download] command, choosing an appropriate archive
+    # format, building the download arguments, and managing the temporary
+    # trust of the distribution site's certificate during the transfer.
+    #
+    # How it works: it first selects the file extension based on the release
+    # type and platform -- plugins are always ZIP archives (portable across
+    # platforms), on Windows other release types prefer self-extracting
+    # executables (which can be Authenticode signed and verified), and on other
+    # platforms they fall back to RAR archives.  It then calls
+    # [getFetchUpdateArgs] to validate the request and build the download
+    # argument list, optionally exposing that list to the caller through the
+    # variable named by varName.  When the argument list is non-empty, it
+    # temporarily enables trust of the product's own self-signed SSL
+    # certificate (only if it was not already trusted), performs a synchronous
+    # download with a network timeout type, and in a finally block restores the
+    # previous untrusted state if this call was the one that enabled it.  On a
+    # successful download it returns a message naming the downloaded URI and
+    # target directory; when the argument list is empty it returns a message
+    # explaining why the update could not be fetched.
+    #
+    # Tricky details: the toggling of certificate trust is done carefully so
+    # that nested or concurrent callers do not prematurely revoke trust -- a
+    # local "trusted" flag records whether this invocation was the one that
+    # turned trust on, and only then is it turned back off, and even then only
+    # if it is still in the trusted state.  The actual archive verification
+    # (hash and signature checks) is not done here; that is the responsibility
+    # of [downloadAndExtractUpdate].  This procedure does not raise an error on
+    # an unbuildable request; instead it returns a descriptive message, so the
+    # caller should not assume the file exists merely because the call
+    # returned.
+    #
+    # Arguments:
+    #   type            -- The release type (for example source, setup, binary,
+    #                      or plugin); determines the chosen archive extension
+    #                      and how the URI is built.
+    #   publicKeyToken  -- The signing identity token associated with the
+    #                      update; passed along for identification.
+    #   name            -- The base product name used to build the file name.
+    #   culture         -- The culture associated with the update.
+    #   patchLevel      -- The four-part patch level of the update to fetch.
+    #   targetDirectory -- The local directory into which the archive is saved.
+    #   metadata        -- A dictionary supplying the base URI, patch level,
+    #                      and file hashes for the release.
+    #   varName         -- Optional name, in the caller's frame, of a variable
+    #                      that receives the built download argument list; pass
+    #                      an empty string to skip capturing it.
+    #
+    # Results:
+    #   A descriptive message string.  On success it states that the URI was
+    #   downloaded to the target directory; on failure to build the request it
+    #   states that the update could not be fetched and includes the reason.
+    # </help>
+
     #
     # NOTE: Figure out the appropriate file extension to download for this
     #       release type and platform.
@@ -601,6 +1076,52 @@ namespace eval ::Eagle {
   #       process.
   #
   proc runUpdateAndExit { {automatic false} {whatIf false} } {
+    # <help>
+    # This procedure launches the external graphical updater tool (the
+    # "Hippogriff" executable) and then immediately forces the current process
+    # to exit so the updater can replace files that may be in use.  It exists
+    # because an in-process update cannot safely overwrite the running
+    # executable and its assemblies; handing off to a separate process that
+    # waits briefly and then performs the update avoids that conflict.
+    #
+    # How it works: it locates the updater executable next to the current shell
+    # executable, raising an error if it does not exist or if a guard variable
+    # in the global "no" array forbids running it.  It then builds an [exec]
+    # command, using -shell and the end-of-options marker, prefixed with the
+    # appropriate runtime command line for the target file, and adds the base
+    # delay option followed by the configured engine timeout (falling back to a
+    # legacy default when the timeout cannot be queried).  On Windows-on-ARM,
+    # where the native strong name verification API is known not to work, it
+    # adds an option to skip strong name verification.  When automatic mode is
+    # requested it adds options to run silently and without confirmation.  If a
+    # non-default update base URI or update path and query is in effect, those
+    # are passed along as well.  Finally, in the normal case it runs the
+    # command asynchronously (in the background) and then forcibly exits the
+    # process; in what-if mode it instead returns the constructed command
+    # without running anything or exiting.
+    #
+    # Tricky details: under normal operation this procedure does not return --
+    # control leaves via a forced process exit -- so callers should treat any
+    # code after a non-what-if call as unreachable.  What-if mode is the
+    # supported way to discover whether the updater can be run (and to inspect
+    # the exact command line) without side effects, and it is used by the
+    # interactive update prompt logic precisely for that purpose.  The override
+    # variable in the global "no" array provides a manual kill switch.
+    #
+    # Arguments:
+    #   automatic -- Optional boolean (default false).  When true, the updater
+    #                is asked to run silently and without confirmation prompts.
+    #   whatIf    -- Optional boolean (default false).  When true, the command
+    #                is only constructed and returned; the updater is not run
+    #                and the process does not exit.
+    #
+    # Results:
+    #   In what-if mode, the fully constructed updater command (a list).  In
+    #   normal mode there is no meaningful return value because the process is
+    #   forcibly exited; an error is raised if the updater is unavailable or
+    #   has been manually forbidden.
+    # </help>
+
     global tcl_platform
 
     #
@@ -703,6 +1224,83 @@ namespace eval ::Eagle {
   proc downloadAndExtractUpdate {
           type publicKeyToken name culture patchLevel targetDirectory
           metadata varName } {
+    # <help>
+    # This procedure performs a complete, verified update install from a
+    # downloaded archive: it fetches the update package, confirms the package
+    # matches the expected hashes, extracts it, verifies every extracted file,
+    # copies the verified files into the target directory, and finally records
+    # the update as installed.  It exists to apply an update from within a
+    # running process (rather than via the external updater tool) while
+    # enforcing the security checks that make doing so safe.
+    #
+    # How it works: it requires the [object] command and the Eagle.Test package
+    # (for its temporary path helper), then creates a uniquely named outer
+    # temporary directory (incorporating the process id and current time) to
+    # hold all of its scratch files so cleanup is simple.  Inside that, it
+    # creates a fetch sub-directory and calls [fetchUpdate] to download the
+    # archive, optionally exposing the fetch arguments through the variable
+    # named by varName, and recovers the downloaded archive file name from
+    # those arguments.  It then computes the MD5, SHA1, and SHA512 hashes of
+    # the downloaded archive and compares each, case-insensitively where
+    # appropriate, against the corresponding value in the metadata dictionary,
+    # raising an error on any mismatch.  It creates an extract sub-directory,
+    # loads the Eagle.Unzip package, and extracts the archive, then enumerates
+    # every extracted file (recursively) and proceeds through four phases.
+    # Phase 1 verifies each extracted file by extension: native executables and
+    # libraries must carry a valid Authenticode signature, and when they
+    # contain a managed assembly and the platform can verify strong names, the
+    # strong name signature must also verify; a fixed set of script, metadata,
+    # and symbol file extensions are allowed without further checks; and RAR,
+    # ZIP, and all unrecognized extensions are forbidden outright.  Phase 2
+    # confirms that each extracted file name truly lies beneath the extract
+    # directory and that the computed relative name begins with a directory
+    # separator, guarding against path escape.  Phase 3 copies each verified
+    # file to its corresponding location under the caller's target directory,
+    # creating intermediate directories as needed and forcibly overwriting.
+    # Phase 4 marks the update as installed by calling [markUpdateInstalled]
+    # with an identifier built from the release type, public key token, name,
+    # culture, and patch level.  A finally block recursively deletes the outer
+    # temporary directory.
+    #
+    # Tricky details: this procedure is security-critical -- the hash checks
+    # ensure the downloaded bytes are exactly the expected ones, and the
+    # per-file signature and extension checks ensure only trusted, recognized
+    # content reaches the target directory.  The forbidding of nested archives
+    # and unknown extensions is deliberate, to limit the avenues for abuse, and
+    # is noted as conservative ("for now") in the code.  Strong name
+    # verification is skipped on platforms whose native CLR API cannot perform
+    # it.  Several cleanup steps (deleting the downloaded archive after
+    # extraction, and removing the outer temporary directory) are suppressed
+    # when the corresponding guard variables in the global "no" array are set,
+    # which is useful for debugging.  Because verification happens before any
+    # file is copied, a failure in an earlier phase leaves the target directory
+    # untouched.
+    #
+    # Arguments:
+    #   type            -- The release type of the update (for example binary,
+    #                      setup, source, or plugin).
+    #   publicKeyToken  -- The signing identity token; part of the installed
+    #                      update identifier.
+    #   name            -- The base product name.
+    #   culture         -- The culture associated with the update.
+    #   patchLevel      -- The four-part patch level being installed.
+    #   targetDirectory -- The directory into which the verified files are
+    #                      copied; relative extracted paths are appended to it.
+    #   metadata        -- A dictionary supplying the base URI and the expected
+    #                      MD5, SHA1, and SHA512 hashes of the archive.
+    #   varName         -- Optional name, in the caller's frame, of a variable
+    #                      that receives the fetch argument list; pass an empty
+    #                      string to skip capturing it.
+    #
+    # Results:
+    #   No meaningful return value on success; the side effect is that the
+    #   verified files are installed into the target directory and the update
+    #   is marked installed.  A script error is raised on any failure,
+    #   including a missing [object] command, a hash mismatch, a file that
+    #   fails signature verification, a forbidden or unrecognized extension, or
+    #   a relative path that fails the safety checks.
+    # </help>
+
     #
     # NOTE: Currently, this procedure will not work properly without the
     #       [object] command.
@@ -1015,6 +1613,39 @@ namespace eval ::Eagle {
   #       for available updates.
   #
   proc getUpdateBaseUri { {refresh ""} } {
+    # <help>
+    # This procedure returns the base URI that should be used when checking for
+    # available updates.  It exists to let the update logic discover whether
+    # the update base URI has been overridden away from the value baked into
+    # the assembly, and to optionally force the engine to use either the
+    # current or the default URI.
+    #
+    # How it works: when a non-empty refresh argument is supplied, it is passed
+    # straight through to [info engine UpdateBaseUri], which returns (and may
+    # select between) the requested base URI.  When refresh is empty, the
+    # procedure instead queries both the current base URI and the default base
+    # URI from the engine; if both are non-empty and they differ, the current
+    # (overridden) URI is returned; otherwise the empty string is returned to
+    # signal that no override is in effect.
+    #
+    # Tricky details: an empty result is meaningful -- it does not indicate an
+    # error but rather that the current base URI equals the built-in default,
+    # so callers that only want a non-default override should treat empty as
+    # "use the standard behavior."  The interpretation of the refresh argument
+    # is delegated entirely to the engine.
+    #
+    # Arguments:
+    #   refresh -- Optional.  When non-empty, it is forwarded to [info engine
+    #              UpdateBaseUri] to force selection of a particular base URI.
+    #              When empty (the default), the current and default URIs are
+    #              compared instead.
+    #
+    # Results:
+    #   With a non-empty refresh, the base URI chosen by the engine.  With an
+    #   empty refresh, the current base URI when it differs from the default,
+    #   or the empty string when it matches the default.
+    # </help>
+
     #
     # NOTE: Does the caller want to force a choice between the current and
     #       default base URI?
@@ -1053,6 +1684,37 @@ namespace eval ::Eagle {
   #       should be used to check for available updates.
   #
   proc getUpdatePathAndQuery { {refresh ""} } {
+    # <help>
+    # This procedure returns the path and query portion of the URI that should
+    # be used when checking for available updates.  It is the path-and-query
+    # counterpart to [getUpdateBaseUri]: the two are combined to form the
+    # complete update tag URI, and this procedure likewise reports whether the
+    # value has been overridden away from the assembly default.
+    #
+    # How it works: when a non-empty refresh argument is supplied, it is passed
+    # through to [info engine UpdatePathAndQuery], which returns the requested
+    # tag path and query.  When refresh is empty, the procedure queries both
+    # the current and default tag path and query from the engine; if both are
+    # non-empty and they differ, the current (overridden) value is returned;
+    # otherwise the empty string is returned to indicate no override.
+    #
+    # Tricky details: as with the base URI, an empty result means the current
+    # value matches the built-in default rather than indicating an error.  The
+    # leading portion of this value (up to the first dot) is also used
+    # elsewhere to infer the update channel type, for example stable or latest.
+    #
+    # Arguments:
+    #   refresh -- Optional.  When non-empty, it is forwarded to [info engine
+    #              UpdatePathAndQuery] to force selection of a particular value.
+    #              When empty (the default), the current and default values are
+    #              compared instead.
+    #
+    # Results:
+    #   With a non-empty refresh, the tag path and query chosen by the engine.
+    #   With an empty refresh, the current tag path and query when it differs
+    #   from the default, or the empty string when it matches the default.
+    # </help>
+
     #
     # NOTE: Does the caller want to force a choice between the current and
     #       default tag path and query?
@@ -1095,6 +1757,36 @@ namespace eval ::Eagle {
   #       verbatim.
   #
   proc getUpdateData { uri } {
+    # <help>
+    # This procedure downloads the update manifest (the "tag" data) from the
+    # specified URI and returns its raw contents verbatim.  It exists to
+    # centralize the network fetch of the manifest that [checkForUpdate] then
+    # parses line by line to discover available builds, plugins, and update
+    # scripts.
+    #
+    # How it works: it determines the network timeout from the engine,
+    # falling back to a legacy default when that query fails.  It then
+    # temporarily enables trust of the product's own self-signed SSL
+    # certificate (only if it was not already trusted), performs a synchronous
+    # inline download of the URI using the network timeout type and the
+    # resolved timeout, and returns the downloaded data.  A finally block
+    # restores the previous untrusted state, but only if this call was the one
+    # that enabled trust and the connection is still in the trusted state.
+    #
+    # Tricky details: the certificate trust toggling uses a local flag so that
+    # nested or concurrent callers do not prematurely revoke trust; trust is
+    # only turned back off by the same invocation that turned it on.  The data
+    # is returned exactly as received, with no line-ending normalization here;
+    # callers are expected to normalize as needed.
+    #
+    # Arguments:
+    #   uri -- The fully qualified URI of the update manifest to download.
+    #
+    # Results:
+    #   The raw downloaded manifest data.  Network or download failures
+    #   propagate as script errors from the underlying [uri download].
+    # </help>
+
     #
     # NOTE: Figure out the configured timeout value, if any.  If we fail,
     #       just fallback to the (legacy) default value.
@@ -1137,6 +1829,34 @@ namespace eval ::Eagle {
   #       verbatim.
   #
   proc getUpdateScriptData { uri } {
+    # <help>
+    # This procedure downloads an update script from the specified URI and
+    # returns its contents verbatim.  It exists so that the script-update path
+    # of [checkForUpdate] can retrieve the raw script text, whose hashes are
+    # then verified before the script is evaluated.
+    #
+    # How it works: it temporarily enables trust of the product's own
+    # self-signed SSL certificate (only if it was not already trusted), then
+    # uses the interpreter's read-or-get-script-file facility to synchronously
+    # fetch the script content from the URI, and returns it.  A finally block
+    # restores the previous untrusted state, but only if this call was the one
+    # that enabled trust and the connection is still trusted.
+    #
+    # Tricky details: unlike [getUpdateData], this uses the interpreter's
+    # script-file reading mechanism rather than a plain download, which allows
+    # the engine to apply its normal script-location handling.  The same
+    # careful trust toggling is used so nested callers do not prematurely
+    # revoke trust.  The returned data is unverified here; hash checking is the
+    # caller's responsibility before evaluation.
+    #
+    # Arguments:
+    #   uri -- The fully qualified URI of the update script to download.
+    #
+    # Results:
+    #   The raw downloaded script text.  Failures propagate as script errors
+    #   from the underlying read facility.
+    # </help>
+
     #
     # NOTE: Start trusting ONLY our own self-signed SSL certificate.
     #
@@ -1170,6 +1890,22 @@ namespace eval ::Eagle {
   #       manifest of available updates.
   #
   proc getDownloadBaseUri {} {
+    # <help>
+    # This procedure returns the base URI that should be used to download
+    # available update packages when an update manifest line does not itself
+    # specify a base URI (mirror).  It exists as the fallback download location
+    # used by the update checking logic.
+    #
+    # How it works: it simply returns the current download base URI configured
+    # in the engine, via [info engine DownloadBaseUri].
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The current download base URI string from the engine.
+    # </help>
+
     #
     # NOTE: Just return the current base URI for downloads.
     #
@@ -1182,6 +1918,22 @@ namespace eval ::Eagle {
   #       manifest of available scripts.
   #
   proc getScriptBaseUri {} {
+    # <help>
+    # This procedure returns the base URI that should be used to download
+    # available update scripts when an update manifest line does not itself
+    # specify a base URI (mirror).  It exists as the fallback script location
+    # used by the script-update path of the update checking logic.
+    #
+    # How it works: it simply returns the current script base URI configured in
+    # the engine, via [info engine ScriptBaseUri].
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The current script base URI string from the engine.
+    # </help>
+
     #
     # NOTE: Just return the current base URI for scripts.
     #
@@ -1193,6 +1945,22 @@ namespace eval ::Eagle {
   #       auxiliary data.
   #
   proc getAuxiliaryBaseUri {} {
+    # <help>
+    # This procedure returns the base URI that should be used to download
+    # auxiliary data associated with updates.  It exists to provide a single
+    # accessor for that location, parallel to the download and script base URI
+    # accessors.
+    #
+    # How it works: it simply returns the current auxiliary base URI configured
+    # in the engine, via [info engine AuxiliaryBaseUri].
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The current auxiliary base URI string from the engine.
+    # </help>
+
     #
     # NOTE: Just return the current base URI for auxiliary data.
     #
@@ -1208,6 +1976,35 @@ namespace eval ::Eagle {
   proc checkForEngine {
           {wantScripts false} {quiet false} {prompt false}
           {automatic false} } {
+    # <help>
+    # This procedure checks for new versions of, or new update scripts for, the
+    # Eagle script engine itself.  It is the entry point invoked when an
+    # interactive user runs the "#check" command, and it can be redefined to do
+    # nothing in order to disable that functionality entirely.
+    #
+    # How it works: it is a thin convenience wrapper that calls [checkForUpdate]
+    # with all of the engine-identifying parameters (type, URI, public key
+    # token, name, culture, patch level, and time stamp) left empty, so that
+    # [checkForUpdate] fills them in from the running engine, and forwards the
+    # caller's behavioral flags unchanged.
+    #
+    # Arguments:
+    #   wantScripts -- Optional boolean (default false).  When true, the check
+    #                  looks for update scripts to evaluate rather than newer
+    #                  builds.
+    #   quiet       -- Optional boolean (default false).  When true, progress
+    #                  and diagnostic messages are suppressed.
+    #   prompt      -- Optional boolean (default false).  When true, an
+    #                  interactive user may be prompted to run the updater tool
+    #                  when a newer build is found.
+    #   automatic   -- Optional boolean (default false).  When true, the updater
+    #                  tool (if run) is invoked in fully automatic mode.
+    #
+    # Results:
+    #   The list result produced by [checkForUpdate], describing the outcome of
+    #   the check (see that procedure for details).
+    # </help>
+
     return [checkForUpdate \
         "" "" "" "" "" "" "" $wantScripts $quiet $prompt $automatic]
   }
@@ -1222,6 +2019,41 @@ namespace eval ::Eagle {
           {uri ""} {publicKeyToken ""} {name ""} {culture ""}
           {patchLevel ""} {timeStamp ""} {wantScripts false}
           {quiet false} {prompt false} {automatic false} } {
+    # <help>
+    # This procedure checks for a newer version of a specific plugin, typically
+    # just before that plugin is loaded into an interpreter (when the relevant
+    # feature flag is enabled).  Like [checkForEngine], it can be redefined to
+    # do nothing in order to disable plugin update checking.
+    #
+    # How it works: it is a convenience wrapper that calls [checkForUpdate]
+    # with the release type fixed to plugin and forwards the plugin's
+    # identifying parameters and the caller's behavioral flags unchanged.  Any
+    # identifying parameter left empty causes [checkForUpdate] to substitute a
+    # value derived from the running engine where applicable.
+    #
+    # Arguments:
+    #   uri            -- Optional fully qualified URI to use directly; empty
+    #                     uses the configured update URI.
+    #   publicKeyToken -- Optional plugin signing identity token to match;
+    #                     empty matches any (or uses the engine token).
+    #   name           -- Optional plugin (product) name to match.
+    #   culture        -- Optional culture name to match.
+    #   patchLevel     -- Optional patch level to compare against; empty uses
+    #                     the engine patch level.
+    #   timeStamp      -- Optional time stamp, used only in display messages.
+    #   wantScripts    -- Optional boolean (default false); when true, looks for
+    #                     update scripts instead of newer builds.
+    #   quiet          -- Optional boolean (default false); suppresses messages
+    #                     when true.
+    #   prompt         -- Optional boolean (default false); may prompt to run
+    #                     the updater tool when true.
+    #   automatic      -- Optional boolean (default false); runs the updater
+    #                     tool in automatic mode when true.
+    #
+    # Results:
+    #   The list result produced by [checkForUpdate] for the plugin check.
+    # </help>
+
     return [checkForUpdate \
         plugin $uri $publicKeyToken $name $culture $patchLevel \
         $timeStamp $wantScripts $quiet $prompt $automatic]
@@ -1237,6 +2069,106 @@ namespace eval ::Eagle {
           {type ""} {uri ""} {publicKeyToken ""} {name ""} {culture ""}
           {patchLevel ""} {timeStamp ""} {wantScripts false} {quiet false}
           {prompt false} {automatic false} } {
+    # <help>
+    # This procedure is the heart of the auto-update client: it downloads the
+    # update manifest, scans it for an entry matching the running (or
+    # caller-specified) product, and then either reports the version comparison
+    # result or, for matching update scripts, downloads, verifies, and
+    # evaluates them.  It backs the interactive "#check" command and the engine
+    # and plugin update checks, and it can be redefined to do nothing to
+    # disable update checking.
+    #
+    # How it works: it first selects an output channel for status messages,
+    # preferring a test channel when one is configured.  It then establishes
+    # the values it will match against -- update type, URI, public key token,
+    # product name, culture, patch level, and time stamp -- using each
+    # caller-supplied argument when non-empty and otherwise deriving a value
+    # from the running engine (for the name it also incorporates the engine
+    # build type or suffix when that build type is recognized).  When no URI is
+    # given, the update base URI and the update path and query are combined
+    # into the manifest URI, and the URI "type" (such as stable or latest) is
+    # inferred from the leading portion of the path and query.  The manifest
+    # data is fetched via [getUpdateData], normalized to Unix-style line
+    # endings, and split into lines.  Blank and comment lines are skipped; each
+    # remaining line is split on tabs into a fixed set of fields (protocol id,
+    # public key token, name, culture, patch level, time stamp, base URI, three
+    # hashes, and notes), and lines with too few fields are reported and
+    # skipped.  The protocol id selects what the line describes: one for an
+    # engine build, two for an update script, three for the GUI updater build
+    # (ignored here), and four for a binary plugin.  Depending on whether the
+    # caller wants scripts or builds, the appropriate protocol is selected, and
+    # the line's public key token, name, and culture must all match before it
+    # is considered.  For build and plugin lines the manifest patch level is
+    # compared to the running patch level with a version comparison; for script
+    # lines the manifest patch level is treated as a regular expression matched
+    # against the running patch level.  A newer build (or a plugin at the same
+    # or higher patch level that is not already installed) yields a result
+    # describing the available version together with a dictionary of its URI,
+    # patch level, notes, and hashes; when prompting is enabled and conditions
+    # permit, the user may be offered the chance to run the external updater
+    # tool (which, if accepted, replaces the process).  For a matching script
+    # line, the base URI, hash fields, and notes are validated, the script is
+    # downloaded via [getUpdateScriptData], its MD5, SHA1, and SHA512 hashes
+    # are checked against the manifest fields, and only then is it evaluated in
+    # the caller's frame with the reported script location temporarily pushed
+    # so that [info script] reflects the source URI.  Per-script dispositions
+    # (invalid, fail, bad, ok, error, match) are tallied throughout.
+    #
+    # Tricky details: this is security-sensitive code.  Update scripts are
+    # never evaluated unless all three hashes of the downloaded bytes match the
+    # manifest, which is what prevents a tampered or substituted script from
+    # running.  The manifest is expected to list the latest stable version
+    # first for a given public key token, so the first matching line wins for
+    # builds; plugins additionally consult [isUpdateInstalled] so an already
+    # installed equal version is not offered again.  The interactive updater
+    # prompt is guarded to only appear in the default application domain and
+    # the first interpreter, and only when the updater tool is actually
+    # available (probed via the what-if mode of [runUpdateAndExit]); accepting
+    # it does not return.  Time stamps may be either seconds since the epoch or
+    # an ISO-style date/time string, and both forms are handled for display.
+    # Most diagnostic output is suppressed when quiet is true.
+    #
+    # Arguments:
+    #   type           -- Optional update type for display (such as build,
+    #                     plugin, or script); empty defaults to the legacy
+    #                     build.
+    #   uri            -- Optional fully qualified manifest URI to use verbatim;
+    #                     empty builds the URI from the configured base URI and
+    #                     path and query.
+    #   publicKeyToken -- Optional signing identity token to match; empty uses
+    #                     the engine token.
+    #   name           -- Optional product name to match; empty derives one
+    #                     from the engine name and build type.
+    #   culture        -- Optional culture to match; empty uses the engine
+    #                     culture.
+    #   patchLevel     -- Optional patch level to compare against; empty uses
+    #                     the engine patch level.
+    #   timeStamp      -- Optional time stamp used only for display; empty uses
+    #                     the engine time stamp.
+    #   wantScripts    -- Optional boolean (default false).  True selects the
+    #                     update-script path (protocol two); false selects the
+    #                     build and plugin paths.
+    #   quiet          -- Optional boolean (default false).  True suppresses
+    #                     status and diagnostic messages.
+    #   prompt         -- Optional boolean (default false).  True permits
+    #                     prompting an interactive user to run the updater tool
+    #                     when a newer build is found.
+    #   automatic      -- Optional boolean (default false).  True runs the
+    #                     updater tool (when run) in fully automatic mode.
+    #
+    # Results:
+    #   A list whose first element is a human-readable summary of the outcome.
+    #   For a newer build or plugin, the list also contains a second element: a
+    #   dictionary with the download URI, patch level, notes, and the MD5,
+    #   SHA1, and SHA512 hashes.  For the up-to-date and ahead-of-server cases
+    #   the list contains only the summary message.  For the script path the
+    #   summary reports how many update scripts were processed (and their
+    #   dispositions) or that none were processed.  When nothing could be
+    #   determined, the summary explains why, for example that a matching entry
+    #   was found but not fully processed, or that no entry matched the public
+    #   key token, name, and culture.
+    # </help>
+
     #
     # NOTE: First, set default channel for update script status messages.
     #       If the test channel has been set (i.e. by the test suite), it

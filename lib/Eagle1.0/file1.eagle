@@ -25,6 +25,25 @@ namespace eval ::Eagle {
   #       mode.
   #
   proc makeBinaryChannel { channel } {
+    # <help>
+    # This procedure reconfigures an already-open channel for full binary
+    # input and output.  It exists as a small helper so that the file reading
+    # and writing procedures in this package can guarantee byte-for-byte
+    # fidelity, free of any character-encoding translation or end-of-line
+    # conversion that would otherwise corrupt binary data.
+    #
+    # How it works: it uses [fconfigure] to set both the channel's encoding and
+    # its translation mode to binary.  The binary encoding causes bytes to pass
+    # through unchanged, and binary translation disables newline conversion.
+    #
+    # Arguments:
+    #   channel -- The identifier of an open channel to reconfigure for binary
+    #              operation.
+    #
+    # Results:
+    #   The empty string; the channel is reconfigured as a side effect.
+    # </help>
+
     fconfigure $channel -encoding binary -translation binary; # BINARY DATA
   }
 
@@ -33,6 +52,29 @@ namespace eval ::Eagle {
   #       returns it.
   #
   proc readFile { fileName } {
+    # <help>
+    # This procedure reads the entire contents of a file as raw binary data
+    # and returns it.  It exists to provide a one-call way to slurp a whole
+    # file without any encoding or end-of-line translation, so the returned
+    # data is an exact copy of the bytes on disk.
+    #
+    # How it works: it opens the named file for read-only access, reconfigures
+    # the channel for binary operation via [makeBinaryChannel], reads all
+    # available data with a single [read], closes the channel, and returns the
+    # data that was read.
+    #
+    # Tricky details: the whole file is read into memory at once, which may be
+    # undesirable for very large files.  If the file cannot be opened (for
+    # example, it does not exist), the underlying [open] raises an error.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to read.
+    #
+    # Results:
+    #   The complete contents of the file as binary data.  An empty file yields
+    #   the empty string.
+    # </help>
+
     set channel [open $fileName RDONLY]
     makeBinaryChannel $channel
     set result [read $channel]
@@ -46,6 +88,32 @@ namespace eval ::Eagle {
   #       if any, is lost.
   #
   proc writeFile { fileName data } {
+    # <help>
+    # This procedure writes the supplied data to a file as raw binary,
+    # replacing any previous contents.  It exists to provide a one-call way to
+    # store a whole file's worth of bytes without any encoding or end-of-line
+    # translation, so the bytes on disk exactly match the data given.
+    #
+    # How it works: it opens the named file for write-only access, creating it
+    # if it does not exist and truncating it if it does, reconfigures the
+    # channel for binary operation via [makeBinaryChannel], writes the data
+    # with [puts -nonewline] so that no trailing newline is added, closes the
+    # channel, and returns the empty string.
+    #
+    # Tricky details: because the file is truncated on open, any data
+    # previously contained in it is lost.  No newline is appended to the data.
+    # If the file cannot be opened or created, the underlying [open] raises an
+    # error.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to write; it is created or truncated
+    #               as needed.
+    #   data     -- The binary data to write to the file, verbatim.
+    #
+    # Results:
+    #   The empty string; the file is written as a side effect.
+    # </help>
+
     set channel [open $fileName {WRONLY CREAT TRUNC}]
     makeBinaryChannel $channel
     puts -nonewline $channel $data
@@ -59,6 +127,32 @@ namespace eval ::Eagle {
   #       if any, is preserved.
   #
   proc appendFile { fileName data } {
+    # <help>
+    # This procedure appends the supplied data to the end of a file as raw
+    # binary, preserving any previous contents.  It exists to provide a
+    # one-call way to add bytes to a file without any encoding or end-of-line
+    # translation, so the appended bytes exactly match the data given.  It is
+    # the append counterpart to [writeFile].
+    #
+    # How it works: it opens the named file for write-only access in append
+    # mode, creating it if it does not exist, reconfigures the channel for
+    # binary operation via [makeBinaryChannel], writes the data with [puts
+    # -nonewline] so that no trailing newline is added, closes the channel, and
+    # returns the empty string.
+    #
+    # Tricky details: existing data in the file is preserved and the new data
+    # is added after it.  No newline is appended to the data.  If the file
+    # cannot be opened or created, the underlying [open] raises an error.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to append to; it is created if it does
+    #               not already exist.
+    #   data     -- The binary data to append to the file, verbatim.
+    #
+    # Results:
+    #   The empty string; the file is appended to as a side effect.
+    # </help>
+
     set channel [open $fileName {WRONLY CREAT APPEND}]
     makeBinaryChannel $channel
     puts -nonewline $channel $data

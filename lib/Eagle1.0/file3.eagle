@@ -26,6 +26,49 @@ namespace eval ::Eagle {
   #       explicitly designed to allow overriding via external scripts.
   #
   proc tclLogForCommand { {command ""} } {
+    # <help>
+    # This procedure emits a diagnostic log message that describes the
+    # procedure that called it, optionally annotated with a command that is
+    # being performed on its behalf.  It exists as a lightweight tracing hook
+    # for the file-finder procedures in this file: several of them consult a
+    # runtime option and, when it is enabled, call this procedure so that the
+    # underlying [glob] or external "dir" command can be observed.  Because it
+    # is intended to be customizable, it is explicitly designed so that
+    # external scripts may override it with a compatible implementation.
+    #
+    # How it works: it uses [info level] to discover its own call frame and
+    # the immediately enclosing one, deriving from the latter the name of the
+    # calling procedure and the full argument list that invoked it.  The depth
+    # of the calling frame is also used to build a small visual indentation
+    # (runs of equals signs and dashes) so that nested calls are easier to
+    # read in the log.  If a non-empty command argument is supplied, it is
+    # appended to the message; in addition, if the caller has a variable named
+    # "error" or "result" in scope (queried and read via [uplevel] in the
+    # caller's frame), its value is appended as well, with "error" taking
+    # precedence over "result".  The fully assembled message is then passed to
+    # [tclLog] inside a [catch] so that a failure to log can never disrupt the
+    # operation being traced.
+    #
+    # Tricky details: the message text intentionally wraps the calling
+    # argument list, command, error, and result values in literal brace
+    # characters for readability, which are produced by escaped brace
+    # characters in the source; do not confuse those with list grouping.  The
+    # caller's "error"/"result" variables are inspected only by name in the
+    # parent frame, so this procedure is most useful when called from contexts
+    # that follow that naming convention.
+    #
+    # Arguments:
+    #   command -- Optional.  A textual description (typically a command list)
+    #              of the operation being performed on the caller's behalf.
+    #              When omitted or empty, only the calling procedure and its
+    #              arguments are logged, with no command, error, or result
+    #              suffix.
+    #
+    # Results:
+    #   An empty string is returned; this procedure is invoked purely for the
+    #   side effect of emitting a log message.
+    # </help>
+
     set level [info level]; # current procedure
     set procName [lindex [info level $level] 0]
     incr level -1; # calling procedure
@@ -70,6 +113,40 @@ namespace eval ::Eagle {
   #       semantics.
   #
   proc populateTypesForComSpecDir { dirVarName fileVarName } {
+    # <help>
+    # This procedure populates two caller-supplied arrays with the option
+    # flags that must be passed to the Windows command shell "dir" command in
+    # order to list visible versus hidden directories and files.  It exists to
+    # centralize the mapping between the abstract notions of "visible" and
+    # "hidden" items and the concrete attribute switches the "dir" command
+    # understands, so that the [findViaComSpecDir] procedure does not have to
+    # embed those switches inline.  It is not explicitly designed for
+    # overriding by external scripts, but it can be overridden as long as
+    # compatible semantics are maintained.
+    #
+    # How it works: the two argument names are linked to local array variables
+    # via [upvar] so that the assignments made here are visible to the caller.
+    # The directory array is given a "visible" element selecting directories
+    # and a "hidden" element selecting hidden directories; the file array is
+    # given analogous elements that additionally exclude directories.  The
+    # values are the literal attribute switches understood by the "dir"
+    # command (for example, the switch that selects directories, the switch
+    # that selects hidden directories, and the corresponding switches that
+    # select non-directory items).
+    #
+    # Arguments:
+    #   dirVarName  -- The name, in the caller's frame, of an array variable
+    #                  to be populated with "visible" and "hidden" elements
+    #                  containing the "dir" switches for directories.
+    #   fileVarName -- The name, in the caller's frame, of an array variable
+    #                  to be populated with "visible" and "hidden" elements
+    #                  containing the "dir" switches for files.
+    #
+    # Results:
+    #   The result is unspecified; this procedure is invoked for the side
+    #   effect of populating the two caller arrays.
+    # </help>
+
     upvar 1 $dirVarName dirTypes
     upvar 1 $fileVarName fileTypes
 
@@ -88,6 +165,43 @@ namespace eval ::Eagle {
   #       is taken to maintain compatible semantics.
   #
   proc populateTypesForGlob { dirVarName fileVarName } {
+    # <help>
+    # This procedure populates two caller-supplied arrays with the values that
+    # must be passed via the -types option of the [glob] command in order to
+    # locate visible versus hidden directories and files.  It is the [glob]
+    # counterpart to [populateTypesForComSpecDir] and exists so that the
+    # finder procedures can request a particular category of item without
+    # hard-coding the relevant type keywords at every call site.  It is not
+    # explicitly designed for overriding by external scripts, but it can be
+    # overridden as long as compatible semantics are maintained.
+    #
+    # How it works: the two argument names are linked to local array variables
+    # via [upvar].  The "visible" elements are set to the simple type keywords
+    # that select directories and files, respectively.  The "hidden" elements
+    # differ between engines: under Eagle, the hidden selectors additionally
+    # request system and hidden items and use a keyword that restricts the
+    # match to hidden-only items, whereas under Tcl the hidden selectors use
+    # the plain hidden keyword.
+    #
+    # Tricky details: the Eagle "hidden-only" type keyword requires a
+    # sufficiently recent engine release, as noted in the inline comment; on
+    # older engines the behavior would differ.  The engine is detected with
+    # [isEagle], so the same source produces appropriate type lists under both
+    # Eagle and Tcl.
+    #
+    # Arguments:
+    #   dirVarName  -- The name, in the caller's frame, of an array variable
+    #                  to be populated with "visible" and "hidden" elements
+    #                  containing the [glob] -types values for directories.
+    #   fileVarName -- The name, in the caller's frame, of an array variable
+    #                  to be populated with "visible" and "hidden" elements
+    #                  containing the [glob] -types values for files.
+    #
+    # Results:
+    #   The result is unspecified; this procedure is invoked for the side
+    #   effect of populating the two caller arrays.
+    # </help>
+
     upvar 1 $dirVarName dirTypes
     upvar 1 $fileVarName fileTypes
 
@@ -113,6 +227,35 @@ namespace eval ::Eagle {
   #       designed to allow overriding via external scripts.
   #
   proc filterForGlob { paths } {
+    # <help>
+    # This procedure removes unwanted entries from a list of paths, returning
+    # the filtered list.  In practice the unwanted entries are the special
+    # current-directory and parent-directory names (a single dot and two
+    # dots), which various directory listings may include but which callers of
+    # the file-finder procedures almost never want.  It exists to provide a
+    # single, overridable place to apply that filtering so that the rest of
+    # the finder code can simply route its raw [glob] results through here.
+    # It is explicitly designed to allow overriding via external scripts, for
+    # callers that wish to exclude additional entries.
+    #
+    # How it works: it iterates over the supplied paths, skipping any entry
+    # that exactly matches the current-directory or parent-directory name, and
+    # appends every other entry to the result in its original order.
+    #
+    # Tricky details: membership is tested with [lsearch -exact] against a
+    # two-element list rather than with the [expr] "in" operator, specifically
+    # so that the procedure continues to work on older Tcl versions where that
+    # operator is unavailable, as noted in the inline comment.
+    #
+    # Arguments:
+    #   paths -- A list of path strings to be filtered, typically produced by
+    #            [glob] or an external directory listing.
+    #
+    # Results:
+    #   A new list containing the input paths in their original order, with the
+    #   current-directory and parent-directory entries removed.
+    # </help>
+
     set result [list]
 
     foreach path $paths {
@@ -138,6 +281,34 @@ namespace eval ::Eagle {
   #       care is taken to maintain compatible semantics.
   #
   proc canUseComSpecDir { pattern } {
+    # <help>
+    # This procedure decides whether the file-finder procedures are permitted
+    # to satisfy a search by shelling out to the "dir" command of the Windows
+    # command shell instead of using [glob].  It exists because the
+    # command-shell approach is only viable in particular circumstances, and
+    # the several finder procedures need a single, consistent test they can
+    # consult before choosing that path.  It is not explicitly designed for
+    # overriding by external scripts, but it can be overridden as long as
+    # compatible semantics are maintained.
+    #
+    # How it works: it returns false unless all of the enabling conditions
+    # hold.  Specifically, it refuses when a global opt-out flag has been set
+    # (an element of the global "no" array named for this procedure), when the
+    # current platform is not Windows, or when the environment variable that
+    # names the command processor is not present.  When none of those
+    # disqualifying conditions apply, it returns true.
+    #
+    # Arguments:
+    #   pattern -- The search pattern that would be used.  It is accepted so
+    #              that an overriding implementation may base its decision on
+    #              the pattern; the built-in implementation does not otherwise
+    #              examine it.
+    #
+    # Results:
+    #   Non-zero (true) if the command-shell "dir" approach may be used for the
+    #   search; otherwise zero (false).
+    # </help>
+
     if {[info exists ::no(canUseComSpecDir)]} then {
       return false
     }
@@ -160,6 +331,32 @@ namespace eval ::Eagle {
   #       designed to allow overriding via external scripts.
   #
   proc pwdForDirResultPath { pattern path } {
+    # <help>
+    # This procedure returns the directory that should be treated as the
+    # current working directory when [getDirResultPath] needs to convert a
+    # relative path produced by the command-shell "dir" command into an
+    # absolute path.  It exists as a small, explicitly overridable seam: by
+    # default it simply reports the process current directory, but an external
+    # script can replace it to anchor relative results against some other base
+    # directory (for example, the directory the search was actually rooted
+    # at).  It is explicitly designed to allow overriding via external
+    # scripts.
+    #
+    # How it works: the built-in implementation ignores both arguments and
+    # returns the value of [pwd].
+    #
+    # Arguments:
+    #   pattern -- The search pattern associated with the result being
+    #              resolved.  Unused by the built-in implementation; available
+    #              to overrides.
+    #   path    -- The (possibly relative) path being resolved.  Unused by the
+    #              built-in implementation; available to overrides.
+    #
+    # Results:
+    #   The absolute path of the directory to use as the base for resolving
+    #   relative results; by default, the current working directory.
+    # </help>
+
     return [pwd]
   }
 
@@ -171,6 +368,55 @@ namespace eval ::Eagle {
   #       taken to maintain compatible semantics.
   #
   proc getDirResultPath { pattern path } {
+    # <help>
+    # This procedure converts a single path returned by the command-shell
+    # "dir" command into the (possibly normalized) path that should actually
+    # be added to the finder results.  It exists to paper over a fundamental
+    # limitation of that command: when invoked without the recurse-into-
+    # subdirectories flag, "dir /b" reports only bare file or directory names,
+    # not enough relative-path information to reconstruct where each item
+    # lives.  This procedure does the best it can to recover a usable path.
+    # It is not explicitly designed for overriding by external scripts, but it
+    # can be overridden as long as compatible semantics are maintained.
+    #
+    # How it works: if the incoming path is already absolute it is simply
+    # normalized and returned.  Otherwise the procedure attempts, when a
+    # corresponding runtime option is enabled, to reconstruct an absolute path
+    # by joining pieces together and checking whether the result exists.  When
+    # the search pattern itself looks like a usable path or path component, it
+    # is resolved (normalizing it directly if it is absolute, or joining it
+    # against the base directory from [pwdForDirResultPath] otherwise); if that
+    # candidate does not exist, the bare result path is then joined onto it as
+    # a final attempt.  When the pattern is not a usable path, the result path
+    # is instead joined directly onto the base directory.  If any of these
+    # reconstructions yields a path that actually exists, that path is
+    # returned.  Should reconstruction fail and a second runtime option be
+    # enabled, the procedure raises a script error describing the relative path
+    # and pattern it could not handle.  As a last resort, the original relative
+    # path is returned unchanged.
+    #
+    # Tricky details: the path-versus-component tests use Eagle string-class
+    # checks and are skipped under Tcl (where the engine check short-circuits
+    # them), so the reconstruction logic adapts to the running engine.  The
+    # two runtime options behave independently: the first enables the
+    # join-and-probe reconstruction, while the second turns an unresolved
+    # relative path into a hard error instead of a passthrough.  Existence
+    # checks rely on the relevant items still being present on disk at the
+    # time this runs.
+    #
+    # Arguments:
+    #   pattern -- The original search pattern that produced this result; used
+    #              to help reconstruct directory context for relative results.
+    #   path    -- A single path entry as reported by the "dir" command, which
+    #              may be absolute or merely a bare name.
+    #
+    # Results:
+    #   For an absolute input, its normalized form.  For a relative input, a
+    #   reconstructed absolute path when one could be found to exist; otherwise
+    #   either the original relative path (passthrough) or, if the error
+    #   runtime option is enabled, a raised script error.
+    # </help>
+
     if {[file pathtype $path] eq "absolute"} then {
       return [file normalize $path]
     } else {
@@ -220,6 +466,36 @@ namespace eval ::Eagle {
   #       is explicitly designed to allow overriding via external scripts.
   #
   proc fileNormalizeForGlob { path } {
+    # <help>
+    # This procedure normalizes a path for use with [glob] while trying very
+    # hard not to raise a script error in the process.  It exists because path
+    # normalization can, under some engines and for some inputs, throw; the
+    # finder procedures want a normalized path but cannot tolerate an
+    # exception simply because a pattern is unusual.  It is explicitly designed
+    # to allow overriding via external scripts.
+    #
+    # How it works: under Eagle it inspects the path to decide whether legacy
+    # path resolution should be engaged.  If the path looks like a well-formed
+    # path or path component (per Eagle string-class checks), it normalizes
+    # with legacy resolution enabled; otherwise it normalizes with legacy
+    # resolution disabled, which avoids triggering the error-prone legacy
+    # behavior on inputs that are really glob patterns rather than literal
+    # paths.  Under Tcl, where that fine-grained control is unavailable, it
+    # falls back to a plain [file normalize].
+    #
+    # Tricky details: the inline comments flag this as not yet robust against
+    # every corner case under Eagle, and openly question whether the Tcl
+    # fallback can truly avoid raising an error in all cases.  Callers should
+    # therefore treat a non-error return as best-effort normalization rather
+    # than a guarantee.
+    #
+    # Arguments:
+    #   path -- The path or glob pattern to normalize.
+    #
+    # Results:
+    #   The normalized path, suitable for passing to [glob].
+    # </help>
+
     if {[isEagle]} then {
       #
       # HACK: Possibly disable the legacy path resolution to avoid raising
@@ -249,6 +525,43 @@ namespace eval ::Eagle {
   #       if some care is taken to maintain compatible semantics.
   #
   proc performGlob { types directory pattern } {
+    # <help>
+    # This procedure performs a single [glob] operation against a directory
+    # and pattern, restricted to the specified item types, and returns the
+    # filtered list of matches.  It exists to consolidate the three steps that
+    # every glob-based search in this file needs -- joining the directory and
+    # pattern into one normalized path, invoking [glob] in a non-complaining
+    # mode with the requested types, and stripping the unwanted dot entries --
+    # so those steps do not have to be repeated at each call site.  It is not
+    # explicitly designed for overriding by external scripts, but it can be
+    # overridden as long as compatible semantics are maintained.
+    #
+    # How it works: if the corresponding trace runtime option is enabled, it
+    # first logs the call via [tclLogForCommand].  It then joins the directory
+    # and pattern with [file join], normalizes the result through
+    # [fileNormalizeForGlob], invokes [glob] with the non-complaining flag and
+    # the supplied -types value, and finally passes the matches through
+    # [filterForGlob] before returning them.
+    #
+    # Tricky details: the non-complaining glob flag ensures that a pattern
+    # matching nothing yields an empty list rather than an error, and the
+    # normalization step is what keeps unusual patterns from throwing.  The
+    # "types" argument is forwarded verbatim to [glob], so it must already be
+    # in the form that command expects (such as the values produced by
+    # [populateTypesForGlob]).
+    #
+    # Arguments:
+    #   types     -- The value to pass to the [glob] -types option, selecting
+    #                which kinds of items (for example, directories or files,
+    #                visible or hidden) should match.
+    #   directory -- The directory in which to search.
+    #   pattern   -- The glob pattern to match within that directory.
+    #
+    # Results:
+    #   A list of matching paths with the current-directory and parent-
+    #   directory entries removed; the empty list if nothing matched.
+    # </help>
+
     if {[hasRuntimeOption tracePerformGlob]} then {
       tclLogForCommand
     }
@@ -267,6 +580,45 @@ namespace eval ::Eagle {
   #       semantics.
   #
   proc maybeAppendPathResult { listVarName element } {
+    # <help>
+    # This procedure appends a path element to a caller-supplied list, but only
+    # if an equivalent path (compared case-insensitively) is not already
+    # present.  It exists to deduplicate the results gathered by
+    # [findViaComSpecDir], where the same path could otherwise be added more
+    # than once, and it is written to work even on older Tcl interpreters that
+    # lack the case-insensitive option to [lsearch].  It is intended for
+    # internal use and should not be called by external callers; it is not
+    # explicitly designed for overriding, though it can be overridden as long
+    # as compatible semantics are maintained.
+    #
+    # How it works: the list-variable name is linked to a local variable via
+    # [upvar].  Under Eagle, it uses [lsearch] with the by-variable, exact, and
+    # case-insensitive options to check for an existing match before appending.
+    # Under Tcl 8.5 or newer, it uses [lsearch] with the exact and case-
+    # insensitive options (also guarding against the list variable not yet
+    # existing).  Under older Tcl, where the case-insensitive option is
+    # unavailable, it falls back to comparing lower-cased forms of the whole
+    # list and the element.  In every case the element is appended only when no
+    # case-insensitive match is found.
+    #
+    # Tricky details: the case-insensitive comparison means that paths
+    # differing only in letter case are treated as duplicates, which is
+    # appropriate for the case-insensitive Windows file system this code
+    # targets.  The various engine and version branches exist solely to obtain
+    # that comparison portably, as the inline comment about the missing
+    # -nocase option explains.
+    #
+    # Arguments:
+    #   listVarName -- The name, in the caller's frame, of the list variable to
+    #                  which the element may be appended.
+    #   element     -- The path string to append if it is not already present
+    #                  (case-insensitively) in the list.
+    #
+    # Results:
+    #   An empty string is returned; the procedure is invoked for the side
+    #   effect of possibly appending to the caller's list.
+    # </help>
+
     upvar 1 $listVarName list
 
     if {[isEagle]} then {
@@ -300,6 +652,78 @@ namespace eval ::Eagle {
   proc findViaGlob {
           directory traversePattern wantPattern wantDirs wantFiles hidden
           recursive allowEmpty allowFiltered {callback ""} } {
+    # <help>
+    # This procedure finds files and/or directories beneath a parent directory
+    # using [glob], optionally recursing into matching sub-directories, and
+    # returns the list of matches.  It is the [glob]-based engine that backs
+    # the public finder procedures in this file and is the portable
+    # alternative to the command-shell approach in [findViaComSpecDir].  It can
+    # locate visible items, hidden items, or both, and supports an optional
+    # caller callback that can inspect and accept or reject each candidate.
+    #
+    # How it works: it first decides whether there is anything worth searching
+    # for, honoring the allow-empty and allow-filtered flags so that an empty
+    # want-pattern or a want-pattern consisting only of the special dot entries
+    # can be short-circuited.  It then obtains the visible and hidden glob type
+    # selectors via [populateTypesForGlob] and iterates over the visible and
+    # hidden categories.  For each category it consults the hidden argument to
+    # decide whether that category is wanted.  When recursion is enabled and a
+    # non-empty traversal pattern is supplied, it globs for matching sub-
+    # directories of the requested visibility and then calls itself on each one
+    # with the same parameters, accumulating their results.  Within the current
+    # directory it then globs for the want-pattern: when directories are wanted
+    # it gathers matching directories, and when files are wanted it gathers
+    # matching files.  If no callback is supplied, matches are appended
+    # directly; if a callback is supplied, it is invoked for each match and
+    # only those it approves are appended.
+    #
+    # Tricky details: each glob is wrapped in [catch] so that a failure to list
+    # one directory does not abort the whole search.  The recursion uses the
+    # traversal pattern to choose which sub-directories to descend into, which
+    # is independent of the want-pattern used to select the items ultimately
+    # returned.  The hidden argument is overloaded: an empty string means "both
+    # visible and hidden", whereas a boolean-like string restricts the search
+    # to one category (matched against the per-category flag using a string-
+    # class check).  The callback is invoked with itself as its own first
+    # argument, followed by the category, the kind (directory or file), and the
+    # element; it must return a boolean-like value indicating acceptance.
+    # Results are simply concatenated as the recursion unwinds, so ordering
+    # follows the traversal and no global de-duplication is performed.
+    #
+    # Arguments:
+    #   directory       -- The parent directory to search within.
+    #   traversePattern -- The pattern used to select sub-directories to
+    #                      recurse into; only consulted when recursion is
+    #                      enabled, and ignored when empty.
+    #   wantPattern     -- The pattern used to select the items to return.  An
+    #                      empty pattern selects nothing unless allowEmpty
+    #                      permits the search to proceed.
+    #   wantDirs        -- Boolean-like; when true, matching directories are
+    #                      included in the results.
+    #   wantFiles       -- Boolean-like; when true, matching files are included
+    #                      in the results.
+    #   hidden          -- Empty string to include both visible and hidden
+    #                      items; otherwise a boolean-like value selecting only
+    #                      hidden (true) or only visible (false) items.
+    #   recursive       -- Boolean-like; when true, the search descends into
+    #                      sub-directories matching the traversal pattern.
+    #   allowEmpty      -- Boolean-like; when true, the search proceeds even if
+    #                      the want-pattern is empty.
+    #   allowFiltered   -- Boolean-like; when true, the search proceeds even if
+    #                      the want-pattern would be entirely removed by the
+    #                      dot-entry filtering.
+    #   callback        -- Optional.  A command prefix invoked for each
+    #                      candidate (with itself, the category, the kind, and
+    #                      the element appended) that must return a boolean-like
+    #                      acceptance value.  When empty, every match is
+    #                      accepted.
+    #
+    # Results:
+    #   A list of the matching paths (directories and/or files as requested,
+    #   across the requested visibility categories and any recursion); the
+    #   empty list if nothing matched or the search was short-circuited.
+    # </help>
+
     set result [list]
 
     if {($allowEmpty || [string length $wantPattern] > 0) && \
@@ -387,6 +811,69 @@ namespace eval ::Eagle {
   proc findViaComSpecDir {
           directory pattern wantDirs wantFiles hidden recursive
           allowEmpty allowFiltered } {
+    # <help>
+    # This procedure finds files and/or directories beneath a parent directory
+    # by shelling out to the "dir" command of the Windows command shell, and
+    # returns the list of matches.  It is the command-shell counterpart to
+    # [findViaGlob] and exists because, on Windows, driving "dir" can be faster
+    # or more capable for certain large or deep searches than repeated [glob]
+    # calls.  Like its sibling it can locate visible items, hidden items, or
+    # both, and it can optionally recurse into sub-directories.
+    #
+    # How it works: it first verifies via [canUseComSpecDir] that the command-
+    # shell approach is permitted, and applies the same allow-empty and allow-
+    # filtered short-circuit checks used elsewhere.  It builds the set of
+    # visibility categories to search from the hidden argument (an empty string
+    # meaning both, a boolean-like value selecting one), and the set of item
+    # kinds from the wantDirs and wantFiles flags.  It obtains the "dir"
+    # attribute switches from [populateTypesForComSpecDir], then for each
+    # combination of category and kind it assembles an [exec] command that
+    # invokes the command processor named by the environment.  That command
+    # changes into the target directory when one is given, runs "dir" in bare
+    # mode with the appropriate attribute switch (adding the recurse switch when
+    # recursion is requested) and the pattern, and captures the output.  Each
+    # non-empty output line is trimmed, passed through [getDirResultPath] to
+    # resolve it, and appended via [maybeAppendPathResult] so duplicates are
+    # avoided.
+    #
+    # Tricky details: under Eagle the command is built with options that
+    # request Unicode handling (both for [exec] itself and via a command-
+    # processor switch) and directory and pattern arguments are wrapped in
+    # quote characters and converted to native form; under Tcl the native forms
+    # are passed unquoted.  The directory change is skipped when the directory
+    # is empty or is one of the special dot entries.  The whole command is run
+    # under [catch], so a failure of any one invocation is tolerated and simply
+    # yields no additions for that combination.  When the trace runtime option
+    # is enabled the assembled command is logged via [tclLogForCommand].  Under
+    # Eagle the result and path variables are marked for fast access as a
+    # performance optimization.  Because results are merged with
+    # [maybeAppendPathResult], the final list is de-duplicated case-
+    # insensitively, unlike the output of [findViaGlob].
+    #
+    # Arguments:
+    #   directory     -- The parent directory to search within; when empty or a
+    #                    dot entry, no directory change is performed.
+    #   pattern       -- The pattern passed to the "dir" command to select
+    #                    matching items.
+    #   wantDirs      -- Boolean-like; when true, directories are searched for.
+    #   wantFiles     -- Boolean-like; when true, files are searched for.
+    #   hidden        -- Empty string to include both visible and hidden items;
+    #                    otherwise a boolean-like value selecting only hidden
+    #                    (true) or only visible (false) items.
+    #   recursive     -- Boolean-like; when true, the "dir" command is told to
+    #                    recurse into sub-directories.
+    #   allowEmpty    -- Boolean-like; when true, the search proceeds even if
+    #                    the pattern is empty.
+    #   allowFiltered -- Boolean-like; when true, the search proceeds even if
+    #                    the pattern would be entirely removed by the dot-entry
+    #                    filtering.
+    #
+    # Results:
+    #   A case-insensitively de-duplicated list of the matching paths; the
+    #   empty list if nothing matched, the command-shell approach was not
+    #   permitted, or the search was short-circuited.
+    # </help>
+
     set result [list]
 
     if {[canUseComSpecDir $pattern] && ($allowEmpty || [string length \
@@ -493,6 +980,29 @@ namespace eval ::Eagle {
   #       external scripts.
   #
   proc fileDirNameForFind { pattern } {
+    # <help>
+    # This procedure extracts the directory-name portion of a search pattern,
+    # but only when that portion denotes an absolute path; otherwise it returns
+    # the empty string.  It exists so that the public finder procedures can
+    # split a caller-supplied pattern into a directory to search in and a tail
+    # to match, while refusing to commit to a relative directory whose meaning
+    # would be ambiguous.  It is explicitly designed to allow overriding via
+    # external scripts.
+    #
+    # How it works: it takes the directory name of the pattern with [file
+    # dirname].  If that result is non-empty and its path type is absolute, it
+    # is returned; otherwise the empty string is returned.
+    #
+    # Arguments:
+    #   pattern -- The search pattern, possibly including a leading directory
+    #              component.
+    #
+    # Results:
+    #   The absolute directory-name portion of the pattern, or the empty string
+    #   if the pattern has no directory component or that component is not
+    #   absolute.
+    # </help>
+
     set result [file dirname $pattern]
 
     if {[string length $result] > 0 && \
@@ -509,6 +1019,34 @@ namespace eval ::Eagle {
   #       to allow overriding via external scripts.
   #
   proc fileTailForFind { pattern } {
+    # <help>
+    # This procedure returns the file-name (tail) portion of a search pattern.
+    # It is the companion to [fileDirNameForFind]: where that procedure yields
+    # the absolute directory to search in, this one yields the pattern to match
+    # within it.  It exists so the public finder procedures can separate a
+    # caller-supplied pattern into its directory and tail parts consistently.
+    # It is explicitly designed to allow overriding via external scripts.
+    #
+    # How it works: only when the pattern is non-empty and its path type is
+    # absolute does it strip the leading directory and return just the tail via
+    # [file tail].  In every other case it returns the pattern unchanged, on
+    # the assumption that a relative or directory-less pattern is already the
+    # tail to match.
+    #
+    # Tricky details: the absolute-versus-other handling here mirrors that of
+    # [fileDirNameForFind]; together they ensure that splitting an absolute
+    # pattern produces a directory plus a tail, while a relative pattern is
+    # treated wholly as the tail with an empty directory.
+    #
+    # Arguments:
+    #   pattern -- The search pattern, possibly including a leading directory
+    #              component.
+    #
+    # Results:
+    #   The tail (file-name) portion of an absolute pattern, or the pattern
+    #   itself when it is empty or not absolute.
+    # </help>
+
     if {[string length $pattern] > 0 && \
         [file pathtype $pattern] eq "absolute"} then {
       return [file tail $pattern]
@@ -522,6 +1060,41 @@ namespace eval ::Eagle {
   #       specified.  It does not recurse into sub-directories.
   #
   proc findDirectories { pattern } {
+    # <help>
+    # This procedure returns the list of directories that match the specified
+    # pattern, without recursing into sub-directories.  It is one of the public
+    # entry points of the file-finder package and exists to give callers a
+    # simple, engine-independent way to enumerate directories, while internally
+    # choosing the most appropriate search mechanism.
+    #
+    # How it works: it selects among three strategies.  When running under
+    # Eagle and neither the general nor the directory-specific opt-out flag is
+    # set, it prefers [findViaGlob] unless the command-shell approach is both
+    # available and explicitly requested via a runtime option, in which case it
+    # uses [findViaComSpecDir]; in either case the pattern is split into a
+    # directory and tail using [fileDirNameForFind] and [fileTailForFind].
+    # Otherwise (under Tcl, or when the Eagle finders are opted out) it uses
+    # [findViaComSpecDir] only if the command shell is available and that
+    # runtime option is set, and as a final fallback performs the search
+    # directly with [glob]: it obtains the visible and hidden directory type
+    # selectors via [populateTypesForGlob], globs for each, filters each result
+    # through [filterForGlob], and concatenates them.
+    #
+    # Tricky details: the recursion-free behavior is what distinguishes this
+    # from [findDirectoriesRecursive]; the underlying finders are invoked with
+    # their recursion flag disabled and an asterisk traversal pattern that is
+    # not actually descended into.  The various opt-out flags (global "no"
+    # array elements) and runtime options let callers steer which mechanism is
+    # used without changing this procedure.
+    #
+    # Arguments:
+    #   pattern -- The pattern (optionally including an absolute directory
+    #              component) identifying the directories to match.
+    #
+    # Results:
+    #   A list of matching directory paths; the empty list if none match.
+    # </help>
+
     if {![info exists ::no(findForEagle)] && \
         ![info exists ::no(findDirectoriesForEagle)] && \
         [isEagle]} then {
@@ -567,6 +1140,36 @@ namespace eval ::Eagle {
   #       specified.  It recurses into sub-directories.
   #
   proc findDirectoriesRecursive { pattern } {
+    # <help>
+    # This procedure returns the list of directories that match the specified
+    # pattern, recursing into sub-directories.  It is the recursive counterpart
+    # to [findDirectories] and exists to enumerate an entire directory subtree
+    # in one call.
+    #
+    # How it works: it chooses between the two finder engines based on
+    # availability and runtime options.  If the command-shell approach is
+    # unavailable for the pattern, or the glob-based finder has been explicitly
+    # requested, it calls [findViaGlob] with recursion enabled, splitting the
+    # pattern via [fileDirNameForFind] and [fileTailForFind] and passing an
+    # asterisk as the traversal pattern so that all sub-directories are
+    # descended into.  Otherwise it calls [findViaComSpecDir] with recursion
+    # enabled.
+    #
+    # Tricky details: the only meaningful difference from [findDirectories] is
+    # that the recursion flag is enabled here, which is also why the glob path
+    # supplies a real traversal pattern; the directory and file selection
+    # arguments still request directories only.
+    #
+    # Arguments:
+    #   pattern -- The pattern (optionally including an absolute directory
+    #              component) identifying the directories to match throughout
+    #              the subtree.
+    #
+    # Results:
+    #   A list of matching directory paths found anywhere within the searched
+    #   subtree; the empty list if none match.
+    # </help>
+
     if {![canUseComSpecDir $pattern] || \
         [hasRuntimeOption findViaGlob]} then {
       return [findViaGlob \
@@ -586,6 +1189,37 @@ namespace eval ::Eagle {
   #       specified.  It does not recurse into sub-directories.
   #
   proc findFiles { pattern } {
+    # <help>
+    # This procedure returns the list of files that match the specified
+    # pattern, without recursing into sub-directories.  It is the file-oriented
+    # public entry point of the finder package and the direct analogue of
+    # [findDirectories], differing only in that it selects files rather than
+    # directories.
+    #
+    # How it works: the strategy selection mirrors [findDirectories].  Under
+    # Eagle, absent the general and the file-specific opt-out flags, it prefers
+    # [findViaGlob] unless the command shell is available and explicitly
+    # requested via a runtime option, in which case it uses
+    # [findViaComSpecDir]; the pattern is split with [fileDirNameForFind] and
+    # [fileTailForFind].  Otherwise it uses [findViaComSpecDir] when the command
+    # shell is available and requested, and as a final fallback searches
+    # directly with [glob], obtaining the visible and hidden file type
+    # selectors from [populateTypesForGlob], globbing for each, filtering each
+    # result through [filterForGlob], and concatenating them.
+    #
+    # Tricky details: as with [findDirectories], the recursion flag is disabled
+    # here; the underlying finders receive want-directory false and want-file
+    # true so that only files are returned.  The opt-out flags and runtime
+    # options control which mechanism is used.
+    #
+    # Arguments:
+    #   pattern -- The pattern (optionally including an absolute directory
+    #              component) identifying the files to match.
+    #
+    # Results:
+    #   A list of matching file paths; the empty list if none match.
+    # </help>
+
     if {![info exists ::no(findForEagle)] && \
         ![info exists ::no(findFilesForEagle)] && \
         [isEagle]} then {
@@ -631,6 +1265,36 @@ namespace eval ::Eagle {
   #       specified.  It recurses into sub-directories.
   #
   proc findFilesRecursive { pattern } {
+    # <help>
+    # This procedure returns the list of files that match the specified
+    # pattern, recursing into sub-directories.  It is the recursive counterpart
+    # to [findFiles] and the file-oriented analogue of
+    # [findDirectoriesRecursive], used to enumerate matching files throughout a
+    # directory subtree in one call.
+    #
+    # How it works: if the command-shell approach is unavailable for the
+    # pattern, or the glob-based finder has been explicitly requested, it calls
+    # [findViaGlob] with recursion enabled, splitting the pattern via
+    # [fileDirNameForFind] and [fileTailForFind] and passing an asterisk as the
+    # traversal pattern so that every sub-directory is descended into while only
+    # files are selected.  Otherwise it calls [findViaComSpecDir] with recursion
+    # enabled.
+    #
+    # Tricky details: the want-directory false and want-file true selection
+    # combined with the enabled recursion flag is what makes this find files
+    # anywhere in the subtree; the traversal pattern controls descent, separate
+    # from the pattern used to match the files themselves.
+    #
+    # Arguments:
+    #   pattern -- The pattern (optionally including an absolute directory
+    #              component) identifying the files to match throughout the
+    #              subtree.
+    #
+    # Results:
+    #   A list of matching file paths found anywhere within the searched
+    #   subtree; the empty list if none match.
+    # </help>
+
     if {![canUseComSpecDir $pattern] || \
         [hasRuntimeOption findViaGlob]} then {
       return [findViaGlob \
@@ -652,6 +1316,75 @@ namespace eval ::Eagle {
   #
   proc copyFilesRecursive {
           sourceDirectory targetDirectory {patterns ""} {options ""} } {
+    # <help>
+    # This procedure recursively copies files matching one or more patterns
+    # from a source directory tree to a target directory tree, driving the
+    # Windows Robocopy utility to do the actual work.  It exists to give Eagle
+    # and Tcl scripts a robust, restartable bulk-copy facility (with retry,
+    # metadata, and logging controls) without having to assemble Robocopy
+    # command lines by hand.  Because it relies on Robocopy, it is Windows
+    # specific.  It may raise script errors.
+    #
+    # How it works: it first refuses to run on non-Windows platforms.  It then
+    # assembles an [exec] command that invokes Robocopy, capturing the exit
+    # code on Eagle.  The native forms of the source and target directories are
+    # added as the always-required first two arguments (quoted under Eagle).
+    # Any supplied file patterns are appended; when none are given Robocopy's
+    # own default (all files) applies.  Unless suppressed, a standard set of
+    # options is added: copy subdirectories including empty ones, use
+    # restartable mode (and, when running as administrator under Eagle, backup
+    # mode plus copy-all metadata), and preserve directory timestamps.  The
+    # per-file retry count can be overridden through an option of the form that
+    # embeds a non-negative integer; an explicit retry option leaves Robocopy's
+    # default in place, while otherwise retries are disabled by setting the
+    # count to zero.  By default file-system junctions are excluded to prevent
+    # infinite traversal loops, the target is not purged, and verbose logging
+    # to a temporary file is disabled; each of these defaults can be toggled by
+    # an option.  When the trace runtime option is enabled the assembled
+    # command is logged via [tclLogForCommand].  Finally the command is
+    # executed and its success is judged by the Robocopy exit code: Robocopy
+    # reports success for codes between zero and seven and failure for eight or
+    # greater, so on success the captured output (the copy summary or the log
+    # file name) is returned, and on failure a script error is raised that
+    # includes the command and the captured output.
+    #
+    # Tricky details: the meaning of the Robocopy exit code is the crux of the
+    # success determination -- codes up to seven indicate informational results
+    # rather than errors, which is why they are accepted.  Under Eagle the exit
+    # code is obtained directly from the captured exit-code variable and matched
+    # against an accepted set; under Tcl the command is run inside [catch] and,
+    # on a caught failure, the exit code is recovered from the global error-code
+    # information via [maybeGetExitCode] and compared against the failure
+    # threshold.  The retry option value is validated with a regular expression
+    # and a non-negative-integer check, and an invalid value raises an error
+    # rather than being silently ignored.  Junction exclusion is on by default
+    # specifically because junctions make it trivial to build directory trees
+    # that loop back on themselves.  Enabling logging pulls in the Eagle test
+    # package to obtain a temporary file name.  Native path conversion and
+    # quoting differ between Eagle and Tcl throughout.
+    #
+    # Arguments:
+    #   sourceDirectory -- The directory tree to copy files from.  Required.
+    #   targetDirectory -- The directory tree to copy files into.  Required.
+    #   patterns        -- Optional.  A list of file-name patterns selecting
+    #                      which files to copy; when empty, Robocopy copies all
+    #                      files by default.
+    #   options         -- Optional.  A list of behavior flags.  Recognized
+    #                      flags suppress the default copy options, suppress
+    #                      subdirectory copying, override or retain the retry
+    #                      count (including a colon-prefixed form carrying an
+    #                      integer count), include junctions, purge extra files
+    #                      from the target, and enable verbose logging to a
+    #                      temporary file.
+    #
+    # Results:
+    #   On success (a Robocopy exit code in the accepted range), the captured
+    #   Robocopy output -- typically the copy summary and details, or the log
+    #   file name when logging is enabled.  On failure, a script error is
+    #   raised; this procedure is also an error if invoked on a non-Windows
+    #   platform or with an invalid retry count.
+    # </help>
+
     #
     # NOTE: Block non-Windows platforms since this is Windows specific.
     #
