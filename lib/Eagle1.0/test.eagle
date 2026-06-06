@@ -2942,13 +2942,13 @@ namespace eval ::Eagle {
     # breaking into the debugger from a context that has no visible console), by
     # tearing down the current host and standing up a new one.
     #
-    # How it works: it records the name of the calling procedure for use in
-    # diagnostics, then runs "host close" followed by "host open" inside a
-    # [catch].  If either step fails, it writes an error message via [debug
-    # output], then calls "exit -force" because the harness cannot safely
-    # continue without a working host; the subsequent [error] is a defensive
-    # fallback in the unlikely event the forced exit does not terminate the
-    # process.
+    # How it works: it records its own procedure name (via the interpreter
+    # call stack) for use in diagnostics, then runs "host close" followed by
+    # "host open" inside a [catch].  If either step fails, it writes an error
+    # message via [debug output], then calls "exit -force" because the harness
+    # cannot safely continue without a working host; the subsequent [error] is
+    # a defensive fallback in the unlikely event the forced exit does not
+    # terminate the process.
     #
     # Tricky details: this is a destructive, last-resort style operation -- on
     # failure it forcibly exits the entire process rather than returning an
@@ -2982,9 +2982,9 @@ namespace eval ::Eagle {
     # [breakpoint] call where they want execution to pause so they can inspect
     # state interactively.
     #
-    # How it works: it delegates to [testDebugBreak] with a level argument of 1,
-    # which arranges to break into the interactive loop in the context of the
-    # immediate caller.
+    # How it works: it delegates to [testDebugBreak] with a force argument of
+    # 1, which (under Eagle) requests that emergency debugger mode be enabled
+    # once if it has not been enabled already before breaking into the loop.
     #
     # Tricky details: the procedure accepts and ignores any arguments, so it can
     # be used as a drop-in callback or hook where extra arguments may be passed;
@@ -3465,7 +3465,7 @@ namespace eval ::Eagle {
     # internal flag-checking helper, used by the test harness to make behavior
     # conditional on the interpreter's configured flags.
     #
-    # How it works: it invokes the non-public HasFlags helper on the internal
+    # How it works: it invokes the public HasFlags helper on the internal
     # ScriptOps class, which evaluates the requested flags against the active
     # interpreter's flags.  The empty string passed before the flags selects the
     # active interpreter as the subject.
@@ -4306,11 +4306,12 @@ namespace eval ::Eagle {
     # for example from deep within event or callback machinery where interactive
     # inspection is impractical.
     #
-    # How it works: it determines the name of the calling procedure and
-    # maintains a per-session counter in the debugger state array, incrementing
-    # it on each call.  It composes a file name from that caller name and the
-    # counter, placed in the [info binary] directory, and, if a file with that
-    # name does not already exist, writes the stack trace there via [writeFile].
+    # How it works: it determines its own procedure name (via the interpreter
+    # call stack) and maintains a per-session counter in the debugger state
+    # array, incrementing it on each call.  It composes a file name from that
+    # name and the counter, placed in the [info binary] directory, and, if a
+    # file with that name does not already exist, writes the stack trace there
+    # via [writeFile].
     #
     # Tricky details: because the file name includes a monotonically increasing
     # counter, repeated calls produce distinct files; an existing file with the
@@ -5119,17 +5120,15 @@ namespace eval ::Eagle {
     # (which requires Tcl 8.6+, Eagle, or a shim), it links that variable as
     # the debugger array, calls [setupEvaluateViaTemporaryFile] to obtain the
     # file, and then sources the file via [uplevel 1] so it runs in the
-    # caller's frame.  The [finally] block deletes the temporary file only
-    # when the caller did NOT supply an explicit tracking variable (i.e. the
-    # ephemeral default was used) and the no(deleteEvaluateViaTemporaryFile)
-    # flag is not set; deletion errors are reported only when verbose.  When
-    # a caller-supplied tracking variable is used, cleanup is instead deferred
-    # to [cleanupEvaluateViaTemporaryFiles], allowing the file to be reused.
+    # caller's frame.  The [finally] block contains conditional cleanup logic
+    # that, when triggered, deletes the temporary file unless the
+    # no(deleteEvaluateViaTemporaryFile) flag is set; deletion errors are
+    # reported only when verbose.  In practice, the cleanup is deferred to
+    # [cleanupEvaluateViaTemporaryFiles], allowing the file to be reused.
     #
     # Arguments:
     #   varName -- The name of the tracking array variable; when empty, the
-    #              "eagle_debugger" system variable is used and the temporary
-    #              file is deleted automatically after evaluation.
+    #              "eagle_debugger" system variable is used.
     #   name    -- A logical name identifying the script (see the setup helper).
     #   script  -- The script text to evaluate.
     #   verbose -- An integer verbosity level; when greater than zero, cleanup
@@ -10662,9 +10661,9 @@ namespace eval ::Eagle {
     # How it works: it builds an [exec] command line beginning with the literal
     # "exec", appends any caller-supplied exec options, then a "--" end-of-
     # options marker followed by the command name and its arguments.  It
-    # determines the name of its own calling procedure (via the interpreter
-    # call stack) and consults [canTestExec] for that name.  If execution is
-    # denied, it logs a "skipping command" message, records the attempt in the
+    # determines its own procedure name (via the interpreter call stack) and
+    # consults [canTestExec] for that name.  If execution is denied, it logs a
+    # "skipping command" message, records the attempt in the
     # ::eagle_debugger(testExecDenied) list (unless suppressed) together with a
     # timestamp, and raises an error.  If execution is allowed, it logs a
     # "running command" message, records the attempt in the
@@ -10686,8 +10685,8 @@ namespace eval ::Eagle {
     #
     # Results:
     #   The result produced by the underlying [exec] command (typically the
-    #   captured output).  An error is raised if external execution has been
-    #   disabled for this caller.
+    #   captured output).  An error is raised if external execution via this
+    #   procedure has been disabled.
     # </help>
 
     set command [list exec]
@@ -10737,10 +10736,11 @@ namespace eval ::Eagle {
     # marker.  It then expands the result of [getRuntimeCommandLine] for the
     # given command name (which yields the runtime launcher plus the executable,
     # as appropriate) into the command line, followed by any extra arguments.
-    # It determines its own calling procedure name and consults [canTestExec];
-    # if denied, it logs a "skipping command" message and raises an error,
-    # otherwise it logs a "running command" message and evaluates the command in
-    # the caller's context via [uplevel], returning its result.
+    # It determines its own procedure name (via the interpreter call stack)
+    # and consults [canTestExec]; if denied, it logs a "skipping command"
+    # message and raises an error, otherwise it logs a "running command"
+    # message and evaluates the command in the caller's context via [uplevel],
+    # returning its result.
     #
     # Arguments:
     #   commandName -- The managed executable (or assembly) to run; it is passed
@@ -10751,7 +10751,7 @@ namespace eval ::Eagle {
     #
     # Results:
     #   The result produced by the underlying [exec] command.  An error is
-    #   raised if external execution has been disabled for this caller.
+    #   raised if external execution via this procedure has been disabled.
     # </help>
 
     set command [list exec]
@@ -10785,13 +10785,13 @@ namespace eval ::Eagle {
     # which can only be exercised in a fresh, separate interpreter process (for
     # example, startup, command-line handling, or isolation scenarios).
     #
-    # How it works: it determines the name of its own calling procedure and
-    # consults [canTestExec].  If execution is denied, it logs a "skipping
-    # nested shell" message that includes the requested options and arguments,
-    # then raises an error.  If allowed, it logs a "running nested shell"
-    # message and delegates to the [execShell] helper, evaluated in the caller's
-    # context via [uplevel], passing the options as a single list argument
-    # followed by the expanded arguments, and returns its result.
+    # How it works: it determines its own procedure name (via the interpreter
+    # call stack) and consults [canTestExec].  If execution is denied, it logs
+    # a "skipping nested shell" message that includes the requested options and
+    # arguments, then raises an error.  If allowed, it logs a "running nested
+    # shell" message and delegates to the [execShell] helper, evaluated in the
+    # caller's context via [uplevel], passing the options as a single list
+    # argument followed by the expanded arguments, and returns its result.
     #
     # Tricky details: the log messages display the options and arguments
     # surrounded by literal brace characters (written as escaped braces in the
@@ -10805,7 +10805,8 @@ namespace eval ::Eagle {
     #
     # Results:
     #   The result produced by [execShell] for the nested shell invocation.  An
-    #   error is raised if external execution has been disabled for this caller.
+    #   error is raised if external execution via this procedure has been
+    #   disabled.
     # </help>
 
     set procName [lindex [info level [info level]] 0]
@@ -16856,10 +16857,14 @@ namespace eval ::Eagle {
     #
     # Tricky details: this relies on clang being available on the path and is
     # inherently macOS-oriented (it produces a .dylib with macOS-specific
-    # linker flags).  The error variable, when requested, is only populated for
-    # the already-exists precondition failure; a clang failure is reported
-    # solely through the empty-string return.  All cleanup deletions are
-    # wrapped in [catch] so housekeeping problems do not mask the real outcome.
+    # linker flags).  The error variable, when requested, is populated with an
+    # explanatory message for the already-exists precondition failure; it is
+    # also written by the [catch] around the clang invocation (since the upvar
+    # aliases it to the catch result variable), so on clang failure it holds
+    # the clang error message and on a successful compile it holds the clang
+    # output.  Failure is still primarily signaled by the empty-string return.
+    # All cleanup deletions are wrapped in [catch] so housekeeping problems do
+    # not mask the real outcome.
     #
     # Arguments:
     #   errorVarName -- Optional name, in the caller's frame, of a variable to
@@ -18413,12 +18418,13 @@ namespace eval ::Eagle {
       #
       # Tricky details: if the built command list is empty, or any guard
       # fails, the request is marked as skipped.  When skipped (or when the
-      # error-fallback or ok-fallback runtime options are enabled) and the
-      # previously saved original [unknown] procedure exists under the name
-      # ::savedUnknown, this procedure delegates to it with [uplevel 1] so the
-      # normal unknown-command resolution still occurs.  On execution failure,
-      # the error is re-raised unless the error-fallback option permits falling
-      # through to the saved handler instead.  The magic offset of three is
+      # ok-fallback runtime option is enabled) and the previously saved
+      # original [unknown] procedure exists under the name ::savedUnknown,
+      # this procedure delegates to it with [uplevel 1] so the normal
+      # unknown-command resolution still occurs.  On execution failure, the
+      # error is re-raised unless the error-fallback option is enabled, in
+      # which case the error is swallowed (and the saved handler is not
+      # invoked from that path).  The magic offset of three is
       # tightly coupled to the script-level accounting documented in
       # [eagle_isShellScriptLevel]; changing the call structure here may
       # require updating that value.
@@ -23189,15 +23195,25 @@ namespace eval ::Eagle {
       # threads, abstracting over two different creation mechanisms.
       #
       # How it works: when the engine supports it and the createEngineThread
-      # runtime option is enabled (and not disabled via the "no" array), it uses
-      # the engine's own Engine.CreateThread, which produces a thread whose body
-      # is an Eagle script running in a child interpreter.  Otherwise it falls
-      # back to constructing a raw System.Threading.Thread around a thread-start
-      # delegate built from the script.  In both paths the parameterized flag
-      # selects between a plain start and a parameterized start (one that
-      # accepts a single argument when the thread is later started), and a
-      # non-empty maxStackSize requests a specific stack size; in the engine
-      # path an empty maxStackSize becomes zero (the engine default).
+      # runtime option is enabled (and not disabled via the "no" array), it
+      # invokes the engine's own Engine.CreateThread, which constructs a real
+      # System.Threading.Thread whose body is the supplied Eagle script.  The
+      # empty string passed for the interpreter argument follows the standard
+      # engine convention meaning "the current interpreter" (resolved via
+      # Interpreter.GetActive), so the script runs in that same interpreter
+      # when the thread starts -- no child interpreter is created.  The engine
+      # path additionally wires the new thread into the engine's tracking and
+      # notification machinery via an internal EngineThread wrapper, which
+      # associates the OS thread with that interpreter for engine-aware
+      # operations (current-thread lookup, thread-host integration, exception
+      # notification).  Otherwise it falls back to constructing a raw
+      # System.Threading.Thread directly around a thread-start delegate built
+      # from the script, with no engine tracking.  In both paths the
+      # parameterized flag selects between a plain start and a parameterized
+      # start (one that accepts a single argument when the thread is later
+      # started), and a non-empty maxStackSize requests a specific stack size;
+      # in the engine path an empty maxStackSize becomes zero (the engine
+      # default).
       #
       # Tricky details: when running on .NET Core the raw thread path uses the
       # assembly-qualified "System.Threading.Thread, mscorlib" type name, which
@@ -23678,7 +23694,7 @@ namespace eval ::Eagle {
       #
       # How it works: it invokes a long series of cache-clearing and cleanup
       # methods on private engine subsystems -- among them ProcessOps, EnumOps,
-      # the string-name comparer, StringOps preamble encodings, HashOps,
+      # the string file-name comparer, StringOps preamble encodings, HashOps,
       # FactoryOps, ScriptOps, SyntaxOps, ConfigurationOps, TraceLimits, the
       # marshal to-string cache, CertificateOps, RuntimeOps, and the string
       # builder cache -- and conditionally clears the interactive help cache

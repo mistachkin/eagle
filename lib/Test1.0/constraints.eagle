@@ -4206,7 +4206,7 @@ namespace eval ::Eagle {
     # this so they are skipped in locked-down environments.
     #
     # How it works: it requires that the global no(testExec) opt-out is not set
-    # and that the helper [canTestExec] approves, passing the name of the calling
+    # and that the helper [canTestExec] approves, passing the name of the current
     # procedure (obtained from info level) so the policy check can account for
     # the caller.  When permitted it adds the constraint; additionally, if the
     # quiet argument is false and the global no(exec) flag is set, it logs a
@@ -5498,9 +5498,9 @@ namespace eval ::Eagle {
     # floating-point value (zero, subnormal, normal, infinite, or NaN), and
     # registers the test constraint named "tip521" when that support is present.
     #
-    # How it works: it evaluates the expression-style call fpclassify(1.0)
-    # inside a [catch]; a catch result of zero (success) means the function
-    # exists and the constraint is added.
+    # How it works: it invokes [fpclassify 1.0] as a command inside a [catch];
+    # a catch result of zero (success) means the function exists and the
+    # constraint is added.
     #
     # Arguments:
     #   channel -- The output channel for the progress line and "yes" or "no"
@@ -5553,8 +5553,9 @@ namespace eval ::Eagle {
     # copied into the local frame and the global is unset.  Retrying exists
     # because the first attempt is often abnormally slow (just-in-time warmup,
     # scheduling jitter).  When "average" is true and more than one try is
-    # allowed, the running total is divided by the number of tries to compare an
-    # average difference rather than a single sample.
+    # allowed, the running total is divided by the total "tries" value (not the
+    # count of attempts completed so far) to compare an average difference
+    # rather than a single sample.
     #
     # Arguments:
     #   channel      -- The output channel for the progress and result lines,
@@ -8659,13 +8660,14 @@ namespace eval ::Eagle {
       # version.
       #
       # On .NET Core it adds dotNetCore<version> and dotNetCore<version>OrHigher for
-      # the running version, and, for each known .NET Core version at or below the
-      # running one, dotNetCore<v>OrHigher, dotNetCoreToDo<v>, dotNetCoreBug<v>, and
-      # dotNetCoreCrash<v>; for the exact running version it adds dotNetCore<v>Only,
-      # and for every other known version it adds the <v>Only forms of the to-do,
-      # bug, and crash constraints.  On Mono it adds the analogous mono<version>,
+      # the running version, and, for each known .NET Core version strictly below
+      # the running one, dotNetCore<v>OrHigher, dotNetCoreToDo<v>, dotNetCoreBug<v>,
+      # and dotNetCoreCrash<v>; in a separate pass over all known versions it adds
+      # dotNetCore<v>Only for the exact running version (when present in the known
+      # list) and the <v>Only forms of the to-do, bug, and crash constraints for
+      # every other known version.  On Mono it adds the analogous mono<version>,
       # mono<version>OrHigher, and the monoToDo/monoBug/monoCrash/monoHang families
-      # (including <v>Only variants).  On the full .NET Framework it adds
+      # (including <v>Only variants).  On the full .NET Framework it adds only
       # dotNet<version> and dotNet<version>OrHigher.
       #
       # How it works: it reads eagle_platform(runtimeVersion), reduces it to its

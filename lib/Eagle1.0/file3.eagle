@@ -37,9 +37,9 @@ namespace eval ::Eagle {
     # external scripts may override it with a compatible implementation.
     #
     # How it works: it uses [info level] to discover its own call frame and
-    # the immediately enclosing one, deriving from the latter the name of the
-    # calling procedure and the full argument list that invoked it.  The depth
-    # of the calling frame is also used to build a small visual indentation
+    # the immediately enclosing one, recording its own name from the former and
+    # the full argument list that invoked the caller from the latter.  The
+    # depth of the calling frame is also used to build a small visual indentation
     # (runs of equals signs and dashes) so that nested calls are easier to
     # read in the log.  If a non-empty command argument is supplied, it is
     # appended to the message; in addition, if the caller has a variable named
@@ -1069,10 +1069,11 @@ namespace eval ::Eagle {
     #
     # How it works: it selects among three strategies.  When running under
     # Eagle and neither the general nor the directory-specific opt-out flag is
-    # set, it prefers [findViaGlob] unless the command-shell approach is both
-    # available and explicitly requested via a runtime option, in which case it
-    # uses [findViaComSpecDir]; in either case the pattern is split into a
-    # directory and tail using [fileDirNameForFind] and [fileTailForFind].
+    # set, it uses [findViaComSpecDir] when the command-shell approach is
+    # available and the glob-based finder has not been explicitly requested via
+    # a runtime option, and otherwise (or when that option is set) it uses
+    # [findViaGlob]; in either case the pattern is split into a directory and
+    # tail using [fileDirNameForFind] and [fileTailForFind].
     # Otherwise (under Tcl, or when the Eagle finders are opted out) it uses
     # [findViaComSpecDir] only if the command shell is available and that
     # runtime option is set, and as a final fallback performs the search
@@ -1197,15 +1198,16 @@ namespace eval ::Eagle {
     # directories.
     #
     # How it works: the strategy selection mirrors [findDirectories].  Under
-    # Eagle, absent the general and the file-specific opt-out flags, it prefers
-    # [findViaGlob] unless the command shell is available and explicitly
-    # requested via a runtime option, in which case it uses
-    # [findViaComSpecDir]; the pattern is split with [fileDirNameForFind] and
-    # [fileTailForFind].  Otherwise it uses [findViaComSpecDir] when the command
-    # shell is available and requested, and as a final fallback searches
-    # directly with [glob], obtaining the visible and hidden file type
-    # selectors from [populateTypesForGlob], globbing for each, filtering each
-    # result through [filterForGlob], and concatenating them.
+    # Eagle, absent the general and the file-specific opt-out flags, it uses
+    # [findViaComSpecDir] when the command shell is available and the
+    # glob-based finder has not been explicitly requested via a runtime option,
+    # and otherwise (or when that option is set) it uses [findViaGlob]; the
+    # pattern is split with [fileDirNameForFind] and [fileTailForFind].
+    # Otherwise it uses [findViaComSpecDir] when the command shell is available
+    # and requested, and as a final fallback searches directly with [glob],
+    # obtaining the visible and hidden file type selectors from
+    # [populateTypesForGlob], globbing for each, filtering each result through
+    # [filterForGlob], and concatenating them.
     #
     # Tricky details: as with [findDirectories], the recursion flag is disabled
     # here; the underlying finders receive want-directory false and want-file
