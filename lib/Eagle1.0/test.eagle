@@ -9706,7 +9706,7 @@ namespace eval ::Eagle {
     #   The configured test log path, or the empty string when none is set.
     # </help>
 
-    return [expr {[info exists ::test_log_path] ? $test_log_path : ""}]
+    return [expr {[info exists ::test_log_path] ? $::test_log_path : ""}]
   }
 
   proc getTestLogId {} {
@@ -13943,7 +13943,7 @@ namespace eval ::Eagle {
       #
       set statistics [reportArrayGet count]
 
-      if {[llength statistics] > 0} then {
+      if {[llength $statistics] > 0} then {
         tputs $channel [appendArgs "---- types of leaks detected: " \
             [formatListAsDict $statistics <none>] \n]
       }
@@ -17704,24 +17704,37 @@ namespace eval ::Eagle {
 
     proc isNetFx40 {} {
       # <help>
-      # This procedure reports whether the .NET runtime currently hosting Eagle
-      # is at least version 4.0 of the .NET Framework (the 4.0 RTM release or
-      # later).  It exists to gate behavior or test constraints that depend on
-      # features introduced in that runtime generation.
+      # This procedure reports whether the .NET runtime currently hosting
+      # Eagle is at least version 4.0 of the .NET Framework (the 4.0 RTM
+      # release or later).  It exists to gate behavior or test constraints
+      # that depend on features introduced in that runtime generation.
       #
-      # How it works: it reads the detected framework version from the global
-      # platform information array.  If that value is unavailable, it
-      # conservatively returns false.  Otherwise it compares the detected
-      # version against the .NET Framework 4.0 RTM version using package
-      # version comparison rules, returning true when the detected version is
-      # greater than or equal to it.
+      # How it works: it reads the detected framework version from the
+      # global platform information array.  If that value is unavailable
+      # it conservatively returns false.  Otherwise it compares the
+      # detected version against the .NET Framework 4.0 RTM+ identifier
+      # 4.0.30319.0 using package version comparison rules, returning true
+      # when the detected version is greater than or equal to it.
+      #
+      # Tricky details: the sentinel constant 4.0.30319.0 is the lowest
+      # possible value within the v4.0.30319 RTM+ that Microsoft
+      # documents for every .NET Framework 4.x release (the family
+      # identifier itself, with the build component set to zero).
+      # Microsoft does not publish a single canonical build component
+      # for the original 4.0 RTM, only the family form v4.0.30319 and
+      # the constraint that the build component is less than 42000 for
+      # 4.0 through 4.5.2 and exactly 42000 for 4.6 and later.  Using
+      # 4.0.30319.0 as the lower bound therefore correctly accepts every
+      # real 4.x build (whatever its true build component) and rejects
+      # earlier runtimes such as 2.0.50727.x.
       #
       # Arguments:
       #   None.
       #
       # Results:
-      #   Returns true when the hosting framework version is 4.0 RTM or newer,
-      #   false otherwise (including when the framework version is unknown).
+      #   Returns true when the hosting framework version is .NET
+      #   Framework 4.0 RTM or newer, false otherwise (including when
+      #   the framework version is unknown).
       # </help>
 
       if {![info exists ::eagle_platform(frameworkVersion)]} then {
@@ -17729,7 +17742,7 @@ namespace eval ::Eagle {
       }
 
       set haveVersion $::eagle_platform(frameworkVersion)
-      set wantVersion 4.0.30319.42000; # .NET Framework 4.0 RTM
+      set wantVersion 4.0.30319.0; # .NET Framework 4.0 RTM+
 
       if {[package vcompare $haveVersion $wantVersion] >= 0} then {
         return true
