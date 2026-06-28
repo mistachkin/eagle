@@ -7,20 +7,75 @@ This document provides guidance for AI agents (such as Claude, GPT, etc.) to wri
 **Canonical Documentation Location**: The complete Eagle documentation is available at:
 - **https://urn.to/r/docs** (this will redirect)
 
-**Documentation Files** in the repository:
+**Documentation Files** (in the [documentation repository](https://urn.to/r/docs); this will redirect).
+The complete set of canonical Markdown documentation is grouped below.  The **Design, architecture &
+philosophy** group is the key to understanding *why* Eagle is built the way it is -- its
+principles and deliberate design decisions -- not just *how* to call individual commands.
+
+*Getting started & overview*
 | File | Description |
 |------|-------------|
+| [`README.md`](https://github.com/mistachkin/docs/blob/trunk/README.md) | Documentation index and overview |
+| [`index.md`](https://github.com/mistachkin/docs/blob/trunk/index.md) | Short documentation index / landing page |
 | [`why_eagle.md`](https://github.com/mistachkin/docs/blob/trunk/why_eagle.md) | Feature overview, language comparisons, security model, and use-case guidance |
 | [`quick_start_guide.md`](https://github.com/mistachkin/docs/blob/trunk/quick_start_guide.md) | Quick start guide for new Eagle users |
+
+*Design, architecture & philosophy* -- **read these to understand the project's principles**
+| File | Description |
+|------|-------------|
+| [`architecture_patterns.md`](https://github.com/mistachkin/docs/blob/trunk/architecture_patterns.md) | The deliberate, non-obvious design patterns, C# coding conventions, and design philosophy of the codebase (52 catalogued patterns and conventions, including the XML-documentation mandate) |
+| [`whitepaper.md`](https://github.com/mistachkin/docs/blob/trunk/whitepaper.md) | Comprehensive design, architecture, and security whitepaper |
+| [`paper_love_and_software.md`](https://github.com/mistachkin/docs/blob/trunk/paper_love_and_software.md) | Essay on the project's guiding philosophy ("On the Nature of Love ... and Software") |
+| [`build_system.md`](https://github.com/mistachkin/docs/blob/trunk/build_system.md) | Build-system architecture and the multi-target (.NET 2.0 through .NET Standard / .NET Core) compilation model |
+| [`options.md`](https://github.com/mistachkin/docs/blob/trunk/options.md) | Command option system architecture |
+
+*Core language & library reference*
+| File | Description |
+|------|-------------|
 | [`core_language.md`](https://github.com/mistachkin/docs/blob/trunk/core_language.md) | Core language reference - all built-in commands, syntax, and .NET integration |
 | [`core_examples.md`](https://github.com/mistachkin/docs/blob/trunk/core_examples.md) | Runnable examples for every command and sub-command |
 | [`core_script_library.md`](https://github.com/mistachkin/docs/blob/trunk/core_script_library.md) | Script library reference - procedures from Eagle's standard library packages |
 | [`tips_and_tricks.md`](https://github.com/mistachkin/docs/blob/trunk/tips_and_tricks.md) | Eagle-specific features, advanced idioms, and best practices |
+
+*Per-command / per-topic references*
+| File | Description |
+|------|-------------|
+| [`array.md`](https://github.com/mistachkin/docs/blob/trunk/array.md) | `array` command reference |
+| [`clock.md`](https://github.com/mistachkin/docs/blob/trunk/clock.md) | `clock` command reference |
+| [`debug.md`](https://github.com/mistachkin/docs/blob/trunk/debug.md) | `debug` command reference |
+| [`exec.md`](https://github.com/mistachkin/docs/blob/trunk/exec.md) | `exec` command reference |
+| [`file.md`](https://github.com/mistachkin/docs/blob/trunk/file.md) | `file` command reference |
+| [`host.md`](https://github.com/mistachkin/docs/blob/trunk/host.md) | `host` command reference |
+| [`info.md`](https://github.com/mistachkin/docs/blob/trunk/info.md) | `info` command reference |
+| [`interp.md`](https://github.com/mistachkin/docs/blob/trunk/interp.md) | `interp` command reference |
+| [`interpreter_host.md`](https://github.com/mistachkin/docs/blob/trunk/interpreter_host.md) | Interpreter and host (`IHost`) API reference |
+| [`load.md`](https://github.com/mistachkin/docs/blob/trunk/load.md) | `load` command reference |
+| [`namespace.md`](https://github.com/mistachkin/docs/blob/trunk/namespace.md) | `namespace` command reference |
+| [`object.md`](https://github.com/mistachkin/docs/blob/trunk/object.md) | `object` command (.NET object integration) reference |
+| [`package.md`](https://github.com/mistachkin/docs/blob/trunk/package.md) | `package` command reference |
+| [`regexp.md`](https://github.com/mistachkin/docs/blob/trunk/regexp.md) | `regexp` / `regsub` reference |
+| [`scope.md`](https://github.com/mistachkin/docs/blob/trunk/scope.md) | `scope` command reference |
+| [`sql.md`](https://github.com/mistachkin/docs/blob/trunk/sql.md) | `sql` command reference |
+| [`string.md`](https://github.com/mistachkin/docs/blob/trunk/string.md) | `string` command reference |
+| [`tcl.md`](https://github.com/mistachkin/docs/blob/trunk/tcl.md) | Native Tcl integration (`tcl` command) reference |
+| [`uri.md`](https://github.com/mistachkin/docs/blob/trunk/uri.md) | `uri` command reference |
+
+*Security*
+| File | Description |
+|------|-------------|
+| [`safe.md`](https://github.com/mistachkin/docs/blob/trunk/safe.md) | Safe interpreters and the security model |
+
+*Integration, tooling & ecosystem*
+| File | Description |
+|------|-------------|
 | [`garuda.md`](https://github.com/mistachkin/docs/blob/trunk/garuda.md) | Native Package for Tcl (Garuda) reference |
 | [`integrations.md`](https://github.com/mistachkin/docs/blob/trunk/integrations.md) | Integration sub-projects (MSBuild, WiX, PowerShell, MonoDevelop) |
 | [`updater.md`](https://github.com/mistachkin/docs/blob/trunk/updater.md) | Eagle Updater (Hippogriff) architecture and design |
-| [`README.md`](https://github.com/mistachkin/docs/blob/trunk/README.md) | Documentation index and overview |
-| [`AGENTS.md`](https://github.com/mistachkin/docs/blob/trunk/AGENTS.md) | Agent documentation overview |
+
+*Agent guides*
+| File | Description |
+|------|-------------|
+| [`AGENTS.md`](https://github.com/mistachkin/docs/blob/trunk/AGENTS.md) | Documentation-repository navigation guide for agents |
 
 **How to Access Documentation**:
 1. Navigate to https://urn.to/r/docs (this will redirect)
@@ -33,6 +88,9 @@ This document provides guidance for AI agents (such as Claude, GPT, etc.) to wri
 8. Read `garuda.md` for native Tcl-side integration and features
 9. Read `integrations.md` for MSBuild, WiX, PowerShell, and MonoDevelop integration
 10. Read `updater.md` for the Eagle Updater (Hippogriff) architecture
+11. Read `architecture_patterns.md` to understand the codebase's design patterns, C# conventions, and design philosophy
+12. Read `whitepaper.md` for the comprehensive design and security rationale
+13. Read `safe.md` for the safe-interpreter security model
 
 **For AI Agents**: When you need detailed information about Eagle commands or procedures, fetch and read the appropriate documentation file from the repository above.
 
@@ -52,8 +110,6 @@ Eagle is a Tcl-compatible scripting language with deep .NET/CLR integration. It 
 | Tcl Feature | Eagle Alternative |
 |-------------|-------------------|
 | `{*}` expansion operator | Use `[eval]` with `[list]` for argument expansion |
-| `dict` command | Use key-value lists with `getDictionaryValue` |
-| `scan` command | Use `regexp` or `string` operations |
 | `namespace ensemble` | Not supported |
 | `namespace path` | Not supported |
 | `fileevent` | Use polling with `after` or .NET async patterns |
@@ -337,10 +393,12 @@ foreach {input expected} [join $testCases] {
 unset -nocomplain testCases testNum input expected
 ```
 
-### Using Key-Value Lists (NOT dict)
+### Using Key-Value Lists (and `dict`)
 
 ```tcl
-# Eagle does NOT have dict - use key-value lists
+# Eagle DOES have a full [dict] ensemble (Tcl 8.6-level, insertion-order
+# preserving).  Key-value lists (via getDictionaryValue from auxiliary.eagle)
+# are also common, especially in older code.
 test kvlist-1.1 {work with key-value list} -body {
     set data {name John age 30 city Boston}
 
@@ -787,16 +845,19 @@ test edge-large-1.1 {handle large input} -constraints {
 } -match regexp -result {^\d+$}
 ```
 
-### 6. Don't Use `dict` - Use Key-Value Lists
+### 6. `dict` and Key-Value Lists
 
 ```tcl
-# BAD - dict doesn't exist in Eagle
-test bad-dict-1.1 {using dict} -body {
-    dict create name John age 30  ;# ERROR: invalid command name "dict"
-}
+# Eagle provides a full [dict] ensemble (Tcl 8.6-level, insertion-order
+# preserving) -- use it directly:
+test dict-1.1 {using dict} -body {
+    set d [dict create name John age 30]
+    dict get $d name
+} -result {John}
 
-# GOOD - use key-value lists
-test good-kvlist-1.1 {using key-value list} -body {
+# Plain key-value lists also work; getDictionaryValue (from auxiliary.eagle)
+# reads them with a default:
+test kvlist-1.2 {using key-value list} -body {
     set data [list name John age 30]
     getDictionaryValue $data name ""
 } -result {John}
@@ -909,7 +970,6 @@ runTestEpilogue
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `invalid command name "dict"` | Using Tcl's dict command | Use key-value lists with `getDictionaryValue` |
 | `wrong # args` | Incorrect argument count | Check command syntax in catalog |
 | `object handle not found` | Object was disposed/released | Keep reference or recreate object |
 | `type not found` | Assembly not loaded | Load assembly with `object load` |

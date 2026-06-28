@@ -36,3 +36,20 @@ severity and impact.
 This policy covers the Eagle core library, shell, and all first-party
 plugins and scripts distributed in this repository.  Third-party
 plugins, extensions, or scripts are outside the scope of this policy.
+
+## Security Model & Documentation
+
+For background on Eagle's security architecture -- safe interpreters,
+execution policies, command/option safety flags, and the trust model --
+see the canonical [documentation repository](https://urn.to/r/docs)
+(this will redirect), in particular:
+
+- [`safe.md`](https://github.com/mistachkin/docs/blob/trunk/safe.md) -- safe interpreters and the security model.
+- [`whitepaper.md`](https://github.com/mistachkin/docs/blob/trunk/whitepaper.md) -- the comprehensive design and
+  security rationale.
+- [`why_eagle.md`](https://github.com/mistachkin/docs/blob/trunk/why_eagle.md) -- includes an overview of the
+  security model and threat considerations.
+
+The project's broader design principles and coding conventions -- including
+how security-sensitive and `safe`-interpreter code must be written and
+reviewed -- are catalogued in [`architecture_patterns.md`](https://github.com/mistachkin/docs/blob/trunk/architecture_patterns.md).

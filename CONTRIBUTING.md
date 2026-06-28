@@ -139,6 +139,42 @@ synchronization.  Follow the existing patterns in the codebase (e.g.,
 `lock` on a dedicated `syncRoot` object).  If there is a possibility
 of deadlock, the **TryLock pattern** must be used.
 
+### XML Documentation Comments
+
+Every C# type and member -- **public, internal, and private** alike
+(classes, structs, interfaces, enums, delegates, fields, constants,
+properties, methods, operators, constructors, and events) -- must carry
+an XML documentation comment.  This applies to all new code without
+exception; a contribution that adds an undocumented type or member will
+be rejected.
+
+- The documentation comment is one contiguous run of `///` lines placed **above**
+  the member's attributes (and above any `#if`-guarded attribute
+  block); a preprocessor directive must never appear inside a documentation
+  comment.
+- Each tag is on its own line.  Every parameter has a `<param>`
+  (including parameters that are conditionally compiled out); every
+  non-void member has a `<returns>`; every generic type or method has a
+  `<typeparam>`.
+- Reference types and members with `<see cref="..." />` and parameters
+  with `<paramref name="..." />`.  Never use `<see langword=...>`, and
+  never `cref` a parameter.
+- Members inside `#if DEAD_CODE` (or other compiled-out) blocks are
+  documented too -- such code is intentionally preserved and may be
+  revived, so its contract must remain described.
+
+When you **modify** an existing member, you must update its XML
+documentation comment so it continues to match the code whenever your
+change affects the behavior, parameters, return value, exceptions, or
+any other part of the contract the comment describes.  A documentation comment
+that no longer matches the code it describes is treated as a defect.
+
+For the full conventions, placement rules, and worked examples, see
+**"Comprehensive XML Documentation" (convention 25)** -- together with
+the related conventions 18 through 27 -- in `architecture_patterns.md`
+in the [documentation repository](https://urn.to/r/docs) (this will
+redirect).
+
 ### Documentation Repository
 
 The [Eagle documentation repository](https://urn.to/r/docs) (this will redirect)
@@ -377,6 +413,9 @@ Before submitting a pull request, verify that:
 - [ ] No new dependencies added without prior approval.
 - [ ] All new classes and structs have `[ObjectId("...")]` with a new
       GUID.
+- [ ] All new types and members have conforming XML documentation
+      comments, and any modified members' doc comments were updated
+      to reflect behavioral changes.
 - [ ] All exceptions are caught and handled appropriately.
 - [ ] All **safe** interpreter implications have been considered for
       any new commands, sub-commands, or options.
