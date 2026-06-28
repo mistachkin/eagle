@@ -240,8 +240,8 @@ runTest {test parser-3.6 {parsing simple options} -body {
 #       "https://wiki.tcl.tk/2553" (Combinatorial mathematics functions).
 #
 proc combinations2 {myList size {prefix {}}} {
-  if {$size == 0} {return [list $prefix]}
-  if {$size == [llength $myList]} {return [list [concat $prefix $myList]]}
+  if {$size == 0} then {return [list $prefix]}
+  if {$size == [llength $myList]} then {return [list [concat $prefix $myList]]}
 
   set first [lindex $myList 0]
   set rest [lrange $myList 1 end]

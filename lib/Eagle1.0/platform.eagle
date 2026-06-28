@@ -28,6 +28,31 @@ namespace eval ::Eagle {
   #       procedure is also defined in the "init.eagle" file.
   #
   proc isEagle {} {
+    # <help>
+    # This procedure detects whether the script is currently running inside
+    # the Eagle script engine (as opposed to vanilla Tcl).  It exists because
+    # this same script library is shared between Eagle and Tcl, and large
+    # portions of the library must behave differently, or take entirely
+    # different code paths, depending on which engine is hosting them.  As
+    # such, it is one of the most heavily used predicates in the entire
+    # library, and an identical copy is also defined in the "init.eagle" file
+    # so that it is available before this package is loaded.
+    #
+    # How it works: it checks for the presence of the global
+    # ::tcl_platform(engine) array element and compares it, case-insensitively,
+    # against the literal string "eagle".  Eagle populates this element with
+    # its engine name; Tcl reports a different engine name (or, in older
+    # versions, omits the element entirely), so the comparison is false there.
+    # The detection is deliberately cheap because it is invoked so frequently.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero if and only if the current script engine is Eagle; otherwise
+    #   zero (including when running under Tcl).
+    # </help>
+
     #
     # NOTE: Nothing too fancy or expensive should be done here.  In theory,
     #       use of this procedure should be rare; however, in practice, this
@@ -45,6 +70,29 @@ namespace eval ::Eagle {
   #       running in Eagle on Mono.
   #
   proc isMono {} {
+    # <help>
+    # This procedure detects whether the script is currently running inside
+    # Eagle hosted on the Mono runtime, as opposed to Tcl, or Eagle hosted on
+    # the .NET Framework or .NET Core.  It exists so that the library can work
+    # around behavioral differences and known limitations that are specific to
+    # the Mono common language runtime.  Like the other engine and runtime
+    # predicates here, it must work correctly under both Tcl and Eagle.
+    #
+    # How it works: it checks for the presence of the Eagle-specific global
+    # ::eagle_platform(runtime) array element and compares it, case-insensitively,
+    # against the literal string "mono".  Under Tcl that array element does not
+    # exist, so the result is zero; under Eagle the element reflects the actual
+    # hosting runtime.  The detection is deliberately cheap because it may be
+    # invoked frequently.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero if and only if the current runtime is Mono (and the engine is
+    #   Eagle); otherwise zero.
+    # </help>
+
     #
     # NOTE: Nothing too fancy or expensive should be done here.  In theory,
     #       use of this procedure should be rare; however, in practice, this
@@ -63,6 +111,31 @@ namespace eval ::Eagle {
   #       the ".NET 5" and later runtimes are still treated as .NET Core.
   #
   proc isDotNetCore {} {
+    # <help>
+    # This procedure detects whether the script is currently running inside
+    # Eagle hosted on .NET Core, as opposed to Tcl, or Eagle hosted on the
+    # .NET Framework or Mono.  For the purposes of this detection, the ".NET 5"
+    # and later runtimes (which dropped the "Core" branding) are still treated
+    # as .NET Core.  It exists so that the library can adapt to differences
+    # between the cross-platform .NET Core or .NET runtimes and the original
+    # Windows-only .NET Framework.  It must work correctly under both Tcl and
+    # Eagle.
+    #
+    # How it works: it checks for the presence of the Eagle-specific global
+    # ::eagle_platform(runtime) array element and compares it,
+    # case-insensitively, against either of the literal strings ".net core" or
+    # ".net".  The latter accounts for the renamed runtime; matching either one
+    # yields a true result.  Under Tcl the array element does not exist, so the
+    # result is zero.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero if and only if the current runtime is .NET Core or later (and
+    #   the engine is Eagle); otherwise zero.
+    # </help>
+
     #
     # NOTE: Nothing too fancy or expensive should be done here.  In theory,
     #       use of this procedure should be rare; however, in practice, this
@@ -79,6 +152,33 @@ namespace eval ::Eagle {
   #       in Eagle; however, it may work from native Tcl in the future.
   #
   proc isAdministrator {} {
+    # <help>
+    # This procedure detects whether the user account hosting the current
+    # process has full administrative rights on this machine (e.g. membership
+    # in the Administrators group on Windows, with an elevated token, or an
+    # equivalent privileged identity such as root on Unix).  It exists so that
+    # scripts can decide whether privileged operations are likely to succeed,
+    # or warn the user before attempting them.  Currently this detection is
+    # only meaningful under Eagle; native Tcl support may be added in the
+    # future.
+    #
+    # How it works: it checks for the presence of the Eagle-specific global
+    # ::eagle_platform(administrator) array element and tests it with [string
+    # is true -strict].  That element is populated by the engine based on the
+    # privilege level of the current identity at startup.  Because the
+    # detection relies solely on that cached element, it does not re-query the
+    # operating system each time it is called, and under Tcl (where the element
+    # is absent) it always returns zero.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero if and only if the current user has full administrator rights;
+    #   otherwise zero (including when the information is unavailable, such as
+    #   under Tcl).
+    # </help>
+
     return [expr {[info exists ::eagle_platform(administrator)] && \
         [string is true -strict $::eagle_platform(administrator)]}]
   }
@@ -90,6 +190,30 @@ namespace eval ::Eagle {
   #       Tcl and Eagle and must return non-zero only when on Windows.
   #
   proc isWindows {} {
+    # <help>
+    # This procedure detects whether the script is currently running on a
+    # Microsoft Windows operating system, as opposed to some flavor of Unix.
+    # It exists because a great deal of platform-dependent behavior throughout
+    # the library (path separators, environment variable names, command
+    # invocation, and so on) hinges on whether the host is Windows.  It must
+    # work correctly under both Tcl and Eagle, and is among the most frequently
+    # used predicates in the library.
+    #
+    # How it works: it checks for the presence of the global
+    # ::tcl_platform(platform) array element and compares it for exact equality
+    # against the literal string "windows".  Both Tcl and Eagle populate this
+    # element; any value other than "windows" (typically "unix") is treated as
+    # not Windows.  The detection is deliberately cheap because it is invoked
+    # so frequently.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero if and only if the host operating system is Windows; otherwise
+    #   zero (which is assumed to mean some flavor of Unix).
+    # </help>
+
     #
     # NOTE: Nothing too fancy or expensive should be done here.  In theory,
     #       use of this procedure should be rare; however, in practice, this
@@ -100,6 +224,31 @@ namespace eval ::Eagle {
   }
 
   proc isMacOS {} {
+    # <help>
+    # This procedure detects whether the script is currently running on Apple
+    # macOS (formerly OS X).  It exists because macOS, while a flavor of Unix,
+    # requires special handling in a few places that differ from other Unix
+    # systems -- most notably the name of the dynamic loader search path
+    # environment variable (see [addToPath], which uses DYLD_LIBRARY_PATH on
+    # macOS rather than LD_LIBRARY_PATH).  It must work correctly under both
+    # Tcl and Eagle.
+    #
+    # How it works: it checks for the presence of the global ::tcl_platform(os)
+    # array element and compares it for exact equality against the literal
+    # string "Darwin", which is the kernel and operating system name reported
+    # for macOS.  Note that this is a more specific test than [isWindows]: a
+    # macOS host will report a "platform" of "unix" but an "os" of "Darwin", so
+    # [isWindows] returns zero and [isMacOS] returns non-zero for the same
+    # machine.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero if and only if the host operating system is macOS (reported as
+    #   "Darwin"); otherwise zero.
+    # </help>
+
     return [expr {[info exists ::tcl_platform(os)] && \
         $::tcl_platform(os) eq "Darwin"}]
   }
@@ -110,6 +259,29 @@ namespace eval ::Eagle {
   #       other requests for input.
   #
   proc isInteractive {} {
+    # <help>
+    # This procedure detects whether there is currently an interactive user
+    # who can respond to prompts and other requests for input.  It exists so
+    # that scripts can decide whether it is safe to block waiting for input,
+    # or whether they must instead proceed non-interactively (for example, when
+    # running as part of an automated build or test run with no console
+    # attached).  It must work correctly under both Tcl and Eagle.
+    #
+    # How it works: it checks for the presence of the global ::tcl_interactive
+    # variable and tests it with [string is true -strict].  Both Tcl and Eagle
+    # set this variable to reflect whether the shell was started in interactive
+    # mode.  Note the accompanying "TODO" comment in the body, which questions
+    # whether a more sophisticated test is warranted; for now the simple
+    # variable check is considered sufficient.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero if and only if an interactive user is believed to be present;
+    #   otherwise zero.
+    # </help>
+
     #
     # TODO: Is something more complex required here?
     #
@@ -118,6 +290,35 @@ namespace eval ::Eagle {
   }
 
   proc foundInPath { dirs dir } {
+    # <help>
+    # This procedure tests whether a given directory is present in a list of
+    # directories, applying platform-appropriate case sensitivity.  It exists
+    # as a helper for the path-manipulation procedures in this file (e.g.
+    # [addToPath]), which need to avoid adding a directory that is already
+    # present in a loader search path.
+    #
+    # How it works: when running on Windows, where file system paths are
+    # case-insensitive, both the list and the target directory are first folded
+    # to lower case via [string tolower] before comparison; on other platforms
+    # the values are compared as-is.  The lookup itself is an exact (not glob)
+    # [lsearch] for the target directory within the list.
+    #
+    # Tricky details: as the in-body comments note, folding the list to lower
+    # case forces a shimmer of its internal list representation, and
+    # [string tolower] is used (rather than the -nocase option of [lsearch])
+    # because Tcl 8.4 lacks that option (see TIP #241).  The directories are
+    # compared literally, so the caller is responsible for normalizing path
+    # spelling (for example via [file nativename]) beforehand if needed.
+    #
+    # Arguments:
+    #   dirs -- The list of directories to search.
+    #   dir  -- The single directory to look for within that list.
+    #
+    # Results:
+    #   The literal string "true" if the directory is found in the list;
+    #   otherwise the literal string "false".
+    # </help>
+
     if {[isWindows]} then {
       #
       # HACK: Causes shimmering of "$dirs" list representation.  Must use
@@ -140,6 +341,42 @@ namespace eval ::Eagle {
   #       designed to work on the various flavors of Windows and Unix.
   #
   proc addToPath { dir } {
+    # <help>
+    # This procedure appends a directory to the operating system's dynamic
+    # loader search path environment variable, if it is not already present.
+    # It exists so that subsequently loaded native libraries (DLLs or shared
+    # objects) can implicitly find their dependent libraries when those
+    # dependencies live in the given directory rather than in the application
+    # directory.  It is designed to work across the various flavors of Windows
+    # and Unix and functions in both Tcl and Eagle.
+    #
+    # How it works: the directory is first normalized to an operating system
+    # native path via [file nativename].  The relevant environment variable is
+    # then chosen by platform: PATH on Windows, DYLD_LIBRARY_PATH on macOS, and
+    # LD_LIBRARY_PATH on other Unix systems.  The path separator is taken from
+    # ::tcl_platform(pathSeparator) when available, falling back to a semicolon
+    # on Windows or a colon elsewhere.  If the variable already exists, its
+    # current value is split on the separator and checked with [foundInPath];
+    # the directory is appended only when it is not already present.  If the
+    # variable does not exist, it is created containing just the directory.
+    #
+    # Tricky details: because the comparison goes through [foundInPath], the
+    # already-present check is case-insensitive on Windows and case-sensitive
+    # elsewhere.  The procedure mutates the global "env" array, which affects
+    # the current process environment.  Note that the variable selection here
+    # distinguishes macOS from other Unix systems, whereas the companion
+    # [removeFromPath] does not.
+    #
+    # Arguments:
+    #   dir -- The directory to add to the loader search path.  It is
+    #          normalized to a native path before use.
+    #
+    # Results:
+    #   The literal string "true" if the search path was created or modified
+    #   (i.e. the directory was added); otherwise the literal string "false"
+    #   if the directory was already present and nothing was changed.
+    # </help>
+
     global env
     global tcl_platform
 
@@ -224,6 +461,40 @@ namespace eval ::Eagle {
   #       Unix.
   #
   proc removeFromPath { dir } {
+    # <help>
+    # This procedure removes a directory from the operating system's dynamic
+    # loader search path environment variable, if it is present.  It is the
+    # inverse of [addToPath] and exists to undo such an addition, for example
+    # during cleanup after native libraries are no longer needed.  It is
+    # designed to work across the various flavors of Windows and Unix and
+    # functions in both Tcl and Eagle.
+    #
+    # How it works: the directory is first normalized to an operating system
+    # native path via [file nativename].  The relevant environment variable is
+    # chosen by platform: PATH on Windows and LD_LIBRARY_PATH otherwise.  The
+    # path separator is taken from ::tcl_platform(pathSeparator) when available,
+    # falling back to a semicolon on Windows or a colon elsewhere.  If the
+    # variable exists, its value is split on the separator and an exact
+    # [lsearch] locates the directory; when found, that one element is removed
+    # via [lreplace] and the joined result is written back to the environment.
+    #
+    # Tricky details: as the in-body "BUGBUG" comment notes, the match is exact
+    # and case-sensitive even on Windows, so a directory whose spelling or case
+    # differs from the stored entry will not be removed.  Unlike [addToPath],
+    # this procedure does not special-case macOS (DYLD_LIBRARY_PATH); it treats
+    # all non-Windows platforms as using LD_LIBRARY_PATH.  The procedure mutates
+    # the global "env" array, affecting the current process environment.
+    #
+    # Arguments:
+    #   dir -- The directory to remove from the loader search path.  It is
+    #          normalized to a native path before use.
+    #
+    # Results:
+    #   The literal string "true" if the search path was modified (i.e. the
+    #   directory was found and removed); otherwise the literal string "false"
+    #   if the directory was not present and nothing was changed.
+    # </help>
+
     global env
     global tcl_platform
 
@@ -305,6 +576,36 @@ namespace eval ::Eagle {
   #       script engine and platform.
   #
   proc isSameFileName { fileName1 fileName2 } {
+    # <help>
+    # This procedure determines whether two file names refer to the same file,
+    # using the most robust method available for the current script engine and
+    # platform.  It exists because comparing file names correctly is subtle:
+    # the file system may be case-insensitive, and two different names (for
+    # example via links or differing spellings) can resolve to the same
+    # underlying file.
+    #
+    # How it works: under Eagle, it delegates to the native [file same]
+    # sub-command, which can compare the actual underlying files rather than
+    # just their textual names.  Under Tcl, where that sub-command is not
+    # available, it falls back to a textual comparison: case-insensitive
+    # ([string equal -nocase]) on Windows, where the file system is typically
+    # case-insensitive, and case-sensitive ([string equal]) elsewhere.
+    #
+    # Tricky details: the Tcl fallback is purely textual, so it does not detect
+    # two distinct names that resolve to the same file, and it does not
+    # normalize the names beforehand; callers needing that behavior under Tcl
+    # should normalize the names themselves first.  The Eagle path is the more
+    # accurate of the two.
+    #
+    # Arguments:
+    #   fileName1 -- The first file name to compare.
+    #   fileName2 -- The second file name to compare.
+    #
+    # Results:
+    #   Non-zero if the two file names are considered to refer to the same
+    #   file; otherwise zero.
+    # </help>
+
     if {[isEagle]} then {
       return [file same $fileName1 $fileName2]
     } else {

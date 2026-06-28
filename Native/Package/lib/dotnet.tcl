@@ -13,6 +13,38 @@
 # RCS: @(#) $Id: $
 #
 ###############################################################################
+#
+# What this file does.
+#
+# This is the "secondary" loader script -- sourced by pkgIndex.tcl when
+# [package require dotnet] is called.  It is the conservative sibling of
+# garuda.tcl: it loads Garuda.dll but does NOT start the CLR or build
+# the bridge.  Embedders that want fine-grained control over CLR
+# lifecycle (e.g. delaying the cost until they know they need it, or
+# loading multiple assemblies before bridge startup) come in this way
+# and drive the rest manually via [garuda clrstart] / [garuda startup]
+# sub-commands.
+#
+# Variables this file sets (default values shown):
+#
+#   setupAndLoad   true    Load the .dll.
+#   startClr       false   Do NOT call ICLRRuntimeHost::Start (or the
+#                          CoreCLR equivalent) at load time -- that
+#                          stays the embedder's call.
+#   startBridge    false   Do NOT invoke the managed startup method.
+#
+# Compare with garuda.tcl, which sets only setupAndLoad=true and lets
+# helper.tcl's own defaults turn on startClr/startBridge.  The
+# difference is the embedder mental model -- "I want everything wired
+# up now" (garuda.tcl) vs "I want to drive the lifecycle myself"
+# (dotnet.tcl).
+#
+# The remaining structure (fileNormalize / setupDotnetVariables /
+# 3-step startup) is intentionally identical in shape to garuda.tcl;
+# see that file's comments for the per-step explanation.  This file
+# diverges only in the defaults block.
+#
+###############################################################################
 
 #
 # NOTE: This script file uses features that are only present in Tcl 8.4 or
@@ -38,6 +70,10 @@ namespace eval ::Garuda {
   #############################################################################
 
   #
+  # Defined here AND in helper.tcl because this file may run before
+  # helper.tcl sources, and the package-startup section below uses it
+  # immediately to discover packagePath.  Keep all copies in sync.
+  #
   # NOTE: Also defined in and used by "helper.tcl".
   #
   proc fileNormalize { path {force false} } {
@@ -54,6 +90,12 @@ namespace eval ::Garuda {
   #********************* PACKAGE VARIABLE SETUP PROCEDURE *********************
   #############################################################################
 
+  #
+  # Apply this file's "load-only, defer-everything-else" defaults.  Same
+  # guarded-assignment pattern as setupGarudaVariables; see garuda.tcl
+  # for why we use the [info exists] guard rather than unconditional
+  # assignment.
+  #
   proc setupDotnetVariables { directory } {
     ###########################################################################
     #************* NATIVE PACKAGE GENERAL CONFIGURATION VARIABLES *************

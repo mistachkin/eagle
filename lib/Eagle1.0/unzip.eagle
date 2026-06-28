@@ -27,6 +27,51 @@ namespace eval ::Eagle {
   #       default values.
   #
   proc setupUnzipVars { force {cleanup false} } {
+    # <help>
+    # This procedure establishes the default values for all of the
+    # configuration variables used by the unzip package, or, alternatively,
+    # removes them.  These namespace variables control where the UnZip command
+    # line tool may be downloaded from, how to detect whether UnZip is already
+    # installed locally, and how to invoke it to extract an archive.  It is
+    # called by [extractZipArchive] to ensure the configuration exists before
+    # use, and may also be called directly to force a reset or a cleanup.
+    #
+    # How it works: for each configuration variable it follows one of three
+    # paths.  When cleanup is true, the variable is unset (via [unset
+    # -nocomplain], harmlessly even if it was never set).  Otherwise, when
+    # force is true or the variable does not yet exist, the variable is
+    # (re)initialized to its default; an already-existing variable is left
+    # alone unless force is given.  The configured variables are: baseUri (the
+    # base download URI -- obtained from [getAuxiliaryBaseUri], which requires
+    # the update package, when running under Eagle, and a fixed fallback URI
+    # otherwise); unzipUrn (the download path relative to the base URI);
+    # unzipUri (a template combining the base URI and URN, stored unsubstituted
+    # so it can be expanded later); unzipInstalledCommand (the command used to
+    # probe for a local UnZip); unzipInstalledPattern (a regular expression
+    # matched against that command's output to confirm a supported Info-ZIP
+    # version); and unzipExtractCommand (a command template, with placeholders
+    # for the archive file name and target directory, used to perform the
+    # extraction).
+    #
+    # Tricky details: the unzipUri and unzipExtractCommand defaults are stored
+    # in a brace-quoted, unsubstituted form on purpose; their embedded dollar
+    # placeholders are expanded later (via [subst]) at the point of use, after
+    # the referenced variables have their final values.
+    #
+    # Arguments:
+    #   force   -- When true, existing configuration variables are overwritten
+    #              with their default values; when false, existing variables
+    #              are preserved and only missing ones are created.
+    #   cleanup -- When true, the configuration variables are removed instead
+    #              of being set, and the force argument is effectively ignored.
+    #              Defaults to false.
+    #
+    # Results:
+    #   The result is not meaningful; this procedure is called for its side
+    #   effect of creating, resetting, or removing the package configuration
+    #   variables.
+    # </help>
+
     #
     # NOTE: Using the [getAuxiliaryBaseUri] procedure requires the update
     #       package.
@@ -113,6 +158,32 @@ namespace eval ::Eagle {
   #       The return value is undefined.
   #
   proc unzipMustBeInstalled {} {
+    # <help>
+    # This procedure verifies that a usable implementation of the UnZip
+    # command line tool is installed and available on the executable search
+    # path, raising a script error if it is not.  It is used as a precondition
+    # check before attempting to extract an archive.  It takes no arguments.
+    #
+    # How it works: it reads the configured unzipInstalledCommand and
+    # unzipInstalledPattern variables, then runs the probe command (using
+    # [exec], requesting a success indication under Eagle).  If the command
+    # cannot be run at all, it raises a detailed, multi-line error message
+    # explaining that UnZip does not appear to be installed and how to obtain
+    # it (from the Info-ZIP web site or via the operating system's package
+    # manager).  If the command did run, its output is matched against the
+    # installed pattern (a regular expression identifying a supported Info-ZIP
+    # version); if the output is missing or does not match, a different error
+    # is raised reporting an unknown or unsupported version.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   An empty string when a supported UnZip is confirmed installed.  A
+    #   script error is raised when UnZip is not installed or its version is
+    #   unknown or unsupported.
+    # </help>
+
     variable unzipInstalledCommand
     variable unzipInstalledPattern
 
@@ -161,6 +232,60 @@ namespace eval ::Eagle {
   #
   proc extractZipArchive {
           archiveFileName {extractRootDirectory ""} {rootOnly false} } {
+    # <help>
+    # This procedure extracts a ZIP archive using the UnZip command line tool,
+    # placing the extracted contents into a directory and returning the path
+    # of that extraction directory.  By default it creates a fresh, uniquely
+    # named temporary subdirectory under the extraction root so that repeated
+    # extractions do not collide; on Windows it can even download and verify a
+    # signed copy of UnZip on the fly when one is not already installed.
+    #
+    # How it works: it first ensures the package configuration variables exist
+    # (via [setupUnzipVars]) and computes a native form of the archive file
+    # name.  If no extraction root directory is supplied, it requires the
+    # Eagle.Test package and uses the temporary path as the root, forcing
+    # per-extraction subdirectory creation (using the temporary directory
+    # itself as the target is forbidden).  When rootOnly is true the root
+    # directory is used directly as the extraction target; otherwise a unique
+    # subdirectory name is built from a fixed prefix, the process Id, and the
+    # current clock seconds.  Under Eagle on Windows, if UnZip does not appear
+    # to be installed, it expands the download URI, downloads the tool to a
+    # temporary file, and -- for security -- verifies the file is properly
+    # signed (deleting it and raising an error if not); it then creates a new
+    # temporary directory, copies the tool into it as unzip.exe, and adds that
+    # directory to the executable search path.  After confirming UnZip is
+    # installed (via [unzipMustBeInstalled]), it expands the extraction command
+    # template and runs it via [exec] to perform the extraction, raising an
+    # error that includes the underlying failure text if the command fails.
+    # The behavior differs slightly between Eagle and native Tcl in how the
+    # file name and directory are quoted and whether a success indication is
+    # requested from [exec].
+    #
+    # Tricky details: the downloaded UnZip must be signed or it is rejected;
+    # the temporary download file is deleted afterward unless the global
+    # no(deleteExtractZipArchiveFile) element is set.  The extraction command
+    # is a template whose placeholders are expanded with [subst] only at the
+    # point of use, after the file name and directory variables are finalized.
+    #
+    # Arguments:
+    #   archiveFileName     -- The path of the ZIP archive file to extract.
+    #   extractRootDirectory -- The directory under which the extraction
+    #                           directory is created.  When empty, the system
+    #                           temporary path is used and a unique
+    #                           subdirectory is always created.  Defaults to an
+    #                           empty string.
+    #   rootOnly            -- When true, the extraction root directory is used
+    #                          directly as the extraction target instead of
+    #                          creating a unique subdirectory; this is
+    #                          forbidden (and forced off) when the temporary
+    #                          path is used as the root.  Defaults to false.
+    #
+    # Results:
+    #   The path of the directory into which the archive was extracted.  A
+    #   script error is raised if UnZip is unavailable, a downloaded copy is
+    #   unsigned, or the extraction command fails.
+    # </help>
+
     setupUnzipVars false
 
     variable baseUri

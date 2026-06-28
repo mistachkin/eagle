@@ -31,8 +31,39 @@ namespace eval ::Eagle {
     #
     proc help { args } {
       # <help>
-      # Displays interactive command help using the interactive "#help"
-      # command.
+      # This procedure provides a friendly, command-style entry point to the
+      # interactive help system from within the interactive shell.  It exists
+      # because new users naturally type "help" expecting assistance, whereas
+      # the actual help facility is exposed as the interactive "#help" command;
+      # this procedure bridges that gap by guiding the user and then dispatching
+      # to the real interactive command on their behalf.
+      #
+      # How it works: it first writes a short banner to the interactive host
+      # explaining how to reach interactive help (the "#help" command) and
+      # commercial support (the "#support" command), echoing any arguments the
+      # user supplied so they appear as part of the suggested "#help" invocation.
+      # It then attempts (inside a [catch], so a non-interactive or
+      # unavailable host cannot cause an error) to prompt the user to press a
+      # key and waits for that key via the active interpreter's host.  Finally,
+      # it builds the corresponding "#help" command line from the supplied
+      # arguments and dispatches it as an interactive command via [debug
+      # icommand].
+      #
+      # Tricky details: this procedure is only meaningful inside the Eagle
+      # interactive shell, since it relies on the interactive host and the
+      # interactive command mechanism.  The key-press prompt and read are
+      # wrapped in a [catch] and are best-effort only.  The real work is
+      # performed by the interactive "#help" command, not by this procedure
+      # directly.
+      #
+      # Arguments:
+      #   args -- Zero or more arguments naming the topic or command for which
+      #           help is desired.  They are forwarded, in order, to the
+      #           interactive "#help" command; with no arguments, general help
+      #           is requested.
+      #
+      # Results:
+      #   The result of dispatching the "#help" interactive command.
       # </help>
 
       host result Break [appendArgs \
@@ -52,9 +83,35 @@ namespace eval ::Eagle {
 
     proc quit { args } {
       # <help>
-      # Can be used to exit the interactive shell.  It does this by calling
-      # the built-in [exit] command.  It is allowed to perform cleanup and
-      # maintenance tasks.
+      # This procedure provides a command-style way to exit the interactive
+      # shell.  It exists as a convenience and as a deliberate point of
+      # extension: although it ultimately terminates the process via the
+      # built-in [exit] command, it is explicitly permitted (and intended) to
+      # perform additional cleanup and maintenance tasks first, which a bare
+      # call to [exit] would not.  For that reason it is NOT simply a synonym
+      # for [exit].
+      #
+      # How it works: it first attempts (inside a [catch], so the absence of an
+      # interactive host cannot cause an error) to display a warning on the
+      # interactive host clarifying that this command is not merely an alias
+      # for [exit].  It then evaluates the built-in [exit] command, forwarding
+      # any supplied arguments so the caller can specify an exit code.  Because
+      # [exit] terminates the process, control does not normally return to the
+      # caller.
+      #
+      # Tricky details: this procedure is only meaningful inside the Eagle
+      # interactive shell.  Any cleanup performed before exit happens in this
+      # body (and in [exit] itself); the warning is best-effort and suppressed
+      # by [catch].
+      #
+      # Arguments:
+      #   args -- Zero or more arguments forwarded verbatim to the built-in
+      #           [exit] command; typically a single integer exit code.  With
+      #           no arguments, the default exit behavior is used.
+      #
+      # Results:
+      #   Does not normally return, because the process is terminated by
+      #   [exit].
       # </help>
 
       catch {
@@ -69,8 +126,41 @@ namespace eval ::Eagle {
 
     proc #support {} {
       # <help>
-      # Shows the requirements for obtaining commercial support and/or
-      # redirects to the appropriate web site using the default browser.
+      # This procedure helps an interactive user obtain commercial support for
+      # Eagle.  Depending on what is installed, it either opens the appropriate
+      # support web site in the default browser, or it explains the licensing
+      # and support-contract requirements that must be met and saves the
+      # current state to a file the user can provide when contacting support.
+      #
+      # How it works: it first tries to load the "Licensing.Core" package and,
+      # if present, calls the [support] command it provides to obtain a support
+      # URI.  When a non-empty URI is returned, it is launched in the default
+      # browser via [exec -shell] (run detached) and the procedure returns.  If
+      # the package or command is unavailable, or the URI is empty or invalid,
+      # the procedure falls back to capturing diagnostic state: it serializes
+      # every visible variable (scalars via [set] and arrays via [array set])
+      # into a temporary file whose name is recorded in
+      # ::eagle_shell(errorFileName), and then raises an error whose message
+      # lists the requirements for commercial support (a valid commercial
+      # license for Eagle Enterprise Edition, or a valid commercial support
+      # contract for Eagle Standard Edition) and points the user to that saved
+      # file.
+      #
+      # Tricky details: this is the implementation behind the interactive
+      # "#support" command and is only meaningful inside the Eagle interactive
+      # shell.  The successful (browser) path returns normally; the fallback
+      # path always raises an error by design, since support cannot be granted
+      # automatically.  When serializing variables, the local "fileData"
+      # accumulator variable is skipped so it does not capture itself.
+      #
+      # Arguments:
+      #   None.
+      #
+      # Results:
+      #   When a valid support URI is found, it is opened in the browser and the
+      #   procedure returns (the empty string).  Otherwise the procedure raises
+      #   an error describing the commercial support requirements and naming the
+      #   temporary file containing the saved diagnostic state.
       # </help>
 
       if {[catch {package require Licensing.Core} error(1)] == 0} then {

@@ -25,6 +25,38 @@ namespace eval ::Eagle {
   #       executable, which is a native executable -OR- a managed assembly.
   #
   proc getShellExecutableName {} {
+    # <help>
+    # This procedure returns the fully qualified file name of the shell
+    # executable that is hosting the current script.  Depending on the
+    # runtime, that may be a native executable or a managed assembly that
+    # must be launched by a runtime host.  It exists so that other code in
+    # this package (most notably [execShell]) can locate the program needed
+    # to spawn a compatible sub-shell, regardless of whether the script is
+    # running under native Tcl or under Eagle on the .NET Framework, Mono,
+    # or .NET Core.
+    #
+    # How it works: it first determines whether it is running in Eagle.  In
+    # Eagle on Mono or .NET Core, the shell is a managed assembly, so the
+    # entry assembly location (the second element of [info assembly true])
+    # is returned because that is the file that must be passed to the runtime
+    # host (e.g. "mono" or "dotnet exec").  In Eagle on the .NET Framework,
+    # and in native Tcl, the running executable itself is the shell, so
+    # [info nameofexecutable] is returned.
+    #
+    # Tricky details: on the .NET Framework the executable name and the entry
+    # assembly name are the same thing, which is why the simpler executable
+    # name is used there.  On Mono and .NET Core they differ, which is why
+    # the assembly location is preferred so it can later be combined with the
+    # appropriate runtime command line (see [getRuntimeCommandLine]).
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The fully qualified file name of the hosting shell executable or
+    #   managed assembly, as appropriate for the current runtime.
+    # </help>
+
     #
     # NOTE: Check for native Tcl, Mono, and .NET Core because this impacts
     #       how the shell executable name is determined.
@@ -46,6 +78,47 @@ namespace eval ::Eagle {
   #       native Tcl -OR- Eagle on the .NET Framework, Mono, or .NET Core.
   #
   proc getRuntimeCommandLine { fileName } {
+    # <help>
+    # This procedure builds and returns the list of command line arguments
+    # needed to launch the specified entry assembly or executable using the
+    # current runtime.  It exists because different runtimes require different
+    # launcher prefixes: native Tcl and Eagle on the .NET Framework run the
+    # target file directly, whereas Eagle on Mono must be launched via the
+    # "mono" command and Eagle on .NET Core via "dotnet exec".  Centralizing
+    # this logic lets callers (such as [execShell]) remain runtime-agnostic.
+    #
+    # How it works: it detects the runtime and seeds the result with the
+    # appropriate launcher words (none for native Tcl or the .NET Framework,
+    # "mono" for Mono, "dotnet exec" for .NET Core).  For each runtime it also
+    # selects the name of an optional global array element that may hold extra
+    # runtime-specific arguments to splice in before the entry file name.  The
+    # specified file name, wrapped in double quotes and converted to native
+    # form via [file nativename], is then appended.  Finally, an optional
+    # element holding common extra arguments to follow the file name is
+    # consulted and, if present, appended as well.
+    #
+    # Tricky details: only the base portion of the command line is produced;
+    # the [exec] command itself, its options, the end-of-options marker, and
+    # any subsequent arguments for the target program are NOT included and are
+    # the caller's responsibility.  The optional extra-argument variables are
+    # the elements monoExecArgs, dotNetCoreExecArgs, netFrameworkExecArgs,
+    # tclshExecArgs, and execFileArgs of the global array named after this
+    # procedure; under Eagle, a value that is a well-formed list is expanded
+    # element by element, while under Tcl (or for non-list values) it is
+    # appended as a single argument.  The launcher commands (mono, dotnet)
+    # are assumed to be reachable via the PATH.
+    #
+    # Arguments:
+    #   fileName -- The entry assembly or executable file name to be launched.
+    #               It is converted to native form and double-quoted before
+    #               being placed into the result.
+    #
+    # Results:
+    #   A list of command line arguments that, when prefixed to the target
+    #   program's own arguments, will launch the specified file under the
+    #   current runtime.
+    # </help>
+
     #
     # NOTE: Only the base portion of the command line arguments are returned
     #       from this procedure, i.e. we do not return the [exec] command or
@@ -155,6 +228,49 @@ namespace eval ::Eagle {
   #       specified arguments and returns the captured output, verbatim.
   #
   proc execShell { options args } {
+    # <help>
+    # This procedure runs a child Eagle or native Tcl sub-shell, using the
+    # same runtime as the current process, and returns its captured output
+    # verbatim.  It exists to make it easy to evaluate work in a fresh,
+    # isolated shell process (for example, in tests or build steps that must
+    # not disturb the current interpreter), without the caller having to
+    # figure out how to invoke the correct shell for the current runtime.
+    #
+    # How it works: it constructs an [exec] command, appends any caller
+    # supplied [exec] options, adds the end-of-options marker, and then
+    # appends the runtime launcher arguments produced by combining
+    # [getShellExecutableName] with [getRuntimeCommandLine].  When running in
+    # Eagle and the [object] command is available, it checks (via reflection
+    # on the active interpreter) whether security is enabled and, if so, adds
+    # a matching -security option so the sub-process inherits that posture.
+    # Any further arguments are appended and the assembled command is finally
+    # evaluated in the caller's context via [uplevel 1], so its result (the
+    # child's captured output) becomes this procedure's result.
+    #
+    # Tricky details: it relies on [getShellExecutableName] and
+    # [getRuntimeCommandLine], so it inherits their runtime detection and PATH
+    # assumptions.  There is a workaround for a .NET Core issue in which an
+    # empty-string argument is silently dropped: under Eagle on .NET Core,
+    # any argument that is an empty string expressed as a pair of double
+    # quotes is passed instead as a single space inside double quotes so it
+    # survives (see dotnet/cli issue 8892).  On other runtimes the extra
+    # arguments are spliced in unchanged.
+    #
+    # Arguments:
+    #   options -- A list of options for the [exec] command (for example,
+    #              -success or other [exec] switches).  May be the empty list
+    #              when no options are needed.
+    #   args    -- Zero or more command line arguments passed through to the
+    #              sub-shell, after the runtime launcher arguments.  Empty
+    #              string arguments receive special handling on .NET Core as
+    #              described above.
+    #
+    # Results:
+    #   The output captured from the child sub-shell process, returned
+    #   verbatim.  Any error raised by the underlying [exec] propagates to
+    #   the caller.
+    # </help>
+
     #
     # NOTE: Start out with just the base [exec] command.
     #
@@ -237,6 +353,40 @@ namespace eval ::Eagle {
   #       value, which may be an empty string.
   #
   proc maybeGetExitCode { value {default ""} } {
+    # <help>
+    # This procedure extracts the integer exit code of a child process that
+    # was run via [exec], given the value of the $::errorCode variable that
+    # the failed [exec] left behind.  It exists because, when a child process
+    # exits with a non-zero status, [exec] raises an error and records the
+    # status in $::errorCode rather than returning it directly; this provides
+    # a safe, convenient way to recover that numeric status.
+    #
+    # How it works: it inspects the value as a list.  When the first element
+    # is the literal CHILDSTATUS (the convention used by [exec] to report a
+    # child process exit status), the third element is taken as the status
+    # and, if it is a valid integer, returned.  In every other case the
+    # supplied default is returned.
+    #
+    # Tricky details: the value is expected to be a list in the form that
+    # [exec] places into $::errorCode; values that do not begin with
+    # CHILDSTATUS, or whose status element is not a valid integer, never
+    # produce a numeric result and instead yield the default.  This means the
+    # caller can always rely on getting either a valid integer or exactly the
+    # provided default.
+    #
+    # Arguments:
+    #   value   -- The value to inspect, typically the contents of the global
+    #              errorCode variable captured immediately after a failed
+    #              [exec] call.
+    #   default -- The value to return when an exit code cannot be determined.
+    #              Defaults to the empty string and may itself be an empty
+    #              string.
+    #
+    # Results:
+    #   The child process exit code as an integer, or the default value when
+    #   no valid exit code can be extracted.
+    # </help>
+
     if {[lindex $value 0] eq "CHILDSTATUS"} then {
       set status [lindex $value 2]
 

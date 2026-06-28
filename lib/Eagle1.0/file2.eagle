@@ -25,6 +25,29 @@ namespace eval ::Eagle {
   #       mode.
   #
   proc makeAsciiChannel { channel } {
+    # <help>
+    # This procedure reconfigures an already-open channel so that it reads and
+    # writes plain ASCII text.  It exists as a single, named place to apply the
+    # canonical "ASCII text" channel settings, so that the various file helpers
+    # in this package can share one consistent configuration rather than
+    # repeating the underlying [fconfigure] call.
+    #
+    # How it works: it sets the channel encoding to "ascii" and the end-of-line
+    # translation mode to "auto".  The "auto" translation mode means that, on
+    # input, any of the common line-ending conventions are recognized and
+    # normalized, while on output the platform-native line ending is used.  The
+    # value of the underlying [fconfigure] call becomes the procedure result;
+    # there is no explicit return.
+    #
+    # Arguments:
+    #   channel -- The identifier of an already-open channel to reconfigure, as
+    #              returned by [open] or a similar command.
+    #
+    # Results:
+    #   The result of the underlying [fconfigure] call, which is normally the
+    #   empty string.
+    # </help>
+
     fconfigure $channel -encoding ascii -translation auto; # ASCII TEXT
   }
 
@@ -33,6 +56,32 @@ namespace eval ::Eagle {
   #       returns it.
   #
   proc readAsciiFile { fileName } {
+    # <help>
+    # This procedure reads the entire contents of a file as ASCII text and
+    # returns it.  It is a convenience wrapper that combines opening the file,
+    # applying the standard ASCII channel configuration, reading everything,
+    # and closing the channel, so callers can obtain a whole file's text in a
+    # single call.
+    #
+    # How it works: the named file is opened read-only, the channel is
+    # reconfigured for ASCII text via [makeAsciiChannel] (encoding "ascii",
+    # line-ending translation "auto"), the complete contents are read with a
+    # single [read], and the channel is closed before the text is returned.
+    #
+    # Tricky details: because the channel uses "auto" translation, line endings
+    # in the returned text are normalized to line feeds.  The entire file is
+    # buffered in memory, so this is not suitable for extremely large files.
+    # Any error opening or reading the file propagates to the caller; in that
+    # situation the channel may not be closed.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to read.  It must exist and be
+    #               readable.
+    #
+    # Results:
+    #   A string containing the full ASCII text of the file.
+    # </help>
+
     set channel [open $fileName RDONLY]
     makeAsciiChannel $channel
     set result [read $channel]
@@ -46,6 +95,34 @@ namespace eval ::Eagle {
   #       if any, is lost.
   #
   proc writeAsciiFile { fileName data } {
+    # <help>
+    # This procedure writes the specified data to a file as ASCII text,
+    # replacing any previous contents, and returns an empty string.  It is the
+    # write counterpart to [readAsciiFile], wrapping the open/configure/write/
+    # close sequence into one call.
+    #
+    # How it works: the named file is opened for writing, creating it if it
+    # does not already exist and truncating it to zero length if it does, the
+    # channel is reconfigured for ASCII text via [makeAsciiChannel], the data
+    # is written without an added trailing newline using [puts] with its
+    # no-newline option, and the channel is closed.
+    #
+    # Tricky details: any existing contents of the file are lost because the
+    # file is truncated on open.  Because the channel uses "auto" translation,
+    # line feeds embedded in the data are written using the platform-native
+    # line ending.  No newline is appended automatically, so the data is
+    # written exactly as supplied.  Errors opening or writing the file
+    # propagate to the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to write.  It is created if missing
+    #               and truncated if present.
+    #   data     -- The ASCII text to write to the file.
+    #
+    # Results:
+    #   An empty string.
+    # </help>
+
     set channel [open $fileName {WRONLY CREAT TRUNC}]
     makeAsciiChannel $channel
     puts -nonewline $channel $data
@@ -58,6 +135,29 @@ namespace eval ::Eagle {
   #       logging subsystem.
   #
   proc makeLogChannel { channel } {
+    # <help>
+    # This procedure reconfigures an already-open channel for use by the
+    # logging subsystem.  It centralizes the channel settings appropriate for
+    # writing log data so that the log-appending helpers in this package apply
+    # them consistently.
+    #
+    # How it works: it sets the channel encoding to "binary" so that bytes are
+    # written verbatim without character-set transformation, and chooses a
+    # line-ending translation mode that depends on the engine.  Under Eagle the
+    # "protocol" translation mode is used, while under Tcl, which has no such
+    # mode, "auto" is used instead.  The engine is detected with [isEagle].
+    # The value of the underlying [fconfigure] call becomes the procedure
+    # result; there is no explicit return.
+    #
+    # Arguments:
+    #   channel -- The identifier of an already-open channel to reconfigure, as
+    #              returned by [open] or a similar command.
+    #
+    # Results:
+    #   The result of the underlying [fconfigure] call, which is normally the
+    #   empty string.
+    # </help>
+
     set translation [expr {[isEagle] ? "protocol" : "auto"}]
     fconfigure $channel -encoding binary -translation $translation; # LOG DATA
   }
@@ -68,6 +168,34 @@ namespace eval ::Eagle {
   #       if any, is preserved.
   #
   proc appendLogFile { fileName data } {
+    # <help>
+    # This procedure appends the specified data to a log file, preserving any
+    # existing contents, and returns an empty string.  It is intended for
+    # writing log records, and uses the logging channel configuration rather
+    # than a plain text one.
+    #
+    # How it works: the named file is opened for writing in append mode,
+    # creating it if it does not already exist, so that new data is added at
+    # the end without disturbing prior contents.  The channel is reconfigured
+    # via [makeLogChannel] (binary encoding with an engine-dependent line
+    # translation), the data is written without an added trailing newline
+    # using [puts] with its no-newline option, and the channel is closed.
+    #
+    # Tricky details: this opens the file for exclusive (non-shared) access; if
+    # multiple writers may target the same log concurrently, use
+    # [appendSharedLogFile] instead.  No newline is appended automatically, so
+    # the caller controls record separation.  Errors opening or writing the
+    # file propagate to the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the log file to append to.  It is created if it
+    #               does not already exist.
+    #   data     -- The data to append to the file.
+    #
+    # Results:
+    #   An empty string.
+    # </help>
+
     set channel [open $fileName {WRONLY CREAT APPEND}]
     makeLogChannel $channel
     puts -nonewline $channel $data
@@ -81,6 +209,39 @@ namespace eval ::Eagle {
   #       the file, if any, is preserved.
   #
   proc appendSharedLogFile { fileName data } {
+    # <help>
+    # This procedure appends the specified data to a log file that may be
+    # written concurrently by other processes or threads, preserving any
+    # existing contents, and returns an empty string.  It is the shared-access
+    # variant of [appendLogFile], suitable when more than one writer may have
+    # the same log file open at once.
+    #
+    # How it works: it builds an [open] command that opens the file for writing
+    # in append mode, creating it if necessary.  When running under Eagle, as
+    # detected by [isEagle], it appends options requesting read/write file
+    # sharing, because Eagle does not enable shared access by default the way
+    # Tcl does; under Tcl the default behavior already permits sharing, so no
+    # extra options are added.  The constructed command is evaluated to open
+    # the channel, the channel is reconfigured via [makeLogChannel], the data
+    # is written without an added trailing newline using [puts] with its
+    # no-newline option, the channel is flushed to push the data out promptly,
+    # and finally the channel is closed.
+    #
+    # Tricky details: the explicit flush before closing is important for shared
+    # logs, so that records become visible without waiting for buffering.
+    # Shared access reduces, but does not eliminate, the need for callers to
+    # coordinate interleaving of large writes.  Errors opening or writing the
+    # file propagate to the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the log file to append to.  It is created if it
+    #               does not already exist.
+    #   data     -- The data to append to the file.
+    #
+    # Results:
+    #   An empty string.
+    # </help>
+
     set command [list open $fileName {WRONLY CREAT APPEND}]
 
     #
@@ -108,6 +269,36 @@ namespace eval ::Eagle {
   #       file and returns it.
   #
   proc readSharedFile { fileName } {
+    # <help>
+    # This procedure reads the entire contents of a binary file that may be
+    # open for writing by another process or thread, and returns it.  It is the
+    # shared-access counterpart to a plain binary read, intended for files such
+    # as logs that are being actively written elsewhere.
+    #
+    # How it works: it builds an [open] command that opens the file read-only.
+    # When running under Eagle, as detected by [isEagle], it appends options
+    # requesting read/write file sharing, because Eagle does not enable shared
+    # access by default the way Tcl does; under Tcl the default behavior
+    # already permits sharing, so no extra options are added.  The constructed
+    # command is evaluated to open the channel, the channel is reconfigured for
+    # raw bytes via [makeBinaryChannel], the complete contents are read with a
+    # single [read], and the channel is closed before the data is returned.
+    #
+    # Tricky details: the data is read as raw bytes with no encoding or
+    # line-ending translation, so the returned value reflects the file exactly
+    # as stored.  The entire file is buffered in memory.  Because the file may
+    # be changing as it is read, the returned snapshot reflects only what was
+    # present at read time.  Errors opening or reading the file propagate to
+    # the caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to read.  It must exist and be
+    #               readable.
+    #
+    # Results:
+    #   A string containing the raw bytes read from the file.
+    # </help>
+
     set command [list open $fileName RDONLY]
 
     #
@@ -136,6 +327,39 @@ namespace eval ::Eagle {
   #       file, if any, is preserved.
   #
   proc appendSharedFile { fileName data } {
+    # <help>
+    # This procedure appends the specified data to a binary file that may be
+    # written concurrently by other processes or threads, preserving any
+    # existing contents, and returns an empty string.  It is the binary,
+    # shared-access counterpart to the log-appending helpers, intended when raw
+    # bytes must be added to a file that other writers may also have open.
+    #
+    # How it works: it builds an [open] command that opens the file for writing
+    # in append mode, creating it if necessary.  When running under Eagle, as
+    # detected by [isEagle], it appends options requesting read/write file
+    # sharing, because Eagle does not enable shared access by default the way
+    # Tcl does; under Tcl the default behavior already permits sharing, so no
+    # extra options are added.  The constructed command is evaluated to open
+    # the channel, the channel is reconfigured for raw bytes via
+    # [makeBinaryChannel], the data is written without an added trailing
+    # newline using [puts] with its no-newline option, the channel is flushed
+    # to push the data out promptly, and finally the channel is closed.
+    #
+    # Tricky details: the data is written as raw bytes with no encoding or
+    # line-ending translation, so it is stored exactly as supplied.  The
+    # explicit flush before closing helps make appended data visible promptly
+    # to other readers.  Errors opening or writing the file propagate to the
+    # caller.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to append to.  It is created if it
+    #               does not already exist.
+    #   data     -- The data to append to the file.
+    #
+    # Results:
+    #   An empty string.
+    # </help>
+
     #
     # NOTE: This should work properly in both Tcl and Eagle.
     #

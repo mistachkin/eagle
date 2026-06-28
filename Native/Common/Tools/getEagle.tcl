@@ -44,6 +44,42 @@ namespace eval ::Eagle::Tools::GetEagle {
   #       default values.
   #
   proc setupGetEagleVariables { force } {
+    # <help>
+    # This procedure establishes the default values for every configuration
+    # variable used by the getEagle distribution downloader tool, storing them
+    # as variables in this tool's namespace.  It exists to keep all tunable
+    # settings (the web site base URI, the "stable.txt" release-information
+    # URI, the binary distribution root name and URI template, the two regular
+    # expression patterns used to parse the release information, and the quiet
+    # flag) in one place with sensible out-of-the-box values, while still
+    # allowing a caller to override any of them beforehand.
+    #
+    # How it works: each variable is assigned only when the force argument is
+    # true OR the variable does not already exist.  This "set only if missing"
+    # idiom means a caller may pre-set any variable to a custom value and have
+    # it preserved on a non-forced call, whereas a forced call deliberately
+    # discards any customizations and restores the documented defaults.
+    #
+    # Tricky details: the stableUri and binaryUri defaults intentionally
+    # contain unevaluated dollar-brace placeholders (for example a baseUri,
+    # binaryBaseUri, patchLevel, and rootName reference).  These are NOT
+    # expanded here because the patch level and binary base URI are not known
+    # until the release information has been downloaded; [downloadEagle]
+    # expands them later with [subst].  The patchLevelPattern is pinned to a
+    # specific vendor line in the tab-delimited release file (record id 1, a
+    # specific public key token, the Eagle name, and the invariant culture), so
+    # it only matches that vendor's official entry.
+    #
+    # Arguments:
+    #   force -- A boolean.  When non-zero, every configuration variable is
+    #            overwritten with its default value; when zero, only variables
+    #            that do not already exist are assigned.
+    #
+    # Results:
+    #   Returns the empty string.  Its purpose is the side effect of populating
+    #   the tool's namespace configuration variables.
+    # </help>
+
     ###########################################################################
     #***************************** TOOL VARIABLES *****************************
     ###########################################################################
@@ -147,6 +183,51 @@ namespace eval ::Eagle::Tools::GetEagle {
   #       messages will be written.
   #
   proc downloadEagle { directory fileName channel } {
+    # <help>
+    # This procedure downloads the latest stable Eagle binary distribution and
+    # saves it to a local file.  It is the main entry point of the getEagle
+    # tool and exists so that a native Tcl environment (this script refuses to
+    # run under Eagle) can bootstrap a current Eagle release without manual
+    # intervention, for example as part of a build or setup step.
+    #
+    # How it works: it first expands the configured stable-release URI with
+    # [subst] and fetches that release-information file over HTTP(S) using the
+    # shared [getFileViaHttp] helper.  It then extracts the latest patch level
+    # and the binary base URI from that tab-delimited data using the two
+    # configured regular expression patterns, erroring out if either cannot be
+    # determined.  With the patch level and base URI now known, it expands the
+    # binary distribution URI template (again via [subst]) and downloads that
+    # file.  Finally it writes the downloaded bytes to the destination with
+    # [writeFile] and returns the local file name.
+    #
+    # Tricky and security details: the directory argument is accepted for
+    # signature consistency with other tool startup procedures but is not used.
+    # When fileName is empty, the destination is the per-user temporary
+    # directory (from the TEMP environment variable) joined with the file name
+    # taken from the tail of the download URI.  Both transfers are performed in
+    # binary mode.  Transport security is delegated entirely to
+    # [getFileViaHttp] (which upgrades to and requires TLS); this procedure
+    # performs NO signature or checksum verification of the downloaded
+    # distribution itself, so the integrity of the result rests on the secure
+    # transport and on the trustworthiness of the configured release-info and
+    # download URIs.  Progress reporting is suppressed when the configured
+    # quiet flag is set, which can make a large download appear to hang.
+    #
+    # Arguments:
+    #   directory -- Unused; present only for a uniform tool startup signature.
+    #   fileName  -- The local path to write the distribution to.  When empty,
+    #                a name is derived automatically under the temporary
+    #                directory.
+    #   channel   -- An output channel for progress messages.  When empty, no
+    #                progress messages are written.
+    #
+    # Results:
+    #   Returns the local file name where the downloaded binary distribution
+    #   was saved.  Raises an error if the patch level or the binary base URI
+    #   cannot be extracted from the release information, or if any download or
+    #   file write fails.
+    # </help>
+
     global env
     variable baseUri
     variable binaryBaseUriPattern

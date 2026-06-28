@@ -28,6 +28,48 @@ namespace eval ::Eagle {
   #       to exclude from the result.
   #
   proc combineFlags { flags1 flags2 {flags3 ""} {noCase false} } {
+    # <help>
+    # This procedure combines two comma-or-space separated flag strings,
+    # each based on a CLR enumerated type, into a single normalized
+    # comma-separated flag string, optionally removing a set of unwanted
+    # flags.  It exists because callers often need to merge two sets of
+    # enumeration flags (for example, a base set with some additions) while
+    # also subtracting flags that must not appear, and because the various
+    # [object] commands accept flags in this comma-separated textual form.
+    # It is written to work in both Tcl and Eagle.
+    #
+    # How it works: the third argument, if non-empty, is split on commas and
+    # spaces, trimmed, and collected into a list of flags to exclude.  Then
+    # the first and second flag strings are each split the same way; every
+    # non-empty, trimmed flag is added to the result unless it appears in the
+    # exclusion list.  Membership in the exclusion list is tested with
+    # [lsearch -exact], optionally case-insensitively.  The accumulated flags
+    # are then joined back together with commas to form the result.
+    #
+    # Tricky details: flags are matched literally (exact), not by numeric
+    # value, so this is purely textual flag manipulation and does not perform
+    # any real enumeration arithmetic.  Order is preserved (flags1 first, then
+    # flags2) and duplicate flags are NOT collapsed; if a flag appears in both
+    # inputs it will appear twice in the result unless it is excluded.  When
+    # noCase is true, the exclusion comparison ignores case but the flag text
+    # itself is emitted with its original casing.
+    #
+    # Arguments:
+    #   flags1 -- The first flag string, with flags separated by commas and/or
+    #             spaces.
+    #   flags2 -- The second flag string, in the same format as flags1; its
+    #             flags are appended after those of flags1.
+    #   flags3 -- An optional flag string listing flags to exclude from the
+    #             result.  Defaults to the empty string, meaning nothing is
+    #             excluded.
+    #   noCase -- An optional boolean; when true, the exclusion comparison is
+    #             performed case-insensitively.  Defaults to false.
+    #
+    # Results:
+    #   A single comma-separated string containing the surviving flags in
+    #   order.  The empty string is returned if no flags remain.
+    # </help>
+
     #
     # NOTE: This should work properly in both Tcl and Eagle.
     #
@@ -82,6 +124,43 @@ namespace eval ::Eagle {
   #       specified CLR member.
   #
   proc getReturnType { object member } {
+    # <help>
+    # This procedure returns the assembly-qualified type name of the value
+    # produced by a named member (a field, method, or property) of a CLR
+    # object or type.  It exists so that scripts can discover, at runtime, the
+    # declared type of what a member yields -- for example to decide how to
+    # marshal or convert the value, or to drive reflection-based tooling --
+    # without having to perform the member lookup themselves.
+    #
+    # How it works: it asks the [object] command for information about the
+    # member without actually invoking it (via [object invoke -noinvoke]),
+    # then iterates the resulting member descriptors with [object foreach],
+    # binding each to a memberInfo alias.  The member's MemberType is examined
+    # with a [switch]: for a Field the FieldType, for a Method the ReturnType,
+    # and for a Property the PropertyType is read, and its
+    # AssemblyQualifiedName is returned.  Any other member type yields an
+    # empty string.
+    #
+    # Tricky details: the inner [return] statements run inside a [catch], so
+    # they surface as a catch code of 2 (a return) rather than as a normal
+    # completion; the procedure therefore returns the captured result only
+    # when the catch code is 2, and otherwise returns an empty string to
+    # signal a general failure (such as the member not existing).  Empty
+    # object or member arguments short-circuit to an empty string before any
+    # reflection is attempted.
+    #
+    # Arguments:
+    #   object -- An opaque object handle or a CLR type name whose member is
+    #             to be inspected.  An empty value yields an empty result.
+    #   member -- The name of the field, method, or property to inspect.  An
+    #             empty value yields an empty result.
+    #
+    # Results:
+    #   The assembly-qualified type name of the member's field type, method
+    #   return type, or property type.  The empty string is returned for
+    #   unsupported member kinds, for empty arguments, or on any failure.
+    # </help>
+
     if {[string length $object] == 0} then {
       return ""
     }
@@ -125,6 +204,38 @@ namespace eval ::Eagle {
   # NOTE: This procedure returns the default value for the specified CLR type.
   #
   proc getDefaultValue { typeName } {
+    # <help>
+    # This procedure returns the default value for a named CLR type, mirroring
+    # what the "default" keyword would produce in C# for that type.  It exists
+    # so that scripts can supply a type-appropriate default (for instance when
+    # building argument lists or initializing fields) without hard-coding
+    # assumptions about whether a given type is a value type or a reference
+    # type.
+    #
+    # How it works: if the [object] command is unavailable, or the type name
+    # is empty, it returns an empty string.  Otherwise it resolves the type
+    # name to a CLR Type via the Utility GetType helper (creating an aliased
+    # object handle for it) and inspects its IsValueType property.  Value
+    # types yield 0 (the conventional zero default for numeric and similar
+    # value types) while reference types yield the literal "null".
+    #
+    # Tricky details: the result is a simplification -- it returns 0 for every
+    # value type, which is correct for numeric, boolean, and char-like types
+    # but is not a faithful structural default for arbitrary structs.  If the
+    # type name cannot be resolved (GetType produces an empty handle), the
+    # empty string is returned rather than an error.
+    #
+    # Arguments:
+    #   typeName -- The name of the CLR type whose default value is wanted.
+    #               May be a simple or assembly-qualified type name.  An empty
+    #               value yields an empty result.
+    #
+    # Results:
+    #   The literal "null" for reference types, 0 for value types, or the
+    #   empty string when the [object] command is missing, the type name is
+    #   empty, or the type cannot be resolved.
+    # </help>
+
     if {[llength [info commands object]] == 0} then {
       return ""
     }
@@ -148,6 +259,39 @@ namespace eval ::Eagle {
   #       empty string) if the value is not a valid opaque object handle.
   #
   proc getStringFromObjectHandle { value {default ""} } {
+    # <help>
+    # This procedure converts a value to a string by treating it as an opaque
+    # object handle when possible, falling back to a default or to the value
+    # itself otherwise.  It exists because many [object]-based operations
+    # return opaque handles whose meaningful textual form is obtained by
+    # calling ToString on the underlying CLR object; this gives callers a
+    # single, forgiving way to get that text whether or not the value really
+    # is such a handle.
+    #
+    # How it works: if the value is a non-null object handle, its CLR ToString
+    # method is invoked (via [object invoke]) and the resulting string is
+    # returned.  If it is not a usable handle, then a non-empty default, if
+    # one was supplied, is returned; if no non-empty default was supplied, the
+    # original value is returned unchanged.
+    #
+    # Tricky details: null object handles are treated as not usable, so they
+    # fall through to the default or to the value itself rather than producing
+    # the string form of null.  Because an empty-string default is
+    # indistinguishable from "no default" here, supplying an empty default
+    # causes the original value to be echoed back for non-handle inputs.
+    #
+    # Arguments:
+    #   value   -- The value to convert; it is used as an opaque object handle
+    #              when it is a valid, non-null handle.
+    #   default -- The string to return when the value is not a usable handle.
+    #              Defaults to the empty string, in which case the original
+    #              value is returned instead.
+    #
+    # Results:
+    #   The ToString form of the referenced object, the supplied non-empty
+    #   default, or the original value, according to the rules above.
+    # </help>
+
     if {[isNonNullObjectHandle $value]} then {
       return [object invoke $value ToString]
     }
@@ -164,6 +308,35 @@ namespace eval ::Eagle {
   #       as an opaque object handle.
   #
   proc isObjectHandle { value } {
+    # <help>
+    # This procedure returns non-zero if the specified value can be used as an
+    # opaque object handle, i.e. it names an object currently known to the
+    # interpreter.  It exists as a guard used throughout the object package so
+    # that other procedures can decide whether a value is a real handle before
+    # attempting to invoke members on it or otherwise treat it as a CLR object.
+    #
+    # How it works: it first asks the [object] command directly via [object
+    # exists]; if that succeeds and reports the object exists, it returns true.
+    # Otherwise it falls back to a pattern search: the value is escaped so that
+    # any glob-special characters (backslash, asterisk, dash, question mark,
+    # and the two square bracket characters) are treated literally, and that
+    # escaped pattern is passed to [info objects].  If exactly one object is
+    # found and its name equals the original value, it returns true.
+    #
+    # Tricky details: the careful escaping is essential because object handles
+    # can contain characters that [info objects] would otherwise interpret as
+    # glob wildcards, which could match the wrong object or multiple objects;
+    # requiring exactly one match whose name is identical to the value avoids
+    # false positives.  The [object exists] call is wrapped in [catch] so that
+    # a missing or unhappy [object] command does not raise an error here.
+    #
+    # Arguments:
+    #   value -- The candidate value to test for use as an object handle.
+    #
+    # Results:
+    #   True if the value names an existing object, false otherwise.
+    # </help>
+
     if {[catch {object exists $value} result] == 0 && $result} then {
       return true
     }
@@ -186,6 +359,35 @@ namespace eval ::Eagle {
   #       object value.
   #
   proc isNonNullObjectHandle { value } {
+    # <help>
+    # This procedure returns non-zero if the specified value can be used as an
+    # opaque object handle AND that handle does not represent a null object
+    # reference.  It exists because many operations are only meaningful on a
+    # live, non-null object; testing for a usable handle alone is not enough,
+    # since a handle may legitimately refer to a null reference.
+    #
+    # How it works: it first delegates to [isObjectHandle] and returns false
+    # immediately if the value is not a usable handle at all.  It then compares
+    # the value against the global "null" handle and returns false on a match.
+    # As a final check it asks the [object] command, via [object isnull],
+    # whether the underlying reference is null, returning false if so.  Only
+    # when all three checks pass does it return true.
+    #
+    # Tricky details: it relies on the global variable named null holding the
+    # canonical null object handle, and on the [object isnull] sub-command for
+    # the authoritative null test; that call is wrapped in [catch] so a
+    # failure there does not raise an error.  This procedure underpins others
+    # in this package (such as [getStringFromObjectHandle] and [isBasicType])
+    # that must not operate on null references.
+    #
+    # Arguments:
+    #   value -- The candidate value to test as a non-null object handle.
+    #
+    # Results:
+    #   True if the value is a usable object handle referring to a non-null
+    #   object, false otherwise.
+    # </help>
+
     if {![isObjectHandle $value]} then {
       return false
     }
@@ -209,6 +411,45 @@ namespace eval ::Eagle {
   #       (also) conforming to a particular subset of type codes.
   #
   proc isBasicType { value {subset basic} } {
+    # <help>
+    # This procedure returns non-zero if the object referenced by the
+    # specified value is of a CLR type that is losslessly convertible to a
+    # string and, optionally, belongs to a named subset of such types.  It
+    # exists so callers can decide whether an object's value can be treated as
+    # a simple scalar (and therefore safely round-tripped through string form)
+    # rather than requiring special object marshalling.
+    #
+    # How it works: it first requires the value to be a non-null object handle,
+    # returning false otherwise.  It obtains the object's CLR TypeCode via
+    # Convert GetTypeCode and then, based on the requested subset, builds a
+    # list of acceptable type codes.  The recognized subsets are: dbNull
+    # (DBNull only); integral (the boolean, character, and signed/unsigned
+    # integer codes); integral8 (the signed/unsigned integer codes only,
+    # excluding boolean and char); fixedPoint (Decimal); floatingPoint (Single
+    # and Double); string (String); dateTime (DateTime); and basic, which is
+    # the union of the boolean, char, all integers, the floating point and
+    # fixed point numerics, DateTime, and String.  It returns true when the
+    # object's type code is a member of the selected list.
+    #
+    # Tricky details: an unknown subset name produces an empty list of type
+    # codes, which causes the procedure to return false (with an explanatory
+    # note) rather than raising an error.  The default subset, basic, is the
+    # broadest set of simple, string-convertible types.  Because it relies on
+    # [isNonNullObjectHandle], a null reference always reports false.
+    #
+    # Arguments:
+    #   value  -- The value to test; it must be a non-null object handle for a
+    #             true result to be possible.
+    #   subset -- The optional name of the type-code subset to require.  One of
+    #             dbNull, integral, integral8, fixedPoint, floatingPoint,
+    #             string, dateTime, or basic.  Defaults to basic.  Any other
+    #             value causes a false result.
+    #
+    # Results:
+    #   True if the referenced object's CLR type code falls within the
+    #   selected subset, false otherwise.
+    # </help>
+
     if {![isNonNullObjectHandle $value]} then {
       return false
     }
@@ -264,6 +505,35 @@ namespace eval ::Eagle {
   #       a valid CLR type name.
   #
   proc isManagedType { name } {
+    # <help>
+    # This procedure returns non-zero if the specified name designates a valid,
+    # already-resolvable CLR type.  It exists as a lightweight existence test
+    # for type names, used (for example) by [canGetManagedType] to confirm
+    # that a candidate name truly resolves to a managed type before relying on
+    # it.
+    #
+    # How it works: it requires the [object] command to be present and the
+    # name not to be an object handle (a handle is an instance, not a type).
+    # It then asks the [object] command to enumerate the type's members
+    # matching the pattern Equals, by name only, using [object members] with
+    # the -matchnameonly, -nameonly, and -pattern options.  Because every CLR
+    # type inherits an Equals method from System.Object, a valid type name
+    # returns exactly the name Equals; the procedure returns true in that case.
+    #
+    # Tricky details: the Equals lookup is essentially a universal probe -- it
+    # works precisely because the Equals member exists on all types, so a
+    # successful, matching result is strong evidence that the name resolved to
+    # a real managed type.  The membership query is wrapped in [catch] so that
+    # an invalid name produces false rather than an error.  Anything that is
+    # already an object handle, or any failure, yields false.
+    #
+    # Arguments:
+    #   name -- The candidate CLR type name to validate.
+    #
+    # Results:
+    #   True if the name resolves to a valid managed type, false otherwise.
+    # </help>
+
     if {[llength [info commands object]] > 0} then {
       if {![isObjectHandle $name]} then {
         if {[catch {
@@ -283,6 +553,62 @@ namespace eval ::Eagle {
   #
   proc canGetManagedType {
           name allowExtra {typeVarName ""} {extraVarName ""} } {
+    # <help>
+    # This procedure determines whether the specified name can be resolved to
+    # a usable CLR type and, optionally, reports both the resolved type name
+    # and any trailing portion of the name that was not part of the type.  It
+    # exists to support callers that receive a dotted name which may be a type
+    # name alone, or a type name followed by an extra suffix (for example a
+    # member or nested path appended to a namespace-qualified type), and which
+    # need to split the two robustly using the engine's own type resolver.
+    #
+    # How it works: it requires the [object] command and that the name is not
+    # already an object handle.  It obtains the active interpreter's
+    # CultureInfo and calls the internal Value GetAnyType helper (via [object
+    # invoke] with -create, -alias, and the +NonPublic flag) to attempt to
+    # resolve the entire name.  If that succeeds (the returned code, as a
+    # string, equals Ok), the resolved type's AssemblyQualifiedName is stored
+    # and the "extra" portion is set to empty (the whole name was consumed);
+    # the procedure returns true only if [isManagedType] confirms the result.
+    # If full resolution fails AND allowExtra is true AND the name contains a
+    # dot, it progressively strips trailing dotted segments: starting from the
+    # second-to-last segment and working backward, it joins the leading
+    # segments into a candidate type name and tries to resolve that.  On the
+    # first candidate that resolves Ok, it records the candidate as the type
+    # name and the remaining trailing segments (re-joined with dots) as the
+    # extra portion, returning true if [isManagedType] agrees and otherwise
+    # stopping the search.
+    #
+    # Tricky details: the optional output variables are written in the
+    # caller's frame via [upvar 1], and only when their corresponding name
+    # arguments are non-empty.  When the full name resolves, the extra portion
+    # is the empty string; when a prefix resolves, the extra portion is the
+    # leftover dotted suffix.  Resolution uses non-public engine internals and
+    # passes null placeholders for several GetAnyType parameters; the returned
+    # code object is reduced to a string with [getStringFromObjectHandle] for
+    # comparison.  Object handles are explicitly rejected because they are
+    # instances, not type names.
+    #
+    # Arguments:
+    #   name        -- The candidate name to resolve to a CLR type.  May be a
+    #                  bare type name or, when allowExtra is set, a type name
+    #                  followed by a dotted trailing portion.
+    #   allowExtra  -- A boolean; when true, the procedure may resolve a dotted
+    #                  prefix of the name as the type and treat the remainder
+    #                  as an extra suffix.  When false, only the entire name is
+    #                  considered.
+    #   typeVarName -- Optional name of a variable in the caller's frame that
+    #                  receives the resolved type name.  Ignored when empty.
+    #   extraVarName -- Optional name of a variable in the caller's frame that
+    #                  receives the leftover trailing portion of the name (or
+    #                  the empty string when the whole name was the type).
+    #                  Ignored when empty.
+    #
+    # Results:
+    #   True if the name (or, with allowExtra, a dotted prefix of it) resolves
+    #   to a valid managed type, false otherwise.
+    # </help>
+
     if {[llength [info commands object]] > 0} then {
       if {![isObjectHandle $name]} then {
         set cultureInfo [object invoke Interpreter.GetActive CultureInfo]
@@ -361,6 +687,64 @@ namespace eval ::Eagle {
   #       for asynchronous evaluation, a script error will be raised.
   #
   proc evalAsync { doneScript args } {
+    # <help>
+    # This procedure submits a script for asynchronous evaluation on a
+    # background thread of the active interpreter and returns immediately,
+    # optionally arranging for a notification script to run when the
+    # asynchronous evaluation completes.  It exists to let scripts start work
+    # that runs concurrently with the current thread (for example long running
+    # or event-driven tasks) without blocking, while still being able to react
+    # to the eventual result through a completion callback.
+    #
+    # How it works: it first requires the [object] command, raising an error
+    # if it is unavailable.  It reads the core library's compile options from
+    # the global eagle_platform array and requires the THREADING option,
+    # because asynchronous evaluation would otherwise risk corrupting
+    # interpreter state.  It then forms the script to evaluate: if more than
+    # one trailing argument was given they are combined with [concat] (mirroring
+    # the behavior of [eval]), otherwise the single trailing argument is used
+    # verbatim.  If a non-empty completion script was supplied, it additionally
+    # requires the EMIT compile option (needed for the dynamic
+    # AsynchronousCallback delegate) and builds a callback specification that
+    # wraps the completion script in an anonymous procedure via [apply]; if no
+    # completion script was supplied, the callback is the null handle so the
+    # core marshaller handles the absence of a callback.  Finally it obtains
+    # the active interpreter handle, describes the parameter types of the
+    # EvaluateScript method, and invokes it with the +DynamicCallback marshal
+    # flag.  The returned code reflects only whether the script was accepted
+    # for asynchronous evaluation; if it is not Ok, a script error is raised
+    # using the string form of the error output parameter.
+    #
+    # Tricky details: the callback specification includes an -identifier built
+    # from a random value; this identifier is not interpreted by the library
+    # but is required so that concurrent calls to this procedure do not collide
+    # when their callbacks are later removed during cleanup.  The callback
+    # flags request that cancellation be reset and that the callback fire and
+    # forget.  The wrapping anonymous procedure receives the script and a
+    # context argument (the context is supplied by the library but is not used
+    # here) and simply evaluates the completion script one level up.  The
+    # interpreter handle is fetched with the +NoDispose object flag.  Note that
+    # this procedure returns once the script is submitted; the actual result of
+    # the asynchronous script is delivered only to the completion script, not
+    # to the caller of this procedure.
+    #
+    # Arguments:
+    #   doneScript -- The completion notification script, evaluated when the
+    #                 asynchronous evaluation finishes.  When empty, no
+    #                 completion notification is arranged and the EMIT option
+    #                 is not required.
+    #   args       -- The script to evaluate asynchronously.  When more than
+    #                 one argument is present they are joined via [concat];
+    #                 when exactly one is present it is used verbatim, as with
+    #                 [eval].
+    #
+    # Results:
+    #   The empty string upon successful submission.  A script error is raised
+    #   if the [object] command is missing, if the required compile options
+    #   (THREADING, or EMIT when a completion script is given) are absent, or
+    #   if the script could not be submitted for asynchronous evaluation.
+    # </help>
+
     #
     # NOTE: This procedure requires the [object] command in order to work.
     #       If it is not available, bail out now.

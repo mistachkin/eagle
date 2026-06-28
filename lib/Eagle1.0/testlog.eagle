@@ -26,6 +26,45 @@ namespace eval ::Eagle {
   #       context of the caller.
   #
   proc vwaitLocked { varName isArray script } {
+    # <help>
+    # This procedure evaluates a script in the caller's context while holding
+    # an exclusive lock on a specified variable, so that the script may read
+    # and modify that variable without interference from other threads.  It
+    # exists because Eagle variables can be shared across threads, and code
+    # that performs a read-modify-write on a shared variable (such as the test
+    # log queue) needs to do so atomically.  Under native Tcl, where this
+    # cross-thread locking does not apply, it degrades gracefully to simply
+    # evaluating the script.
+    #
+    # How it works: in Eagle, it uses [vwait] with the -force and -locked
+    # options to acquire a lock on the named variable and run the script while
+    # that lock is held.  There is a complication, however: when the variable
+    # is currently locked by another thread, [info exists] may report that it
+    # does not exist.  To keep [vwait -locked] from waiting forever for a
+    # variable that will never appear, the procedure first attempts to create
+    # the variable (as an empty array when isArray is true, or as an empty
+    # scalar otherwise) when it appears not to exist.  That creation is wrapped
+    # in [catch] because it will legitimately fail if another thread holds the
+    # lock; either outcome is acceptable.  Under native Tcl, none of this
+    # applies and the script is simply evaluated directly.  In all cases the
+    # script and the helper operations run in the immediate caller's frame via
+    # [uplevel 1].
+    #
+    # Arguments:
+    #   varName -- The name of the variable to lock (and, in Eagle, to wait
+    #              on) while the script runs.  It is resolved in the caller's
+    #              context.
+    #   isArray -- A boolean-like value indicating whether the variable is an
+    #              array; this governs how the variable is pre-created when it
+    #              appears not to exist.  An empty string suppresses the
+    #              pre-creation step.
+    #   script  -- The script to evaluate in the caller's context while the
+    #              variable is locked.
+    #
+    # Results:
+    #   The result of evaluating the script in the caller's context.
+    # </help>
+
     if {[isEagle]} then {
       #
       # HACK: The [info exists] sub-command may return false even if the
@@ -71,6 +110,30 @@ namespace eval ::Eagle {
   #       it to the test log queue.
   #
   proc tqputs { channel string } {
+    # <help>
+    # This procedure emits a string to an output channel and simultaneously
+    # adds that same string to the test log queue.  It is a convenience used
+    # by the test harness so that a single call both shows a message (for
+    # example, on the console) and records it for eventual inclusion in the
+    # test log file.  The channel is optional: passing an empty string
+    # suppresses the immediate output while still queueing the message.
+    #
+    # How it works: if the channel argument is a non-empty string, the message
+    # is written to it with [puts -nonewline] (so the caller controls any line
+    # breaks).  Regardless of whether anything was written to the channel, the
+    # message is then passed to [tqlog], which appends it to the in-memory test
+    # log queue for later flushing to the test log file.
+    #
+    # Arguments:
+    #   channel -- The output channel to write the message to, or an empty
+    #              string to skip the immediate output and only queue the
+    #              message.
+    #   string  -- The message to emit and queue.
+    #
+    # Results:
+    #   The result of the [tqlog] call (an empty string).
+    # </help>
+
     #
     # NOTE: If an output channel was provided, use it; otherwise, ignore
     #       the message.
@@ -89,6 +152,38 @@ namespace eval ::Eagle {
   #       never be written to the test log file.
   #
   proc tqlog { string } {
+    # <help>
+    # This procedure appends a message to the in-memory test log queue.  The
+    # queued messages are not written to the test log file immediately;
+    # instead, they accumulate until the next time the [tlog] procedure (from
+    # the test package) is called, at which point [tlog] flushes them into the
+    # test log file ahead of its own output.  Consequently, if [tlog] is never
+    # called, queued messages are never written to the file.  This deferred
+    # mechanism lets library code record diagnostic context that should appear
+    # in the log without itself needing access to (or knowledge of) the log
+    # file.
+    #
+    # How it works: an empty message is ignored outright.  Otherwise the
+    # special global array "test_log_queue" is updated under a lock (via
+    # [vwaitLocked], since this array is shared across threads).  The next
+    # available integer entry index is computed -- one past the current array
+    # size when the array already exists, or one for the first entry -- and the
+    # message is stored at that index.  The "test_log_queue" array is the
+    # agreed-upon hand-off point: this procedure's sole job is to populate it
+    # for later consumption by the test package.
+    #
+    # Tricky details: as of beta 47, the use of the "test_log_queue" global is
+    # thread-safe by virtue of the [vwaitLocked] wrapper, which serializes the
+    # read-modify-write of the array across threads.
+    #
+    # Arguments:
+    #   string -- The message to enqueue.  An empty string is silently
+    #             ignored and nothing is queued.
+    #
+    # Results:
+    #   Always an empty string.
+    # </help>
+
     #
     # NOTE: If an empty string is supplied by the caller, do nothing.
     #

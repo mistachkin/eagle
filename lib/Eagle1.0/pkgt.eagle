@@ -27,6 +27,54 @@ namespace eval ::Eagle {
   #       default values.
   #
   proc setupPackageToolsetVars { force {cleanup false} } {
+    # <help>
+    # This procedure establishes the default values for all of the
+    # configuration parameters used by the rest of this package, storing them
+    # as namespace variables of the enclosing namespace.  These parameters are
+    # almost entirely URIs and URN fragments that describe where the various
+    # remote resources (the Package Client Toolset, native TclKit and Tcl/Tk
+    # DLLs, the Security Toolset, license certificate requests, the remote
+    # sandbox, example scripts, the remote package index, and the external IP
+    # address service) may be obtained.  It exists so that every other
+    # procedure here can simply call it and then read the variables it needs,
+    # rather than hard-coding endpoints in many places; centralizing the
+    # defaults also makes them easy to override or to clear.
+    #
+    # How it works: for each parameter it declares a namespace variable and
+    # then, guided by the two arguments, either removes the variable, forcibly
+    # resets it to its default, or leaves an already-set value alone.  When the
+    # cleanup argument is true the variable is simply unset (via unset with the
+    # no-complain behavior).  Otherwise, when force is true OR the variable does
+    # not yet exist, it is assigned its default value; an existing value is
+    # preserved when force is false.  This three-way pattern is repeated once
+    # per parameter.
+    #
+    # Tricky details: several of the default values are deliberately stored as
+    # literal, un-substituted strings containing dollar-sign references (for
+    # example the URI templates that refer to a base URI and a URN).  Those
+    # templates are expanded later, by the consuming procedures, using the
+    # subst command once the URN for a particular request is known; this is why
+    # they must be assigned as brace-quoted literals here and not expanded at
+    # setup time.  The base URI default differs by engine: under Eagle it comes
+    # from a helper that requires the update package, while under native Tcl a
+    # fixed fallback URI is used.  Some parameters are lists of URN fragments
+    # from which a consumer selects one at random to spread load across servers.
+    #
+    # Arguments:
+    #   force   -- A boolean.  When true, every parameter (that is not being
+    #              cleaned up) is reset to its default value, overwriting any
+    #              existing value.  When false, only parameters that do not
+    #              already exist are assigned their defaults.
+    #   cleanup -- An optional boolean (default false).  When true, every
+    #              parameter variable is unset instead of being assigned, which
+    #              removes the package's configuration from the namespace; in
+    #              this mode the force argument is ignored.
+    #
+    # Results:
+    #   The empty string.  The procedure operates entirely through side effects
+    #   on the namespace variables.
+    # </help>
+
     #
     # NOTE: Using the [getAuxiliaryBaseUri] procedure requires the update
     #       package.
@@ -279,6 +327,43 @@ namespace eval ::Eagle {
   #
   proc downloadAndExtractPackageClientToolset {
           {channel stdout} {quiet false} } {
+    # <help>
+    # This procedure downloads the Package Client Toolset archive from the
+    # configured remote URI and extracts it into a per-package install
+    # directory on the local file system.  It exists to bootstrap the package
+    # repository client onto a machine that does not already have it, and it is
+    # the natural companion of the [loadPackageClientToolset] procedure, which
+    # loads what this procedure installs.
+    #
+    # How it works: it first ensures the configuration parameters are set up,
+    # then imports the variables describing the toolset URI and URN.  It
+    # requires the test and unzip support packages, computes a stable install
+    # root via the package install path helper, expands the toolset URI
+    # template with subst, and downloads the archive to a temporary file.
+    # Under Eagle the built-in uri download command is used; under native Tcl
+    # it falls back to an HTTP helper from the common tools package and writes
+    # the bytes itself.  The temporary archive is then extracted, the archive
+    # file is deleted, and a path pointing at the client files beneath the
+    # extracted tree is returned.
+    #
+    # Tricky details: the returned path appends a fixed set of sub-directory
+    # components (the repository directory, then client, then a version and a
+    # platform-neutral component) that mirror the known layout inside the
+    # archive; callers normally add this directory to the auto-path.  The
+    # download may raise script errors (network failure, extraction failure,
+    # and so on), which are intentionally not caught here.
+    #
+    # Arguments:
+    #   channel -- An optional output channel (default stdout) used only by the
+    #              native Tcl HTTP fallback to emit diagnostic information.
+    #   quiet   -- An optional boolean (default false); when true it suppresses
+    #              the diagnostic output produced by the native Tcl fallback.
+    #
+    # Results:
+    #   The full path to the directory that should be added to the auto-path so
+    #   that the package client toolset can be loaded.
+    # </help>
+
     setupPackageToolsetVars false
 
     variable baseUri
@@ -320,6 +405,27 @@ namespace eval ::Eagle {
   #       should be used in order to force package indexes to be refreshed.
   #
   proc getBogusPackageName {} {
+    # <help>
+    # This procedure builds and returns a package name that is intended never
+    # to correspond to a real package.  It exists to support forcing a re-scan
+    # of the available package indexes: asking for a package that cannot
+    # possibly exist causes the package subsystem to consult every package
+    # index without actually loading anything.  It is used by the
+    # [forceScanOfPackages] procedure.
+    #
+    # How it works: it concatenates a fixed prefix with the current time in
+    # seconds (with any leading minus sign trimmed), yielding a name that
+    # varies over time and is therefore extremely unlikely to collide with any
+    # genuinely registered package.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   A string suitable for use as an almost-certainly nonexistent package
+    #   name.
+    # </help>
+
     return [appendArgs bogus_package_ [string trim [clock seconds] -]]
   }
 
@@ -328,6 +434,36 @@ namespace eval ::Eagle {
   #       available package indexes.
   #
   proc forceScanOfPackages {} {
+    # <help>
+    # This procedure forces a re-scan of all available package index files so
+    # that subsequently querying for package versions or names reflects every
+    # index currently on the auto-path.  It exists because, by default, the
+    # package subsystem may not have visited every index yet, which can make
+    # queries about not-yet-loaded packages (for example via package versions)
+    # come up empty; deliberately requesting a nonexistent package side-steps
+    # that by provoking a full scan.
+    #
+    # How it works: it obtains an almost-certainly bogus package name from
+    # [getBogusPackageName] and then attempts to resolve it.  Under Eagle it
+    # directly invokes the internal package-unknown handler; under native Tcl
+    # it issues an ordinary package require for the bogus name.  Either way the
+    # request is expected to fail, so it is wrapped in catch to swallow the
+    # resulting error.
+    #
+    # Tricky details: the Eagle path must run the handler in a context where
+    # the special global directory variable maintained by the index-loading
+    # subsystem is visible, and any package index file consulted during the
+    # scan could itself raise an error; the catch protects against both the
+    # expected lookup failure and any such incidental errors.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The empty string.  The useful effect is the side effect of having
+    #   scanned the package indexes.
+    # </help>
+
     #
     # NOTE: Build an obviously (?) bogus package name that will be used
     #       in order to force the package indexes to be refreshed.
@@ -369,6 +505,70 @@ namespace eval ::Eagle {
           {directory auto} {apiKeys ""} {hookUnknown true} {enableSecurity true}
           {isolateSecurity false} {strictSecurity false} {fetchKeyRing false}
           {debug false} } {
+    # <help>
+    # This procedure loads the package repository client (via package require)
+    # and configures the surrounding environment so that remote package lookups
+    # work.  It is the companion to [downloadAndExtractPackageClientToolset]: that
+    # procedure installs the toolset, while this one makes it usable in the
+    # current interpreter.  It handles locating the client directory, optionally
+    # adding it to the auto-path, registering API keys, enabling Eagle's signed
+    # script security, optionally fetching a keyring, and arranging for the
+    # remote package-unknown handler to be active.
+    #
+    # How it works: if the directory argument is the literal auto, it first
+    # forces a package index re-scan and checks whether the repository client
+    # package is already known; if not, it searches the temporary install tree
+    # for a matching directory and selects the first match, appending the known
+    # client sub-directory components.  If a directory is then in hand it is
+    # appended to the global auto-path, but only when not already present, to
+    # avoid triggering redundant auto-path rescans.  When the debug argument is
+    # set, several debug-related environment variables are set.  Any supplied
+    # API keys are appended to the client's global API key list.  Under Eagle,
+    # when security is requested it sources the security-enable script, and when
+    # a keyring is requested it runs the keyring debug command; either of these
+    # can optionally be performed with the security plugin temporarily forced
+    # into isolated mode, with the prior plugin flags restored afterward in a
+    # finally clause.  Finally it requires the repository client package.
+    #
+    # Tricky details: the security and keyring steps are wrapped in catch and a
+    # failure is only re-raised when strict security is requested; otherwise
+    # failures are tolerated so the client can still load where security is
+    # unavailable.  When hooking the unknown handler under Eagle, an
+    # interpreter flag that suppresses package-unknown handling must be
+    # disabled first.  The security-enable source and the keyring command are
+    # both evaluated in the caller's frame so they affect the caller's
+    # interpreter state.  When directory discovery finds nothing the directory
+    # is cleared, which simply skips the auto-path modification.
+    #
+    # Arguments:
+    #   directory       -- The directory containing the client files, or the
+    #                       literal auto (the default) to request automatic
+    #                       discovery; the empty string skips auto-path changes.
+    #   apiKeys         -- An optional list of API keys (default empty) to add
+    #                       to the client's configured API key list.
+    #   hookUnknown     -- An optional boolean (default true); when true the
+    #                       remote package-unknown handler is enabled (under
+    #                       Eagle this also disables a suppressing flag).
+    #   enableSecurity  -- An optional boolean (default true); when true and
+    #                       running under Eagle, signed script security is
+    #                       enabled.
+    #   isolateSecurity -- An optional boolean (default false); when true the
+    #                       security and keyring operations run with the plugin
+    #                       temporarily flagged as isolated.
+    #   strictSecurity  -- An optional boolean (default false); when true a
+    #                       failure of the security or keyring step is fatal
+    #                       rather than tolerated.
+    #   fetchKeyRing    -- An optional boolean (default false); when true and
+    #                       running under Eagle, an official keyring is fetched.
+    #   debug           -- An optional boolean (default false); when true,
+    #                       diagnostic environment variables are set.
+    #
+    # Results:
+    #   The result of requiring the repository client package (typically its
+    #   version).  Script errors may be raised, most commonly when the client
+    #   package cannot be found or loaded.
+    # </help>
+
     #
     # NOTE: When running in Eagle, namespace support must be available and
     #       enabled.
@@ -555,6 +755,38 @@ namespace eval ::Eagle {
   #
   proc downloadAndExtractNativeTclKitDll {
           {channel stdout} {quiet false} } {
+    # <help>
+    # This procedure downloads a native TclKit DLL appropriate for the current
+    # platform and extracts it into a per-platform install directory, returning
+    # the path to the extracted shared library.  It exists to obtain the native
+    # TclKit runtime needed when hosting Tcl from Eagle (or otherwise) without
+    # requiring the user to locate and install it manually.
+    #
+    # How it works: it ensures the configuration parameters are set up, imports
+    # the TclKit URI and URN variables, and requires the test and unzip support
+    # packages.  It determines a platform token from the machine architecture,
+    # builds a platform-specific install root, and expands the URN and URI
+    # templates with subst.  The archive is downloaded to a temporary file
+    # (using the built-in uri download under Eagle, or an HTTP helper plus a
+    # file write under native Tcl), extracted, and the temporary archive
+    # deleted.  Finally it globs for the shared library beneath the extracted
+    # library directory and returns the first match.
+    #
+    # Tricky details: the shared library extension is obtained dynamically so
+    # the same code works across operating systems.  The download may raise
+    # script errors, which are not caught here.  If extraction produces no
+    # matching library the returned value is the empty string.
+    #
+    # Arguments:
+    #   channel -- An optional output channel (default stdout) used only by the
+    #              native Tcl HTTP fallback for diagnostic information.
+    #   quiet   -- An optional boolean (default false); when true it suppresses
+    #              the native Tcl fallback's diagnostic output.
+    #
+    # Results:
+    #   The full path to the extracted native TclKit DLL file.
+    # </help>
+
     setupPackageToolsetVars false
 
     variable baseUri
@@ -607,6 +839,41 @@ namespace eval ::Eagle {
   #
   proc downloadAndExtractNativeTclTkDlls {
           {channel stdout} {quiet false} } {
+    # <help>
+    # This procedure downloads a set of native Tcl/Tk DLLs appropriate for the
+    # current platform and extracts them into a per-platform install directory,
+    # returning the path to one of the extracted shared libraries.  It exists to
+    # obtain a complete native Tcl/Tk runtime without manual installation, and
+    # it closely parallels [downloadAndExtractNativeTclKitDll], differing only in
+    # which configured URI and URN it uses and where the libraries land inside
+    # the archive.
+    #
+    # How it works: it ensures the configuration parameters are set up, imports
+    # the Tcl/Tk URI and URN variables, requires the test and unzip support
+    # packages, determines a platform token from the machine architecture, and
+    # builds a platform-specific install root.  After expanding the URN and URI
+    # templates with subst, it downloads the archive to a temporary file (the
+    # built-in uri download under Eagle, or an HTTP helper plus a file write
+    # under native Tcl), extracts it, and deletes the temporary archive.  It
+    # then globs for a shared library beneath the extracted IronTcl binary
+    # directory and returns the first match.
+    #
+    # Tricky details: the shared library extension is obtained dynamically for
+    # cross-platform behavior.  Although a full set of DLLs is extracted, only a
+    # single representative library path is returned; callers typically use its
+    # containing directory.  The download may raise script errors, which are not
+    # caught here, and the result is the empty string if no library matches.
+    #
+    # Arguments:
+    #   channel -- An optional output channel (default stdout) used only by the
+    #              native Tcl HTTP fallback for diagnostic information.
+    #   quiet   -- An optional boolean (default false); when true it suppresses
+    #              the native Tcl fallback's diagnostic output.
+    #
+    # Results:
+    #   The full path to one of the extracted native Tcl/Tk DLL files.
+    # </help>
+
     setupPackageToolsetVars false
 
     variable baseUri
@@ -659,6 +926,43 @@ namespace eval ::Eagle {
   #
   proc downloadAndExtractSecurityToolset {
           {channel stdout} {quiet false} } {
+    # <help>
+    # This procedure downloads and extracts the Security Toolset, which contains
+    # the Harpy and Badge plugins used for Eagle's signed script security, and
+    # returns the directory that should contain those plugins' version-specific
+    # sub-directories.  It exists to install the security plugins for the build
+    # flavor matching the running interpreter.
+    #
+    # How it works: it ensures the configuration parameters are set up, imports
+    # the security toolset URI and URN variables, and requires the test and
+    # unzip support packages.  It determines a platform token from the Eagle
+    # platform text (falling back to a default flavor when that information is
+    # unavailable), builds a per-platform install root, derives a build
+    # sub-directory name by mapping the framework token to a shorter form, and
+    # expands the URN and URI templates with subst.  The archive is downloaded
+    # to a temporary file (the built-in uri download under Eagle, or an HTTP
+    # helper plus a file write under native Tcl), extracted, and the temporary
+    # archive deleted.  It then returns the library directory under the
+    # build-specific path within the extracted tree.
+    #
+    # Tricky details: the platform token is lower-cased, and the build
+    # sub-directory is computed by removing a fixed substring from that token
+    # (for example turning a dot-net-framework token into a shorter net token);
+    # this mapping is performed with string map.  The default platform used when
+    # no Eagle platform text is present is a deliberate best-guess fallback.
+    # The download may raise script errors, which are not caught here.
+    #
+    # Arguments:
+    #   channel -- An optional output channel (default stdout) used only by the
+    #              native Tcl HTTP fallback for diagnostic information.
+    #   quiet   -- An optional boolean (default false); when true it suppresses
+    #              the native Tcl fallback's diagnostic output.
+    #
+    # Results:
+    #   The full path to a directory that should contain the version-specific
+    #   Harpy and Badge plugin directories.
+    # </help>
+
     setupPackageToolsetVars false
 
     variable baseUri
@@ -721,6 +1025,58 @@ namespace eval ::Eagle {
   #
   proc requestLicenseCertificate {
           {channel stdout} {quiet false} } {
+    # <help>
+    # This procedure requests a license certificate for Eagle (covering the
+    # Harpy and Badge plugins) from the Eagle license server and saves the
+    # issued certificate to a temporary, process-specific directory, returning
+    # its file name.  It exists to automate obtaining the certificate that the
+    # security plugins need in order to load.  Be aware that, as the surrounding
+    # warning comment in the source notes, this contacts an external service and
+    # transmits the current user's short name and display name; excessive or
+    # rapid requests may be treated as abusive and can lead to bans or
+    # revocation of previously issued certificates.
+    #
+    # How it works: it ensures the configuration parameters are set up, imports
+    # the license URI and URN variables, and requires the test package.  It
+    # computes a temporary directory prefix that embeds the current process id.
+    # Unless a specific override environment variable is set, it first searches
+    # for any certificate files already present in such per-process directories;
+    # if one is found it emits a carefully worded warning (via the host result
+    # under Eagle or standard error under native Tcl) explaining how to force a
+    # new request and how the certificate should subsequently be stored and
+    # referenced, then returns the first pre-existing certificate rather than
+    # making another request.  Otherwise it selects a license endpoint (a random
+    # URN expanded against the license URI, or an override URI from the
+    # environment), determines the user and display names (from override
+    # environment variables, then platform-specific lookups, then a placeholder
+    # fallback), appends those as properly escaped query parameters, and submits
+    # the request.  On a successful response it writes the returned certificate
+    # to a temporary file, copies it into a freshly created per-process
+    # directory, removes the temporary file, and returns the new file name.
+    #
+    # Tricky details: query parameter escaping and the request transport differ
+    # by engine (Eagle uses its uri commands and inet-address parsing, native
+    # Tcl uses the http package and a common-tools HTTP helper).  The user and
+    # display name lookups attempt operating-system calls that are wrapped in
+    # catch so that any failure falls back to platform array values or fixed
+    # placeholder strings; the server does not depend on these values being
+    # accurate.  The response is parsed as a dictionary and a non-Ok return code
+    # raises an error that includes the server-provided detail when available.
+    # Both the override and request mechanisms rely on specific environment
+    # variable names referenced in the body.
+    #
+    # Arguments:
+    #   channel -- An optional output channel (default stdout) used only by the
+    #              native Tcl HTTP fallback for diagnostic information.
+    #   quiet   -- An optional boolean (default false); when true it suppresses
+    #              the native Tcl fallback's diagnostic output.
+    #
+    # Results:
+    #   The fully qualified file name of the license certificate, either a newly
+    #   issued one or a pre-existing one found for this process.  Script errors
+    #   may be raised when the request fails.
+    # </help>
+
     setupPackageToolsetVars false
 
     variable baseUri
@@ -933,6 +1289,51 @@ namespace eval ::Eagle {
   #
   proc evaluateInRemoteSandbox {
           script {apiKey ""} {params ""} {channel stdout} {quiet false} } {
+    # <help>
+    # This procedure submits a script to a remote safe sandbox for evaluation
+    # and returns the sandbox's response as a dictionary.  It exists to let
+    # callers run scripts in a controlled, isolated remote environment rather
+    # than locally, optionally using an API key that may grant additional
+    # permissions in that sandbox.
+    #
+    # How it works: it ensures the configuration parameters are set up and
+    # imports the sandbox evaluation URI and URN variables.  It selects the
+    # endpoint (an override URI from the environment, or a random URN expanded
+    # against the sandbox URI).  It builds a query containing flags that request
+    # raw, go-now behavior plus the script, appends the API key when one is
+    # supplied, and appends any extra caller-provided name and value pairs.
+    # Under Eagle it uploads the query and returns the inline response directly;
+    # under native Tcl it requires the http and common-tools packages and posts
+    # the formatted query via an HTTP helper, returning that result.
+    #
+    # Tricky details: the params argument is treated as a flat list of
+    # alternating names and values and is appended onto the query via list
+    # expansion, so it must be a well-formed even-length list.  The returned
+    # dictionary is expected to contain at least the keys for a return code, a
+    # result, and an error line; the return code is one of the usual completion
+    # codes (such as the ok, error, return, break, or continue codes) or a
+    # signed integer, the result is the script's textual result or an error
+    # message, and the error line is zero or the line of a raised error.  This
+    # procedure may raise script errors at the transport level (as opposed to
+    # script errors that occur inside the sandbox, which are reported in the
+    # returned dictionary).
+    #
+    # Arguments:
+    #   script  -- The script text to evaluate in the remote sandbox.
+    #   apiKey  -- An optional API key (default empty); when non-empty it is
+    #              added to the request and may enable extra permissions.
+    #   params  -- An optional flat list (default empty) of additional query
+    #              names and values to include in the submission.
+    #   channel -- An optional output channel (default stdout) used only by the
+    #              native Tcl HTTP fallback for diagnostic information.
+    #   quiet   -- An optional boolean (default false); when true it suppresses
+    #              the native Tcl fallback's diagnostic output.
+    #
+    # Results:
+    #   A dictionary describing the sandbox evaluation, including at least the
+    #   return code, result, and error line entries described above.
+    # </help>
+
     setupPackageToolsetVars false
 
     variable baseUri
@@ -995,6 +1396,44 @@ namespace eval ::Eagle {
   #
   proc listExampleScripts {
           {apiKey ""} {channel stdout} {quiet false} } {
+    # <help>
+    # This procedure queries the remote repository for the list of named example
+    # scripts that are available and returns that list.  It exists so callers
+    # can discover which example scripts may be fetched (for instance via
+    # [downloadExampleScript]) before requesting one.
+    #
+    # How it works: it ensures the configuration parameters are set up and
+    # imports the script URI and URN variables.  It selects the endpoint (an
+    # override URI from the environment, or a random URN expanded against the
+    # script URI) and builds a query requesting a raw listing, appending the API
+    # key when one is supplied.  Under Eagle it manually assembles the full URI
+    # by appending properly escaped query parameters (inserting a question mark
+    # or ampersand as appropriate) and downloads the inline response; under
+    # native Tcl it requires the http and common-tools packages and fetches the
+    # response with a formatted query via an HTTP helper.  It then validates the
+    # response and returns the listing.
+    #
+    # Tricky details: an empty response is treated as a failure without server
+    # detail, and a response that is not a well-formed list of at least two
+    # elements is treated as a failure with detail.  The response is interpreted
+    # as a two-element pair whose first element is a status code and whose second
+    # is the payload; a status code other than the success token causes the
+    # payload to be raised as an error.  Only on success is the payload (the
+    # list of example scripts) returned.
+    #
+    # Arguments:
+    #   apiKey  -- An optional API key (default empty); when non-empty it is
+    #              added to the request and may enable extra permissions.
+    #   channel -- An optional output channel (default stdout) used only by the
+    #              native Tcl HTTP fallback for diagnostic information.
+    #   quiet   -- An optional boolean (default false); when true it suppresses
+    #              the native Tcl fallback's diagnostic output.
+    #
+    # Results:
+    #   The list of all available example scripts.  Script errors may be raised
+    #   when the request fails or the server reports an error.
+    # </help>
+
     setupPackageToolsetVars false
 
     variable baseUri
@@ -1083,6 +1522,47 @@ namespace eval ::Eagle {
   #
   proc downloadExampleScript {
           script {apiKey ""} {channel stdout} {quiet false} } {
+    # <help>
+    # This procedure downloads a single named example script from the remote
+    # repository, saves it to a temporary file, and returns that file name.  It
+    # exists as the fetch counterpart to [listExampleScripts]: once a desired
+    # example name is known, this retrieves its contents (and, when present, its
+    # accompanying Harpy signature) to the local file system.
+    #
+    # How it works: it ensures the configuration parameters are set up, imports
+    # the script URI and URN variables, and requires the test package.  It
+    # selects the endpoint (an override URI from the environment, or a random
+    # URN expanded against the script URI), allocates a temporary file name, and
+    # builds a query that requests the named script in raw form, appending the
+    # API key when one is supplied.  Under Eagle it assembles the full URI with
+    # properly escaped query parameters and downloads the inline response; under
+    # native Tcl it uses the http and common-tools packages to fetch the
+    # response with a formatted query.  After validating the response it writes
+    # the script contents to the temporary file and, when a signature is
+    # present, writes it to a companion file whose name is the script file name
+    # with a Harpy-signature suffix.
+    #
+    # Tricky details: an empty response is a failure without detail, and a
+    # response that is not a list of at least two elements is a failure with
+    # detail.  The response is treated as a code, a result, and an optional
+    # signature element; a non-success code raises the result as an error.  The
+    # signature is only written when actually present, so the companion file may
+    # or may not be created.
+    #
+    # Arguments:
+    #   script  -- The name of the example script to download.
+    #   apiKey  -- An optional API key (default empty); when non-empty it is
+    #              added to the request and may enable extra permissions.
+    #   channel -- An optional output channel (default stdout) used only by the
+    #              native Tcl HTTP fallback for diagnostic information.
+    #   quiet   -- An optional boolean (default false); when true it suppresses
+    #              the native Tcl fallback's diagnostic output.
+    #
+    # Results:
+    #   The full path to the saved example script file.  Script errors may be
+    #   raised when the request fails or the server reports an error.
+    # </help>
+
     setupPackageToolsetVars false
 
     variable baseUri
@@ -1189,6 +1669,51 @@ namespace eval ::Eagle {
   #
   proc downloadPackageIndexScript {
           {apiKey ""} {channel stdout} {quiet false} } {
+    # <help>
+    # This procedure downloads the remote package index script and saves it (as
+    # a package index file, optionally with its Harpy signature) into a freshly
+    # created temporary directory, returning that directory.  It exists to bring
+    # the repository's package index onto the local auto-path so that remotely
+    # published packages become discoverable.
+    #
+    # How it works: it ensures the configuration parameters are set up, imports
+    # the package index URI and URN variables, and requires the test package.
+    # It selects the endpoint (an override URI from the environment, or a random
+    # URN expanded against the package index URI) and creates a clean temporary
+    # directory to hold the index file (named for a package index file).  It
+    # builds a query requesting that file in raw form, appending the API key
+    # when one is supplied.  Under Eagle it assembles the full URI with escaped
+    # query parameters and downloads the inline response; under native Tcl it
+    # uses the http and common-tools packages.  After validating the response it
+    # writes the index file and, when a signature is present, a companion Harpy
+    # signature file, then returns the directory containing them.
+    #
+    # Tricky details: the temporary path is first created as a file name, then
+    # turned into a directory by deleting and re-creating it as a directory;
+    # under Eagle a cleanup step marks the path (and later the written files) for
+    # removal.  An empty response is a failure without detail, and a response
+    # that is not a list of at least two elements is a failure with detail.  The
+    # response is treated as a code, a result, and an optional signature; a
+    # non-success code raises the result as an error.  Note that, despite the
+    # surrounding NOTE text mentioning an auto-path option, this procedure
+    # always returns the directory containing the saved index rather than
+    # evaluating it.
+    #
+    # Arguments:
+    #   apiKey  -- An optional API key (default empty); when non-empty it is
+    #              added to the request and may enable extra permissions.
+    #   channel -- An optional output channel (default stdout) used only by the
+    #              native Tcl HTTP fallback for diagnostic information.
+    #   quiet   -- An optional boolean (default false); when true it suppresses
+    #              the native Tcl fallback's diagnostic output.
+    #
+    # Results:
+    #   The full path to the temporary directory containing the saved package
+    #   index script (and its signature file, when one was provided).  Script
+    #   errors may be raised when the request fails or the server reports an
+    #   error.
+    # </help>
+
     setupPackageToolsetVars false
 
     variable baseUri
@@ -1307,6 +1832,43 @@ namespace eval ::Eagle {
   #
   proc getExternalIpAddress {
           {apiKey ""} {channel stdout} {quiet false} } {
+    # <help>
+    # This procedure queries a remote service for the caller's current external
+    # IPv4 or IPv6 address and returns it.  It exists to let a script discover
+    # how it appears to the outside world (for example, the public address
+    # behind a NAT), using the same repository infrastructure as the other
+    # remote helpers here.
+    #
+    # How it works: it ensures the configuration parameters are set up and
+    # imports the IP URI and URN variables.  It selects the endpoint (an
+    # override URI from the environment, or a random URN expanded against the IP
+    # URI) and builds a query requesting a raw response, appending the API key
+    # when one is supplied.  Under Eagle it assembles the full URI with escaped
+    # query parameters and downloads the trimmed inline response; under native
+    # Tcl it uses the http and common-tools packages to fetch and trim the
+    # response.  It then validates the result and returns the address.
+    #
+    # Tricky details: the response is trimmed of surrounding whitespace.  An
+    # empty response is treated as a failure without server detail.  Under
+    # Eagle the result is additionally validated as a well-formed internet
+    # address, and a value that does not parse as one is raised as an error that
+    # includes the server-provided text; this extra validation is only performed
+    # under Eagle.
+    #
+    # Arguments:
+    #   apiKey  -- An optional API key (default empty); when non-empty it is
+    #              added to the request and may enable extra permissions.
+    #   channel -- An optional output channel (default stdout) used only by the
+    #              native Tcl HTTP fallback for diagnostic information.
+    #   quiet   -- An optional boolean (default false); when true it suppresses
+    #              the native Tcl fallback's diagnostic output.
+    #
+    # Results:
+    #   The current external IPv4 or IPv6 address as a string.  Script errors
+    #   may be raised when the request fails or the response is not a valid
+    #   address.
+    # </help>
+
     setupPackageToolsetVars false
 
     variable baseUri

@@ -68,6 +68,9 @@ namespace Eagle._Constants
         public static readonly string Overwrite = "overwrite";
 
         public static readonly string Clean = "clean";
+
+        public static readonly string NotAfter = "notAfter";
+        public static readonly string NotBefore = "notBefore";
     }
 
     ///////////////////////////////////////////////////////////////////////////

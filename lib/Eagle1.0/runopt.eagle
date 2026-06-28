@@ -25,6 +25,41 @@ namespace eval ::Eagle {
   #       is currently set.
   #
   proc hasRuntimeOption { name {default false} } {
+    # <help>
+    # This procedure reports whether a named runtime option is currently set.
+    # Runtime options are interpreter-level flags used to enable or disable
+    # various behaviors; this procedure provides a uniform way to query them
+    # that works across Eagle, the Garuda native Tcl extension, and plain
+    # native Tcl.
+    #
+    # How it works: under Eagle it tries the most direct mechanism first --
+    # the [debug runtimeoption has] sub-command (when that command and
+    # sub-command are available) -- and, failing that, falls back to invoking
+    # the HasRuntimeOption method on the active interpreter via the [object]
+    # command.  Under native Tcl, if the [eagle] command is present (meaning
+    # the Garuda extension is loaded) the query is forwarded into Eagle;
+    # otherwise it consults a simulated set of options stored in the global
+    # eagle_platform(runtimeOptions) list, but only when the feature has been
+    # explicitly enabled via the tclHasRuntimeOption environment variable and
+    # not disabled via the matching "no" array element.  When the native Tcl
+    # path is reached but not enabled, it either raises an error (when
+    # configured to do so) or silently does nothing.
+    #
+    # Tricky details: every internal attempt is wrapped so that, if it cannot
+    # produce a definitive answer, control falls through to the default value
+    # rather than failing; the procedure only returns a real answer when one
+    # of the mechanisms actually succeeds.
+    #
+    # Arguments:
+    #   name    -- The name of the runtime option to query.
+    #   default -- The value to return when the option's state cannot be
+    #              determined by any available mechanism.  Defaults to false.
+    #
+    # Results:
+    #   Non-zero (true) if the option is set, zero (false) if it is not, or
+    #   the default value when the state cannot be determined.
+    # </help>
+
     if {[isEagle]} then {
       if {[llength [info commands debug]] > 0} then {
         if {[llength [info subcommands debug runtimeoption]] > 0} then {
@@ -71,6 +106,34 @@ namespace eval ::Eagle {
   #       currently set.
   #
   proc listRuntimeOptions { {default ""} } {
+    # <help>
+    # This procedure returns the list of runtime options that are currently
+    # set.  It is the enumeration counterpart to [hasRuntimeOption] and uses
+    # the same multi-engine strategy so that callers obtain a consistent view
+    # of the active options under Eagle, Garuda, or plain native Tcl.
+    #
+    # How it works: under Eagle it first tries [debug runtimeoption get]
+    # (when that command and sub-command are available) and otherwise falls
+    # back to the active interpreter's RuntimeOptions.ToString member via the
+    # [object] command.  Under native Tcl, if the [eagle] command is present
+    # the request is forwarded into Eagle; otherwise it returns the simulated
+    # eagle_platform(runtimeOptions) list, but only when enabled via the
+    # tclListRuntimeOptions environment variable and not disabled via the
+    # matching "no" array element.  When the native Tcl path is reached but
+    # not enabled, it either raises an error (when configured) or does
+    # nothing.  Any attempt that cannot produce a result falls through to the
+    # default value.
+    #
+    # Arguments:
+    #   default -- The value to return when the set of options cannot be
+    #              determined by any available mechanism.  Defaults to an
+    #              empty string.
+    #
+    # Results:
+    #   The list (or string representation) of currently set runtime options,
+    #   or the default value when it cannot be determined.
+    # </help>
+
     if {[isEagle]} then {
       if {[llength [info commands debug]] > 0} then {
         if {[llength [info subcommands debug runtimeoption]] > 0} then {
@@ -115,6 +178,33 @@ namespace eval ::Eagle {
   #       returns non-zero if it was actually added.
   #
   proc addRuntimeOption { name } {
+    # <help>
+    # This procedure attempts to add (set) a named runtime option, returning
+    # an indication of whether it was actually added.  It mirrors the
+    # multi-engine strategy of the other runtime option procedures so that
+    # options can be enabled uniformly under Eagle, Garuda, or plain native
+    # Tcl.
+    #
+    # How it works: under Eagle it first tries [debug runtimeoption add]
+    # (when available) and otherwise calls the active interpreter's
+    # AddRuntimeOption method via the [object] command.  Under native Tcl, if
+    # the [eagle] command is present the request is forwarded into Eagle;
+    # otherwise, when enabled via the tclAddRuntimeOption environment variable
+    # and not disabled via the matching "no" array element, it appends the
+    # option to the simulated eagle_platform(runtimeOptions) list provided the
+    # option is not already present, returning true only when it actually
+    # added it.  When the native Tcl path is reached but not enabled, it
+    # either raises an error (when configured) or does nothing.
+    #
+    # Arguments:
+    #   name -- The name of the runtime option to add.
+    #
+    # Results:
+    #   Non-zero (true) if the option was actually added by the succeeding
+    #   mechanism; otherwise false, including when the option was already set
+    #   or when no mechanism could perform the addition.
+    # </help>
+
     if {[isEagle]} then {
       if {[llength [info commands debug]] > 0} then {
         if {[llength [info subcommands debug runtimeoption]] > 0} then {
@@ -162,6 +252,31 @@ namespace eval ::Eagle {
   #       and returns non-zero if it was actually removed.
   #
   proc removeRuntimeOption { name } {
+    # <help>
+    # This procedure attempts to remove (clear) a named runtime option,
+    # returning an indication of whether it was actually removed.  It is the
+    # inverse of [addRuntimeOption] and uses the same multi-engine strategy.
+    #
+    # How it works: under Eagle it first tries [debug runtimeoption remove]
+    # (when available) and otherwise calls the active interpreter's
+    # RemoveRuntimeOption method via the [object] command.  Under native Tcl,
+    # if the [eagle] command is present the request is forwarded into Eagle;
+    # otherwise, when enabled via the tclRemoveRuntimeOption environment
+    # variable and not disabled via the matching "no" array element, it
+    # locates the option in the simulated eagle_platform(runtimeOptions) list
+    # and, if present, removes it with [lreplace], returning true only when it
+    # actually removed it.  When the native Tcl path is reached but not
+    # enabled, it either raises an error (when configured) or does nothing.
+    #
+    # Arguments:
+    #   name -- The name of the runtime option to remove.
+    #
+    # Results:
+    #   Non-zero (true) if the option was actually removed by the succeeding
+    #   mechanism; otherwise false, including when the option was not set or
+    #   when no mechanism could perform the removal.
+    # </help>
+
     if {[isEagle]} then {
       if {[llength [info commands debug]] > 0} then {
         if {[llength [info subcommands debug runtimeoption]] > 0} then {
@@ -207,6 +322,31 @@ namespace eval ::Eagle {
   }
 
   proc toggleRuntimeOption { name {value ""} } {
+    # <help>
+    # This procedure sets a named runtime option to a desired on/off state,
+    # or toggles it when no explicit state is given.  It is a convenience
+    # built on top of [hasRuntimeOption], [addRuntimeOption], and
+    # [removeRuntimeOption], saving callers from having to query the current
+    # state and choose the appropriate add/remove call themselves.
+    #
+    # How it works: if no value argument is supplied (it is an empty string),
+    # the desired state is computed as the logical negation of the option's
+    # current state, as reported by [hasRuntimeOption] -- i.e. it flips the
+    # option.  Then, if the desired state is true the option is added via
+    # [addRuntimeOption]; otherwise it is removed via [removeRuntimeOption].
+    #
+    # Arguments:
+    #   name  -- The name of the runtime option to set or toggle.
+    #   value -- The desired state: a true value sets the option and a false
+    #            value clears it.  When omitted (an empty string), the option's
+    #            current state is inverted.
+    #
+    # Results:
+    #   The result of the underlying [addRuntimeOption] or
+    #   [removeRuntimeOption] call: non-zero (true) if that call actually
+    #   changed the option, otherwise false.
+    # </help>
+
     if {[string length $value] == 0} then {
       set value [expr {![hasRuntimeOption $name]}]
     }

@@ -26,6 +26,61 @@ namespace eval ::Eagle {
   #       merging options and arguments as necessary.
   #
   proc unknownObjectInvoke { level name args } {
+    # <help>
+    # This procedure is a helper, intended to be driven from an [unknown]
+    # command handler, that lets an otherwise unresolved command name be
+    # treated as a static call into a managed (CLR) type.  When a command
+    # such as a fully qualified type name (optionally followed by member and
+    # argument parts) is not a real command, this procedure recognizes the
+    # name as a managed type and rewrites the call into an equivalent
+    # [object invoke] against that type, transparently providing access to
+    # static members of CLR types using ordinary command syntax.  This only
+    # has any effect when the [object] command is available; otherwise the
+    # call is not handled.
+    #
+    # How it works: the command name is taken as a candidate type name.  If
+    # the [object] command exists and the name either already names a managed
+    # type or can be resolved to one (via [canGetManagedType], which may also
+    # split off trailing member parts into the "extraName" output), the
+    # procedure obtains the valid option set for the [object invoke]
+    # sub-command and builds two argument lists: one fixed list consisting of
+    # the words "object" and "invoke", and one consisting of the type name
+    # followed by the caller's arguments.  When extra (member) parts were
+    # split off, a HACK is used to rejoin them onto the type name separated by
+    # NUL characters so the core marshaller can move them into the member name
+    # position.  The active interpreter's MergeArguments method is then called
+    # to merge any leading options with the non-option arguments into a single
+    # finished command.  On success, that merged command is evaluated with
+    # [uplevel], stepping up past this procedure's frame and, when the level
+    # argument requests it, the caller's frame as well; on failure an error is
+    # raised.  If the name is not a managed type at all, the procedure issues
+    # a [continue] to signal that it did not handle the command.
+    #
+    # Tricky details: the value passed for level controls how far up the call
+    # stack the rewritten command is evaluated, and is offset by one to skip
+    # this procedure's own frame.  Several values here (arguments and results)
+    # are opaque object handles that must be converted to strings via the
+    # [getStringFromObjectHandle] helper before use.
+    #
+    # Arguments:
+    #   level -- The number of caller frames to ascend, beyond this
+    #            procedure's own frame, when evaluating the rewritten command;
+    #            it is incremented by one internally before being passed to
+    #            [uplevel].
+    #   name  -- The unresolved command name, interpreted as a candidate
+    #            managed type name (optionally carrying trailing member parts).
+    #   args  -- The remaining arguments from the original command, which
+    #            become the arguments (and possibly options) of the rewritten
+    #            [object invoke] call.
+    #
+    # Results:
+    #   When the name resolves to a managed type and argument merging
+    #   succeeds, the result of evaluating the rewritten [object invoke]
+    #   command.  When merging fails, an error is raised.  When the name is
+    #   not a managed type (or the [object] command is unavailable), the
+    #   procedure executes [continue] to indicate the command was not handled.
+    # </help>
+
     set typeName $name; set extraName ""
 
     if {[llength [info commands object]] > 0 && \

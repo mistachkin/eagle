@@ -69,14 +69,36 @@ static volatile BOOL bClrBridgeStarted = FALSE;
  *
  * GetClrWasLoaded --
  *
- *	This function returns a boolean value that indicates whether
- *	or not the CLR has been loaded.
+ *	Test whether THIS package has obtained an
+ *	ICLRRuntimeHost handle for the .NET Framework CLR (CLR
+ *	2.x or 4.x) inside the current process.
+ *
+ * Why / How:
+ *	This is the .NET Framework counterpart of
+ *	GetCoreClrWasLoaded.  Unlike .NET 5+, the .NET Framework
+ *	hosting model is COM-based: ICLRMetaHost is the entry-
+ *	point factory, ICLRRuntimeInfo describes a candidate CLR
+ *	build, and ICLRRuntimeHost (the v4 host) is the activated
+ *	runtime handle this package retains across calls.  The
+ *	pClrRuntimeHost global is set when LoadAndStartTheClr
+ *	successfully obtains the host interface, and cleared by
+ *	StopAndReleaseTheClr after Release().
+ *
+ *	"Loaded" here is therefore "we hold an ICLRRuntimeHost
+ *	pointer", not "any CLR is present in the process."  The
+ *	mscoree.dll loader stub is link-time present in any
+ *	build of this package; what matters is whether a
+ *	specific CLR build has been activated through it.
+ *
+ *	Snapshot semantics under the package mutex, same as
+ *	GetCoreClrWasLoaded.
  *
  * Results:
- *	Non-zero if the CLR has been loaded; otherwise, zero.
+ *	TRUE if pClrRuntimeHost is non-NULL at the moment of
+ *	the read; FALSE otherwise.
  *
  * Side effects:
- *	None.
+ *	None.  Briefly acquires and releases the package mutex.
  *
  *----------------------------------------------------------------------
  */
@@ -97,14 +119,30 @@ BOOL GetClrWasLoaded(void)
  *
  * GetClrWasStarted --
  *
- *	This function returns a boolean value that indicates whether
- *	or not the CLR has been started.
+ *	Test whether the .NET Framework CLR has been transitioned
+ *	from "loaded" (host interface obtained) to "started"
+ *	(ICLRRuntimeHost::Start has been called successfully).
+ *
+ * Why / How:
+ *	The .NET Framework hosting protocol distinguishes
+ *	"activated" (host interface alive) from "started"
+ *	(runtime is initialized and ready to execute managed
+ *	code).  ICLRRuntimeHost::Start is the call that does the
+ *	actual initialization; calling it twice on the same host
+ *	is documented to be a no-op error.  bClrStarted records
+ *	whether we have invoked Start AND received S_OK.
+ *
+ *	Cleared by StopAndReleaseTheClr after the matching
+ *	ICLRRuntimeHost::Stop call.
+ *
+ *	Snapshot semantics under the package mutex.
  *
  * Results:
- *	Non-zero if the CLR has been started; otherwise, zero.
+ *	TRUE if Start has succeeded and Stop has not been called
+ *	since.  FALSE otherwise.
  *
  * Side effects:
- *	None.
+ *	None.  Briefly acquires and releases the package mutex.
  *
  *----------------------------------------------------------------------
  */
@@ -125,14 +163,37 @@ BOOL GetClrWasStarted(void)
  *
  * GetClrBridgeStarted --
  *
- *	This function returns a boolean value that indicates whether
- *	or not the bridge between Tcl and the CLR has been started.
+ *	Test whether the Eagle-side managed bridge that hosts
+ *	Garuda's Tcl / .NET Framework CLR interop has been
+ *	brought up inside the activated CLR.
+ *
+ * Why / How:
+ *	The "bridge" is the managed-side counterpart to the
+ *	native ICLRRuntimeHost.  A successful startup sequence is:
+ *
+ *	  1. CLRCreateInstance / GetRuntime / GetInterface to
+ *	     activate ICLRRuntimeHost (tracked by
+ *	     GetClrWasLoaded).
+ *	  2. ICLRRuntimeHost::Start to initialize the runtime
+ *	     (tracked by GetClrWasStarted).
+ *	  3. ICLRRuntimeHost::ExecuteInDefaultAppDomain to invoke
+ *	     the Eagle bridge entry point, which constructs the
+ *	     bridge object and signals success back via
+ *	     SetClrBridgeStarted.
+ *
+ *	bClrBridgeStarted reflects step 3.  TRUE here implies
+ *	all prior steps completed AND the managed side
+ *	acknowledged the handshake -- the most authoritative
+ *	"is the bridge usable?" predicate in this file.
+ *
+ *	Snapshot semantics under the package mutex.
  *
  * Results:
- *	Non-zero if the bridge has been started; otherwise, zero.
+ *	TRUE if the bridge handshake has completed and not been
+ *	subsequently torn down; FALSE otherwise.
  *
  * Side effects:
- *	None.
+ *	None.  Briefly acquires and releases the package mutex.
  *
  *----------------------------------------------------------------------
  */
@@ -153,14 +214,26 @@ BOOL GetClrBridgeStarted(void)
  *
  * SetClrBridgeStarted --
  *
- *	This function sets a boolean value that indicates whether or
- *	not the bridge between Tcl and the CLR has been started.
+ *	Record whether the managed-side .NET Framework bridge
+ *	has been started.
+ *
+ * Why / How:
+ *	Called by the managed bridge entry point (via the
+ *	ICLRRuntimeHost::ExecuteInDefaultAppDomain callback) to
+ *	signal completion of the handshake described in the
+ *	GetClrBridgeStarted comment.  Also called by the
+ *	teardown path with bStarted=FALSE before the matching
+ *	ICLRRuntimeHost::Stop / Release sequence.
+ *
+ *	The package-mutex acquisition is what makes this safe to
+ *	call from any thread the CLR happens to schedule on.
  *
  * Results:
  *	None.
  *
  * Side effects:
- *	None.
+ *	Updates bClrBridgeStarted under the package mutex.
+ *	Future GetClrBridgeStarted calls observe the new value.
  *
  *----------------------------------------------------------------------
  */
@@ -180,6 +253,93 @@ void SetClrBridgeStarted(
  *
  *	This function loads and optionally starts the latest version of
  *	the CLR supported by this package.
+ *
+ * Why / How:
+ *	This is the .NET Framework counterpart to LoadAndStartTheCoreClr
+ *	(which targets .NET 5+ / CoreCLR).  The two functions arrive at
+ *	the same end state -- a usable CLR instance referenced by the
+ *	package -- but via dramatically different protocols, so they are
+ *	intentionally kept as parallel implementations rather than fused
+ *	behind a common abstraction.  The contrast is informative:
+ *
+ *	  CoreCLR (.NET 5+):
+ *	    nethost.dll -> hostfxr -> hostpolicy -> coreclr (4-tier
+ *	    LoadLibrary chain, runtimeconfig.json, side-by-side runtimes,
+ *	    no AppDomains, cross-platform).
+ *
+ *	  .NET Framework (this function):
+ *	    mscoree.dll (statically linked at build time) -> CLRCreateInstance
+ *	    -> ICLRMetaHost -> GetRuntime -> ICLRRuntimeInfo -> IsLoadable
+ *	    -> GetInterface(ICLRRuntimeHost) (COM tree, registry-based
+ *	    runtime selection, real AppDomains, Windows-only).
+ *
+ *	Because mscoree.dll is part of the import table of this DLL, it
+ *	is guaranteed to be in-process by the time this function runs;
+ *	there is no LoadLibrary equivalent of nethost's bootstrap call.
+ *	What we do need is a procedure address for CLRCreateInstance,
+ *	which is obtained via GetModuleHandleW + GetProcAddress.  If the
+ *	export is missing -- older OS, mscoree v2-only, or the v4 entry
+ *	point was elided -- we fall through to the legacy path described
+ *	below.
+ *
+ *	The v4 path (USE_CLR_40):
+ *	  1. Resolve CLRCreateInstance (the v4 entry point).
+ *	  2. Build an ICLRMetaHost (the registry-of-runtimes object).
+ *	  3. Pick a version string -- "v4.0.30319" for the latest, or
+ *	     "v2.0.50727" if bUseMinimumClr (controlled by the
+ *	     UseMinimumClr environment variable or the package-namespace
+ *	     useMinimumClr Tcl variable).  A NULL version string is NOT
+ *	     accepted by ICLRMetaHost_GetRuntime; the version must be
+ *	     hard-coded.
+ *	  4. Ask the meta-host for an ICLRRuntimeInfo of that version.
+ *	  5. Verify ICLRRuntimeInfo_IsLoadable -- this answers whether
+ *	     binding policies + side-by-side rules permit loading this
+ *	     runtime into THIS process.  An "installed but not loadable"
+ *	     result is a hard error here; the caller asked for a specific
+ *	     version and we will not silently substitute another.
+ *	  6. Use ICLRRuntimeInfo::GetInterface to materialize the
+ *	     ICLRRuntimeHost we will use for everything else.  This is
+ *	     the COM object that exposes Start / Stop / ExecuteIn-
+ *	     DefaultAppDomain / GetCurrentAppDomainId.
+ *
+ *	The fallback path (compiled in always; reached when v4 is not
+ *	available OR when the E_NOTIMPL escape hatch fires):
+ *	  CorBindToRuntimeEx -- the legacy CLR 2.0-era loader call.  This
+ *	  ALSO returns an ICLRRuntimeHost, but with no version selection
+ *	  and no IsLoadable check.  The hResult==E_NOTIMPL branch is
+ *	  documented in Brad Wilson's [MSFT] 2010-04-19 blog post
+ *	  "Selecting CLR Version From Unmanaged Host" but is curiously
+ *	  absent from the MSDN reference for CLRCreateInstance -- the
+ *	  blog is the only authoritative source for this contract, so
+ *	  we cite it explicitly to defend the goto fallback edge.
+ *
+ *	The Start step (gated by bStart) is a separate decision because
+ *	some embedders want to load-but-not-start (e.g. to inspect the
+ *	CLR version string before committing to a runtime).  Once started
+ *	the CLR cannot be re-started in the same process -- see
+ *	StopAndReleaseTheClr's header for why.
+ *
+ *	Strictness (bStrict): when set, calling this on an already-loaded
+ *	or already-started CLR is an error.  When clear, those become
+ *	no-ops, supporting idempotent embedder startup sequences.
+ *
+ *	The package mutex wraps the entire operation.  This is necessary
+ *	because the function reads-and-writes pClrRuntimeHost,
+ *	pClrMetaHost, pClrRuntimeInfo, and bClrStarted, all of which are
+ *	consulted by other entry points (Get*State / CanExecuteClrCode /
+ *	ExecuteClrMethod / StopAndReleaseTheClr) that may be called from
+ *	any thread the embedder chooses.  Holding the mutex across the
+ *	COM calls is also fine: the .NET Framework hosting interface is
+ *	free-threaded and calls do not block on managed code (managed
+ *	code only runs once Start has succeeded AND a thread enters via
+ *	ExecuteClrMethod).
+ *
+ *	If anything fails, the partial state is left in place rather
+ *	than rolled back -- pClrMetaHost and pClrRuntimeInfo, if obtained,
+ *	stay set so that StopAndReleaseTheClr (or a teardown call) can
+ *	free them via ICLRMetaHost_Release / ICLRRuntimeInfo_Release.
+ *	This keeps the cleanup contract uniform across success and error
+ *	paths and avoids the "half-built and not-tracked" leak class.
  *
  * Results:
  *	A standard Tcl result.
@@ -533,6 +693,60 @@ done:
  *
  *	This function stops and releases the CLR.
  *
+ * Why / How:
+ *	The .NET Framework counterpart to ShutdownTheCoreClr.  Reverses
+ *	the work of LoadAndStartTheClr in the canonical COM order: stop
+ *	first, then release the interface pointers, last to first.
+ *
+ *	Important: even though this function exists and the COM contract
+ *	formally permits ICLRRuntimeHost::Stop followed by another
+ *	ICLRRuntimeHost::Start, the .NET Framework CLR is in practice a
+ *	process-lifetime resource.  Once Stop has been called, attempting
+ *	to re-Start the same runtime in the same process produces
+ *	undefined behavior in our experience (managed threads remain in
+ *	limbo, finalizers may or may not have run, type system state is
+ *	half-torn-down).  This function is therefore intended primarily
+ *	for the package-unload path and for embedder shutdown -- not as
+ *	a "rebuild the CLR" primitive.  The CoreCLR side has the same
+ *	property despite shipping a documented coreclr_shutdown_2 entry
+ *	point; the underlying assumption "one CLR per process, ever" is
+ *	a .NET-wide invariant, not a hosting-layer detail.
+ *
+ *	The CLR_STOPPING environment variable bracket
+ *	(SetEnvironmentVariableW around the ICLRRuntimeHost_Stop call)
+ *	is a signal to the managed bridge: "the unmanaged side is
+ *	tearing down the CLR, do not attempt any callbacks during
+ *	finalization".  Without this, finalizers running for managed
+ *	objects that hold callbacks back into native could re-enter the
+ *	package after its state has already been freed.  The variable
+ *	is set just before Stop and cleared immediately after, holding
+ *	the package mutex across both writes.
+ *
+ *	Release ordering, when bRelease is set:
+ *	  1. ICLRRuntimeHost_Release (the live-runtime interface).
+ *	  2. ICLRRuntimeInfo_Release (the version-handle interface;
+ *	     v4 path only).
+ *	  3. ICLRMetaHost_Release    (the registry-of-runtimes; v4
+ *	     path only).
+ *	Each Release returns a refcount which is logged but not acted
+ *	on -- non-zero refcounts here are usually a sign of a managed
+ *	object holding a back-reference, NOT a bug in this code.
+ *
+ *	The bridge-flag clearing at the bottom (under the `done` label)
+ *	is a defensive rule: if the CLR has been stopped but the bridge
+ *	flag is still set, that is logically inconsistent because the
+ *	bridge cannot run without a live CLR.  We forcibly clear it and
+ *	emit a WARNING -- this lets future predicate checks (especially
+ *	GetClrBridgeStarted / CanExecuteClrCode) report a coherent
+ *	answer.  The only way this branch fires legitimately is the
+ *	embedder calling StopAndReleaseTheClr without first calling
+ *	the bridge teardown -- usually a programming error worth
+ *	flagging in the log.
+ *
+ *	Strictness (bStrict): same shape as LoadAndStartTheClr.  Strict
+ *	mode treats already-stopped or not-loaded as errors; relaxed
+ *	mode treats them as no-ops, supporting idempotent shutdown.
+ *
  * Results:
  *	A standard Tcl result.
  *
@@ -698,6 +912,32 @@ done:
  *	This function checks if CLR code can safely be executed by this
  *	package.
  *
+ * Why / How:
+ *	Two-state predicate: a usable CLR requires (a) a loaded
+ *	ICLRRuntimeHost interface pointer (pClrRuntimeHost != NULL),
+ *	AND (b) ICLRRuntimeHost_Start to have already been called
+ *	successfully (bClrStarted == TRUE).  This function packages
+ *	that check into a single call so ExecuteClrMethod, the [object]
+ *	command, and the bridge wiring code do not duplicate it.
+ *
+ *	Note: this is the .NET Framework predicate.  CoreCLR has a
+ *	three-state version because CoreCLR has no separate "started"
+ *	step (the runtime is implicitly started by the first managed
+ *	dispatch) -- the two functions are intentionally not unified.
+ *
+ *	If `interp` is non-NULL, a failure leaves a human-readable
+ *	diagnostic ("CLR not loaded" or "CLR not started") in the
+ *	interp result so callers can surface it without composing
+ *	their own error text.  Passing NULL is supported for callers
+ *	that only need the boolean answer (e.g. health checks).
+ *
+ *	Snapshot semantics under the package mutex.  The bridge-started
+ *	flag is intentionally NOT consulted here -- bridge readiness is
+ *	checked separately by GetClrBridgeStarted because some embedder
+ *	paths legitimately need to call into managed code BEFORE the
+ *	bridge handshake completes (the bridge's own entry point being
+ *	the prime example).
+ *
  * Results:
  *	Non-zero if CLR code can be safely executed by this package,
  *	zero otherwise.
@@ -745,6 +985,100 @@ done:
  * ExecuteClrMethod --
  *
  *	This function executes the specified CLR method.
+ *
+ * Why / How:
+ *	The single channel by which all native-to-managed dispatch in
+ *	the .NET Framework path flows.  The CoreCLR counterpart exposes
+ *	a typed function-pointer call (coreclr_create_delegate produces
+ *	a real C-callable address); the .NET Framework hosting interface
+ *	does not, so we are constrained to use ICLRRuntimeHost_Execute-
+ *	InDefaultAppDomain -- a method with the world's most cramped
+ *	signature for a hosting API:
+ *
+ *	    HRESULT ExecuteInDefaultAppDomain(
+ *	        LPCWSTR pwzAssemblyPath,
+ *	        LPCWSTR pwzTypeName,
+ *	        LPCWSTR pwzMethodName,
+ *	        LPCWSTR pwzArgument,    // ONE string.  That's it.
+ *	        DWORD  *pReturnValue);
+ *
+ *	The managed callee MUST have signature
+ *	    public static int Method(string arg)
+ *	-- no overloads, no extra arguments, no marshalled structs, no
+ *	delegate hand-off.  Everything we want to pass through this
+ *	gate has to fit inside that single LPCWSTR.
+ *
+ *	The "Garuda protocol" is the workaround.  When the protocol
+ *	flag bits are set in methodFlags, this function builds a
+ *	wide-string argument with this shape:
+ *
+ *	    "Garuda_v1.0_r2.0 0xHMOD 0xPSTUBS 0xINTERP 1 0 1 USERARGS"
+ *	     <----name----->  <hMod>  <stubs>  <interp> <use> <safe>
+ *	                                                <iso>
+ *
+ *	Where HMOD is the Tcl library module handle, PSTUBS is the
+ *	Tcl C API stubs table address, INTERP is the Tcl_Interp
+ *	pointer, and the trailing flags carry "use isolation" /
+ *	"is safe interp" / "use isolation".  The managed bridge
+ *	parses this string back into the components it needs.  The
+ *	leading "Garuda_v1.0_rN.0" tag is the protocol revision --
+ *	older (R0/legacy) methods do not include the stubs pointer,
+ *	for example, so the managed side must know the revision
+ *	before parsing.
+ *
+ *	The protocol revision flags fan out as:
+ *	    bUseProtocolR1 + bUseProtocolR2 -> V1R2 (Tcl_Interp,
+ *	      stubs, isolation, safe-interp)
+ *	    bUseProtocolR1 + bLegacyProtocol -> V1R0 (legacy)
+ *	    bUseProtocolR1 alone -> V1R1 (no stubs)
+ *	    neither -> no Garuda prefix; raw user-supplied argument
+ *
+ *	Two more design notes worth recording:
+ *
+ *	1. The BUFFER LENGTH MATH at the top is precise, not slack.
+ *	   It must add up to exactly the size of the gwprintf output
+ *	   plus NUL.  The contributors are commented inline.  Each
+ *	   formatted token contributes (sizeof(T) * 2) + 3 = 2 hex
+ *	   chars per byte plus "0x" prefix plus one trailing space.
+ *	   If you change a format string here you MUST adjust the
+ *	   length math; gwprintf does NOT auto-grow.
+ *
+ *	2. The `newArgument` lifecycle is: ckalloc when the protocol
+ *	   prefix is needed, point at pMethodInfo->argument otherwise.
+ *	   The cleanup at `done:` checks both pointers being unequal
+ *	   before freeing -- exactly because the no-prefix branch
+ *	   aliases the caller's buffer rather than allocating.
+ *	   Misusing the same conditional has caused at least one
+ *	   double-free bug in our history; preserve it.
+ *
+ *	Concurrency: the entire body is under packageMutex.  Even
+ *	though ICLRRuntimeHost::ExecuteInDefaultAppDomain is itself
+ *	free-threaded, holding the package mutex serializes the
+ *	predicate check (CanExecuteClrCode) with the dispatch -- we
+ *	don't want a teardown thread to reach Stop+Release between
+ *	the predicate succeeding and the actual ExecuteInDefault-
+ *	AppDomain call.  The CLR side may release its own internal
+ *	locks before our HRESULT returns; that's fine, our mutex
+ *	guarantees only the package-side state coherence.
+ *
+ *	Logging is gated by both METHOD_LOG_EXECUTE in methodFlags
+ *	AND PACKAGE_CAN_LOG.  This is intentionally two-layered:
+ *	the flag controls whether this CALL site logs, while
+ *	PACKAGE_CAN_LOG controls whether the package as a whole has
+ *	logging configured.  A caller that wants to log must opt in
+ *	via the flag; a caller that has no logCommand or no interp
+ *	will safely no-op.
+ *
+ *	Note on the deprecated-but-only-API problem: ICLRRuntime-
+ *	Host::ExecuteInDefaultAppDomain has been formally deprecated
+ *	by Microsoft in favor of CLR Hosting v4 / ICLRStrongName +
+ *	custom AppDomain managers + delegate-based dispatch.  We do
+ *	not migrate to those because (a) they are even more
+ *	convoluted than the protocol above, and (b) ExecuteIn-
+ *	DefaultAppDomain still works on every shipping .NET Framework
+ *	version and there is no signal Microsoft will remove it.
+ *	The CoreCLR side has no such constraint and uses
+ *	coreclr_create_delegate directly.
  *
  * Results:
  *	A standard Tcl result.
@@ -1003,6 +1337,34 @@ done:
  *	This function attempts to query the integer identifier for the
  *	current application domain of the CLR.
  *
+ * Why / How:
+ *	One of the few hosting-API calls with a meaningful answer
+ *	on .NET Framework but no equivalent on CoreCLR.  Real
+ *	AppDomains are a .NET Framework feature; CoreCLR collapsed
+ *	the design into a single "default" load context with no
+ *	domain numbering, so the CoreCLR side of this package has
+ *	no GetCurrentCoreClrAppDomainId -- its callers either skip
+ *	the question or hardcode 0.  Keeping this here makes
+ *	embedder code that runs on both runtimes write
+ *
+ *	    #if defined(USE_CLR)
+ *	        GetCurrentClrAppDomainId(&id);
+ *	    #else
+ *	        id = 0;
+ *	    #endif
+ *
+ *	The return shape is HRESULT (not Tcl_OK / Tcl_ERROR) because
+ *	this is the COM-layer accessor, not a Tcl-command-layer one.
+ *	Callers translate it themselves.  Specific HRESULT codes:
+ *	  E_POINTER  pAppDomainId == NULL.
+ *	  E_NOINTERFACE  CLR not loaded yet.
+ *	  HRESULT_FROM_WIN32(ERROR_SERVICE_NEVER_STARTED)
+ *	    CLR loaded but Start has not yet been called.
+ *	  S_OK + valid *pAppDomainId on success.
+ *
+ *	Snapshot semantics under the package mutex; the AppDomain ID
+ *	itself is stable for the lifetime of the runtime once Started.
+ *
  * Results:
  *	A standard COM result.
  *
@@ -1052,6 +1414,38 @@ done:
  *
  *	This function attempts to query version information for the
  *	currently loaded CLR.
+ *
+ * Why / How:
+ *	Returns the .NET Framework version string ("v4.0.30319",
+ *	"v2.0.50727", etc).  Two implementations live behind the same
+ *	signature:
+ *
+ *	  USE_CLR_40 (v4 path):
+ *	    ICLRRuntimeInfo_GetVersionString -- the modern, version-aware
+ *	    accessor.  Requires pClrRuntimeInfo to have been obtained
+ *	    via the meta-host route in LoadAndStartTheClr.  Returns
+ *	    E_NOINTERFACE here if the meta-host path was not used (e.g.
+ *	    the CorBindToRuntimeEx fallback fired) -- there is no v2-era
+ *	    way to recover the version after binding via that path.
+ *
+ *	  legacy (v2 path):
+ *	    GetCORVersion -- the pre-CLR-4 entry point in mscoree.dll.
+ *	    Same buffer protocol as the v4 version: caller passes a
+ *	    pre-sized buffer and a length-in/length-out DWORD pointer.
+ *
+ *	Buffer protocol convention (both paths):
+ *	  - On entry, *pLength is the buffer size in WCHARs.
+ *	  - On success, *pLength is updated to the string length
+ *	    (excluding NUL).
+ *	  - If the buffer is too small, the call returns
+ *	    HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER) and
+ *	    *pLength is the required size -- caller can re-allocate
+ *	    and retry.  This is the standard "two-call probe" pattern
+ *	    common across the COM-era hosting APIs.
+ *
+ *	Caller must NULL-check both arguments -- E_POINTER is returned
+ *	if either is missing rather than crashing.  Snapshot semantics
+ *	under the package mutex.
  *
  * Results:
  *	A standard COM result.
@@ -1104,6 +1498,54 @@ done:
  *	This function attempts to debugging information for this
  *	package.  Generally, this information is only useful for
  *	advanced troubleshooting.
+ *
+ * Why / How:
+ *	Returns a single wide-string snapshot of every package-level
+ *	piece of state that has ever been useful when debugging a
+ *	Garuda load failure.  The format is space-separated key/value
+ *	pairs (parseable by Tcl's [list] machinery on the script side):
+ *
+ *	    packageMutex 0xPTR
+ *	    hPackageModule 0xPTR
+ *	    packageFileName {...}
+ *	    lTclStubs N
+ *	    hTclModule 0xPTR
+ *	    pTclStubs 0xPTR
+ *	    pClrMetaHost 0xPTR        (only USE_CLR_40)
+ *	    pClrRuntimeInfo 0xPTR     (only USE_CLR_40)
+ *	    pClrRuntimeHost 0xPTR
+ *	    bClrStarted 0|1
+ *	    bClrBridgeStarted 0|1
+ *
+ *	The order is fixed and reflects the rough lifecycle order in
+ *	which the values become valid: mutex (always), package module
+ *	(always), Tcl stubs handle (after Tcl_InitStubs), CLR meta-host
+ *	and runtime-info (after the v4 meta-host path), runtime host
+ *	(after either v4 or fallback path), then the started/bridge-
+ *	started booleans.  Reading the dump top-to-bottom gives you a
+ *	trace of how far through startup the package made it before
+ *	whatever you're debugging happened.
+ *
+ *	Pointers are formatted via PACKAGE_UNICODE_PTR_FMT ("0x%p" with
+ *	the right width prefix on 32 vs 64-bit builds) so the output
+ *	is unambiguously addressable.  This is intentionally raw --
+ *	the cooked, human-readable version lives at the script layer
+ *	in lib/helper.tcl.
+ *
+ *	Buffer protocol same as GetClrVersion: caller passes a
+ *	pre-sized buffer plus length-in/length-out, gets back a
+ *	formatted string.  Unlike GetClrVersion, however, this
+ *	function does NOT distinguish "buffer too small" from "ran
+ *	out of state to dump" -- gwprintf truncates silently.  In
+ *	practice the buffer is sized to PACKAGE_RESULT_SIZE which
+ *	easily holds the dump on every supported platform.  If you
+ *	add new state fields, audit the call sites' buffer sizes.
+ *
+ *	Snapshot semantics under the package mutex.  Note that all
+ *	the pointers and booleans this dumps are themselves protected
+ *	by packageMutex, so the dump is internally consistent -- you
+ *	will not see, for example, bClrStarted=1 with pClrRuntimeHost=
+ *	NULL even if a teardown is racing this call.
  *
  * Results:
  *	A standard COM result.

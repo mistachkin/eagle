@@ -26,6 +26,55 @@ namespace eval ::Eagle {
   #       anything.
   #
   proc csharpLog { string {object ""} } {
+    # <help>
+    # This procedure emits a single diagnostic log message describing some
+    # stage of the C# compilation lifecycle.  It exists so that the many other
+    # procedures in this package can record what they are doing (which SDK path
+    # was found, which reference assemblies were selected, why a candidate was
+    # skipped, what the compiler emitted, and so on) without each of them
+    # having to know where, or whether, such output should go.  Under normal
+    # circumstances this procedure does nothing at all; logging is strictly
+    # opt-in.
+    #
+    # How it works: nothing is emitted unless the global array element
+    # ::no(csharpLog) is absent, the helper command [hasRuntimeOption] is
+    # available, and the runtime option named enableCSharpLog is currently
+    # enabled.  When logging is active and a non-null opaque object handle was
+    # supplied, it attempts to enrich the message with that object's public
+    # property values: it calls the private MarshalOps.ListProperties method
+    # via [object invoke -create], converts the resulting handle back to a
+    # string (necessary because -create returns the return code as an object),
+    # and, if successful, formats the property list as a dictionary using
+    # [formatListAsDict] when that helper is present (falling back to the raw
+    # list text otherwise); any failure is recorded as a placeholder suffix
+    # instead.  A single space is inserted before the suffix when it does not
+    # already begin with whitespace.  The final destination depends on the
+    # testCSharpLog runtime option: when set, the message is written (prefixed
+    # with a marker and a trailing newline) to the test channel obtained from
+    # [getTestChannelOrDefault] (or the ::test_channel variable, or stdout) by
+    # way of [tputs] or, if unavailable, [tqputs]; otherwise it is sent to
+    # [tclLog].
+    #
+    # Tricky details: every external helper this procedure leans on (the object
+    # command, [hasRuntimeOption], [formatListAsDict], [getTestChannelOrDefault], and
+    # tputs) is probed for via [info commands] or guarded so that the procedure
+    # degrades gracefully rather than failing when those helpers are absent.
+    # The object property query deliberately uses the +NonPublic flag and an
+    # aliased, created result, so the success comparison is performed against a
+    # stringified return code rather than the object handle itself.
+    #
+    # Arguments:
+    #   string -- The base log message text to emit.
+    #   object -- An optional opaque object handle.  When it is a non-null
+    #             object handle (and the object command exists), its public
+    #             properties are queried and appended to the message; an empty
+    #             string or invalid handle is simply ignored.
+    #
+    # Results:
+    #   Always the empty string; this procedure is invoked purely for its
+    #   logging side effect.
+    # </help>
+
     #
     # NOTE: If the "enableCSharpLog" runtime option is enabled, this routine
     #       will emit log output somewhere; otherwise, it will do nothing.
@@ -142,6 +191,38 @@ namespace eval ::Eagle {
   #       error.  This procedure should not raise script errors.
   #
   proc getDotNetCoreSdkPath {} {
+    # <help>
+    # This procedure determines the fully qualified path to the base directory
+    # of the active .NET Core (or modern .NET) SDK.  That path is the anchor
+    # from which the rest of this package locates reference assemblies and the
+    # command line C# compiler, so almost everything that compiles C# on .NET
+    # Core ultimately depends on it.
+    #
+    # How it works: if the user has installed a hook by setting the global
+    # array element ::compileCSharp(getDotNetCoreSdkPath), that script is
+    # evaluated and its result is returned verbatim.  Otherwise the procedure
+    # runs the external command "dotnet --info", normalizes its line endings,
+    # and uses a line-anchored regular expression to extract the value that
+    # follows the "Base Path:" label, returning that value after passing it
+    # through [file normalize].  All progress and error conditions are recorded
+    # via [csharpLog].
+    #
+    # Tricky details: the [exec] of "dotnet --info" is wrapped so that a
+    # failure to run it (for example, because the dotnet driver is not on the
+    # PATH) does not raise a script error; it simply results in the empty
+    # string being returned.  Likewise, if the expected "Base Path:" line is
+    # not present, the empty string is returned.  This procedure is documented
+    # as never raising script errors.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   The normalized, fully qualified path to the .NET Core SDK base
+    #   directory, or the empty string to indicate that it could not be
+    #   determined.
+    # </help>
+
     if {[info exists ::compileCSharp(getDotNetCoreSdkPath)]} then {
       return [eval $::compileCSharp(getDotNetCoreSdkPath)]; # HOOK
     }
@@ -178,6 +259,89 @@ namespace eval ::Eagle {
           path standardVersion runtimeVersion targetVersion
           {libraryDirectoryVarName ""} {buildReferenceSubDirectoryVarName ""}
           {useSdkVersion false} } {
+    # <help>
+    # This procedure attempts to locate, for a given .NET Standard version, the
+    # reference assembly "library directory" and the "build reference"
+    # sub-directory underneath it that together contain the assemblies the C#
+    # compiler must reference when targeting that version of the .NET Standard.
+    # It exists because the on-disk layout of these reference assemblies has
+    # changed substantially across .NET Core and modern .NET releases, and this
+    # procedure encapsulates the several historical and current conventions in
+    # one place.  Callers use it to discover where the .NET Standard reference
+    # assemblies actually live before constructing compiler reference options.
+    #
+    # How it works: it returns the two discovered paths to the caller through
+    # the variable names supplied by the last two named arguments, using
+    # [upvar] (when those names are non-empty).  If the user has overridden the
+    # result via the global array element
+    # ::compileCSharp(dotNetStandardReferenceDirectories), its first element is
+    # taken as the library directory and its second as the build reference
+    # sub-directory, provided the library directory exists.  Otherwise the
+    # procedure branches on standardVersion: for netstandard2.0 it looks under
+    # the SDK's NuGetFallbackFolder for netstandard.library; for netstandard2.1
+    # it tries, in order, a legacy NETStandard.Library.Ref pack, a target
+    # framework moniker directory under Microsoft.NETCore.App.Ref (choosing a
+    # "net" or "netcoreapp" moniker depending on whether the major version is
+    # five or greater), the shared Microsoft.NETCore.App runtime directory
+    # keyed by the runtime version, and finally the SDK path itself as a
+    # fallback.  Each candidate is accepted only if it exists on disk, in which
+    # case the procedure sets the build reference sub-directory and returns
+    # true.
+    #
+    # Tricky details: before evaluating the netstandard2.1 candidates it may
+    # decide to skip the "ref" style directories entirely.  It does so when the
+    # .NET Standard preference computed for the runtime version disagrees with
+    # the preference computed for the candidate version (the SDK version, or
+    # the target version when useSdkVersion is true), as determined by
+    # [shouldPreferTheNetStandardVersion]; this guards against mixing reference
+    # assemblies that belong to incompatible standard preferences.  Several of
+    # the individual candidate branches can be individually disabled by the
+    # user through ::compileCSharp array elements (for example noStdReference,
+    # noTfmReference, noRuntimeReference, noSdkReference, noSkipRefDirectories);
+    # these are probed with [info exists].  The procedure does not raise script
+    # errors and logs each miss via [csharpLog].
+    #
+    # Arguments:
+    #   path                             -- The .NET Core SDK base path (as
+    #                                       returned by [getDotNetCoreSdkPath]);
+    #                                       its file tail is treated as the SDK
+    #                                       version, and its parent directories
+    #                                       are used to locate the various pack
+    #                                       and shared directories.
+    #   standardVersion                  -- The .NET Standard version to locate
+    #                                       reference assemblies for, expected
+    #                                       to be netstandard2.0 or
+    #                                       netstandard2.1.
+    #   runtimeVersion                   -- The full .NET runtime version string,
+    #                                       used both for the modern shared
+    #                                       runtime candidate and for the
+    #                                       standard preference comparison; may
+    #                                       be empty.
+    #   targetVersion                    -- The version being targeted, used to
+    #                                       derive a target framework moniker
+    #                                       and, when useSdkVersion is true, as
+    #                                       the candidate version.
+    #   libraryDirectoryVarName          -- The optional name of a caller
+    #                                       variable that receives the located
+    #                                       library directory; empty disables
+    #                                       this output.
+    #   buildReferenceSubDirectoryVarName -- The optional name of a caller
+    #                                       variable that receives the located
+    #                                       build reference sub-directory; empty
+    #                                       disables this output.
+    #   useSdkVersion                    -- A boolean; when true the target
+    #                                       version (rather than the SDK version
+    #                                       derived from the path tail) is used
+    #                                       as the candidate version for the
+    #                                       preference comparison.  Defaults to
+    #                                       false.
+    #
+    # Results:
+    #   Non-zero (true) only when both directories were located and exist on
+    #   disk, with the discovered values stored into the caller's variables;
+    #   otherwise zero (false).
+    # </help>
+
     if {[string length $libraryDirectoryVarName] > 0} then {
       upvar 1 $libraryDirectoryVarName libraryDirectory
     }
@@ -339,6 +503,54 @@ namespace eval ::Eagle {
   proc tryParseDotNetCoreVersion {
           value {versionVarName ""} {suffixNameVarName ""}
           {suffixVersionVarName ""} {suffixMetadataVarName ""} } {
+    # <help>
+    # This procedure parses a .NET (Core) version string into its dotted
+    # System.Version portion and an optional trailing suffix, returning the
+    # parsed pieces to the caller through optional variable names.  .NET
+    # runtime and SDK version directories on disk often carry suffixes such as
+    # "-preview.5.21301.5" or "+buildmetadata", and the rest of this package
+    # needs to separate the comparable numeric version from those decorations
+    # in order to compare, filter, and select candidate directories reliably.
+    #
+    # How it works: if the user installed a hook via the global array element
+    # ::compileCSharp(tryParseDotNetCoreVersion), that script is evaluated and,
+    # if it returns a strict boolean, that result is honored; otherwise the
+    # default parsing proceeds.  The named result variables are bound with
+    # [upvar] only when their names are non-empty.  A value that is already a
+    # strict System.Version is accepted immediately, with all three suffix
+    # outputs set to empty.  Otherwise a regular expression strips a leading
+    # dotted version (one major, one minor, and up to two further components)
+    # from the front; if that fails, or the extracted prefix is not a strict
+    # version, the parse fails.  The suffix (the text after the first "-" or
+    # "+") is then matched against a second pattern that splits it into a
+    # suffix name, an optional dotted-or-dashed suffix version, and optional
+    # metadata.
+    #
+    # Tricky details: the version output is only assigned once parsing has
+    # fully succeeded, so callers should not rely on it being set on failure.
+    # The suffix pattern matching is case-insensitive and tolerant of both "."
+    # and "-" separators within the suffix version.  There is a defensive
+    # branch (documented in the body as not currently reachable) that clears
+    # the suffix outputs when no "-" or "+" is found.  This procedure does not
+    # raise script errors.
+    #
+    # Arguments:
+    #   value                  -- The version string to parse.
+    #   versionVarName         -- Optional caller variable name to receive the
+    #                            dotted System.Version portion; empty disables.
+    #   suffixNameVarName      -- Optional caller variable name to receive the
+    #                            suffix name (for example "preview"); empty
+    #                            disables.
+    #   suffixVersionVarName   -- Optional caller variable name to receive the
+    #                            numeric suffix version; empty disables.
+    #   suffixMetadataVarName  -- Optional caller variable name to receive the
+    #                            trailing metadata portion; empty disables.
+    #
+    # Results:
+    #   Non-zero (true) when the value parsed successfully (with the requested
+    #   outputs assigned), or zero (false) when it could not be parsed.
+    # </help>
+
     if {[info exists ::compileCSharp(tryParseDotNetCoreVersion)]} then {
       #
       # HACK: If this "hook" does not return a valid boolean, the default
@@ -426,6 +638,43 @@ namespace eval ::Eagle {
   #       the .NET runtime is released.
   #
   proc isKnownDotNetCoreVersion { value {standardVersion ""} } {
+    # <help>
+    # This procedure reports whether a version value appears to name a
+    # "well-known" version of the .NET (Core) runtime that this script package
+    # is known to work with.  It exists as a deliberately conservative gate:
+    # rather than trusting any parseable version, the package only proceeds for
+    # runtime major versions that have actually been validated against Eagle,
+    # so unexpected or future versions are flagged rather than silently
+    # assumed to work.
+    #
+    # How it works: if the user installed a hook via the global array element
+    # ::compileCSharp(isKnownDotNetCoreVersion) and it returns a strict
+    # boolean, that result is used.  Otherwise the procedure checks the value's
+    # leading major version with [string match against] simple glob patterns,
+    # gated by the optional standardVersion.  When standardVersion is empty or
+    # netstandard2.0, a leading "2." is accepted.  When standardVersion is
+    # empty or netstandard2.1, the recognized major versions (currently 3 and 5
+    # through 10) are accepted.  If no pattern matches, false is returned.
+    #
+    # Tricky details: the list of accepted major versions is maintained by hand
+    # and is explicitly called out in the body as something to update when new
+    # .NET runtime or .NET Standard versions are released; it is not derived
+    # from any general comparison.  This procedure does not raise script
+    # errors.
+    #
+    # Arguments:
+    #   value           -- The runtime version string to test (only its leading
+    #                      major-version component is examined via glob match).
+    #   standardVersion -- An optional .NET Standard version that constrains
+    #                      which major versions are considered known; empty
+    #                      considers both netstandard2.0 and netstandard2.1
+    #                      sets.  Defaults to the empty string.
+    #
+    # Results:
+    #   Non-zero (true) when the value matches a known runtime version for the
+    #   given standard version, otherwise zero (false).
+    # </help>
+
     if {[info exists ::compileCSharp(isKnownDotNetCoreVersion)]} then {
       #
       # HACK: If this "hook" does not return a valid boolean, the default
@@ -476,6 +725,55 @@ namespace eval ::Eagle {
   #       the .NET runtime is released.
   #
   proc shouldPreferTheNetStandardVersion { standardVersion targetVersion } {
+    # <help>
+    # This procedure decides whether a particular version of the .NET Standard
+    # specification should be preferred (for the purpose of selecting its
+    # primary reference assembly) given a target runtime version.  It is the
+    # core policy routine that maps a concrete runtime version onto a .NET
+    # Standard generation, and its answer drives both reference directory
+    # selection and the ordering of standard versions tried elsewhere in this
+    # package.
+    #
+    # How it works: a user hook, the global array element
+    # ::compileCSharp(shouldPreferTheNetStandardVersion), is consulted first
+    # and honored when it returns a strict boolean.  Otherwise the target
+    # version is first cleaned up by [tryParseDotNetCoreVersion] to strip any
+    # "preview" or other non-final decorations (the original value is saved for
+    # diagnostics, and an invalidTargetVersion hook may run on parse failure).
+    # The cleaned version is validated against [isKnownDotNetCoreVersion],
+    # which may trigger one of several optional user hooks (emptyTargetVersion,
+    # unsupportedTargetVersion, or supportedTargetVersion) and emit a warning
+    # via [csharpLog] for empty or unsupported versions.  When the target is a
+    # strict version, the procedure uses [package vcompare] to set two internal
+    # booleans: versions at or above 3.0 prefer netstandard2.1, versions at or
+    # above 2.0 but below 3.0 prefer netstandard2.0, and anything lower prefers
+    # neither.  When the target is not a strict version (empty or a non-final
+    # release), it falls back to [isKnownDotNetCoreVersion] keyed by each
+    # standard version to set the same booleans.  Finally it returns the
+    # boolean corresponding to the requested standardVersion via a [switch].
+    #
+    # Tricky details: the two internal booleans are only assigned when not
+    # already set (via [info exists] guards), which is precisely what allows
+    # the optional user hooks invoked earlier to pre-seed and thereby override
+    # the built-in mapping.  The body explains that [package vcompare] is
+    # deliberately not used as the sole mechanism because it rejects empty
+    # strings and non-final releases and because the explicit checks make
+    # manual verification of new runtime versions easier.  This is another
+    # routine flagged for manual update as new versions ship.  It does not
+    # raise script errors.
+    #
+    # Arguments:
+    #   standardVersion -- The .NET Standard version whose preference is being
+    #                      queried; meaningful values are netstandard2.0 and
+    #                      netstandard2.1 (anything else yields false).
+    #   targetVersion   -- The target runtime version to evaluate; may carry a
+    #                      preview/non-final suffix or be empty.
+    #
+    # Results:
+    #   Non-zero (true) when the given standard version should be preferred for
+    #   the target version, otherwise zero (false).
+    # </help>
+
     if {[info exists \
         ::compileCSharp(shouldPreferTheNetStandardVersion)]} then {
       #
@@ -605,6 +903,65 @@ namespace eval ::Eagle {
   proc determineDotNetStandardVersion {
           path runtimeVersionVarName targetVersionVarName
           {useSdkVersion false} {defaultTargetVersion ""} } {
+    # <help>
+    # This procedure determines which version of the .NET Standard should be
+    # used when locating the reference assemblies needed to compile C# code,
+    # and as a side effect reports back the runtime version and the target
+    # version it settled on.  It ties together the version-preference policy
+    # and the on-disk directory probing so that callers can ask a single
+    # question -- "which .NET Standard applies here?" -- and receive an answer
+    # that is known to correspond to reference assemblies that actually exist.
+    #
+    # How it works: it binds the two caller variables named by
+    # runtimeVersionVarName and targetVersionVarName with [upvar].  The runtime
+    # version is taken from ::eagle_platform(runtimeVersion) when present, else
+    # left empty.  Unless disabled by ::compileCSharp(noFindLoadedVersion), and
+    # only when the object command exists, the procedure scans the loaded
+    # "netstandard" assemblies for diagnostic logging (it intentionally does
+    # not use that assembly version as the target).  The target version is then
+    # chosen as: the runtime version when running on .NET Core with a strict
+    # runtime version and useSdkVersion is false; otherwise the file tail of
+    # the supplied path when that path is non-empty; otherwise the
+    # defaultTargetVersion.  Given a non-empty target version, it builds an
+    # ordered list of candidate standard versions -- either an explicit
+    # override from ::compileCSharp(dotNetStandardVersions), or an order
+    # derived from [shouldPreferTheNetStandardVersion] (preferring
+    # netstandard2.1 first, or netstandard2.0 first, or an empty list when
+    # neither is preferred).  For each candidate it clears and re-probes the
+    # directories via [populateDotNetStandardReferenceDirectories]; the first
+    # candidate for which both a non-empty library directory and build
+    # reference sub-directory are found is returned.
+    #
+    # Tricky details: the runtime and target versions are reported to the
+    # caller regardless of whether a standard version is ultimately found, so
+    # callers can inspect them even on failure.  The loaded-assembly scan is
+    # purely informational.  All steps log via [csharpLog], and the procedure
+    # is documented as not raising script errors and as needing manual updates
+    # when new .NET Standard versions are released.
+    #
+    # Arguments:
+    #   path                  -- The .NET Core SDK base path used to probe
+    #                            reference directories and, in some cases, to
+    #                            derive the target version from its file tail.
+    #   runtimeVersionVarName -- The name of a caller variable that receives the
+    #                            determined runtime version (required; bound via
+    #                            [upvar]).
+    #   targetVersionVarName  -- The name of a caller variable that receives the
+    #                            determined target version (required; bound via
+    #                            [upvar]).
+    #   useSdkVersion         -- A boolean controlling whether the SDK/target
+    #                            version is preferred over the loaded runtime
+    #                            version; defaults to false.
+    #   defaultTargetVersion  -- The target version to fall back to when neither
+    #                            the runtime version nor the path tail yields
+    #                            one; defaults to the empty string.
+    #
+    # Results:
+    #   The selected .NET Standard version string (for example netstandard2.1)
+    #   for which reference directories were found, or the empty string when no
+    #   suitable version could be determined.
+    # </help>
+
     upvar 1 $runtimeVersionVarName runtimeVersion
 
     if {[info exists ::eagle_platform(runtimeVersion)]} then {
@@ -700,6 +1057,72 @@ namespace eval ::Eagle {
   #
   proc getDotNetStandardReferencePath {
           {packageVersion ""} {standardVersion ""} {useSdkVersion false} } {
+    # <help>
+    # This procedure returns the fully qualified path to the directory that
+    # actually contains the .NET Standard 2.x reference assemblies to be passed
+    # to the C# compiler.  Where [populateDotNetStandardReferenceDirectories]
+    # finds the base library directory and a relative reference sub-directory,
+    # this procedure goes the final step: it joins those (often with an
+    # intervening version directory whose exact name is not known in advance)
+    # and verifies that the resulting assembly directory exists on disk.  It is
+    # the routine the compiler-invocation code calls to resolve reference paths.
+    #
+    # How it works: it first obtains the SDK path via [getDotNetCoreSdkPath].
+    # If no standard version was supplied, it asks [determineDotNetStandardVersion]
+    # to choose one (also yielding the runtime and target versions); otherwise
+    # the runtime and target versions are left empty.  It then probes the
+    # library directory and build reference sub-directory via
+    # [populateDotNetStandardReferenceDirectories].  Given both, it resolves the
+    # final assembly directory in one of several ways, returning the first that
+    # exists:  (1) when a packageVersion was supplied, by joining the library
+    # directory, that package version, and the build reference sub-directory;
+    # (2) when no package version was supplied but either the build reference
+    # sub-directory or the library directory tail already looks like a version
+    # (using strict-version checks under ::compileCSharp(noSuffixedVersions),
+    # or [tryParseDotNetCoreVersion] otherwise), by joining the library
+    # directory directly with the build reference sub-directory; and
+    # (3) otherwise, by enumerating the version-like sub-directories of the
+    # library directory, filtering and sorting them, and joining each candidate
+    # version with the build reference sub-directory until an existing
+    # directory is found.
+    #
+    # Tricky details: the third strategy is the most involved.  Candidate
+    # sub-directory names are gathered with [glob] over directories, filtered
+    # by a command that rejects names that are not parseable versions (using a
+    # strict System.Version check when ::compileCSharp(noSuffixedVersions) is
+    # set, or full .NET runtime version parsing otherwise), and sorted in
+    # decreasing order by a custom comparison command.  That comparison command
+    # (overridable via ::compileCSharp(compareCommand)) is built from several
+    # other overridable pieces -- a list of version suffix names ordered from
+    # least to most stable, a suffix version pattern, and separate command
+    # prefixes for comparing versions, integers, and strings -- and it ranks
+    # full runtime versions first by their numeric version and then by their
+    # suffix components, treating a missing suffix as the most stable.  The
+    # custom comparison callback is removed via [object removecallback] after
+    # sorting.  As a fail-safe, even after filtering and sorting, each selected
+    # candidate is re-validated with [tryParseDotNetCoreVersion] before its
+    # directory is accepted.  Every selection and rejection is logged via
+    # [csharpLog], and the procedure is documented as not raising script
+    # errors.
+    #
+    # Arguments:
+    #   packageVersion  -- An optional explicit package/version directory name
+    #                      to insert between the library directory and the build
+    #                      reference sub-directory; empty triggers the automatic
+    #                      version-directory discovery strategies.
+    #   standardVersion -- An optional .NET Standard version to use directly; an
+    #                      empty value causes one to be determined automatically
+    #                      via [determineDotNetStandardVersion].
+    #   useSdkVersion   -- A boolean forwarded to the determination and
+    #                      population helpers controlling SDK-versus-runtime
+    #                      version preference; defaults to false.
+    #
+    # Results:
+    #   The fully qualified, normalized path to the reference assembly directory
+    #   that exists on disk, or the empty string when no suitable directory
+    #   could be located.
+    # </help>
+
     set path [getDotNetCoreSdkPath]
 
     if {[string length $path] > 0} then {
@@ -1089,6 +1512,43 @@ namespace eval ::Eagle {
   #       Upon failure, the return value will be an empty list.
   #
   proc getCSharpTestProgram { {name ""} } {
+    # <help>
+    # This procedure produces a minimal, self-contained C# test program that
+    # can be fed to the compiler to verify that compilation works end to end.
+    # It exists so that [doesCompileCSharpWork] (and similar callers) have a
+    # trivially correct program to compile and run, one whose class name is
+    # unique enough that repeated compilations do not collide.
+    #
+    # How it works: it builds a unique identifier and a fully qualified class
+    # name, then uses [subst] to assemble a small C# source file consisting of
+    # a namespace containing a public static class with a public static Int32
+    # Main method that simply returns zero.  When the object command is
+    # available, the unique id comes from the active interpreter's NextId and
+    # the namespace/class delimiter comes from the .NET Type delimiter;
+    # otherwise it falls back to a pseudo-random number (with any leading minus
+    # sign trimmed) and a literal "." delimiter.  The generated namespace and
+    # class names embed the id so each generated program is distinct.
+    #
+    # Tricky details: within the [subst] template the square brackets of the
+    # "String[] args" parameter are backslash-escaped so they are emitted
+    # literally rather than being treated as command substitution; only the
+    # prefix and id variable references (each spelled as a dollar sign followed
+    # by the brace-delimited variable name) are meant to be substituted.  The
+    # name argument is currently accepted but not otherwise used to influence
+    # the generated source.
+    #
+    # Arguments:
+    #   name -- An optional caller-supplied name; accepted for interface
+    #           consistency with callers but not used to alter the generated
+    #           program.  Defaults to the empty string.
+    #
+    # Results:
+    #   A two element list whose first element is the fully qualified name of
+    #   the C# class to be compiled and whose second element is the C# program
+    #   text.  (On the failure paths described for callers, an empty list would
+    #   be expected, but this procedure normally always succeeds.)
+    # </help>
+
     set prefix Test
 
     if {[llength [info commands object]] > 0} then {
@@ -1128,6 +1588,66 @@ namespace eval ::Eagle {
   #
   proc doesCompileCSharpWork {
           {name ""} {errorsVarName ""} {memory true} args } {
+    # <help>
+    # This procedure performs an end-to-end self-test of the C# compilation
+    # facilities provided by this package: it generates a trivial program,
+    # compiles it, and then either invokes or executes the result, reporting
+    # whether the whole pipeline succeeded.  It exists so that callers (and the
+    # test suite) can decide at runtime whether C# compilation is actually
+    # available and functioning in the current environment before relying on
+    # it, since that depends on the presence of an SDK, reference assemblies,
+    # and a working object/exec capability.
+    #
+    # How it works: it first builds a small helper (an [apply] lambda) for
+    # formatting an error list, using [formatList] when available and a plain
+    # [join] otherwise, and binds the caller's error variable via [upvar] when
+    # errorsVarName is non-empty.  It obtains a test program from
+    # [getCSharpTestProgram], failing (and recording an error) if that raises
+    # an error or returns fewer than two elements.  When the memory argument is
+    # false it appends GenerateExecutable true to the per-call argument list so
+    # an on-disk executable is produced.  It then calls [compileCSharp] inside
+    # a try/finally, requesting in-memory or on-disk compilation accordingly,
+    # and inspects the result code, returning false (after logging) on any
+    # caught error or non-"Ok" code.  On success, in the memory case it
+    # requires the object command and invokes the program's static Main method
+    # (expecting exit code 0); in the on-disk case, on .NET Core it first
+    # copies the current process's .runtimeconfig.json alongside the output
+    # assembly (because even a trivial compiled executable needs one and the
+    # compiler will not emit it), then runs the assembly via [exec] using the
+    # command line from [getRuntimeCommandLine] (expecting exit status
+    # Success).  The finally block deletes the copied runtime config file and
+    # the output file unless deletion is suppressed.  A mismatch between the
+    # actual and expected exit code is reported as an error and yields false.
+    #
+    # Tricky details: the expected exit code differs by mode (the integer 0 for
+    # in-memory invocation versus the symbolic Success for on-disk execution),
+    # because the two paths detect success differently.  Cleanup of temporary
+    # files is governed by the global array element
+    # ::no(deleteCompileCSharpFiles).  The .NET Core runtime configuration copy
+    # is a workaround for the compiler's inability to generate one directly.
+    # Every failure path also emits a [csharpLog] diagnostic, and the procedure
+    # is designed not to raise script errors itself (errors are reported via
+    # the return value and the error list).
+    #
+    # Arguments:
+    #   name          -- An optional name forwarded to [getCSharpTestProgram]
+    #                    and used in diagnostic messages; defaults to empty.
+    #   errorsVarName -- The optional name of a caller variable that receives
+    #                    the list of human-readable error messages describing
+    #                    why the test failed; empty disables this output.
+    #   memory        -- A boolean selecting in-memory compilation and method
+    #                    invocation (true, the default) versus on-disk
+    #                    executable generation and external execution (false).
+    #   args          -- Zero or more additional name/value compiler settings
+    #                    passed through to [compileCSharp]; in the on-disk case
+    #                    GenerateExecutable true is appended automatically.
+    #
+    # Results:
+    #   Non-zero (true) when the test program compiled and ran with the expected
+    #   exit code, otherwise zero (false) with details available through the
+    #   caller's error variable.
+    # </help>
+
     #
     # HACK: The [formatList] procedure will almost always be available
     #       at this point; however, we do not want to require it.
@@ -1327,6 +1847,43 @@ namespace eval ::Eagle {
   #       not raise script errors.
   #
   proc getDotNetCoreCSharpCommandArgs {} {
+    # <help>
+    # This procedure builds the leading command line fragment needed to invoke
+    # the .NET Core SDK's command line C# compiler (the Roslyn csc.dll).  It
+    # exists because that compiler is not a standalone executable but a managed
+    # assembly that must be launched through the "dotnet exec" host; this
+    # procedure assembles the correct host invocation and the path to the
+    # compiler assembly so that callers can simply append their own compiler
+    # arguments.
+    #
+    # How it works: it locates the SDK base path via [getDotNetCoreSdkPath] and
+    # forms the expected compiler path by joining that with Roslyn/bincore and
+    # csc.dll.  Only if that file exists does it construct a result list
+    # beginning with "dotnet exec".  It then optionally inserts extra arguments
+    # for the host, taken from ::compileCSharp(dotNetCoreExecArgs), splicing
+    # them in as list elements when that value is itself a valid list and
+    # appending it as a single element otherwise.  Next it appends the
+    # quoted, native form of the compiler file name.  Finally it optionally
+    # appends arguments from ::compileCSharp(execFileArgs) using the same
+    # list-versus-single-element logic.
+    #
+    # Tricky details: the compiler file name is wrapped in literal double
+    # quotes and converted with [file nativename] so that paths containing
+    # spaces survive being passed through the command line.  The two optional
+    # override array elements are checked indirectly (the variable name is
+    # built up and tested with [info exists]) and each is spliced or appended
+    # depending on whether [string is list] reports it as a well-formed list.
+    # This procedure does not raise script errors.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   A list of command words suitable to be used as the prefix of an
+    #   [exec]-style C# compiler invocation, or the empty list when the SDK or
+    #   the compiler assembly could not be found.
+    # </help>
+
     set path [getDotNetCoreSdkPath]
 
     if {[string length $path] > 0} then {
@@ -1375,6 +1932,36 @@ namespace eval ::Eagle {
   #       script errors.
   #
   proc formatCompilerArgument { name value } {
+    # <help>
+    # This procedure formats a single C# compiler command line option from a
+    # name and/or a value, applying quoting when needed.  It exists to
+    # centralize the small but error-prone task of turning option pieces into a
+    # correctly formed "name:value" (or bare name, or bare value) token,
+    # including the decision about when to wrap the token in double quotes.
+    #
+    # How it works: if either the name or the value contains any whitespace
+    # (detected with a regular expression), a double-quote wrapping character
+    # is selected; otherwise no wrapping is used.  It then assembles the
+    # result: a non-empty name with a non-empty value becomes name, a colon,
+    # and the value (optionally quote-wrapped); a non-empty name with an empty
+    # value becomes just the name; an empty name with a non-empty value becomes
+    # just the value; and both empty yields the empty string.
+    #
+    # Tricky details: the quote wrapping is applied around the whole token
+    # rather than around the individual name or value, and it is triggered if
+    # whitespace appears in either part.  This procedure does not raise script
+    # errors.
+    #
+    # Arguments:
+    #   name  -- The option name (for example "-reference"), or empty for a
+    #            value-only token such as a source or response file argument.
+    #   value -- The option value, or empty for a flag-only option.
+    #
+    # Results:
+    #   The formatted, possibly quoted compiler argument string, or the empty
+    #   string when both the name and value are empty.
+    # </help>
+
     set wrap ""
 
     if {[regexp -- {\s} $name] || [regexp -- {\s} $value]} then {
@@ -1403,6 +1990,59 @@ namespace eval ::Eagle {
   #
   proc compilerParameterToArguments {
           name {value ""} {outputAssemblyVarName ""} } {
+    # <help>
+    # This procedure translates a single CodeDom-style CompilerParameters
+    # name/value pair into zero or more command line options for the command
+    # line .NET Core C# compiler.  It exists so that callers can express
+    # compiler settings using the same high-level property names accepted by
+    # the older CSharpCodeProvider path (for example WarningLevel,
+    # GenerateExecutable, ReferencedAssemblies.Add) and have them mapped onto
+    # the equivalent csc command line switches, keeping the two compilation
+    # back-ends interface-compatible.
+    #
+    # How it works: a case-insensitive [switch] maps recognized property names
+    # onto compiler switches and, where appropriate, transforms the value:
+    # WarningLevel becomes -warn; TreatWarningsAsErrors becomes -warnaserror;
+    # GenerateExecutable becomes -target with the value normalized to "exe" for
+    # a true value or "library" otherwise; MainClass, MainEntryPoint, and
+    # StartupObject all become -main; and ReferencedAssemblies.Add becomes
+    # -reference, with a non-absolute path resolved relative to the directory
+    # returned by [getDotNetStandardReferencePath] and converted to native
+    # form.  OutputAssembly is special: when the caller passed the name of an
+    # output-assembly variable, that variable is updated via [upvar] to the
+    # supplied value and the name and value are then both cleared so the
+    # parameter is not emitted again (the caller is responsible for the actual
+    # -out option); when no such variable name was passed, it is translated to
+    # -out directly.  Any unrecognized name falls through unchanged.  Finally
+    # the resulting name and value are formatted with [formatCompilerArgument].
+    #
+    # Tricky details: the OutputAssembly handling relies on the convention,
+    # noted in the body, that callers such as [compileViaDotNetCoreCSharp]
+    # always pass an output assembly variable name; the bare -out fallback is
+    # flagged as potentially not interacting correctly with how a caller
+    # manages its own output file name.  Because a parameter may be consumed
+    # entirely (OutputAssembly with a variable name) or be unrecognized but
+    # produce no token, the procedure can legitimately return zero options.
+    # This procedure does not raise script errors.
+    #
+    # Arguments:
+    #   name                  -- The compiler parameter (property) name to
+    #                            translate; matching is case-insensitive.
+    #   value                 -- The associated value; its meaning depends on
+    #                            the name and may be transformed.  Defaults to
+    #                            empty.
+    #   outputAssemblyVarName -- The optional name of a caller variable that, for
+    #                            the OutputAssembly parameter, receives the
+    #                            requested output file name (and suppresses
+    #                            emission of an option here); empty causes
+    #                            OutputAssembly to be translated to -out
+    #                            directly.
+    #
+    # Results:
+    #   A list containing the single formatted compiler argument produced, or an
+    #   empty list when the parameter yields no command line option.
+    # </help>
+
     switch -exact -nocase -- $name {
       WarningLevel {
         set name -warn
@@ -1485,6 +2125,55 @@ namespace eval ::Eagle {
   #       script errors.
   #
   proc getCSharpCompilerOptions { parameters library csharp prefix } {
+    # <help>
+    # This procedure assembles the base set of C# compiler options that should
+    # be applied to a compilation, including any pre-existing options carried
+    # on a CompilerParameters object, the preprocessor defines that match how
+    # the Eagle core library itself was built, and any extra options the user
+    # has configured.  It exists so that dynamically compiled C# code is
+    # compiled under conditions consistent with the running Eagle assembly (for
+    # example with the DEBUG and TRACE defines when appropriate), which matters
+    # when that code interoperates with the core library.
+    #
+    # How it works: it starts from an empty result list.  When the library flag
+    # is set and the platform array element ::eagle_platform(compileOptions)
+    # exists, those options are captured as the library options; similarly,
+    # when the csharp flag is set and ::eagle_platform(csharpOptions) exists,
+    # those are captured as extra C# options.  If the parameters argument is a
+    # non-null object handle, its current CompilerOptions string is retrieved
+    # and, when it is a valid list, its elements are spliced into the result;
+    # if it is not a valid list, the whole string is appended as one element
+    # (and the anomaly is logged).  It then appends a define option (formed by
+    # concatenating the prefix with "define:DEBUG" or "define:TRACE") for each
+    # of DEBUG and TRACE that appears in the library options.  Finally it
+    # appends each configured extra C# option, each prefixed by the supplied
+    # prefix.
+    #
+    # Tricky details: the prefix argument lets the same routine serve both
+    # back-ends, which spell options differently (the CSharpCodeProvider path
+    # passes a slash while the command line path passes a dash).  Both the
+    # platform defines and the extra C# options are individually opt-out: the
+    # caller disables the platform defines by passing a false library flag (or
+    # by the array element being absent) and disables the extra options by
+    # passing a false csharp flag.  Passing an invalid object handle for the
+    # parameters argument is a deliberate way to skip merging any pre-existing
+    # compiler options.  This procedure does not raise script errors.
+    #
+    # Arguments:
+    #   parameters -- An opaque CompilerParameters object handle whose existing
+    #                 CompilerOptions are merged in, or an invalid/non-object
+    #                 handle to skip that merging.
+    #   library    -- A boolean; when true, the platform's library build options
+    #                 are consulted to add matching DEBUG/TRACE defines.
+    #   csharp     -- A boolean; when true, the user's extra C# options from
+    #                 ::eagle_platform(csharpOptions) are appended.
+    #   prefix     -- The option prefix character appropriate to the target
+    #                 compiler back-end (for example "/" or "-").
+    #
+    # Results:
+    #   A list of base compiler option strings (which may be empty).
+    # </help>
+
     #
     # NOTE: Make sure that the "standard" preprocessor defines match those
     #       for the platform (i.e. the ones used to compile the Eagle core
@@ -1575,6 +2264,36 @@ namespace eval ::Eagle {
   #       may be returned.  This procedure should not raise script errors.
   #
   proc regexpEscapeAll { value } {
+    # <help>
+    # This procedure escapes every character of a string so that the result can
+    # be embedded literally inside a regular expression with no character
+    # retaining any special meaning.  It exists because the error and warning
+    # extraction routines build patterns that include a compiler-supplied file
+    # name, and that file name may contain characters (such as backslashes,
+    # dots, or parentheses) that would otherwise be interpreted by the regular
+    # expression engine.
+    #
+    # How it works: it iterates over the individual characters of the input
+    # (via [split] with an empty separator) and, for each, appends a Unicode
+    # escape of the form backslash-u followed by the character's code point
+    # formatted as four uppercase hexadecimal digits.  Because every character
+    # is rewritten this way, no character can act as a metacharacter in the
+    # resulting pattern fragment.
+    #
+    # Tricky details: the per-character code point is obtained with [string
+    # ordinal], and the fixed four-digit hexadecimal width assumes characters
+    # in the Basic Multilingual Plane.  This procedure does not raise script
+    # errors.
+    #
+    # Arguments:
+    #   value -- The string to escape for literal use within a regular
+    #            expression; an empty value yields an empty result.
+    #
+    # Results:
+    #   A string of backslash-u escape sequences that matches the input value
+    #   literally when used inside a regular expression (possibly empty).
+    # </help>
+
     set result ""
 
     foreach char [split $value ""] {
@@ -1589,6 +2308,35 @@ namespace eval ::Eagle {
   #       platform normalized results.
   #
   proc runDotNetCSharpCommand { command } {
+    # <help>
+    # This procedure executes an already-constructed C# compiler command and
+    # returns its output with line endings normalized.  It exists as a thin,
+    # single-purpose wrapper so that the act of running the compiler is logged
+    # consistently and its textual output is in a predictable, platform-neutral
+    # form before the caller scans it for errors and warnings.
+    #
+    # How it works: it logs the command via [csharpLog], evaluates the command
+    # in the caller's variable context using [uplevel 1], and maps any carriage
+    # return / line feed sequences in the captured output to bare line feeds
+    # before returning it.
+    #
+    # Tricky details: the command is expected to be a complete [exec]-style
+    # invocation built by the caller; running it via [uplevel 1] means any
+    # caller-frame variables it references resolve correctly and that an
+    # execution failure propagates as a normal script error to the caller
+    # rather than being suppressed here.  Only CR/LF pairs are translated, so
+    # the returned text uses line feeds for line separation regardless of
+    # platform.
+    #
+    # Arguments:
+    #   command -- The fully formed command (typically an [exec ...] command
+    #              line) to evaluate in the caller's frame.
+    #
+    # Results:
+    #   The command's output as a string with line endings normalized to line
+    #   feeds.
+    # </help>
+
     #
     # NOTE: Evaluate the [exec] command constructed by our caller, in their
     #       context, and return the results, with line-endings normalized.
@@ -1604,6 +2352,38 @@ namespace eval ::Eagle {
   #       raise script errors.
   #
   proc extractCSharpErrors { fileName results } {
+    # <help>
+    # This procedure scans the textual output of the command line C# compiler
+    # and returns the list of error messages it contains.  It exists because
+    # the command line compiler, unlike the CodeDom provider, reports its
+    # diagnostics only as text; this procedure recovers the structured list of
+    # errors that the rest of the pipeline expects.
+    #
+    # How it works: it builds a line-anchored regular expression that matches a
+    # compiler error line, optionally preceded by the source file name (escaped
+    # for literal matching via [regexpEscapeAll]) and a line/column location in
+    # parentheses, followed by the literal text "error CS" then a four-digit
+    # error code and the message.  It applies that pattern across the entire
+    # results text with [regexp -all -line -inline], iterating the returned
+    # match pairs and collecting each matched error line into the result list.
+    #
+    # Tricky details: the file name is woven into the pattern but made optional,
+    # so both file-qualified and bare error lines are matched; escaping it with
+    # [regexpEscapeAll] prevents path characters from being misinterpreted as
+    # regular expression syntax.  The four-digit code requirement and the
+    # "error CS" prefix are what distinguish error lines from warnings and
+    # other output.  This procedure does not raise script errors.
+    #
+    # Arguments:
+    #   fileName -- The source file name the compiler was given, used to anchor
+    #               the (optional) leading portion of each diagnostic line.
+    #   results  -- The (line-ending normalized) compiler output text to scan.
+    #
+    # Results:
+    #   A list of the matched error message lines, or the empty list when none
+    #   were found.
+    # </help>
+
     set list [list]
 
     foreach {dummy match} [regexp -all -line -inline -- \
@@ -1622,6 +2402,40 @@ namespace eval ::Eagle {
   #       raise script errors.
   #
   proc extractCSharpWarnings { fileName results } {
+    # <help>
+    # This procedure scans the textual output of the command line C# compiler
+    # and returns the list of warning messages it contains.  It is the warning
+    # counterpart to [extractCSharpErrors] and exists for the same reason: the
+    # command line compiler reports diagnostics only as text, and strict-mode
+    # compilation needs the warnings recovered as a structured list so they can
+    # be treated as failures when requested.
+    #
+    # How it works: it builds a line-anchored regular expression that matches a
+    # compiler warning line, optionally preceded by the source file name
+    # (escaped for literal matching via [regexpEscapeAll]) and a line/column
+    # location in parentheses, followed by the literal text "warning CS" then a
+    # four-digit warning code and the message.  It applies that pattern across
+    # the entire results text with [regexp -all -line -inline], iterating the
+    # returned match pairs and collecting each matched warning line into the
+    # result list.
+    #
+    # Tricky details: as with the error extractor, the file name portion is
+    # optional so both file-qualified and bare warning lines match, and
+    # escaping it prevents path characters from acting as regular expression
+    # metacharacters.  The "warning CS" prefix and four-digit code distinguish
+    # warning lines from errors and other output.  This procedure does not
+    # raise script errors.
+    #
+    # Arguments:
+    #   fileName -- The source file name the compiler was given, used to anchor
+    #               the (optional) leading portion of each diagnostic line.
+    #   results  -- The (line-ending normalized) compiler output text to scan.
+    #
+    # Results:
+    #   A list of the matched warning message lines, or the empty list when none
+    #   were found.
+    # </help>
+
     set list [list]
 
     foreach {dummy match} [regexp -all -line -inline -- \
@@ -1643,6 +2457,71 @@ namespace eval ::Eagle {
   #
   proc compileViaCSharpCodeProvider {
           string memory symbols strict resultsVarName errorsVarName args } {
+    # <help>
+    # This procedure dynamically compiles arbitrary C# source code using the
+    # Microsoft.CSharp.CSharpCodeProvider class available in the desktop .NET
+    # Framework (and, sometimes, Mono).  It is one of the two compilation
+    # back-ends in this package -- the one used when not running on .NET Core --
+    # and exists to let scripts generate and load .NET code at runtime, a
+    # capability originally built for the test suite but useful generally.
+    #
+    # How it works: it requires the object command and fails early (returning a
+    # one element Error list and recording an error) if it is missing.  It
+    # creates a CSharpCodeProvider and a CompilerParameters object, pre-scans
+    # the extra arguments to decide whether the output should be an executable
+    # or a library (choosing the file extension accordingly via the
+    # Eagle._Constants.FileExtension values), and sets the OutputAssembly to a
+    # deterministic temporary file name derived from [file tempname] so it can
+    # be cleaned up later.  In-memory generation and debug-symbol generation
+    # are enabled per the corresponding arguments.  The compiler options begin
+    # with the base set from [getCSharpCompilerOptions] (with a slash prefix),
+    # optionally adding -noconfig when ::compileCSharp(noResponseFile) is set,
+    # and are joined into the parameters' CompilerOptions; the caller's extra
+    # name/value arguments are then applied case-insensitively to the
+    # parameters object.  The caller's results variable is bound via [upvar]
+    # before compilation so the results object survives this call frame.
+    # Compilation runs CompileAssemblyFromSource (wrapped by optional preProcess
+    # and postProcess hooks), after which the provider is disposed.  The errors
+    # collection is examined: if it has errors, or strict mode is on and it has
+    # warnings, the code is Error and each error object's string form is
+    # appended to the caller's error list; otherwise the code is Ok.  The
+    # errors collection is disposed.
+    #
+    # Tricky details: the entire body runs inside a try/finally so that the
+    # temporary files (the dummy file plus, in memory mode, the associated .dll
+    # and .pdb located by a glob on the temp name) are deleted on exit unless
+    # ::no(deleteCompileCSharpFiles) is set.  Object handles (the provider, the
+    # errors collection, and each individual error) are explicitly unset to
+    # dispose them, since they are real .NET objects.  The return shape is a
+    # documented breaking-change behavior: when not in memory mode and an
+    # output file name exists, a two element list is returned.  Error reporting
+    # is done through the caller's variables and the return value rather than by
+    # raising script errors.
+    #
+    # Arguments:
+    #   string         -- The C# source code text to compile.
+    #   memory         -- A boolean; when true the assembly is generated in
+    #                     memory rather than persisted as a usable output file.
+    #   symbols        -- A boolean; when true debug symbol information is
+    #                     generated for the assembly.
+    #   strict         -- A boolean; when true compiler warnings are treated as
+    #                     failures in addition to errors.
+    #   resultsVarName -- The name of a caller variable that receives the
+    #                     CompilerResults object handle; empty disables this
+    #                     output.
+    #   errorsVarName  -- The name of a caller variable that receives the list
+    #                     of error (and, in strict mode, warning) message
+    #                     strings; empty disables this output.
+    #   args           -- Zero or more name/value pairs applied as additional
+    #                     CompilerParameters settings (for example
+    #                     GenerateExecutable true, ReferencedAssemblies.Add).
+    #
+    # Results:
+    #   A list whose first element is the overall result code ("Ok" or "Error");
+    #   when not in memory mode and an output file was produced, a second
+    #   element holds that output file name.
+    # </help>
+
     #
     # NOTE: The [object] command is required by this procedure.  If it
     #       is not available, bail out now.
@@ -1908,6 +2787,86 @@ namespace eval ::Eagle {
   #
   proc compileViaDotNetCoreCSharp {
           string memory symbols strict resultsVarName errorsVarName args } {
+    # <help>
+    # This procedure dynamically compiles arbitrary C# source code using the
+    # command line C# compiler (csc) shipped with the .NET Core SDK.  It is the
+    # second of the two compilation back-ends in this package -- the one used
+    # when running on .NET Core -- and exists to provide the same
+    # runtime-compilation capability as the CodeDom-based path where that
+    # provider is unavailable.
+    #
+    # How it works: it obtains the compiler invocation prefix from
+    # [getDotNetCoreCSharpCommandArgs] and fails early (returning a one element
+    # Error list and recording an error) if the compiler cannot be found.  It
+    # prepends an "exec --" so output is captured rather than success being
+    # auto-checked, then appends the base options from [getCSharpCompilerOptions]
+    # (with a dash prefix).  Two deterministic temporary files are allocated via
+    # [file tempname]: one (with a .cs extension) for the source and one (with a
+    # .dll extension, since .NET Core output is always a DLL) for the assembly.
+    # Inside a try/finally it translates each caller name/value argument through
+    # [compilerParameterToArguments] (passing the output file name variable so
+    # OutputAssembly is honored), then appends a series of switches: -nologo for
+    # quieter output, optionally -noconfig and -nostdlib+ (gated by various
+    # ::compileCSharp options), a -target:library default when no target was
+    # supplied (so no static Main is required), and -debug when symbols are
+    # requested.  It locates the .NET Standard reference assembly (default
+    # netstandard.dll, overridable) under [getDotNetStandardReferencePath] and
+    # adds it as a -reference.  Depending on whether the reference path is a
+    # "ref" style directory, it either adds every matching *.dll there (honoring
+    # numerous per-file and per-assembly skip options and hooks) or, otherwise,
+    # adds a user-provided, minimal, or empty set of reference assemblies; in
+    # both cases the references are written to a response file whose name is
+    # passed to the compiler with an "@" prefix.  It writes the source string to
+    # the .cs file, then runs the compiler via [runDotNetCSharpCommand] (wrapped
+    # by optional preProcess/postProcess hooks), extracts errors and warnings
+    # from the text output via [extractCSharpErrors] and [extractCSharpWarnings],
+    # and binds the caller's results variable to a synthetic CompilerResults-like
+    # object handle for backward compatibility.  If there are errors (or, in
+    # strict mode, warnings) the code is Error and the messages are appended to
+    # the caller's error list; otherwise, in memory mode it loads the output
+    # assembly from a FileStream via [object load] (requiring the object
+    # command, and optionally calling GetTypes to force full loading) and sets
+    # the code to Ok, or reports an Error if the object command or output file
+    # is missing; in non-memory mode it simply reports Ok.
+    #
+    # Tricky details: the synthetic results handle exists purely so the result
+    # shape matches the CodeDom back-end.  Numerous behaviors are tunable
+    # through ::compileCSharp array elements (noResponseFile, noReferenceAssemblies,
+    # standardReferenceAssembly, noAutomaticReferences, referencePattern,
+    # noExtraReferences, referenceAssemblies, noMinimalReferences, noConfig,
+    # noStdLib, noNoConfig, noNoStdLib, per-file no$name flags) and hooks
+    # (afterReferenceLines, afterReferenceAssemblies, preProcess, postProcess).
+    # The body intentionally adds or refrains from adding -noconfig / -nostdlib+
+    # in several places, with comments stressing those element names are
+    # correct.  A try/finally deletes the source file and (in memory mode, via a
+    # glob on the temp names) the generated .dll/.pdb/dummy files unless
+    # ::no(deleteCompileCSharpFiles) is set.  Reference-loading object handles
+    # (stream, assembly) are unset to dispose them.  Error reporting is via the
+    # caller's variables and the return value, not script errors.
+    #
+    # Arguments:
+    #   string         -- The C# source code text to compile.
+    #   memory         -- A boolean; when true the compiled assembly is loaded
+    #                     into memory rather than left as a usable output file.
+    #   symbols        -- A boolean; when true debug symbols (-debug) are
+    #                     generated.
+    #   strict         -- A boolean; when true compiler warnings are treated as
+    #                     failures in addition to errors.
+    #   resultsVarName -- The name of a caller variable that receives the
+    #                     synthetic results object handle; empty disables this
+    #                     output.
+    #   errorsVarName  -- The name of a caller variable that receives the list
+    #                     of error (and, in strict mode, warning) message
+    #                     strings; empty disables this output.
+    #   args           -- Zero or more name/value pairs translated into compiler
+    #                     command line arguments via [compilerParameterToArguments].
+    #
+    # Results:
+    #   A list whose first element is the overall result code ("Ok" or "Error");
+    #   when not in memory mode and an output file was produced, a second
+    #   element holds that output file name.
+    # </help>
+
     #
     # NOTE: Get the initial command line arguments needed to invoke the C#
     #       compiler on .NET Core.  If this ends up being invalid, nothing
@@ -2516,6 +3475,48 @@ namespace eval ::Eagle {
   #
   proc compileCSharp {
           string memory symbols strict resultsVarName errorsVarName args } {
+    # <help>
+    # This procedure dynamically compiles arbitrary C# source code, dispatching
+    # to whichever compilation back-end is appropriate for the current runtime.
+    # It is the public entry point most callers should use; it exists so that
+    # scripts need not know or care whether the desktop CodeDom provider or the
+    # .NET Core command line compiler is in play, and so the rest of the package
+    # can share a single uniform compilation interface.
+    #
+    # How it works: it tests the runtime with [isDotNetCore].  On .NET Core it
+    # forwards to [compileViaDotNetCoreCSharp]; otherwise it forwards to
+    # [compileViaCSharpCodeProvider].  In both cases the call is made with
+    # [uplevel 1] so the chosen back-end runs in the caller's variable context,
+    # which is essential because the back-ends use [upvar] to write the results
+    # and errors variables named by the caller; the fixed arguments are passed
+    # as a [list] and the variadic args are appended after it.
+    #
+    # Tricky details: the use of [uplevel 1] together with [list]-quoting of the
+    # fixed arguments ensures the results and errors variable names resolve in
+    # the original caller's frame rather than in this dispatcher's frame, and
+    # that the variadic args reach the back-end as separate words.  The result
+    # shape, error-reporting conventions, and side effects are entirely those of
+    # the selected back-end.
+    #
+    # Arguments:
+    #   string         -- The C# source code text to compile.
+    #   memory         -- A boolean selecting in-memory generation/loading
+    #                     versus an on-disk output file.
+    #   symbols        -- A boolean enabling debug symbol generation.
+    #   strict         -- A boolean causing warnings to be treated as failures.
+    #   resultsVarName -- The name of a caller variable to receive the results
+    #                     object handle; empty disables this output.
+    #   errorsVarName  -- The name of a caller variable to receive the error
+    #                     message list; empty disables this output.
+    #   args           -- Zero or more name/value compiler settings forwarded to
+    #                     the selected back-end.
+    #
+    # Results:
+    #   The result of the selected back-end: a list whose first element is the
+    #   overall result code ("Ok" or "Error"), optionally followed by the output
+    #   file name when not in memory mode.
+    # </help>
+
     if {[isDotNetCore]} then {
       return [uplevel 1 [list \
           compileViaDotNetCoreCSharp $string $memory $symbols $strict \

@@ -25,6 +25,35 @@ namespace eval ::Eagle {
   #       native Tcl to treat the specified value as a 64-bit integer.
   #
   proc getLengthModifier { value {width ""} } {
+    # <help>
+    # This procedure builds the length-modifier portion of a [format] (or
+    # [scan]) conversion specifier needed to make native Tcl treat the
+    # specified value as a wide (64-bit) integer.  It exists because native
+    # Tcl distinguishes between "normal" integers and wide integers in its
+    # format conversions (using an "l" modifier for the latter), whereas
+    # Eagle generally does not need such a distinction; this procedure lets
+    # the same script library code emit a correct conversion specifier in
+    # both engines.
+    #
+    # How it works: it compares int(value) against wide(value) using the
+    # expression engine.  If those two interpretations differ -- meaning the
+    # value does not fit in a normal integer and therefore requires wide
+    # handling -- the "l" modifier is emitted; otherwise no modifier is
+    # emitted.  The optional width string, if any, is always prepended to
+    # the result so the caller may supply a field width in the same call.
+    #
+    # Arguments:
+    #   value -- The integer value whose magnitude determines whether the
+    #            wide-integer modifier is required.
+    #   width -- Optional leading text (typically a numeric field width) that
+    #            is placed before the computed modifier.  Defaults to an empty
+    #            string.
+    #
+    # Results:
+    #   The width string followed by either the letter "l" (when the value
+    #   requires wide-integer handling) or nothing (when it does not).
+    # </help>
+
     #
     # NOTE: This should work properly in both Tcl and Eagle.
     #
@@ -38,6 +67,31 @@ namespace eval ::Eagle {
   #       simply prints a diagnostic message.
   #
   proc debug { args } {
+    # <help>
+    # This procedure is a native Tcl stand-in (a "shim") for the Eagle
+    # [debug] command.  Eagle scripts that are also intended to run under
+    # native Tcl may invoke sub-commands such as [debug break]; native Tcl
+    # has no such command, so this shim intercepts those calls and avoids a
+    # hard failure.  Rather than performing any debugging action, it simply
+    # prints a diagnostic message to the standard output channel so the
+    # script can continue running.
+    #
+    # How it works: the full argument list is captured via the "args"
+    # variable.  The first two arguments (conventionally the sub-command name
+    # and an immediately following operand) are skipped, and everything from
+    # the third argument onward is printed.  No newline handling beyond the
+    # default of [puts] is performed and no value is explicitly returned.
+    #
+    # Arguments:
+    #   args -- The arguments that would have been passed to the Eagle [debug]
+    #           command.  The first two are ignored; the remainder are emitted
+    #           as the diagnostic message.
+    #
+    # Results:
+    #   None meaningful; this procedure is invoked for its side effect of
+    #   printing a diagnostic message to the standard output channel.
+    # </help>
+
     #
     # NOTE: This should work properly in both Tcl and Eagle.
     #

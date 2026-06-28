@@ -25,6 +25,31 @@ namespace eval ::Eagle {
   #       returns the resulting list.
   #
   proc lappendArgs { args } {
+    # <help>
+    # This procedure builds a well-formed list from its arguments and returns
+    # it.  Each argument becomes exactly one element of the resulting list,
+    # with any necessary list quoting applied automatically.  It exists as a
+    # terse, readable way to construct a list from a set of values that are
+    # already separate words at the call site, and as a building block used
+    # throughout the script library wherever a list literal would be awkward.
+    # It works identically in both Tcl and Eagle.
+    #
+    # How it works: an empty list is created and then [eval lappend] is used
+    # so that the "args" list is expanded, causing each of its elements to be
+    # appended individually (rather than as a single nested list element).
+    # The value of that final [lappend] is the procedure result; there is no
+    # explicit [return].
+    #
+    # Arguments:
+    #   args -- Zero or more values.  Each value becomes one element of the
+    #           returned list, in order.  With no arguments, the empty list is
+    #           returned.
+    #
+    # Results:
+    #   The newly constructed list containing all of the arguments as its
+    #   elements.
+    # </help>
+
     #
     # NOTE: This should work properly in both Tcl and Eagle.
     #
@@ -36,6 +61,33 @@ namespace eval ::Eagle {
   #       and returns the resulting list.
   #
   proc lshuffle { list } {
+    # <help>
+    # This procedure returns a pseudo-randomly shuffled copy of the specified
+    # list.  It exists to provide a simple, dependency-free way to randomize
+    # element order (for example, to randomize test ordering or to pick from a
+    # collection without bias toward its original order).
+    #
+    # How it works: it implements an in-place Fisher-Yates shuffle over a
+    # private copy of the input.  Walking from the last element toward the
+    # first, it selects a random index in the remaining unshuffled prefix and
+    # swaps that element into the current position.  The randomness comes from
+    # the expression engine's rand() function, so the result is NOT suitable
+    # for cryptographic purposes and is not seeded for reproducibility here.
+    #
+    # Tricky details: the swap is performed in the "next" clause of the [for]
+    # loop (the third element of its header), which runs after each iteration
+    # body; the loop variable "length" is decremented as the unshuffled prefix
+    # shrinks.
+    #
+    # Arguments:
+    #   list -- The list to shuffle.  It is not modified in place; a shuffled
+    #           copy is returned.
+    #
+    # Results:
+    #   A new list containing the same elements as "list" in a randomized
+    #   order.
+    # </help>
+
     #
     # NOTE: This code for this algorithm was stolen from the Tcl library
     #       struct package and modified to conform with the Eagle style
@@ -60,6 +112,35 @@ namespace eval ::Eagle {
   #       from the first list argument.
   #
   proc ldifference { list1 list2 } {
+    # <help>
+    # This procedure returns the symmetric difference of two lists: every
+    # element that is present in one list but missing from the other.  That
+    # is, it combines the elements of "list1" not found in "list2" with the
+    # elements of "list2" not found in "list1".  It exists to answer the
+    # question "how do these two collections differ?" in a single call, and is
+    # commonly used to compare an expected set against an actual set.
+    #
+    # How it works: it scans each list in turn, using [lsearch -exact] to test
+    # for membership in the other list, and appends the non-members to the
+    # result in the order encountered (all of "list1"'s unique elements first,
+    # then "list2"'s).
+    #
+    # Tricky details: matching is exact (not glob or regexp), and each element
+    # is tested independently, so duplicate elements that are absent from the
+    # other list will appear in the result once per occurrence.  This is a
+    # symmetric difference; it does not report which list an element came
+    # from.
+    #
+    # Arguments:
+    #   list1 -- The first list to compare.
+    #   list2 -- The second list to compare.
+    #
+    # Results:
+    #   A list of the elements that appear in exactly one of the two inputs.
+    #   If the two lists contain the same elements, the empty list is
+    #   returned.
+    # </help>
+
     set result [list]
 
     foreach element $list1 {
@@ -82,6 +163,34 @@ namespace eval ::Eagle {
   #       that cause the specified script to return non-zero.
   #
   proc filter { list script } {
+    # <help>
+    # This procedure returns the sublist of elements for which the specified
+    # predicate script evaluates to a true (non-zero) value.  It is the
+    # functional-programming "filter"/"where" operation, provided so that
+    # callers can select elements without writing an explicit [foreach] loop.
+    #
+    # How it works: for each element, the script is evaluated with the element
+    # appended as a single trailing argument, and its result is tested with
+    # the [if] command's boolean rules.  Elements producing a true result are
+    # appended, in order, to the result list.
+    #
+    # Tricky details: the script is evaluated with [uplevel 1], so it runs in
+    # the caller's variable context (not inside this procedure), and the
+    # element is passed via [list $item] so it arrives as one properly quoted
+    # argument.  The script must therefore be a command prefix that accepts
+    # the element as its final argument and returns a boolean-like value.
+    #
+    # Arguments:
+    #   list   -- The list of elements to test.
+    #   script -- A command prefix evaluated once per element (in the caller's
+    #             frame) with the element appended; it must return a value
+    #             accepted by the boolean rules of [expr]/[if].
+    #
+    # Results:
+    #   A list of the elements, in their original order, for which "script"
+    #   returned true.
+    # </help>
+
     set result [list]
 
     foreach item $list {
@@ -98,6 +207,34 @@ namespace eval ::Eagle {
   #       each one having possibly been transformed by the specified script.
   #
   proc map { list script } {
+    # <help>
+    # This procedure returns a new list formed by transforming each element of
+    # the specified list with the specified script.  It is the functional
+    # "map"/"transform" operation, provided as a concise alternative to an
+    # explicit accumulation loop.
+    #
+    # How it works: for each element, the script is evaluated with the element
+    # appended as a single trailing argument, and whatever it returns becomes
+    # the corresponding element of the result list.  Elements are processed in
+    # order, so the result has the same length and ordering as the input.
+    #
+    # Tricky details: the script is evaluated with [uplevel 1], so it runs in
+    # the caller's variable context, and the element is passed via [list
+    # $item] so it arrives as one properly quoted argument.  The script must
+    # be a command prefix that accepts the element as its final argument and
+    # returns the transformed value.
+    #
+    # Arguments:
+    #   list   -- The list of elements to transform.
+    #   script -- A command prefix evaluated once per element (in the caller's
+    #             frame) with the element appended; its result becomes the
+    #             mapped element.
+    #
+    # Results:
+    #   A new list containing the transformed value of each input element, in
+    #   the original order.
+    # </help>
+
     set result [list]
 
     foreach item $list {
@@ -113,6 +250,36 @@ namespace eval ::Eagle {
   #       element of the specified list.
   #
   proc reduce { list script } {
+    # <help>
+    # This procedure folds a list down to a single accumulated value by
+    # repeatedly applying the specified script.  It is the functional
+    # "reduce"/"fold"/"accumulate" operation and completes the trio with
+    # [filter] and [map], allowing aggregate computations (sums, joins,
+    # running maxima, and so on) to be expressed without an explicit loop.
+    #
+    # How it works: an accumulator is initialized to the empty string.  For
+    # each element, the script is evaluated with two trailing arguments -- the
+    # current accumulator followed by the element -- and its result becomes
+    # the new accumulator.  After the last element, the accumulator is
+    # returned.
+    #
+    # Tricky details: the script runs in the caller's context via [uplevel 1],
+    # and both the accumulator and the element are passed through [list] so
+    # they arrive as two properly quoted arguments.  The initial accumulator
+    # is always the empty string, so the script must cope with that seed value
+    # on the first iteration (there is no separate "initial value" argument).
+    #
+    # Arguments:
+    #   list   -- The list of elements to fold.
+    #   script -- A command prefix evaluated once per element (in the caller's
+    #             frame) with the current accumulator and the element appended,
+    #             in that order; its result becomes the next accumulator.
+    #
+    # Results:
+    #   The final accumulator value.  For an empty list, the empty string (the
+    #   initial accumulator) is returned.
+    # </help>
+
     set result ""
 
     foreach item $list {
