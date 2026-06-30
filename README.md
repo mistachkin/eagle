@@ -26,6 +26,7 @@ via a DNSSEC-secured domain, **https://w.sb/** may be used in place of
 |---|---|---|
 | Core Language | https://urn.to/r/code | The primary Eagle source tree containing the interpreter, core class libraries, and test suite. |
 | Documentation | https://urn.to/r/docs | User-facing documentation including command references, API guides, and integration tutorials. |
+| Enterprise Edition | https://urn.to/r/eee | The Eagle Enterprise Edition source tree containing advanced plugins, tooling, and test suites. |
 | Package Client Toolset | https://urn.to/r/pkgt | Client-side tooling for discovering, downloading, and managing Eagle script packages. |
 | Log Monitor | https://urn.to/r/watchCat | A real-time log monitoring and alerting utility built on the Eagle runtime. |
 | Extra Tools | https://urn.to/r/extra | Supplementary tools and utilities that extend Eagle, including diagnostics, build helpers, and code-generation aids. |
